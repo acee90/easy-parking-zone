@@ -22,16 +22,18 @@ function toRad(deg: number) {
 export const DEFAULT_CENTER = { lat: 37.5666, lng: 126.9784 }
 export const DEFAULT_ZOOM = Number(import.meta.env.VITE_DEFAULT_ZOOM) || 14
 
-/** Difficulty score → skull count (높은 점수 = 쉬움 = 해골 적음) */
-export function getDifficultySkulls(score: number): number {
-  if (score >= 4.0) return 1 // 초보 추천
-  if (score >= 2.5) return 2 // 보통
-  if (score >= 1.5) return 3 // 주의
-  return 4 // 초보 비추
+/** Difficulty score → 아이콘 (쉬움=😊, 어려움=💀) */
+export function getDifficultyIcon(score: number | null): string {
+  if (score === null) return '🅿️'     // 리뷰 없음
+  if (score >= 4.0) return '😊'       // 초보 추천
+  if (score >= 2.5) return '🙂'       // 보통
+  if (score >= 1.5) return '💀'       // 주의
+  return '💀💀'                        // 초보 비추
 }
 
 /** Difficulty score to label */
-export function getDifficultyLabel(score: number): string {
+export function getDifficultyLabel(score: number | null): string {
+  if (score === null) return '리뷰 없음'
   if (score >= 4.0) return '초보 추천'
   if (score >= 2.5) return '보통'
   if (score >= 1.5) return '주의'

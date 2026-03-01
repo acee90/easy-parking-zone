@@ -10,3 +10,7 @@ dist-ssr
 .wrangler
 .output
 .vinxi
+*.csv
+.tmp-*.sql
+scripts/kakao-progress.json
+scripts/kakao-progress.md

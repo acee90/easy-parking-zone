@@ -9,7 +9,9 @@
     "preview": "vite preview",
     "deploy": "bun run build && wrangler deploy",
     "cf-typegen": "wrangler types",
-    "test": "npx vitest run"
+    "test": "npx vitest run",
+    "import-csv": "bun run scripts/import-csv.ts",
+    "import-kakao": "bun run scripts/import-kakao.ts"
   },
   "dependencies": {
     "@cloudflare/vite-plugin": "^1.24.0",

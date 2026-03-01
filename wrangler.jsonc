@@ -1,6 +1,6 @@
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
-	"name": "parking-map",
+	"name": "easy-parking-zone",
 	"main": "@tanstack/react-start/server-entry",
 	"compatibility_date": "2025-04-01",
 	"compatibility_flags": [
@@ -13,7 +13,7 @@
 		{
 			"binding": "DB",
 			"database_name": "parking-db",
-			"database_id": "00000000-0000-0000-0000-000000000000"
+			"database_id": "ff5d77af-8ca6-4e5c-acf2-2fdf765dd248"
 		}
 	]
 }

@@ -1,14 +1,17 @@
-import { createFileRoute } from '@tanstack/react-router'
-import { useState, useEffect } from 'react'
-import { NavermapsProvider } from 'react-naver-maps'
-import { MapView } from '@/components/MapView'
-import { Header } from '@/components/Header'
-import { useGeolocation } from '@/hooks/useGeolocation'
-import { Car } from 'lucide-react'
+import { createFileRoute } from "@tanstack/react-router";
+import { useState, useEffect, useCallback } from "react";
+import { NavermapsProvider } from "react-naver-maps";
+import { MapView } from "@/components/MapView";
+import { Header } from "@/components/Header";
+import { ParkingCard } from "@/components/ParkingCard";
+import { useGeolocation } from "@/hooks/useGeolocation";
+import { fetchParkingLots } from "@/server/parking";
+import type { ParkingLot, MapBounds } from "@/types/parking";
+import { Car } from "lucide-react";
 
-export const Route = createFileRoute('/')({
+export const Route = createFileRoute("/")({
   component: App,
-})
+});
 
 function App() {
   const {
@@ -18,24 +21,45 @@ function App() {
     located: userLocated,
     initializing,
     requestLocation,
-  } = useGeolocation()
+  } = useGeolocation();
 
-  // Client-only rendering guard for NavermapsProvider
-  const [isClient, setIsClient] = useState(false)
-  const [mapReady, setMapReady] = useState(false)
+  const [isClient, setIsClient] = useState(false);
+  const [mapReady, setMapReady] = useState(false);
+  const [parkingLots, setParkingLots] = useState<ParkingLot[]>([]);
+  const [selectedLot, setSelectedLot] = useState<ParkingLot | null>(null);
+  const [moveTo, setMoveTo] = useState<{ lat: number; lng: number } | null>(
+    null
+  );
+
   useEffect(() => {
-    setIsClient(true)
-  }, [])
+    setIsClient(true);
+  }, []);
 
-  const mapLoading = !isClient || initializing || !mapReady
+  const handleBoundsChanged = useCallback(async (bounds: MapBounds) => {
+    try {
+      const lots = await fetchParkingLots({ data: bounds });
+      setParkingLots(lots);
+    } catch {
+      // D1 not available (e.g., dev without local D1) — silently ignore
+    }
+  }, []);
+
+  const handleMarkerClick = useCallback((lot: ParkingLot) => {
+    setSelectedLot(lot);
+  }, []);
+
+  const handleSearchSelect = useCallback((lot: ParkingLot) => {
+    setMoveTo({ lat: lot.lat, lng: lot.lng });
+    setSelectedLot(lot);
+  }, []);
+
+  const mapLoading = !isClient || initializing || !mapReady;
 
   return (
     <div className="flex h-dvh flex-col">
-      <Header />
+      <Header onSearchSelect={handleSearchSelect} />
 
-      {/* Main content */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Map area */}
         <div className="flex-1 relative">
           {mapLoading && (
             <div className="absolute inset-0 z-10 flex items-center justify-center bg-background">
@@ -58,11 +82,24 @@ function App() {
                 locationLoading={locationLoading}
                 onRequestLocation={requestLocation}
                 onMapReady={() => setMapReady(true)}
+                parkingLots={parkingLots}
+                onBoundsChanged={handleBoundsChanged}
+                onMarkerClick={handleMarkerClick}
+                selectedLotId={selectedLot?.id}
+                moveTo={moveTo}
               />
             </NavermapsProvider>
           )}
         </div>
       </div>
+
+      <ParkingCard
+        lot={selectedLot}
+        onClose={() => setSelectedLot(null)}
+        userLat={userLat}
+        userLng={userLng}
+        userLocated={userLocated}
+      />
     </div>
-  )
+  );
 }
