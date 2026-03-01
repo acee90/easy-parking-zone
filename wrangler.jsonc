@@ -1,0 +1,19 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "parking-map",
+	"main": "@tanstack/react-start/server-entry",
+	"compatibility_date": "2025-04-01",
+	"compatibility_flags": [
+		"nodejs_compat"
+	],
+	"vars": {
+		"VITE_NAVER_MAP_CLIENT_ID": "uw8likbp4e"
+	},
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "parking-db",
+			"database_id": "00000000-0000-0000-0000-000000000000"
+		}
+	]
+}
