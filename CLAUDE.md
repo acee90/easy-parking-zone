@@ -51,20 +51,21 @@ File-based routing — routes live in `src/routes/`. TanStack Router auto-genera
 - `src/components/` — shared components (Header, MapView)
 - `src/components/ui/` — shadcn/ui components (auto-generated, do not manually edit)
 - `src/lib/utils.ts` — `cn()` utility for merging Tailwind classes
-- `src/lib/geo-utils.ts` — 거리 계산, 난이도 색상/라벨 매핑
+- `src/lib/geo-utils.ts` — 거리 계산, 난이도 해골 수/라벨 매핑
 - `src/hooks/useGeolocation.ts` — 브라우저 위치 감지 훅
 - `src/types/parking.ts` — ParkingLot 타입 정의 (주차장 데이터 스키마)
 
 ### Difficulty Rating System
 
 높은 점수 = 초보자에게 쉬운 주차장. 5개 항목(진입로, 주차면 크기, 통로 여유, 출차 난이도, 종합 추천도) 각 1-5점.
+난이도는 해골(💀) 개수로 표현 — 해골이 많을수록 어려운 주차장.
 
-| Score | Color | Label | 설명 |
-|-------|-------|-------|------|
-| 4.0-5.0 | 🟢 green (#22c55e) | 초보 추천 | 넓고 여유로움, 초보자도 편하게 주차 가능 |
-| 2.5-3.9 | 🟡 yellow (#eab308) | 보통 | 일반적인 주차장, 약간의 주의 필요 |
-| 1.5-2.4 | 🟠 orange (#f97316) | 주의 | 좁거나 복잡함, 경험 필요 |
-| 1.0-1.4 | 🔴 red (#ef4444) | 초보 비추 | 매우 좁거나 기계식, 초보자 피하는 게 좋음 |
+| Score | Skulls | Label | 설명 |
+|-------|--------|-------|------|
+| 4.0-5.0 | 💀 | 초보 추천 | 넓고 여유로움, 초보자도 편하게 주차 가능 |
+| 2.5-3.9 | 💀💀 | 보통 | 일반적인 주차장, 약간의 주의 필요 |
+| 1.5-2.4 | 💀💀💀 | 주의 | 좁거나 복잡함, 경험 필요 |
+| 1.0-1.4 | 💀💀💀💀 | 초보 비추 | 매우 좁거나 기계식, 초보자 피하는 게 좋음 |
 
 ## Behavioral Guidelines
 

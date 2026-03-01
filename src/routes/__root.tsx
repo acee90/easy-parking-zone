@@ -17,7 +17,7 @@ export const Route = createRootRoute({
       },
       {
         name: 'description',
-        content: '전국 주차장의 주차 난이도를 색상으로 한눈에! 쉬운 주차장을 찾아보세요.',
+        content: '전국 주차장의 주차 난이도를 💀 해골 개수로 한눈에! 초보운전자를 위한 주차장 찾기.',
       },
       {
         name: 'keywords',
@@ -33,7 +33,7 @@ export const Route = createRootRoute({
       },
       {
         property: 'og:description',
-        content: '전국 주차장의 주차 난이도를 색상으로 한눈에! 쉬운 주차장을 찾아보세요.',
+        content: '전국 주차장의 주차 난이도를 💀 해골 개수로 한눈에! 초보운전자를 위한 주차장 찾기.',
       },
       {
         property: 'og:type',

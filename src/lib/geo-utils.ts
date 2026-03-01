@@ -22,12 +22,12 @@ function toRad(deg: number) {
 export const DEFAULT_CENTER = { lat: 37.5666, lng: 126.9784 }
 export const DEFAULT_ZOOM = Number(import.meta.env.VITE_DEFAULT_ZOOM) || 14
 
-/** Difficulty score to color mapping (높은 점수 = 초보자에게 쉬움) */
-export function getDifficultyColor(score: number): string {
-  if (score >= 4.0) return '#22c55e' // green — 초보 추천
-  if (score >= 2.5) return '#eab308' // yellow — 보통
-  if (score >= 1.5) return '#f97316' // orange — 주의
-  return '#ef4444' // red — 초보 비추
+/** Difficulty score → skull count (높은 점수 = 쉬움 = 해골 적음) */
+export function getDifficultySkulls(score: number): number {
+  if (score >= 4.0) return 1 // 초보 추천
+  if (score >= 2.5) return 2 // 보통
+  if (score >= 1.5) return 3 // 주의
+  return 4 // 초보 비추
 }
 
 /** Difficulty score to label */
