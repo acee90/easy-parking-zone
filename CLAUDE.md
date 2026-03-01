@@ -15,17 +15,28 @@ bun run cf-typegen       # Generate Cloudflare Worker types
 
 Add shadcn components with: `npx shadcn@latest add <component>`
 
+## 기획서
+
+노션 기획서를 기능 구현/계획 수립의 기준으로 참고할 것:
+- **URL**: https://www.notion.so/3152d9c5abbf81e39f71c5ab21cd35ec
+- 프로젝트 비전, MVP 기능 목록, 데이터 소스 전략, 난이도 평가 시스템, 로드맵 등 상세 기획 포함
+
 ## Architecture
 
 **TanStack Start** full-stack React app deployed to **Cloudflare Workers**.
-서비스명: **쉬운주차** — 전국 주차장의 주차 난이도를 색상(🟢🟡🟠🔴)으로 보여주는 지도 서비스.
+서비스명: **쉬운주차** — 초보운전자를 위한 전국 주차장 난이도 지도 서비스. 난이도를 색상(🟢🟡🟠🔴)으로 한눈에 표시.
 
 - **Framework**: TanStack Start (built on TanStack Router) with SSR enabled
 - **Styling**: Tailwind CSS v4 + shadcn/ui (new-york style, zinc base, CSS variables in `src/styles.css`)
 - **Map**: Naver Maps (react-naver-maps), 기존 키 재활용
-- **Database**: Cloudflare D1 (`parking-db`)
+- **Database**: Cloudflare D1 (`parking-db`) — 주차장 데이터 + 리뷰/평점 저장
 - **Deployment**: Cloudflare Workers via `@cloudflare/vite-plugin` (SSR environment) + wrangler
 - **Testing**: Vitest + @testing-library/react (jsdom)
+- **Data Sources**:
+  - 공공데이터포털 전국주차장정보표준데이터 (기본 데이터, 월 1회 동기화)
+  - 한국교통안전공단 주차정보 API (실시간 잔여면수, v2)
+  - 카카오 Local API PK6 카테고리 (보완 데이터)
+  - 자체 크라우드소싱 리뷰 (난이도 평가 — 핵심 차별화)
 
 ### Routing
 
@@ -44,14 +55,16 @@ File-based routing — routes live in `src/routes/`. TanStack Router auto-genera
 - `src/hooks/useGeolocation.ts` — 브라우저 위치 감지 훅
 - `src/types/parking.ts` — ParkingLot 타입 정의 (주차장 데이터 스키마)
 
-### Difficulty Color Scheme
+### Difficulty Rating System
 
-| Score | Color | Label |
-|-------|-------|-------|
-| ≤ 2.0 | 🟢 green (#22c55e) | 쉬움 |
-| ≤ 3.0 | 🟡 yellow (#eab308) | 보통 |
-| ≤ 4.0 | 🟠 orange (#f97316) | 어려움 |
-| > 4.0 | 🔴 red (#ef4444) | 매우 어려움 |
+높은 점수 = 초보자에게 쉬운 주차장. 5개 항목(진입로, 주차면 크기, 통로 여유, 출차 난이도, 종합 추천도) 각 1-5점.
+
+| Score | Color | Label | 설명 |
+|-------|-------|-------|------|
+| 4.0-5.0 | 🟢 green (#22c55e) | 초보 추천 | 넓고 여유로움, 초보자도 편하게 주차 가능 |
+| 2.5-3.9 | 🟡 yellow (#eab308) | 보통 | 일반적인 주차장, 약간의 주의 필요 |
+| 1.5-2.4 | 🟠 orange (#f97316) | 주의 | 좁거나 복잡함, 경험 필요 |
+| 1.0-1.4 | 🔴 red (#ef4444) | 초보 비추 | 매우 좁거나 기계식, 초보자 피하는 게 좋음 |
 
 ## Behavioral Guidelines
 
