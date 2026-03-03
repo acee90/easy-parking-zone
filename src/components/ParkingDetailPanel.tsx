@@ -1,13 +1,13 @@
 import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import type { ParkingLot, CrawledReview } from "@/types/parking";
-import { fetchCrawledReviews } from "@/server/parking";
+import { fetchCrawledReviews, reportReview } from "@/server/parking";
 import {
   getDifficultyIcon,
   getDifficultyLabel,
   getDistance,
 } from "@/lib/geo-utils";
-import { MapPin, Clock, CreditCard, Phone, ParkingSquare, X, MessageSquare, ThumbsUp, ThumbsDown } from "lucide-react";
+import { MapPin, Clock, CreditCard, Phone, ParkingSquare, X, MessageSquare, ThumbsUp, ThumbsDown, Flag, Check } from "lucide-react";
 
 interface ParkingDetailPanelProps {
   lot: ParkingLot;
@@ -15,6 +15,87 @@ interface ParkingDetailPanelProps {
   userLat?: number;
   userLng?: number;
   userLocated?: boolean;
+}
+
+const REPORT_REASONS = [
+  { key: "wrong_sentiment", label: "긍정/부정 반대" },
+  { key: "irrelevant", label: "주차와 무관" },
+  { key: "other", label: "기타 오류" },
+] as const;
+
+function ReviewCard({
+  review,
+  parkingLotId,
+}: {
+  review: CrawledReview;
+  parkingLotId: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [reported, setReported] = useState(false);
+
+  const handleReport = (reason: string) => {
+    reportReview({
+      data: { sourceUrl: review.sourceUrl, parkingLotId, reason },
+    }).catch(() => {});
+    setReported(true);
+    setOpen(false);
+  };
+
+  return (
+    <div className="rounded-lg border overflow-hidden">
+      <a
+        href={review.sourceUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex gap-2.5 px-3 py-2.5 hover:bg-gray-50 transition-colors"
+      >
+        <div className="shrink-0 mt-0.5">
+          {review.isPositive ? (
+            <ThumbsUp className="size-4 text-green-500" />
+          ) : (
+            <ThumbsDown className="size-4 text-red-400" />
+          )}
+        </div>
+        <p className="text-xs text-gray-700 line-clamp-5 leading-relaxed">
+          {review.summary}
+        </p>
+      </a>
+      <div className="flex items-center border-t px-3 py-1.5 bg-gray-50/50">
+        {reported ? (
+          <span className="flex items-center gap-1 text-[11px] text-green-600">
+            <Check className="size-3" />
+            신고 접수됨
+          </span>
+        ) : open ? (
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {REPORT_REASONS.map((r) => (
+              <button
+                key={r.key}
+                onClick={() => handleReport(r.key)}
+                className="text-[11px] px-2 py-0.5 rounded-full border border-red-200 text-red-500 hover:bg-red-50 transition-colors cursor-pointer"
+              >
+                {r.label}
+              </button>
+            ))}
+            <button
+              onClick={() => setOpen(false)}
+              className="text-[11px] text-muted-foreground ml-1 cursor-pointer"
+            >
+              취소
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => setOpen(true)}
+            className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-red-400 transition-colors cursor-pointer"
+          >
+            <Flag className="size-3" />
+            요약이 잘못됐나요?
+          </button>
+        )}
+      </div>
+    </div>
+  );
 }
 
 function difficultyColor(score: number | null) {
@@ -168,24 +249,11 @@ export function ParkingDetailPanel({
             </div>
             <div className="space-y-2.5">
               {reviews.map((review) => (
-                <a
+                <ReviewCard
                   key={review.sourceUrl}
-                  href={review.sourceUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex gap-2.5 rounded-lg border px-3 py-2.5 hover:bg-gray-50 transition-colors"
-                >
-                  <div className="shrink-0 mt-0.5">
-                    {review.isPositive ? (
-                      <ThumbsUp className="size-4 text-green-500" />
-                    ) : (
-                      <ThumbsDown className="size-4 text-red-400" />
-                    )}
-                  </div>
-                  <p className="text-xs text-gray-700 line-clamp-5 leading-relaxed">
-                    {review.summary}
-                  </p>
-                </a>
+                  review={review}
+                  parkingLotId={lot.id}
+                />
               ))}
             </div>
           </div>

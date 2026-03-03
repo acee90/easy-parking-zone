@@ -168,7 +168,7 @@ const PARKING_KW = ["주차", "진입", "출차", "통로", "자리", "면", "�
 const POS_KW = ["넓", "쉽", "편하", "편리", "여유", "충분", "널널", "넓직", "수월", "무난", "좋"];
 const NEG_KW = ["좁", "어렵", "복잡", "힘들", "까다", "비좁", "불편", "혼잡", "만차", "협소", "위험", "조심"];
 
-function summarizeReview(title: string, content: string): { summary: string; isPositive: boolean } {
+function summarizeReview(title: string, content: string): { summary: string; isPositive: boolean } | null {
   const text = `${title} ${content}`;
   const sentences = text
     .split(/[.!?\n]+/)
@@ -179,19 +179,17 @@ function summarizeReview(title: string, content: string): { summary: string; isP
     PARKING_KW.some((k) => s.includes(k))
   );
 
-  const pool = relevant.length > 0 ? relevant : sentences;
+  // 주차 관련 문장이 없으면 표시하지 않음
+  if (relevant.length === 0) return null;
+
   let pos = 0;
   let neg = 0;
-  for (const s of pool) {
+  for (const s of relevant) {
     if (POS_KW.some((k) => s.includes(k))) pos++;
     if (NEG_KW.some((k) => s.includes(k))) neg++;
   }
 
-  const summary = (relevant.length > 0 ? relevant : sentences)
-    .slice(0, 3)
-    .join(". ")
-    .slice(0, 300);
-
+  const summary = relevant.slice(0, 3).join(". ").slice(0, 300);
   return { summary, isPositive: pos >= neg };
 }
 
@@ -216,8 +214,30 @@ export const fetchCrawledReviews = createServerFn({ method: "GET" })
 
     return (result.results ?? [])
       .map((row: CrawledReviewRow) => {
-        const { summary, isPositive } = summarizeReview(row.title, row.content);
-        return { summary, isPositive, sourceUrl: row.source_url };
+        const result = summarizeReview(row.title, row.content);
+        if (!result) return null;
+        return { ...result, sourceUrl: row.source_url };
       })
-      .filter((r) => r.summary.length > 0);
+      .filter((r): r is CrawledReview => r !== null);
+  });
+
+/** 리뷰 요약 오류 신고 */
+export const reportReview = createServerFn({ method: "POST" })
+  .inputValidator(
+    (input: { sourceUrl: string; parkingLotId: string; reason: string }): {
+      sourceUrl: string;
+      parkingLotId: string;
+      reason: string;
+    } => input
+  )
+  .handler(async ({ data }) => {
+    const db = getDB();
+    await db
+      .prepare(
+        `INSERT INTO review_reports (source_url, parking_lot_id, reason)
+         VALUES (?1, ?2, ?3)`
+      )
+      .bind(data.sourceUrl, data.parkingLotId, data.reason)
+      .run();
+    return { ok: true };
   });
