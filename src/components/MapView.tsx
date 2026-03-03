@@ -7,7 +7,7 @@ import {
 } from "react-naver-maps";
 import { DEFAULT_CENTER, DEFAULT_ZOOM, getDifficultyIcon } from "@/lib/geo-utils";
 import { Locate, Loader2 } from "lucide-react";
-import type { ParkingLot, MapBounds } from "@/types/parking";
+import type { ParkingLot, MapBounds, MarkerCluster } from "@/types/parking";
 
 interface MapViewProps {
   userLat: number;
@@ -17,9 +17,11 @@ interface MapViewProps {
   onRequestLocation: () => void;
   onMapReady: () => void;
   parkingLots: ParkingLot[];
-  onBoundsChanged: (bounds: MapBounds) => void;
+  onBoundsChanged: (bounds: MapBounds, zoom: number) => void;
   onMarkerClick: (lot: ParkingLot) => void;
+  clusters: MarkerCluster[] | null;
   selectedLotId?: string | null;
+  hoveredLotId?: string | null;
   moveTo?: { lat: number; lng: number } | null;
 }
 
@@ -31,19 +33,41 @@ function markerColor(score: number | null): string {
   return "#ef4444";
 }
 
-function markerHtml(lot: ParkingLot, selected: boolean): string {
+function clusterMarkerHtml(count: number, score: number | null): string {
+  const color = markerColor(score);
+  return `<div style="
+    width:44px;height:44px;
+    background:${color};
+    border:2px solid white;
+    border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    font-size:14px;font-weight:700;color:white;
+    box-shadow:0 2px 6px rgba(0,0,0,0.3);
+    cursor:pointer;
+  ">${count}</div>`;
+}
+
+function markerHtml(lot: ParkingLot, selected: boolean, hovered: boolean): string {
   const color = markerColor(lot.difficulty.score);
   const icon = getDifficultyIcon(lot.difficulty.score);
-  const size = selected ? 40 : 32;
-  const border = selected ? "3px solid #3b82f6" : "2px solid white";
+  const highlighted = selected || hovered;
+  const size = highlighted ? 40 : 32;
+  const border = selected
+    ? "3px solid #3b82f6"
+    : hovered
+      ? "3px solid #60a5fa"
+      : "2px solid white";
+  const shadow = highlighted
+    ? "0 2px 8px rgba(59,130,246,0.4)"
+    : "0 2px 6px rgba(0,0,0,0.3)";
   return `<div style="
     width:${size}px;height:${size}px;
     background:${color};
     border:${border};
     border-radius:50%;
     display:flex;align-items:center;justify-content:center;
-    font-size:${selected ? 14 : 11}px;
-    box-shadow:0 2px 6px rgba(0,0,0,0.3);
+    font-size:${highlighted ? 14 : 11}px;
+    box-shadow:${shadow};
     cursor:pointer;
     transition:all 0.15s;
   ">${icon}</div>`;
@@ -59,7 +83,9 @@ export function MapView({
   parkingLots,
   onBoundsChanged,
   onMarkerClick,
+  clusters,
   selectedLotId,
+  hoveredLotId,
   moveTo,
 }: MapViewProps) {
   const navermaps = useNavermaps();
@@ -84,12 +110,11 @@ export function MapView({
     const b = mapRef.current.getBounds() as naver.maps.LatLngBounds;
     const sw = b.getSW();
     const ne = b.getNE();
-    onBoundsChanged({
-      south: sw.lat(),
-      north: ne.lat(),
-      west: sw.lng(),
-      east: ne.lng(),
-    });
+    const zoom = mapRef.current.getZoom();
+    onBoundsChanged(
+      { south: sw.lat(), north: ne.lat(), west: sw.lng(), east: ne.lng() },
+      zoom,
+    );
   }, [onBoundsChanged]);
 
   const handleBoundsChanged = useCallback(() => {
@@ -125,21 +150,33 @@ export function MapView({
           />
         )}
 
-        {parkingLots.map((lot) => {
-          const selected = lot.id === selectedLotId;
-          const size = selected ? 40 : 32;
-          return (
-            <Marker
-              key={lot.id}
-              position={new navermaps.LatLng(lot.lat, lot.lng)}
-              icon={{
-                content: markerHtml(lot, selected),
-                anchor: new navermaps.Point(size / 2, size / 2),
-              }}
-              onClick={() => onMarkerClick(lot)}
-            />
-          );
-        })}
+        {clusters
+          ? clusters.map((c) => (
+              <Marker
+                key={c.key}
+                position={new navermaps.LatLng(c.lat, c.lng)}
+                icon={{
+                  content: clusterMarkerHtml(c.count, c.avgScore),
+                  anchor: new navermaps.Point(22, 22),
+                }}
+              />
+            ))
+          : parkingLots.map((lot) => {
+              const selected = lot.id === selectedLotId;
+              const hovered = lot.id === hoveredLotId;
+              const size = selected || hovered ? 40 : 32;
+              return (
+                <Marker
+                  key={lot.id}
+                  position={new navermaps.LatLng(lot.lat, lot.lng)}
+                  icon={{
+                    content: markerHtml(lot, selected, hovered),
+                    anchor: new navermaps.Point(size / 2, size / 2),
+                  }}
+                  onClick={() => onMarkerClick(lot)}
+                />
+              );
+            })}
       </NaverMap>
 
       <button

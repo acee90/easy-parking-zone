@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import {
   Sheet,
   SheetContent,
@@ -37,7 +38,17 @@ export function ParkingCard({
   userLng,
   userLocated,
 }: ParkingCardProps) {
-  if (!lot) return null;
+  // 데스크톱(md+)에서는 Sheet를 렌더링하지 않음 — 상세 패널이 대신 표시됨
+  const [isMobile, setIsMobile] = useState(true);
+  useEffect(() => {
+    const mql = window.matchMedia("(min-width: 768px)");
+    setIsMobile(!mql.matches);
+    const handler = (e: MediaQueryListEvent) => setIsMobile(!e.matches);
+    mql.addEventListener("change", handler);
+    return () => mql.removeEventListener("change", handler);
+  }, []);
+
+  if (!lot || !isMobile) return null;
 
   const icon = getDifficultyIcon(lot.difficulty.score);
   const label = getDifficultyLabel(lot.difficulty.score);

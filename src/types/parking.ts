@@ -40,3 +40,17 @@ export interface MapBounds {
   west: number
   east: number
 }
+
+export interface MarkerCluster {
+  key: string;
+  lat: number;
+  lng: number;
+  count: number;
+  avgScore: number | null;
+}
+
+export interface CrawledReview {
+  summary: string           // 주차 난이도 관련 요약 (5줄 이내)
+  isPositive: boolean       // 긍정(주차 쉬움) / 부정(주차 어려움)
+  sourceUrl: string
+}

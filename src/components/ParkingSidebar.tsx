@@ -1,0 +1,157 @@
+import { useMemo } from "react";
+import type { ParkingLot } from "@/types/parking";
+import {
+  getDifficultyIcon,
+  getDifficultyLabel,
+  getDistance,
+} from "@/lib/geo-utils";
+import { MapPin, ParkingSquare } from "lucide-react";
+
+interface ParkingSidebarProps {
+  parkingLots: ParkingLot[];
+  selectedLotId: string | null;
+  onSelect: (lot: ParkingLot) => void;
+  onHover: (lotId: string | null) => void;
+  userLat?: number;
+  userLng?: number;
+  userLocated?: boolean;
+  isClustered?: boolean;
+}
+
+function difficultyColor(score: number | null) {
+  if (score === null) return "bg-gray-400";
+  if (score >= 4.0) return "bg-green-500";
+  if (score >= 2.5) return "bg-yellow-500";
+  if (score >= 1.5) return "bg-orange-500";
+  return "bg-red-500";
+}
+
+export function ParkingSidebar({
+  parkingLots,
+  selectedLotId,
+  onSelect,
+  onHover,
+  userLat,
+  userLng,
+  userLocated,
+  isClustered,
+}: ParkingSidebarProps) {
+  const sortedLots = useMemo(() => {
+    const withDistance = parkingLots.map((lot) => ({
+      lot,
+      distance:
+        userLocated && userLat && userLng
+          ? getDistance(userLat, userLng, lot.lat, lot.lng)
+          : null,
+    }));
+
+    withDistance.sort((a, b) => {
+      if (a.distance !== null && b.distance !== null) {
+        return a.distance - b.distance;
+      }
+      const scoreA = a.lot.difficulty.score ?? -1;
+      const scoreB = b.lot.difficulty.score ?? -1;
+      return scoreB - scoreA;
+    });
+
+    return withDistance;
+  }, [parkingLots, userLat, userLng, userLocated]);
+
+  return (
+    <aside className="hidden md:flex w-[280px] shrink-0 flex-col border-r bg-white">
+      <div className="shrink-0 flex items-center justify-between px-4 py-3 border-b">
+        <div className="flex items-center gap-2">
+          <ParkingSquare className="size-4 text-blue-500" />
+          <span className="font-semibold text-sm">주차장 목록</span>
+        </div>
+        <span className="text-xs text-muted-foreground">
+          {parkingLots.length}개
+        </span>
+      </div>
+
+      <div className="flex-1 overflow-y-auto">
+        {isClustered ? (
+          <div className="flex flex-col items-center justify-center h-full text-muted-foreground text-sm px-4 text-center">
+            <MapPin className="size-8 mb-2 opacity-30" />
+            <p>지도를 확대하면</p>
+            <p>주차장 목록이 표시됩니다</p>
+          </div>
+        ) : sortedLots.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-muted-foreground text-sm px-4 text-center">
+            <ParkingSquare className="size-8 mb-2 opacity-30" />
+            <p>현재 지도 영역에</p>
+            <p>주차장이 없습니다</p>
+          </div>
+        ) : (
+          sortedLots.map(({ lot, distance }) => {
+            const selected = lot.id === selectedLotId;
+            const icon = getDifficultyIcon(lot.difficulty.score);
+            const label = getDifficultyLabel(lot.difficulty.score);
+
+            return (
+              <button
+                key={lot.id}
+                className={`w-full text-left px-4 py-3 border-b border-gray-100 hover:bg-blue-50 transition-colors cursor-pointer ${
+                  selected ? "bg-blue-50 border-l-2 border-l-blue-500" : ""
+                }`}
+                onClick={() => onSelect(lot)}
+                onMouseEnter={() => onHover(lot.id)}
+                onMouseLeave={() => onHover(null)}
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <div
+                    className={`size-2.5 rounded-full shrink-0 ${difficultyColor(lot.difficulty.score)}`}
+                  />
+                  <span className="font-medium text-sm truncate flex-1">
+                    {lot.name}
+                  </span>
+                  <span className="text-sm shrink-0">{icon}</span>
+                </div>
+
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <MapPin className="size-3 text-muted-foreground shrink-0" />
+                  <span className="text-xs text-muted-foreground truncate">
+                    {lot.address}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2 text-xs">
+                  <span
+                    className={`px-1.5 py-0.5 rounded ${
+                      lot.difficulty.score !== null
+                        ? "bg-gray-100 text-gray-700"
+                        : "bg-gray-50 text-gray-400"
+                    }`}
+                  >
+                    {label}
+                  </span>
+                  <span
+                    className={`px-1.5 py-0.5 rounded ${
+                      lot.pricing.isFree
+                        ? "bg-green-50 text-green-700"
+                        : "bg-gray-100 text-gray-600"
+                    }`}
+                  >
+                    {lot.pricing.isFree ? "무료" : "유료"}
+                  </span>
+                  {lot.totalSpaces > 0 && (
+                    <span className="text-muted-foreground">
+                      {lot.totalSpaces}면
+                    </span>
+                  )}
+                  {distance !== null && (
+                    <span className="text-muted-foreground ml-auto">
+                      {distance < 1
+                        ? `${Math.round(distance * 1000)}m`
+                        : `${distance.toFixed(1)}km`}
+                    </span>
+                  )}
+                </div>
+              </button>
+            );
+          })
+        )}
+      </div>
+    </aside>
+  );
+}
