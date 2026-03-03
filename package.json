@@ -11,7 +11,8 @@
     "cf-typegen": "wrangler types",
     "test": "npx vitest run",
     "import-csv": "bun run scripts/import-csv.ts",
-    "import-kakao": "bun run scripts/import-kakao.ts"
+    "import-kakao": "bun run scripts/import-kakao.ts",
+    "crawl-naver": "bun run scripts/crawl-naver-blogs.ts"
   },
   "dependencies": {
     "@cloudflare/vite-plugin": "^1.24.0",
