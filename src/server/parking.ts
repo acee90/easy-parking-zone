@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getDB } from "@/lib/db";
-import type { ParkingLot, MapBounds, MarkerCluster, CrawledReview } from "@/types/parking";
+import type { ParkingLot, MapBounds, MarkerCluster, BlogPost } from "@/types/parking";
 
 interface ParkingLotRow {
   id: string;
@@ -157,52 +157,26 @@ export const searchParkingLots = createServerFn({ method: "GET" })
     return (result.results ?? []).map(rowToParkingLot);
   });
 
-/** 주차장별 크롤링 후기 조회 — 난이도 관련 문장만 추출 + 긍정/부정 판단 */
-interface CrawledReviewRow {
+/** 주차장별 블로그 후기 (스니펫) */
+interface BlogPostRow {
   title: string;
   content: string;
   source_url: string;
+  source: string;
+  author: string;
+  published_at: string | null;
 }
 
-const PARKING_KW = ["주차", "진입", "출차", "통로", "자리", "주차면", "입구", "출구", "경사", "회전", "좁", "넓", "기계식", "지하", "지상"];
-const POS_KW = ["넓", "쉽", "편하", "편리", "여유", "충분", "널널", "넓직", "수월", "무난", "좋"];
-const NEG_KW = ["좁", "어렵", "복잡", "힘들", "까다", "비좁", "불편", "혼잡", "만차", "협소", "위험", "조심"];
-
-function summarizeReview(title: string, content: string): { summary: string; isPositive: boolean } | null {
-  const text = `${title} ${content}`;
-  const sentences = text
-    .split(/[.!?\n]+/)
-    .map((s) => s.trim())
-    .filter((s) => s.length > 8);
-
-  const relevant = sentences.filter((s) =>
-    PARKING_KW.some((k) => s.includes(k))
-  );
-
-  // 주차 관련 문장이 없으면 표시하지 않음
-  if (relevant.length === 0) return null;
-
-  let pos = 0;
-  let neg = 0;
-  for (const s of relevant) {
-    if (POS_KW.some((k) => s.includes(k))) pos++;
-    if (NEG_KW.some((k) => s.includes(k))) neg++;
-  }
-
-  const summary = relevant.slice(0, 3).join(". ").slice(0, 300);
-  return { summary, isPositive: pos >= neg };
-}
-
-export const fetchCrawledReviews = createServerFn({ method: "GET" })
+export const fetchBlogPosts = createServerFn({ method: "GET" })
   .inputValidator(
     (input: { parkingLotId: string }): { parkingLotId: string } => input
   )
-  .handler(async ({ data }): Promise<CrawledReview[]> => {
+  .handler(async ({ data }): Promise<BlogPost[]> => {
     const db = getDB();
 
     const result = await db
       .prepare(
-        `SELECT title, content, source_url
+        `SELECT title, content, source_url, source, author, published_at
          FROM crawled_reviews
          WHERE parking_lot_id = ?1
            AND relevance_score >= 40
@@ -210,15 +184,16 @@ export const fetchCrawledReviews = createServerFn({ method: "GET" })
          LIMIT 5`
       )
       .bind(data.parkingLotId)
-      .all<CrawledReviewRow>();
+      .all<BlogPostRow>();
 
-    return (result.results ?? [])
-      .map((row: CrawledReviewRow) => {
-        const result = summarizeReview(row.title, row.content);
-        if (!result) return null;
-        return { ...result, sourceUrl: row.source_url };
-      })
-      .filter((r): r is CrawledReview => r !== null);
+    return (result.results ?? []).map((row) => ({
+      title: row.title,
+      snippet: row.content,
+      sourceUrl: row.source_url,
+      source: row.source as "naver_blog" | "naver_cafe",
+      author: row.author,
+      publishedAt: row.published_at ?? undefined,
+    }));
   });
 
 /** 리뷰 요약 오류 신고 */

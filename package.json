@@ -1,5 +1,5 @@
 {
-  "name": "parking-map",
+  "name": "easy-parking-zone",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -12,9 +12,11 @@
     "test": "npx vitest run",
     "import-csv": "bun run scripts/import-csv.ts",
     "import-kakao": "bun run scripts/import-kakao.ts",
-    "crawl-naver": "bun run scripts/crawl-naver-blogs.ts"
+    "crawl-naver": "bun run scripts/crawl-naver-blogs.ts",
+    "backfill-summaries": "bun run scripts/backfill-summaries.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.78.0",
     "@cloudflare/vite-plugin": "^1.24.0",
     "@tailwindcss/vite": "^4.0.6",
     "@tanstack/react-devtools": "^0.7.0",
@@ -23,6 +25,8 @@
     "@tanstack/react-router-ssr-query": "^1.131.7",
     "@tanstack/react-start": "^1.132.0",
     "@tanstack/router-plugin": "^1.132.0",
+    "better-auth": "^1.5.4",
+    "better-auth-cloudflare": "^0.2.9",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.561.0",

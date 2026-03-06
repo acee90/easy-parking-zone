@@ -1,13 +1,15 @@
 import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
-import type { ParkingLot, CrawledReview } from "@/types/parking";
-import { fetchCrawledReviews, reportReview } from "@/server/parking";
+import type { ParkingLot, BlogPost, UserReview } from "@/types/parking";
+import { fetchBlogPosts } from "@/server/parking";
+import { fetchUserReviews, createReview, deleteReview } from "@/server/reviews";
+import { authClient } from "@/lib/auth-client";
 import {
   getDifficultyIcon,
   getDifficultyLabel,
   getDistance,
 } from "@/lib/geo-utils";
-import { MapPin, Clock, CreditCard, Phone, ParkingSquare, X, MessageSquare, ThumbsUp, ThumbsDown, Flag, Check } from "lucide-react";
+import { MapPin, Clock, CreditCard, Phone, ParkingSquare, X, MessageSquare, FileText, Star, User, Pen } from "lucide-react";
 
 interface ParkingDetailPanelProps {
   lot: ParkingLot;
@@ -17,83 +19,195 @@ interface ParkingDetailPanelProps {
   userLocated?: boolean;
 }
 
-const REPORT_REASONS = [
-  { key: "wrong_sentiment", label: "긍정/부정 반대" },
-  { key: "irrelevant", label: "주차와 무관" },
-  { key: "other", label: "기타 오류" },
-] as const;
+/** 블로그 후기 스니펫 카드 */
+function BlogPostCard({ post }: { post: BlogPost }) {
+  const sourceLabel = post.source === "naver_blog" ? "블로그" : "카페";
+  return (
+    <a
+      href={post.sourceUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="block rounded-lg border px-3 py-2.5 hover:bg-gray-50 transition-colors"
+    >
+      <p className="text-xs font-medium text-gray-900 line-clamp-1 mb-1">
+        {post.title}
+      </p>
+      <p className="text-xs text-gray-600 line-clamp-2 leading-relaxed mb-1.5">
+        {post.snippet}
+      </p>
+      <p className="text-[11px] text-muted-foreground">
+        {sourceLabel} · {post.author}
+        {post.publishedAt && ` · ${post.publishedAt.slice(0, 10)}`}
+      </p>
+    </a>
+  );
+}
 
-function ReviewCard({
-  review,
-  parkingLotId,
+/** 별점 입력 */
+function StarRating({
+  value,
+  onChange,
 }: {
-  review: CrawledReview;
-  parkingLotId: string;
+  value: number;
+  onChange: (v: number) => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const [reported, setReported] = useState(false);
+  return (
+    <div className="flex gap-0.5">
+      {[1, 2, 3, 4, 5].map((n) => (
+        <button
+          key={n}
+          type="button"
+          onClick={() => onChange(n)}
+          className="cursor-pointer p-0.5"
+        >
+          <Star
+            className={`size-4 ${n <= value ? "fill-yellow-400 text-yellow-400" : "text-gray-300"}`}
+          />
+        </button>
+      ))}
+    </div>
+  );
+}
 
-  const handleReport = (reason: string) => {
-    reportReview({
-      data: { sourceUrl: review.sourceUrl, parkingLotId, reason },
-    }).catch(() => {});
-    setReported(true);
-    setOpen(false);
+
+/** 리뷰 카드 */
+function UserReviewCard({
+  review,
+  onDelete,
+}: {
+  review: UserReview;
+  onDelete?: () => void;
+}) {
+  return (
+    <div className="rounded-lg border px-3 py-2.5">
+      <div className="flex items-center justify-between mb-1.5">
+        <div className="flex items-center gap-1.5">
+          {review.author.profileImage ? (
+            <img
+              src={review.author.profileImage}
+              alt=""
+              className="size-5 rounded-full"
+            />
+          ) : (
+            <User className="size-4 text-muted-foreground" />
+          )}
+          <span className="text-xs font-medium">{review.author.nickname}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="flex gap-0.5">
+            {[1, 2, 3, 4, 5].map((n) => (
+              <Star
+                key={n}
+                className={`size-3 ${n <= review.scores.overall ? "fill-yellow-400 text-yellow-400" : "text-gray-200"}`}
+              />
+            ))}
+          </div>
+          <span className="text-[11px] text-muted-foreground">
+            {review.createdAt.slice(0, 10)}
+          </span>
+        </div>
+      </div>
+      {review.comment && (
+        <p className="text-xs text-gray-700 leading-relaxed">
+          {review.comment}
+        </p>
+      )}
+      {review.isMine && onDelete && (
+        <div className="flex justify-end mt-1">
+          <button
+            onClick={onDelete}
+            className="text-[11px] text-red-400 hover:text-red-600 cursor-pointer"
+          >
+            삭제
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** 리뷰 작성 폼 — 별점 1개 + 한줄평 */
+function ReviewForm({
+  parkingLotId,
+  onSubmitted,
+}: {
+  parkingLotId: string;
+  onSubmitted: () => void;
+}) {
+  const { data: session } = authClient.useSession();
+  const [overallScore, setOverallScore] = useState(0);
+  const [comment, setComment] = useState("");
+  const [guestNickname, setGuestNickname] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async () => {
+    if (overallScore < 1) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      await createReview({
+        data: {
+          parkingLotId,
+          entryScore: overallScore,
+          spaceScore: overallScore,
+          passageScore: overallScore,
+          exitScore: overallScore,
+          overallScore,
+          comment: comment || undefined,
+          guestNickname: session ? undefined : guestNickname || undefined,
+        },
+      });
+      onSubmitted();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "오류가 발생했습니다");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
-    <div className="rounded-lg border overflow-hidden">
-      <a
-        href={review.sourceUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex gap-2.5 px-3 py-2.5 hover:bg-gray-50 transition-colors"
-      >
-        <div className="shrink-0 mt-0.5">
-          {review.isPositive ? (
-            <ThumbsUp className="size-4 text-green-500" />
-          ) : (
-            <ThumbsDown className="size-4 text-red-400" />
-          )}
-        </div>
-        <p className="text-xs text-gray-700 line-clamp-5 leading-relaxed">
-          {review.summary}
-        </p>
-      </a>
-      <div className="flex items-center border-t px-3 py-1.5 bg-gray-50/50">
-        {reported ? (
-          <span className="flex items-center gap-1 text-[11px] text-green-600">
-            <Check className="size-3" />
-            신고 접수됨
-          </span>
-        ) : open ? (
-          <div className="flex items-center gap-1.5 flex-wrap">
-            {REPORT_REASONS.map((r) => (
-              <button
-                key={r.key}
-                onClick={() => handleReport(r.key)}
-                className="text-[11px] px-2 py-0.5 rounded-full border border-red-200 text-red-500 hover:bg-red-50 transition-colors cursor-pointer"
-              >
-                {r.label}
-              </button>
-            ))}
-            <button
-              onClick={() => setOpen(false)}
-              className="text-[11px] text-muted-foreground ml-1 cursor-pointer"
-            >
-              취소
-            </button>
-          </div>
-        ) : (
-          <button
-            onClick={() => setOpen(true)}
-            className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-red-400 transition-colors cursor-pointer"
-          >
-            <Flag className="size-3" />
-            요약이 잘못됐나요?
-          </button>
-        )}
+    <div className="rounded-lg border p-3 space-y-3">
+      {!session && (
+        <input
+          type="text"
+          value={guestNickname}
+          onChange={(e) => setGuestNickname(e.target.value)}
+          placeholder="닉네임 (선택)"
+          maxLength={20}
+          className="w-full rounded-md border px-2.5 py-1.5 text-xs"
+        />
+      )}
+
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-medium">초보 추천도</span>
+        <StarRating value={overallScore} onChange={setOverallScore} />
       </div>
+
+      <textarea
+        value={comment}
+        onChange={(e) => setComment(e.target.value)}
+        maxLength={200}
+        rows={2}
+        placeholder="진입로, 주차면 크기, 통로 여유, 출차 난이도 등 경험을 적어주세요"
+        className="w-full rounded-md border px-2.5 py-1.5 text-xs resize-none"
+      />
+
+      {error && <p className="text-xs text-red-500">{error}</p>}
+
+      <button
+        onClick={handleSubmit}
+        disabled={overallScore < 1 || submitting}
+        className="w-full rounded-md bg-blue-500 py-2 text-xs font-medium text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors"
+      >
+        {submitting ? "등록 중..." : "등록하기"}
+      </button>
+
+      {!session && (
+        <p className="text-[11px] text-muted-foreground text-center">
+          로그인하면 리뷰를 수정/삭제할 수 있어요
+        </p>
+      )}
     </div>
   );
 }
@@ -113,13 +227,28 @@ export function ParkingDetailPanel({
   userLng,
   userLocated,
 }: ParkingDetailPanelProps) {
-  const [reviews, setReviews] = useState<CrawledReview[]>([]);
+  const [blogPosts, setBlogPosts] = useState<BlogPost[]>([]);
+  const [userReviews, setUserReviews] = useState<UserReview[]>([]);
+  const [showReviewForm, setShowReviewForm] = useState(false);
+  const [reviewKey, setReviewKey] = useState(0);
 
   useEffect(() => {
-    fetchCrawledReviews({ data: { parkingLotId: lot.id } })
-      .then(setReviews)
-      .catch(() => setReviews([]));
+    fetchBlogPosts({ data: { parkingLotId: lot.id } })
+      .then(setBlogPosts)
+      .catch(() => setBlogPosts([]));
+    fetchUserReviews({ data: { parkingLotId: lot.id } })
+      .then(setUserReviews)
+      .catch(() => setUserReviews([]));
+    setShowReviewForm(false);
   }, [lot.id]);
+
+  const refreshReviews = () => {
+    fetchUserReviews({ data: { parkingLotId: lot.id } })
+      .then(setUserReviews)
+      .catch(() => setUserReviews([]));
+    setShowReviewForm(false);
+    setReviewKey((k) => k + 1);
+  };
 
   const icon = getDifficultyIcon(lot.difficulty.score);
   const label = getDifficultyLabel(lot.difficulty.score);
@@ -237,23 +366,85 @@ export function ParkingDetailPanel({
           </p>
         )}
 
-        {/* 블로그/카페 후기 */}
-        {reviews.length > 0 && (
+        {/* 사용자 리뷰 */}
+        <div className="pt-2 border-t">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <MessageSquare className="size-4 text-muted-foreground" />
+              <span className="font-medium text-sm">난이도 리뷰</span>
+              {userReviews.length > 0 && (
+                <span className="text-xs text-muted-foreground">
+                  {userReviews.length}건
+                </span>
+              )}
+            </div>
+            {!showReviewForm && (
+              <button
+                onClick={() => setShowReviewForm(true)}
+                className="flex items-center gap-1 text-xs text-blue-500 hover:text-blue-600 cursor-pointer"
+              >
+                <Pen className="size-3" />
+                리뷰 쓰기
+              </button>
+            )}
+          </div>
+
+          {showReviewForm && (
+            <div className="mb-3">
+              <ReviewForm
+                key={reviewKey}
+                parkingLotId={lot.id}
+                onSubmitted={refreshReviews}
+              />
+              <button
+                onClick={() => setShowReviewForm(false)}
+                className="mt-2 w-full text-xs text-muted-foreground hover:text-foreground cursor-pointer"
+              >
+                취소
+              </button>
+            </div>
+          )}
+
+          {userReviews.length > 0 ? (
+            <div className="space-y-2.5">
+              {userReviews.map((review) => (
+                <UserReviewCard
+                  key={review.id}
+                  review={review}
+                  onDelete={
+                    review.isMine
+                      ? () => {
+                          deleteReview({ data: { reviewId: review.id } })
+                            .then(refreshReviews)
+                            .catch(() => {});
+                        }
+                      : undefined
+                  }
+                />
+              ))}
+            </div>
+          ) : (
+            !showReviewForm && (
+              <p className="text-xs text-muted-foreground text-center py-4">
+                아직 리뷰가 없습니다. 첫 리뷰를 남겨보세요!
+              </p>
+            )
+          )}
+        </div>
+
+        {/* 블로그 후기 */}
+        {blogPosts.length > 0 && (
           <div className="pt-2 border-t">
             <div className="flex items-center gap-2 mb-3">
-              <MessageSquare className="size-4 text-muted-foreground" />
-              <span className="font-medium text-sm">주차 후기</span>
+              <FileText className="size-4 text-muted-foreground" />
+              <span className="font-medium text-sm">블로그 후기</span>
               <span className="text-xs text-muted-foreground">
-                {reviews.length}건
+                {blogPosts.length}건
               </span>
             </div>
             <div className="space-y-2.5">
-              {reviews.map((review) => (
-                <ReviewCard
-                  key={review.sourceUrl}
-                  review={review}
-                  parkingLotId={lot.id}
-                />
+              {blogPosts.map((post) => (
+                <BlogPostCard key={post.sourceUrl} post={post} />
               ))}
             </div>
           </div>

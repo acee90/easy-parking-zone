@@ -49,8 +49,31 @@ export interface MarkerCluster {
   avgScore: number | null;
 }
 
-export interface CrawledReview {
-  summary: string           // 주차 난이도 관련 요약 (5줄 이내)
-  isPositive: boolean       // 긍정(주차 쉬움) / 부정(주차 어려움)
+export interface BlogPost {
+  title: string
+  snippet: string            // 네이버 검색 스니펫 (원문 일부)
   sourceUrl: string
+  source: "naver_blog" | "naver_cafe"
+  author: string
+  publishedAt?: string
+}
+
+export interface UserReview {
+  id: number
+  author: {
+    type: "member" | "guest"
+    nickname: string
+    profileImage?: string
+  }
+  scores: {
+    entry: number
+    space: number
+    passage: number
+    exit: number
+    overall: number
+  }
+  comment?: string
+  visitedAt?: string
+  createdAt: string
+  isMine: boolean
 }
