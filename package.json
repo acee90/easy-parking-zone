@@ -13,7 +13,8 @@
     "import-csv": "bun run scripts/import-csv.ts",
     "import-kakao": "bun run scripts/import-kakao.ts",
     "crawl-naver": "bun run scripts/crawl-naver-blogs.ts",
-    "backfill-summaries": "bun run scripts/backfill-summaries.ts"
+    "backfill-summaries": "bun run scripts/backfill-summaries.ts",
+    "import-naver-local": "bun run scripts/import-naver-local.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",
