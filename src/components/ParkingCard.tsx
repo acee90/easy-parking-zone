@@ -8,12 +8,13 @@ import {
 } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import type { ParkingLot } from "@/types/parking";
+import { VoteBookmarkBar } from "@/components/VoteBookmarkBar";
 import {
   getDifficultyIcon,
   getDifficultyLabel,
   getDistance,
 } from "@/lib/geo-utils";
-import { MapPin, Clock, CreditCard, Phone } from "lucide-react";
+import { MapPin, Clock, CreditCard, Phone, Flame, ThumbsUp } from "lucide-react";
 
 interface ParkingCardProps {
   lot: ParkingLot | null;
@@ -75,6 +76,18 @@ export function ParkingCard({
         <div className="px-4 pb-4 space-y-3">
           {/* 난이도 + 거리 */}
           <div className="flex items-center gap-2 flex-wrap">
+            {lot.curationTag === 'hell' && (
+              <Badge variant="destructive" className="text-xs gap-1">
+                <Flame className="size-3" />
+                초보 주의
+              </Badge>
+            )}
+            {lot.curationTag === 'easy' && (
+              <Badge className="text-xs gap-1 bg-green-500 hover:bg-green-600">
+                <ThumbsUp className="size-3" />
+                초보 추천
+              </Badge>
+            )}
             <Badge variant="secondary" className="text-sm">
               {icon} {label}
             </Badge>
@@ -94,6 +107,8 @@ export function ParkingCard({
               </span>
             )}
           </div>
+
+          <VoteBookmarkBar lotId={lot.id} />
 
           {/* 주소 */}
           <div className="flex items-start gap-2 text-sm">

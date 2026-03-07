@@ -32,6 +32,8 @@ export interface ParkingLot {
   phone?: string
   paymentMethods?: string
   notes?: string           // 특기사항
+  curationTag?: 'hell' | 'easy' | null  // 큐레이션 태그
+  curationReason?: string               // 큐레이션 사유
 }
 
 export interface MapBounds {
@@ -53,9 +55,30 @@ export interface BlogPost {
   title: string
   snippet: string            // 네이버 검색 스니펫 (원문 일부)
   sourceUrl: string
-  source: "naver_blog" | "naver_cafe"
+  source: "naver_blog" | "naver_cafe" | "youtube_comment" | "google_search"
   author: string
   publishedAt?: string
+}
+
+export interface ParkingMedia {
+  id: number
+  mediaType: 'youtube' | 'image' | 'streetview'
+  url: string
+  title?: string
+  thumbnailUrl?: string
+  description?: string
+}
+
+export interface ParkingFilters {
+  freeOnly: boolean
+  publicOnly: boolean       // 공영(공공데이터 출처)만
+  excludeNoSang: boolean    // 노상 제외
+}
+
+export const DEFAULT_FILTERS: ParkingFilters = {
+  freeOnly: false,
+  publicOnly: false,
+  excludeNoSang: false,
 }
 
 export interface UserReview {

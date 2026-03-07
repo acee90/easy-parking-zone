@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { NavermapsProvider } from "react-naver-maps";
 import { MapView } from "@/components/MapView";
 import { Header } from "@/components/Header";
@@ -7,6 +7,8 @@ import { ParkingCard } from "@/components/ParkingCard";
 import { ParkingSidebar } from "@/components/ParkingSidebar";
 import { ParkingDetailPanel } from "@/components/ParkingDetailPanel";
 import { useGeolocation } from "@/hooks/useGeolocation";
+import { useParkingFilters } from "@/hooks/useParkingFilters";
+import { FloatingFilters } from "@/components/FloatingFilters";
 import { fetchParkingLots, fetchParkingClusters } from "@/server/parking";
 import type { ParkingLot, MapBounds, MarkerCluster } from "@/types/parking";
 import { Car } from "lucide-react";
@@ -25,6 +27,8 @@ function App() {
     requestLocation,
   } = useGeolocation();
 
+  const { filters, toggle, activeCount } = useParkingFilters();
+
   const [isClient, setIsClient] = useState(false);
   const [mapReady, setMapReady] = useState(false);
   const [parkingLots, setParkingLots] = useState<ParkingLot[]>([]);
@@ -34,26 +38,36 @@ function App() {
   const [moveTo, setMoveTo] = useState<{ lat: number; lng: number } | null>(
     null
   );
+  const lastViewRef = useRef<{ bounds: MapBounds; zoom: number } | null>(null);
 
   useEffect(() => {
     setIsClient(true);
   }, []);
 
   const handleBoundsChanged = useCallback(async (bounds: MapBounds, zoom: number) => {
+    lastViewRef.current = { bounds, zoom };
     try {
       if (zoom <= 12) {
         setParkingLots([]);
-        const data = await fetchParkingClusters({ data: { ...bounds, zoom } });
+        const data = await fetchParkingClusters({ data: { ...bounds, zoom, filters } });
         setClusters(data);
       } else {
         setClusters(null);
-        const lots = await fetchParkingLots({ data: bounds });
+        const lots = await fetchParkingLots({ data: { ...bounds, filters } });
         setParkingLots(lots);
       }
     } catch {
       // D1 not available (e.g., dev without local D1) — silently ignore
     }
-  }, []);
+  }, [filters]);
+
+  // Re-fetch when filters change
+  useEffect(() => {
+    if (lastViewRef.current) {
+      const { bounds, zoom } = lastViewRef.current;
+      handleBoundsChanged(bounds, zoom);
+    }
+  }, [filters, handleBoundsChanged]);
 
   const handleMarkerClick = useCallback((lot: ParkingLot) => {
     setSelectedLot(lot);
@@ -101,6 +115,11 @@ function App() {
 
         {/* 지도 */}
         <div className="flex-1 relative">
+          <FloatingFilters
+            filters={filters}
+            onToggle={toggle}
+            activeCount={activeCount}
+          />
           {mapLoading && (
             <div className="absolute inset-0 z-10 flex items-center justify-center bg-background">
               <div className="flex flex-col items-center gap-3">

@@ -1,15 +1,16 @@
 import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
-import type { ParkingLot, BlogPost, UserReview } from "@/types/parking";
-import { fetchBlogPosts } from "@/server/parking";
+import type { ParkingLot, BlogPost, UserReview, ParkingMedia } from "@/types/parking";
+import { fetchBlogPosts, fetchParkingMedia } from "@/server/parking";
 import { fetchUserReviews, createReview, deleteReview } from "@/server/reviews";
+import { VoteBookmarkBar } from "@/components/VoteBookmarkBar";
 import { authClient } from "@/lib/auth-client";
 import {
   getDifficultyIcon,
   getDifficultyLabel,
   getDistance,
 } from "@/lib/geo-utils";
-import { MapPin, Clock, CreditCard, Phone, ParkingSquare, X, MessageSquare, FileText, Star, User, Pen } from "lucide-react";
+import { MapPin, Clock, CreditCard, Phone, ParkingSquare, X, MessageSquare, FileText, Star, User, Pen, Play, Flame, ThumbsUp } from "lucide-react";
 
 interface ParkingDetailPanelProps {
   lot: ParkingLot;
@@ -229,6 +230,7 @@ export function ParkingDetailPanel({
 }: ParkingDetailPanelProps) {
   const [blogPosts, setBlogPosts] = useState<BlogPost[]>([]);
   const [userReviews, setUserReviews] = useState<UserReview[]>([]);
+  const [media, setMedia] = useState<ParkingMedia[]>([]);
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [reviewKey, setReviewKey] = useState(0);
 
@@ -239,6 +241,9 @@ export function ParkingDetailPanel({
     fetchUserReviews({ data: { parkingLotId: lot.id } })
       .then(setUserReviews)
       .catch(() => setUserReviews([]));
+    fetchParkingMedia({ data: { parkingLotId: lot.id } })
+      .then(setMedia)
+      .catch(() => setMedia([]));
     setShowReviewForm(false);
   }, [lot.id]);
 
@@ -276,6 +281,18 @@ export function ParkingDetailPanel({
           </button>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          {lot.curationTag === 'hell' && (
+            <Badge variant="destructive" className="text-xs gap-1">
+              <Flame className="size-3" />
+              초보 주의
+            </Badge>
+          )}
+          {lot.curationTag === 'easy' && (
+            <Badge className="text-xs gap-1 bg-green-500 hover:bg-green-600">
+              <ThumbsUp className="size-3" />
+              초보 추천
+            </Badge>
+          )}
           <Badge variant="secondary" className="text-sm">
             {icon} {label}
           </Badge>
@@ -294,6 +311,9 @@ export function ParkingDetailPanel({
               리뷰 {lot.difficulty.reviewCount}개
             </span>
           )}
+        </div>
+        <div className="mt-2.5">
+          <VoteBookmarkBar lotId={lot.id} />
         </div>
       </div>
 
@@ -364,6 +384,60 @@ export function ParkingDetailPanel({
           <p className="text-xs text-muted-foreground bg-gray-50 rounded-lg px-3 py-2">
             {lot.notes}
           </p>
+        )}
+
+        {/* 큐레이션 사유 */}
+        {lot.curationReason && (
+          <div className={`text-xs rounded-lg px-3 py-2 ${
+            lot.curationTag === 'hell'
+              ? 'bg-red-50 text-red-700'
+              : 'bg-green-50 text-green-700'
+          }`}>
+            {lot.curationTag === 'hell' ? '⚠️' : '✅'}{' '}
+            {lot.curationReason}
+          </div>
+        )}
+
+        {/* YouTube 영상 */}
+        {media.length > 0 && (
+          <div className="pt-2 border-t">
+            <div className="flex items-center gap-2 mb-3">
+              <Play className="size-4 text-muted-foreground" />
+              <span className="font-medium text-sm">관련 영상</span>
+              <span className="text-xs text-muted-foreground">
+                {media.length}건
+              </span>
+            </div>
+            <div className="space-y-2.5">
+              {media.map((m) => (
+                <a
+                  key={m.id}
+                  href={m.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex gap-2.5 rounded-lg border px-2 py-2 hover:bg-gray-50 transition-colors"
+                >
+                  {m.thumbnailUrl && (
+                    <img
+                      src={m.thumbnailUrl}
+                      alt=""
+                      className="w-24 h-16 rounded object-cover shrink-0"
+                    />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-medium text-gray-900 line-clamp-2 mb-1">
+                      {m.title}
+                    </p>
+                    {m.description && (
+                      <p className="text-[11px] text-muted-foreground line-clamp-2">
+                        {m.description}
+                      </p>
+                    )}
+                  </div>
+                </a>
+              ))}
+            </div>
+          </div>
         )}
 
         {/* 사용자 리뷰 */}

@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getDB } from "@/lib/db";
-import type { ParkingLot, MapBounds, MarkerCluster, BlogPost } from "@/types/parking";
+import type { ParkingLot, MapBounds, MarkerCluster, BlogPost, ParkingFilters, ParkingMedia } from "@/types/parking";
 
 interface ParkingLotRow {
   id: string;
@@ -27,8 +27,22 @@ interface ParkingLotRow {
   phone: string | null;
   payment_methods: string | null;
   notes: string | null;
+  curation_tag: string | null;
+  curation_reason: string | null;
   avg_score: number | null;
   review_count: number;
+}
+
+function buildFilterClauses(filters?: ParkingFilters): { where: string; params: unknown[] } {
+  const clauses: string[] = [];
+  const params: unknown[] = [];
+  if (filters?.freeOnly) clauses.push("p.is_free = 1");
+  if (filters?.publicOnly) clauses.push("p.id NOT LIKE 'KA-%' AND p.id NOT LIKE 'NV-%'");
+  if (filters?.excludeNoSang) clauses.push("p.type != '노상'");
+  return {
+    where: clauses.length > 0 ? " AND " + clauses.join(" AND ") : "",
+    params,
+  };
 }
 
 function rowToParkingLot(row: ParkingLotRow): ParkingLot {
@@ -63,18 +77,21 @@ function rowToParkingLot(row: ParkingLotRow): ParkingLot {
     phone: row.phone ?? undefined,
     paymentMethods: row.payment_methods ?? undefined,
     notes: row.notes ?? undefined,
+    curationTag: row.curation_tag as ParkingLot['curationTag'],
+    curationReason: row.curation_reason ?? undefined,
   };
 }
 
 /** bounds 내 주차장 목록 조회 (리뷰 평균 점수 JOIN) */
 export const fetchParkingLots = createServerFn({ method: "GET" })
   .inputValidator(
-    (input: MapBounds & { limit?: number }): MapBounds & { limit?: number } =>
+    (input: MapBounds & { limit?: number; filters?: ParkingFilters }): MapBounds & { limit?: number; filters?: ParkingFilters } =>
       input
   )
   .handler(async ({ data }) => {
     const db = getDB();
     const limit = data.limit ?? 200;
+    const { where } = buildFilterClauses(data.filters);
 
     const result = await db
       .prepare(
@@ -84,7 +101,7 @@ export const fetchParkingLots = createServerFn({ method: "GET" })
         FROM parking_lots p
         LEFT JOIN reviews r ON r.parking_lot_id = p.id
         WHERE p.lat BETWEEN ?1 AND ?2
-          AND p.lng BETWEEN ?3 AND ?4
+          AND p.lng BETWEEN ?3 AND ?4${where}
         GROUP BY p.id
         LIMIT ?5`
       )
@@ -97,11 +114,12 @@ export const fetchParkingLots = createServerFn({ method: "GET" })
 /** bounds 내 주차장을 그리드 셀로 클러스터링 (zoom ≤ 12) */
 export const fetchParkingClusters = createServerFn({ method: "GET" })
   .inputValidator(
-    (input: MapBounds & { zoom: number }): MapBounds & { zoom: number } => input
+    (input: MapBounds & { zoom: number; filters?: ParkingFilters }): MapBounds & { zoom: number; filters?: ParkingFilters } => input
   )
   .handler(async ({ data }): Promise<MarkerCluster[]> => {
     const db = getDB();
     const cellSize = 360 / Math.pow(2, data.zoom);
+    const { where } = buildFilterClauses(data.filters);
 
     const result = await db
       .prepare(
@@ -118,7 +136,7 @@ export const fetchParkingClusters = createServerFn({ method: "GET" })
           GROUP BY parking_lot_id
         ) ls ON ls.parking_lot_id = p.id
         WHERE p.lat BETWEEN ?2 AND ?3
-          AND p.lng BETWEEN ?4 AND ?5
+          AND p.lng BETWEEN ?4 AND ?5${where}
         GROUP BY CAST(p.lat / ?1 AS INTEGER), CAST(p.lng / ?1 AS INTEGER)`
       )
       .bind(cellSize, data.south, data.north, data.west, data.east)
@@ -193,6 +211,44 @@ export const fetchBlogPosts = createServerFn({ method: "GET" })
       source: row.source as "naver_blog" | "naver_cafe",
       author: row.author,
       publishedAt: row.published_at ?? undefined,
+    }));
+  });
+
+/** 주차장 미디어 (YouTube 등) */
+interface MediaRow {
+  id: number;
+  media_type: string;
+  url: string;
+  title: string | null;
+  thumbnail_url: string | null;
+  description: string | null;
+}
+
+export const fetchParkingMedia = createServerFn({ method: "GET" })
+  .inputValidator(
+    (input: { parkingLotId: string }): { parkingLotId: string } => input
+  )
+  .handler(async ({ data }): Promise<ParkingMedia[]> => {
+    const db = getDB();
+
+    const result = await db
+      .prepare(
+        `SELECT id, media_type, url, title, thumbnail_url, description
+         FROM parking_media
+         WHERE parking_lot_id = ?1
+         ORDER BY created_at DESC
+         LIMIT 5`
+      )
+      .bind(data.parkingLotId)
+      .all<MediaRow>();
+
+    return (result.results ?? []).map((row) => ({
+      id: row.id,
+      mediaType: row.media_type as ParkingMedia['mediaType'],
+      url: row.url,
+      title: row.title ?? undefined,
+      thumbnailUrl: row.thumbnail_url ?? undefined,
+      description: row.description ?? undefined,
     }));
   });
 

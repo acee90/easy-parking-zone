@@ -14,7 +14,10 @@
     "import-kakao": "bun run scripts/import-kakao.ts",
     "crawl-naver": "bun run scripts/crawl-naver-blogs.ts",
     "backfill-summaries": "bun run scripts/backfill-summaries.ts",
-    "import-naver-local": "bun run scripts/import-naver-local.ts"
+    "import-naver-local": "bun run scripts/import-naver-local.ts",
+    "curate-hell": "bun run scripts/curate-hell-parking.ts",
+    "crawl-youtube": "bun run scripts/crawl-youtube.ts",
+    "seed-reviews": "bun run scripts/seed-reviews.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",

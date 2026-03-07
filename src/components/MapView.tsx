@@ -56,11 +56,19 @@ function markerHtml(lot: ParkingLot, selected: boolean, hovered: boolean): strin
     ? "3px solid #3b82f6"
     : hovered
       ? "3px solid #60a5fa"
-      : "2px solid white";
+      : lot.curationTag
+        ? "2px solid " + (lot.curationTag === "hell" ? "#ef4444" : "#22c55e")
+        : "2px solid white";
   const shadow = highlighted
     ? "0 2px 8px rgba(59,130,246,0.4)"
-    : "0 2px 6px rgba(0,0,0,0.3)";
+    : lot.curationTag
+      ? "0 2px 8px " + (lot.curationTag === "hell" ? "rgba(239,68,68,0.4)" : "rgba(34,197,94,0.4)")
+      : "0 2px 6px rgba(0,0,0,0.3)";
+  const curationBadge = lot.curationTag
+    ? `<div style="position:absolute;top:-4px;right:-4px;font-size:10px;line-height:1;">${lot.curationTag === "hell" ? "🔥" : "👍"}</div>`
+    : "";
   return `<div style="
+    position:relative;
     width:${size}px;height:${size}px;
     background:${color};
     border:${border};
@@ -70,7 +78,7 @@ function markerHtml(lot: ParkingLot, selected: boolean, hovered: boolean): strin
     box-shadow:${shadow};
     cursor:pointer;
     transition:all 0.15s;
-  ">${icon}</div>`;
+  ">${icon}${curationBadge}</div>`;
 }
 
 export function MapView({
