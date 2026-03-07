@@ -12,5 +12,7 @@ dist-ssr
 .vinxi
 *.csv
 .tmp-*.sql
-scripts/kakao-progress.json
-scripts/kakao-progress.md
+scripts/*-progress.json
+scripts/*-progress.md
+.gemini/
+.playwright-mcp/

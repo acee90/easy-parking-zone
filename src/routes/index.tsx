@@ -12,6 +12,7 @@ import { FloatingFilters } from "@/components/FloatingFilters";
 import { fetchParkingLots, fetchParkingClusters } from "@/server/parking";
 import type { ParkingLot, MapBounds, MarkerCluster } from "@/types/parking";
 import { Car } from "lucide-react";
+import { MapErrorBoundary } from "@/components/MapErrorBoundary";
 
 export const Route = createFileRoute("/")({
   component: App,
@@ -132,25 +133,27 @@ function App() {
             </div>
           )}
           {isClient && !initializing && (
-            <NavermapsProvider
-              ncpKeyId={import.meta.env.VITE_NAVER_MAP_CLIENT_ID}
-            >
-              <MapView
-                userLat={userLat}
-                userLng={userLng}
-                userLocated={userLocated}
-                locationLoading={locationLoading}
-                onRequestLocation={requestLocation}
-                onMapReady={() => setMapReady(true)}
-                parkingLots={parkingLots}
-                clusters={clusters}
-                onBoundsChanged={handleBoundsChanged}
-                onMarkerClick={handleMarkerClick}
-                selectedLotId={selectedLot?.id}
-                hoveredLotId={hoveredLotId}
-                moveTo={moveTo}
-              />
-            </NavermapsProvider>
+            <MapErrorBoundary>
+              <NavermapsProvider
+                ncpKeyId={import.meta.env.VITE_NAVER_MAP_CLIENT_ID}
+              >
+                <MapView
+                  userLat={userLat}
+                  userLng={userLng}
+                  userLocated={userLocated}
+                  locationLoading={locationLoading}
+                  onRequestLocation={requestLocation}
+                  onMapReady={() => setMapReady(true)}
+                  parkingLots={parkingLots}
+                  clusters={clusters}
+                  onBoundsChanged={handleBoundsChanged}
+                  onMarkerClick={handleMarkerClick}
+                  selectedLotId={selectedLot?.id}
+                  hoveredLotId={hoveredLotId}
+                  moveTo={moveTo}
+                />
+              </NavermapsProvider>
+            </MapErrorBoundary>
           )}
         </div>
       </div>

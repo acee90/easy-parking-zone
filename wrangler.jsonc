@@ -8,7 +8,7 @@
 	],
 	"vars": {
 		"VITE_NAVER_MAP_CLIENT_ID": "uw8likbp4e",
-		"BETTER_AUTH_URL": "https://easy-parking-zone.outshinelee.workers.dev"
+		"BETTER_AUTH_URL": "https://easy-parking.xyz"
 	},
 	"d1_databases": [
 		{
