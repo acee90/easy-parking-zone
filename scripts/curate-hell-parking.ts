@@ -8,11 +8,13 @@
  * 사용법: bun run scripts/curate-hell-parking.ts [--suggest]
  */
 import { writeFileSync, readFileSync, existsSync, unlinkSync } from "fs";
-import { execSync } from "child_process";
 import { resolve } from "path";
+import { d1Query, d1ExecFile, isRemote } from "./lib/d1";
 
 const TMP_SQL = resolve(import.meta.dir, "../.tmp-curate.sql");
 const LIST_JSON = resolve(import.meta.dir, "hell-parking-list.json");
+
+if (isRemote) console.log("🌐 리모트 D1 모드\n");
 
 // ── 수동 큐레이션 리스트 타입 ──
 interface CuratedEntry {
@@ -27,21 +29,6 @@ function esc(s: string): string {
   return s.replace(/'/g, "''");
 }
 
-function queryDB(sql: string): any[] {
-  const raw = execSync(
-    `npx wrangler d1 execute parking-db --local --command "${sql.replace(/"/g, '\\"')}" --json`,
-    { encoding: "utf-8", maxBuffer: 100 * 1024 * 1024 }
-  );
-  return JSON.parse(raw)[0]?.results ?? [];
-}
-
-function executeSQL(sql: string) {
-  writeFileSync(TMP_SQL, sql);
-  execSync(`npx wrangler d1 execute parking-db --local --file="${TMP_SQL}"`, {
-    stdio: "pipe",
-  });
-}
-
 // ── 이름으로 주차장 검색 ──
 function findParkingByName(name: string): { id: string; name: string; address: string }[] {
   // LIKE 검색 — 핵심 키워드 추출
@@ -54,7 +41,7 @@ function findParkingByName(name: string): { id: string; name: string; address: s
   if (keywords.length === 0) return [];
 
   const conditions = keywords.map((kw) => `name LIKE '%${esc(kw)}%'`).join(" AND ");
-  return queryDB(`SELECT id, name, address FROM parking_lots WHERE ${conditions} LIMIT 10`);
+  return d1Query(`SELECT id, name, address FROM parking_lots WHERE ${conditions} LIMIT 10`);
 }
 
 // ── 메인: 태깅 ──
@@ -111,14 +98,15 @@ function applyTags() {
   }
 
   if (stmts.length > 0) {
-    executeSQL(stmts.join("\n"));
+    writeFileSync(TMP_SQL, stmts.join("\n"));
+    d1ExecFile(TMP_SQL);
     console.log(`\n✅ ${matched}개 태깅 완료, ${unmatched}개 매칭 실패`);
   } else {
     console.log("\n태깅할 항목이 없습니다.");
   }
 
   // 결과 확인
-  const tagged = queryDB(
+  const tagged = d1Query(
     "SELECT id, name, curation_tag, curation_reason FROM parking_lots WHERE is_curated = 1 ORDER BY curation_tag, name"
   );
   console.log(`\n📊 현재 큐레이션 현황:`);
@@ -132,7 +120,7 @@ function applyTags() {
 function suggestCandidates() {
   console.log("\n🔍 crawled_reviews 부정 키워드 기반 헬 주차장 후보:\n");
 
-  const candidates = queryDB(`
+  const candidates = d1Query(`
     SELECT p.id, p.name, p.address, COUNT(*) as neg
     FROM parking_lots p
     JOIN crawled_reviews cr ON cr.parking_lot_id = p.id

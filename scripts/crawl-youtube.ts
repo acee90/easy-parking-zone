@@ -13,10 +13,10 @@
  *   무료 할당 10,000 units/일 → 주차장 ~90개 처리 가능
  */
 import { writeFileSync, readFileSync, existsSync, unlinkSync } from "fs";
-import { execSync } from "child_process";
 import { resolve } from "path";
 import { searchVideos, getComments, type YouTubeVideo, type YouTubeComment } from "./lib/youtube-api";
 import { hashUrl } from "./lib/naver-api";
+import { d1Query, d1ExecFile, isRemote } from "./lib/d1";
 
 // --- Config ---
 const DELAY = 500; // API 호출 간 딜레이 (ms)
@@ -141,9 +141,7 @@ function flushMediaToDB(items: PendingMedia[], progress: Progress) {
     .join("\n");
 
   writeFileSync(TMP_SQL, stmts);
-  execSync(`npx wrangler d1 execute parking-db --local --file="${TMP_SQL}"`, {
-    stdio: "pipe",
-  });
+  d1ExecFile(TMP_SQL);
   progress.savedMedia += items.length;
 }
 
@@ -158,9 +156,7 @@ function flushCommentsToDB(items: PendingComment[], progress: Progress) {
     .join("\n");
 
   writeFileSync(TMP_SQL, stmts);
-  execSync(`npx wrangler d1 execute parking-db --local --file="${TMP_SQL}"`, {
-    stdio: "pipe",
-  });
+  d1ExecFile(TMP_SQL);
   progress.savedComments += items.length;
 }
 
@@ -176,13 +172,9 @@ async function main() {
   const completedSet = new Set(progress.completedIds);
 
   // curated 주차장만 대상
+  if (isRemote) console.log("🌐 리모트 D1 모드\n");
   console.log("큐레이션된 주차장 조회 중...");
-  const lotsJson = execSync(
-    `npx wrangler d1 execute parking-db --local --command "SELECT id, name, address, curation_tag FROM parking_lots WHERE is_curated = 1" --json`,
-    { encoding: "utf-8", maxBuffer: 10 * 1024 * 1024 }
-  );
-  const parsed = JSON.parse(lotsJson);
-  const lots: ParkingRow[] = parsed[0]?.results ?? [];
+  const lots: ParkingRow[] = d1Query("SELECT id, name, address, curation_tag FROM parking_lots WHERE is_curated = 1");
   const remaining = lots.filter((l) => !completedSet.has(l.id));
   console.log(`총 ${lots.length}개 큐레이션 주차장, ${completedSet.size}개 완료됨, ${remaining.length}개 남음`);
 

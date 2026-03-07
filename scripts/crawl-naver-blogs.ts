@@ -9,8 +9,8 @@
  * 사용법: bun run crawl-naver
  */
 import { writeFileSync, readFileSync, existsSync, unlinkSync } from "fs";
-import { execSync } from "child_process";
 import { resolve } from "path";
+import { d1Query, d1ExecFile, isRemote } from "./lib/d1";
 import {
   searchNaverBlog,
   searchNaverCafe,
@@ -189,9 +189,7 @@ function flushToDB(reviews: PendingReview[], progress: Progress) {
     .join("\n");
 
   writeFileSync(TMP_SQL, stmts);
-  execSync(`npx wrangler d1 execute parking-db --local --file="${TMP_SQL}"`, {
-    stdio: "pipe",
-  });
+  d1ExecFile(TMP_SQL);
   progress.savedReviews += reviews.length;
 }
 
@@ -207,13 +205,9 @@ async function main() {
   const completedSet = new Set(progress.completedIds);
 
   // D1에서 주차장 목록 조회
+  if (isRemote) console.log("🌐 리모트 D1 모드\n");
   console.log("주차장 목록 조회 중...");
-  const lotsJson = execSync(
-    `npx wrangler d1 execute parking-db --local --command "SELECT id, name, address FROM parking_lots" --json`,
-    { encoding: "utf-8", maxBuffer: 100 * 1024 * 1024 }
-  );
-  const parsed = JSON.parse(lotsJson);
-  const lots: ParkingRow[] = parsed[0]?.results ?? [];
+  const lots: ParkingRow[] = d1Query("SELECT id, name, address FROM parking_lots");
   console.log(`총 ${lots.length}개 주차장, ${completedSet.size}개 완료됨`);
 
   let pending: PendingReview[] = [];

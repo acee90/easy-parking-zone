@@ -8,8 +8,8 @@
  * 사용법: bun run import-kakao
  */
 import { writeFileSync, readFileSync, existsSync, unlinkSync } from "fs";
-import { execSync } from "child_process";
 import { resolve } from "path";
+import { d1ExecFile } from "./lib/d1";
 
 const API_KEY = process.env.KAKAO_REST_API_KEY;
 if (!API_KEY) {
@@ -205,9 +205,7 @@ function saveBatchToDB(places: KakaoPlace[], progress: Progress) {
     .join("\n");
 
   writeFileSync(TMP_SQL, stmts);
-  execSync(`npx wrangler d1 execute parking-db --local --file="${TMP_SQL}"`, {
-    stdio: "pipe",
-  });
+  d1ExecFile(TMP_SQL);
   progress.dbSavedCount += places.length;
 }
 

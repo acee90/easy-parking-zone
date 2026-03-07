@@ -13,7 +13,7 @@
  *   - 숫자 사이 하이픈/공백 정규화
  */
 
-import { execSync } from "child_process";
+import { d1Query, d1Execute } from "./lib/d1";
 
 // ── 주소 정규화 ──
 function normalizeAddress(addr: string): string {
@@ -43,21 +43,6 @@ function normalizeAddress(addr: string): string {
   // 모든 공백 제거
   s = s.replace(/\s+/g, "");
   return s;
-}
-
-// ── D1 쿼리 헬퍼 ──
-function d1Query<T = Record<string, unknown>>(sql: string): T[] {
-  const escaped = sql.replace(/"/g, '\\"');
-  const cmd = `npx wrangler d1 execute parking-db --local --json --command "${escaped}"`;
-  const raw = execSync(cmd, { encoding: "utf-8", maxBuffer: 50 * 1024 * 1024 });
-  const parsed = JSON.parse(raw);
-  return parsed[0]?.results ?? [];
-}
-
-function d1Exec(sql: string): void {
-  const escaped = sql.replace(/"/g, '\\"');
-  const cmd = `npx wrangler d1 execute parking-db --local --command "${escaped}"`;
-  execSync(cmd, { encoding: "utf-8", maxBuffer: 10 * 1024 * 1024 });
 }
 
 // ── 메인 로직 ──
@@ -157,7 +142,7 @@ for (const row of mergeTargets) {
   )[0]?.cnt ?? 0;
 
   if (crCount > 0) {
-    d1Exec(
+    d1Execute(
       `UPDATE crawled_reviews SET parking_lot_id = '${row.pub_id}' WHERE parking_lot_id = '${row.ka_id}'`
     );
     crawledReassigned += crCount;
@@ -169,7 +154,7 @@ for (const row of mergeTargets) {
   )[0]?.cnt ?? 0;
 
   if (rvCount > 0) {
-    d1Exec(
+    d1Execute(
       `UPDATE reviews SET parking_lot_id = '${row.pub_id}' WHERE parking_lot_id = '${row.ka_id}'`
     );
     reviewsReassigned += rvCount;
@@ -208,12 +193,12 @@ for (const row of mergeTargets) {
   }
 
   if (updates.length > 0) {
-    d1Exec(`UPDATE parking_lots SET ${updates.join(", ")} WHERE id = '${row.pub_id}'`);
+    d1Execute(`UPDATE parking_lots SET ${updates.join(", ")} WHERE id = '${row.pub_id}'`);
     infoUpdated++;
   }
 
   // 3d) 카카오 항목 삭제
-  d1Exec(`DELETE FROM parking_lots WHERE id = '${row.ka_id}'`);
+  d1Execute(`DELETE FROM parking_lots WHERE id = '${row.ka_id}'`);
   mergedCount++;
 }
 

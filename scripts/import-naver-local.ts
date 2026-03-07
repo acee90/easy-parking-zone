@@ -9,8 +9,8 @@
  * 사용법: bun run import-naver-local
  */
 import { writeFileSync, readFileSync, existsSync, unlinkSync } from "fs";
-import { execSync } from "child_process";
 import { resolve } from "path";
+import { d1Query as d1QueryLib, d1ExecFile, isRemote } from "./lib/d1";
 
 // ── 환경변수 ──
 const CLIENT_ID = process.env.NAVER_CLIENT_ID;
@@ -188,13 +188,7 @@ async function searchLocal(query: string, progress: Progress): Promise<NaverPlac
 }
 
 // ── DB 헬퍼 ──
-function d1Query<T = Record<string, unknown>>(sql: string): T[] {
-  const escaped = sql.replace(/"/g, '\\"');
-  const cmd = `npx wrangler d1 execute parking-db --local --json --command "${escaped}"`;
-  const raw = execSync(cmd, { encoding: "utf-8", maxBuffer: 50 * 1024 * 1024 });
-  const parsed = JSON.parse(raw);
-  return parsed[0]?.results ?? [];
-}
+const d1Query = d1QueryLib;
 
 function esc(s: string): string {
   return s.replace(/'/g, "''").replace(/<\/?b>/g, "");
@@ -321,7 +315,7 @@ async function main() {
     // DB flush
     if (pendingSql.length >= FLUSH_SIZE) {
       writeFileSync(TMP_SQL, pendingSql.join("\n"));
-      execSync(`npx wrangler d1 execute parking-db --local --file="${TMP_SQL}"`, { stdio: "pipe" });
+      d1ExecFile(TMP_SQL);
       pendingSql = [];
     }
 
@@ -340,7 +334,7 @@ async function main() {
   // 나머지 flush
   if (pendingSql.length > 0) {
     writeFileSync(TMP_SQL, pendingSql.join("\n"));
-    execSync(`npx wrangler d1 execute parking-db --local --file="${TMP_SQL}"`, { stdio: "pipe" });
+    d1ExecFile(TMP_SQL);
   }
 
   saveProgress(progress);

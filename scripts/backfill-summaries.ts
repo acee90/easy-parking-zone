@@ -16,8 +16,8 @@
  */
 import Anthropic from "@anthropic-ai/sdk";
 import { writeFileSync, existsSync, unlinkSync } from "fs";
-import { execSync } from "child_process";
 import { resolve } from "path";
+import { d1Query, d1Execute, d1ExecFile, isRemote } from "./lib/d1";
 
 const API_BATCH_SIZE = 20; // 1회 API 호출당 리뷰 수
 const CONCURRENCY = 5; // 동시 API 호출 수
@@ -108,22 +108,16 @@ async function processConcurrent(
 async function main() {
   const isReset = process.argv.includes("--reset");
 
+  if (isRemote) console.log("🌐 리모트 D1 모드\n");
+
   if (isReset) {
     console.log("기존 summary 전체 리셋 중...");
-    execSync(
-      `npx wrangler d1 execute parking-db --local --command "UPDATE crawled_reviews SET summary = NULL, is_positive = NULL"`,
-      { stdio: "pipe" }
-    );
+    d1Execute("UPDATE crawled_reviews SET summary = NULL, is_positive = NULL");
     console.log("리셋 완료.");
   }
 
   console.log("미처리 리뷰 조회 중...");
-  const json = execSync(
-    `npx wrangler d1 execute parking-db --local --command "SELECT id, title, content FROM crawled_reviews WHERE summary IS NULL" --json`,
-    { encoding: "utf-8", maxBuffer: 100 * 1024 * 1024 }
-  );
-  const parsed = JSON.parse(json);
-  const rows: ReviewRow[] = parsed[0]?.results ?? [];
+  const rows: ReviewRow[] = d1Query("SELECT id, title, content FROM crawled_reviews WHERE summary IS NULL");
 
   console.log(`미처리 리뷰 ${rows.length}건 발견`);
   if (rows.length === 0) {
@@ -146,10 +140,7 @@ async function main() {
   function flushSql() {
     if (sqlBuffer.length === 0) return;
     writeFileSync(TMP_SQL, sqlBuffer.join("\n"));
-    execSync(
-      `npx wrangler d1 execute parking-db --local --file="${TMP_SQL}"`,
-      { stdio: "pipe" }
-    );
+    d1ExecFile(TMP_SQL);
     sqlBuffer = [];
   }
 

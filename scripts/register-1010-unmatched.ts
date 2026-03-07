@@ -10,8 +10,8 @@
  *   --dry-run   DB/파일 수정 없이 미리보기
  */
 import { writeFileSync, readFileSync, existsSync, unlinkSync } from "fs";
-import { execSync } from "child_process";
 import { resolve } from "path";
+import { d1Query, d1ExecFile, isRemote } from "./lib/d1";
 
 // --- Config ---
 const RESULT_JSON = resolve(import.meta.dir, "1010-parking-result.json");
@@ -90,15 +90,6 @@ function parseCoords(mapx: string, mapy: string): { lat: number; lng: number } {
   const lng = parseInt(mapx, 10) / 10_000_000;
   const lat = parseInt(mapy, 10) / 10_000_000;
   return { lat, lng };
-}
-
-function d1Query<T = Record<string, unknown>>(sql: string): T[] {
-  const escaped = sql.replace(/"/g, '\\"');
-  const raw = execSync(
-    `npx wrangler d1 execute parking-db --local --json --command "${escaped}"`,
-    { encoding: "utf-8", maxBuffer: 50 * 1024 * 1024 }
-  );
-  return JSON.parse(raw)[0]?.results ?? [];
 }
 
 // --- 네이버 지역검색 ---
@@ -284,6 +275,7 @@ async function main() {
     }
   }
 
+  if (isRemote) console.log("🌐 리모트 D1 모드\n");
   console.log(`=== 네이버 지역검색 등록 시작 ===`);
   console.log(`미매칭 대상: ${finalUnmatched.length}개${dryRun ? " [DRY RUN]" : ""}\n`);
 
@@ -381,7 +373,7 @@ async function main() {
   });
 
   writeFileSync(TMP_SQL, sqlStatements.join("\n"));
-  execSync(`npx wrangler d1 execute parking-db --local --file="${TMP_SQL}"`, { stdio: "pipe" });
+  d1ExecFile(TMP_SQL);
   console.log(`\n  DB: ${matched.length}개 주차장 등록`);
 
   // 6) hell-parking-list.json 업데이트

@@ -10,8 +10,8 @@
  * - D1 batch insert (500건씩)
  */
 import { readFileSync, writeFileSync, unlinkSync } from "fs";
-import { execSync } from "child_process";
 import { resolve } from "path";
+import { d1ExecFile } from "./lib/d1";
 
 const CSV_PATH = resolve(
   import.meta.dir,
@@ -190,9 +190,7 @@ const tmpSql = resolve(import.meta.dir, "../.tmp-import.sql");
 
 // 먼저 기존 데이터 삭제
 writeFileSync(tmpSql, "DELETE FROM parking_lots;\n");
-execSync(`npx wrangler d1 execute parking-db --local --file="${tmpSql}"`, {
-  stdio: "inherit",
-});
+d1ExecFile(tmpSql);
 
 for (let b = 0; b < batches; b++) {
   const slice = rows.slice(b * BATCH, (b + 1) * BATCH);
@@ -204,9 +202,7 @@ for (let b = 0; b < batches; b++) {
     .join("\n");
 
   writeFileSync(tmpSql, stmts);
-  execSync(`npx wrangler d1 execute parking-db --local --file="${tmpSql}"`, {
-    stdio: "pipe",
-  });
+  d1ExecFile(tmpSql);
 
   const done = Math.min((b + 1) * BATCH, rows.length);
   process.stdout.write(`\r  ${done}/${rows.length} (${Math.round((done / rows.length) * 100)}%)`);

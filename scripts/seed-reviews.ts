@@ -8,9 +8,9 @@
  * 사용법: bun run scripts/seed-reviews.ts
  */
 import { writeFileSync, readFileSync, existsSync, unlinkSync } from "fs";
-import { execSync } from "child_process";
 import { resolve } from "path";
 import Anthropic from "@anthropic-ai/sdk";
+import { d1Query, d1ExecFile, isRemote } from "./lib/d1";
 
 // --- Config ---
 const DELAY = 1000; // API 호출 간 딜레이 (ms)
@@ -74,19 +74,9 @@ function esc(s: string): string {
   return s.replace(/'/g, "''");
 }
 
-function queryDB(sql: string): any[] {
-  const raw = execSync(
-    `npx wrangler d1 execute parking-db --local --command "${sql.replace(/"/g, '\\"')}" --json`,
-    { encoding: "utf-8", maxBuffer: 100 * 1024 * 1024 }
-  );
-  return JSON.parse(raw)[0]?.results ?? [];
-}
-
 function executeSQL(sql: string) {
   writeFileSync(TMP_SQL, sql);
-  execSync(`npx wrangler d1 execute parking-db --local --file="${TMP_SQL}"`, {
-    stdio: "pipe",
-  });
+  d1ExecFile(TMP_SQL);
 }
 
 // --- Claude API ---
@@ -157,8 +147,9 @@ async function main() {
   const completedSet = new Set(progress.completedIds);
 
   // curated 주차장 중 아직 seed 리뷰가 없는 것
+  if (isRemote) console.log("🌐 리모트 D1 모드\n");
   console.log("큐레이션 주차장 조회 중...");
-  const lots: CuratedLot[] = queryDB(`
+  const lots: CuratedLot[] = d1Query(`
     SELECT p.id, p.name, p.address, p.curation_tag, p.curation_reason,
       (SELECT COUNT(*) FROM crawled_reviews WHERE parking_lot_id = p.id AND relevance_score >= 40) as blog_count
     FROM parking_lots p
@@ -183,7 +174,7 @@ async function main() {
     }
 
     // 블로그 후기 가져오기
-    const blogs: BlogSnippet[] = queryDB(`
+    const blogs: BlogSnippet[] = d1Query(`
       SELECT title, content, source FROM crawled_reviews
       WHERE parking_lot_id = '${esc(lot.id)}' AND relevance_score >= 40
       ORDER BY relevance_score DESC LIMIT 5

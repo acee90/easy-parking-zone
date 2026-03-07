@@ -11,10 +11,10 @@
  *   --dry-run      hell-parking-list.json 수정 없이 미리보기
  */
 import { writeFileSync, readFileSync, existsSync } from "fs";
-import { execSync } from "child_process";
 import { resolve } from "path";
 import Anthropic from "@anthropic-ai/sdk";
 import { getUploadsPlaylistId, getChannelVideos, type YouTubeVideo } from "./lib/youtube-api";
+import { d1Query } from "./lib/d1";
 
 // --- Config ---
 const CHANNEL_HANDLE = "1010thtm";
@@ -48,14 +48,6 @@ function esc(s: string): string {
   return s.replace(/'/g, "''");
 }
 
-function queryDB(sql: string): any[] {
-  const raw = execSync(
-    `npx wrangler d1 execute parking-db --local --command "${sql.replace(/"/g, '\\"')}" --json`,
-    { encoding: "utf-8", maxBuffer: 100 * 1024 * 1024 }
-  );
-  return JSON.parse(raw)[0]?.results ?? [];
-}
-
 function findParkingByName(name: string): { id: string; name: string; address: string }[] {
   const keywords = name
     .replace(/주차장|주차/g, "")
@@ -66,7 +58,7 @@ function findParkingByName(name: string): { id: string; name: string; address: s
   if (keywords.length === 0) return [];
 
   const conditions = keywords.map((kw) => `name LIKE '%${esc(kw)}%'`).join(" AND ");
-  return queryDB(`SELECT id, name, address FROM parking_lots WHERE ${conditions} LIMIT 10`);
+  return d1Query(`SELECT id, name, address FROM parking_lots WHERE ${conditions} LIMIT 10`);
 }
 
 // --- Step 1: 채널 영상 수집 ---
