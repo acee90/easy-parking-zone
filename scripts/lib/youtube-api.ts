@@ -6,10 +6,14 @@
  *
  * 무료 할당: 10,000 units/일
  * - search.list: 100 units
+ * - channels.list: 1 unit
+ * - playlistItems.list: 1 unit
  * - commentThreads.list: 1 unit
  */
 
 const SEARCH_URL = "https://www.googleapis.com/youtube/v3/search";
+const CHANNELS_URL = "https://www.googleapis.com/youtube/v3/channels";
+const PLAYLIST_ITEMS_URL = "https://www.googleapis.com/youtube/v3/playlistItems";
 const COMMENTS_URL = "https://www.googleapis.com/youtube/v3/commentThreads";
 
 export interface YouTubeVideo {
@@ -72,6 +76,77 @@ export async function searchVideos(
     channelTitle: item.snippet.channelTitle,
     publishedAt: item.snippet.publishedAt,
   }));
+}
+
+/**
+ * 채널 핸들(@xxx)로 uploads playlist ID 조회 (1 unit)
+ */
+export async function getUploadsPlaylistId(handle: string): Promise<string> {
+  const params = new URLSearchParams({
+    part: "contentDetails",
+    forHandle: handle.replace(/^@/, ""),
+    key: getApiKey(),
+  });
+
+  const res = await fetch(`${CHANNELS_URL}?${params}`);
+  if (!res.ok) {
+    throw new Error(`YouTube Channels API ${res.status}: ${await res.text()}`);
+  }
+
+  const data = (await res.json()) as any;
+  const playlistId = data.items?.[0]?.contentDetails?.relatedPlaylists?.uploads;
+  if (!playlistId) {
+    throw new Error(`채널 "${handle}"의 uploads playlist를 찾을 수 없습니다.`);
+  }
+  return playlistId;
+}
+
+/**
+ * 채널 전체 영상 목록 수집 (1 unit/call, 50개씩 페이지네이션)
+ */
+export async function getChannelVideos(
+  playlistId: string,
+  maxTotal = 500
+): Promise<YouTubeVideo[]> {
+  const videos: YouTubeVideo[] = [];
+  let pageToken: string | undefined;
+
+  while (videos.length < maxTotal) {
+    const params = new URLSearchParams({
+      part: "snippet",
+      playlistId,
+      maxResults: "50",
+      key: getApiKey(),
+    });
+    if (pageToken) params.set("pageToken", pageToken);
+
+    const res = await fetch(`${PLAYLIST_ITEMS_URL}?${params}`);
+    if (!res.ok) {
+      throw new Error(`YouTube PlaylistItems API ${res.status}: ${await res.text()}`);
+    }
+
+    const data = (await res.json()) as any;
+    for (const item of data.items ?? []) {
+      const s = item.snippet;
+      videos.push({
+        videoId: s.resourceId.videoId,
+        title: s.title,
+        description: s.description,
+        thumbnailUrl:
+          s.thumbnails?.high?.url ??
+          s.thumbnails?.medium?.url ??
+          s.thumbnails?.default?.url ??
+          "",
+        channelTitle: s.channelTitle,
+        publishedAt: s.publishedAt,
+      });
+    }
+
+    pageToken = data.nextPageToken;
+    if (!pageToken) break;
+  }
+
+  return videos;
 }
 
 /**
