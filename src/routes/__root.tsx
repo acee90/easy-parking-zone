@@ -119,13 +119,6 @@ export const Route = createRootRoute({
     ],
     headScripts: [
       {
-        src: 'https://www.googletagmanager.com/gtag/js?id=G-7FB8JKK2HD',
-        async: true,
-      },
-      {
-        children: `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-7FB8JKK2HD');`,
-      },
-      {
         type: 'application/ld+json',
         children: JSON.stringify({
           '@context': 'https://schema.org',
@@ -152,6 +145,15 @@ function RootDocument({ children }: { children: React.ReactNode }) {
     <html lang="ko">
       <head>
         <HeadContent />
+        <script
+          async
+          src="https://www.googletagmanager.com/gtag/js?id=G-7FB8JKK2HD"
+        />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-7FB8JKK2HD');`,
+          }}
+        />
       </head>
       <body>
         {children}
