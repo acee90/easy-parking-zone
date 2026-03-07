@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
-import type { ParkingFilters } from "@/types/parking";
-import { DEFAULT_FILTERS } from "@/types/parking";
+import type { ParkingFilters, DifficultyFilter } from "@/types/parking";
+import { DEFAULT_FILTERS, DEFAULT_DIFFICULTY } from "@/types/parking";
 
 const COOKIE_KEY = "parking_filters";
 
@@ -11,7 +11,12 @@ function readCookie(): ParkingFilters {
     .find((c) => c.startsWith(`${COOKIE_KEY}=`));
   if (!match) return DEFAULT_FILTERS;
   try {
-    return { ...DEFAULT_FILTERS, ...JSON.parse(decodeURIComponent(match.split("=")[1])) };
+    const parsed = JSON.parse(decodeURIComponent(match.split("=")[1]));
+    return {
+      ...DEFAULT_FILTERS,
+      ...parsed,
+      difficulty: { ...DEFAULT_DIFFICULTY, ...parsed.difficulty },
+    };
   } catch {
     return DEFAULT_FILTERS;
   }
@@ -19,7 +24,6 @@ function readCookie(): ParkingFilters {
 
 function writeCookie(filters: ParkingFilters) {
   const val = encodeURIComponent(JSON.stringify(filters));
-  // 1년 유지
   document.cookie = `${COOKIE_KEY}=${val};path=/;max-age=${365 * 86400};SameSite=Lax`;
 }
 
@@ -36,14 +40,27 @@ export function useParkingFilters() {
   }, []);
 
   const toggle = useCallback(
-    (key: keyof ParkingFilters) => {
+    (key: "freeOnly" | "publicOnly" | "excludeNoSang") => {
       const next = { ...filters, [key]: !filters[key] };
       setFilters(next);
     },
     [filters, setFilters]
   );
 
-  const activeCount = Object.values(filters).filter(Boolean).length;
+  const toggleDifficulty = useCallback(
+    (key: keyof DifficultyFilter) => {
+      const next = {
+        ...filters,
+        difficulty: { ...filters.difficulty, [key]: !filters.difficulty[key] },
+      };
+      setFilters(next);
+    },
+    [filters, setFilters]
+  );
 
-  return { filters, setFilters, toggle, activeCount };
+  const booleanCount = [filters.freeOnly, filters.publicOnly, filters.excludeNoSang].filter(Boolean).length;
+  const diffOff = Object.values(filters.difficulty).filter((v) => !v).length;
+  const activeCount = booleanCount + diffOff;
+
+  return { filters, setFilters, toggle, toggleDifficulty, activeCount };
 }

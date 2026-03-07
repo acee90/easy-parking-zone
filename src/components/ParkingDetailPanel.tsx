@@ -12,6 +12,14 @@ import {
 } from "@/lib/geo-utils";
 import { MapPin, Clock, CreditCard, Phone, ParkingSquare, X, MessageSquare, FileText, Star, User, Pen, Play, Flame, ThumbsUp } from "lucide-react";
 
+function decodeHtmlEntities(text: string): string {
+  const entities: Record<string, string> = {
+    "&amp;": "&", "&lt;": "<", "&gt;": ">",
+    "&quot;": '"', "&#39;": "'", "&apos;": "'",
+  };
+  return text.replace(/&(?:amp|lt|gt|quot|apos|#39);/g, (m) => entities[m] ?? m);
+}
+
 interface ParkingDetailPanelProps {
   lot: ParkingLot;
   onClose: () => void;
@@ -233,6 +241,7 @@ export function ParkingDetailPanel({
   const [media, setMedia] = useState<ParkingMedia[]>([]);
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [reviewKey, setReviewKey] = useState(0);
+  const [activeTab, setActiveTab] = useState<"reviews" | "media" | "blog">("reviews");
 
   useEffect(() => {
     fetchBlogPosts({ data: { parkingLotId: lot.id } })
@@ -245,6 +254,7 @@ export function ParkingDetailPanel({
       .then(setMedia)
       .catch(() => setMedia([]));
     setShowReviewForm(false);
+    setActiveTab("reviews");
   }, [lot.id]);
 
   const refreshReviews = () => {
@@ -398,131 +408,157 @@ export function ParkingDetailPanel({
           </div>
         )}
 
-        {/* YouTube 영상 */}
-        {media.length > 0 && (
-          <div className="pt-2 border-t">
-            <div className="flex items-center gap-2 mb-3">
-              <Play className="size-4 text-muted-foreground" />
-              <span className="font-medium text-sm">관련 영상</span>
-              <span className="text-xs text-muted-foreground">
-                {media.length}건
-              </span>
-            </div>
-            <div className="space-y-2.5">
-              {media.map((m) => (
-                <a
-                  key={m.id}
-                  href={m.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex gap-2.5 rounded-lg border px-2 py-2 hover:bg-gray-50 transition-colors"
-                >
-                  {m.thumbnailUrl && (
-                    <img
-                      src={m.thumbnailUrl}
-                      alt=""
-                      className="w-24 h-16 rounded object-cover shrink-0"
-                    />
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-medium text-gray-900 line-clamp-2 mb-1">
-                      {m.title}
-                    </p>
-                    {m.description && (
-                      <p className="text-[11px] text-muted-foreground line-clamp-2">
-                        {m.description}
-                      </p>
-                    )}
-                  </div>
-                </a>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* 사용자 리뷰 */}
-        <div className="pt-2 border-t">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <MessageSquare className="size-4 text-muted-foreground" />
-              <span className="font-medium text-sm">난이도 리뷰</span>
-              {userReviews.length > 0 && (
-                <span className="text-xs text-muted-foreground">
-                  {userReviews.length}건
-                </span>
-              )}
-            </div>
-            {!showReviewForm && (
+        {/* 탭 영역 */}
+        <div className="border-t">
+          <div className="flex">
+            {(
+              [
+                { key: "reviews", icon: <MessageSquare className="size-3.5" />, label: "리뷰", count: userReviews.length },
+                { key: "media", icon: <Play className="size-3.5" />, label: "영상", count: media.length },
+                { key: "blog", icon: <FileText className="size-3.5" />, label: "블로그", count: blogPosts.length },
+              ] as const
+            ).map(({ key, icon, label, count }) => (
               <button
-                onClick={() => setShowReviewForm(true)}
-                className="flex items-center gap-1 text-xs text-blue-500 hover:text-blue-600 cursor-pointer"
+                key={key}
+                onClick={() => setActiveTab(key)}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium border-b-2 transition-colors cursor-pointer ${
+                  activeTab === key
+                    ? "border-blue-500 text-blue-600"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}
               >
-                <Pen className="size-3" />
-                리뷰 쓰기
+                {icon}
+                {label}
+                {count > 0 && (
+                  <span className={`text-[10px] rounded-full px-1.5 py-0.5 ${
+                    activeTab === key ? "bg-blue-50 text-blue-600" : "bg-zinc-100 text-zinc-500"
+                  }`}>
+                    {count}
+                  </span>
+                )}
               </button>
+            ))}
+          </div>
+
+          <div className="px-0 py-3">
+            {/* 난이도 리뷰 탭 */}
+            {activeTab === "reviews" && (
+              <div>
+                {!showReviewForm && (
+                  <div className="flex justify-end mb-2.5">
+                    <button
+                      onClick={() => setShowReviewForm(true)}
+                      className="flex items-center gap-1 text-xs text-blue-500 hover:text-blue-600 cursor-pointer"
+                    >
+                      <Pen className="size-3" />
+                      리뷰 쓰기
+                    </button>
+                  </div>
+                )}
+
+                {showReviewForm && (
+                  <div className="mb-3">
+                    <ReviewForm
+                      key={reviewKey}
+                      parkingLotId={lot.id}
+                      onSubmitted={refreshReviews}
+                    />
+                    <button
+                      onClick={() => setShowReviewForm(false)}
+                      className="mt-2 w-full text-xs text-muted-foreground hover:text-foreground cursor-pointer"
+                    >
+                      취소
+                    </button>
+                  </div>
+                )}
+
+                {userReviews.length > 0 ? (
+                  <div className="space-y-2.5">
+                    {userReviews.map((review) => (
+                      <UserReviewCard
+                        key={review.id}
+                        review={review}
+                        onDelete={
+                          review.isMine
+                            ? () => {
+                                deleteReview({ data: { reviewId: review.id } })
+                                  .then(refreshReviews)
+                                  .catch(() => {});
+                              }
+                            : undefined
+                        }
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  !showReviewForm && (
+                    <p className="text-xs text-muted-foreground text-center py-6">
+                      아직 리뷰가 없습니다. 첫 리뷰를 남겨보세요!
+                    </p>
+                  )
+                )}
+              </div>
+            )}
+
+            {/* 관련 영상 탭 */}
+            {activeTab === "media" && (
+              <div>
+                {media.length > 0 ? (
+                  <div className="space-y-2.5">
+                    {media.map((m) => (
+                      <a
+                        key={m.id}
+                        href={m.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex gap-2.5 rounded-lg border px-2 py-2 hover:bg-gray-50 transition-colors"
+                      >
+                        {m.thumbnailUrl && (
+                          <img
+                            src={m.thumbnailUrl}
+                            alt=""
+                            className="w-24 h-16 rounded object-cover shrink-0"
+                          />
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-medium text-gray-900 line-clamp-2 mb-1">
+                            {m.title ? decodeHtmlEntities(m.title) : ""}
+                          </p>
+                          {m.description && (
+                            <p className="text-[11px] text-muted-foreground line-clamp-2">
+                              {decodeHtmlEntities(m.description)}
+                            </p>
+                          )}
+                        </div>
+                      </a>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground text-center py-6">
+                    관련 영상이 없습니다
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* 블로그 후기 탭 */}
+            {activeTab === "blog" && (
+              <div>
+                {blogPosts.length > 0 ? (
+                  <div className="space-y-2.5">
+                    {blogPosts.map((post) => (
+                      <BlogPostCard key={post.sourceUrl} post={post} />
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground text-center py-6">
+                    블로그 후기가 없습니다
+                  </p>
+                )}
+              </div>
             )}
           </div>
-
-          {showReviewForm && (
-            <div className="mb-3">
-              <ReviewForm
-                key={reviewKey}
-                parkingLotId={lot.id}
-                onSubmitted={refreshReviews}
-              />
-              <button
-                onClick={() => setShowReviewForm(false)}
-                className="mt-2 w-full text-xs text-muted-foreground hover:text-foreground cursor-pointer"
-              >
-                취소
-              </button>
-            </div>
-          )}
-
-          {userReviews.length > 0 ? (
-            <div className="space-y-2.5">
-              {userReviews.map((review) => (
-                <UserReviewCard
-                  key={review.id}
-                  review={review}
-                  onDelete={
-                    review.isMine
-                      ? () => {
-                          deleteReview({ data: { reviewId: review.id } })
-                            .then(refreshReviews)
-                            .catch(() => {});
-                        }
-                      : undefined
-                  }
-                />
-              ))}
-            </div>
-          ) : (
-            !showReviewForm && (
-              <p className="text-xs text-muted-foreground text-center py-4">
-                아직 리뷰가 없습니다. 첫 리뷰를 남겨보세요!
-              </p>
-            )
-          )}
         </div>
-
-        {/* 블로그 후기 */}
-        {blogPosts.length > 0 && (
-          <div className="pt-2 border-t">
-            <div className="flex items-center gap-2 mb-3">
-              <FileText className="size-4 text-muted-foreground" />
-              <span className="font-medium text-sm">블로그 후기</span>
-              <span className="text-xs text-muted-foreground">
-                {blogPosts.length}건
-              </span>
-            </div>
-            <div className="space-y-2.5">
-              {blogPosts.map((post) => (
-                <BlogPostCard key={post.sourceUrl} post={post} />
-              ))}
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

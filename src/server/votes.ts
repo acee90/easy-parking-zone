@@ -1,6 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
+import { setResponseHeader } from "@tanstack/react-start/server";
 import { getDB } from "@/lib/db";
 import { createAuth } from "@/lib/auth";
+import { getAnonIdFromRequest, resolveVoterId, generateAnonId, buildAnonCookieValue } from "@/lib/vote-utils";
 
 async function getSessionUserId(request: Request): Promise<string | null> {
   try {
@@ -10,6 +12,15 @@ async function getSessionUserId(request: Request): Promise<string | null> {
   } catch {
     return null;
   }
+}
+
+/** 익명 ID가 없으면 생성하고 HttpOnly 쿠키로 설정 */
+function ensureAnonId(request: Request): string {
+  const existing = getAnonIdFromRequest(request);
+  if (existing) return existing;
+  const anonId = generateAnonId();
+  setResponseHeader("Set-Cookie", buildAnonCookieValue(anonId));
+  return anonId;
 }
 
 export interface VoteSummary {
@@ -27,6 +38,8 @@ export const fetchVoteSummary = createServerFn({ method: "GET" })
   .handler(async ({ data, request }): Promise<VoteSummary> => {
     const db = getDB();
     const userId = request ? await getSessionUserId(request) : null;
+    const anonId = request ? ensureAnonId(request) : null;
+    const voterId = resolveVoterId(userId, anonId);
 
     const counts = await db
       .prepare(
@@ -42,15 +55,17 @@ export const fetchVoteSummary = createServerFn({ method: "GET" })
     let myVote: "up" | "down" | null = null;
     let bookmarked = false;
 
-    if (userId) {
+    if (voterId) {
       const vote = await db
         .prepare(
           "SELECT vote_type FROM parking_votes WHERE user_id = ?1 AND parking_lot_id = ?2"
         )
-        .bind(userId, data.parkingLotId)
+        .bind(voterId, data.parkingLotId)
         .first<{ vote_type: string }>();
       myVote = (vote?.vote_type as "up" | "down") ?? null;
+    }
 
+    if (userId) {
       const bm = await db
         .prepare(
           "SELECT 1 FROM parking_bookmarks WHERE user_id = ?1 AND parking_lot_id = ?2"
@@ -77,42 +92,42 @@ export const toggleVote = createServerFn({ method: "POST" })
     } => input
   )
   .handler(async ({ data, request }) => {
-    const userId = request ? await getSessionUserId(request) : null;
-    if (!userId) throw new Error("로그인 필요");
+    if (!request) throw new Error("투표할 수 없습니다");
+    const userId = await getSessionUserId(request);
+    const anonId = ensureAnonId(request);
+    const voterId = resolveVoterId(userId, anonId);
+    if (!voterId) throw new Error("투표할 수 없습니다");
 
     const db = getDB();
     const existing = await db
       .prepare(
         "SELECT vote_type FROM parking_votes WHERE user_id = ?1 AND parking_lot_id = ?2"
       )
-      .bind(userId, data.parkingLotId)
+      .bind(voterId, data.parkingLotId)
       .first<{ vote_type: string }>();
 
     if (existing) {
       if (existing.vote_type === data.voteType) {
-        // 같은 타입 → 취소
         await db
           .prepare(
             "DELETE FROM parking_votes WHERE user_id = ?1 AND parking_lot_id = ?2"
           )
-          .bind(userId, data.parkingLotId)
+          .bind(voterId, data.parkingLotId)
           .run();
       } else {
-        // 다른 타입 → 변경
         await db
           .prepare(
             "UPDATE parking_votes SET vote_type = ?3 WHERE user_id = ?1 AND parking_lot_id = ?2"
           )
-          .bind(userId, data.parkingLotId, data.voteType)
+          .bind(voterId, data.parkingLotId, data.voteType)
           .run();
       }
     } else {
-      // 신규
       await db
         .prepare(
           "INSERT INTO parking_votes (user_id, parking_lot_id, vote_type) VALUES (?1, ?2, ?3)"
         )
-        .bind(userId, data.parkingLotId, data.voteType)
+        .bind(voterId, data.parkingLotId, data.voteType)
         .run();
     }
 

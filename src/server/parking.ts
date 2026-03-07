@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getDB } from "@/lib/db";
+import { buildDifficultyCondition } from "@/lib/filter-utils";
 import type { ParkingLot, MapBounds, MarkerCluster, BlogPost, ParkingFilters, ParkingMedia } from "@/types/parking";
 
 interface ParkingLotRow {
@@ -33,14 +34,19 @@ interface ParkingLotRow {
   review_count: number;
 }
 
-function buildFilterClauses(filters?: ParkingFilters): { where: string; params: unknown[] } {
+function buildFilterClauses(filters?: ParkingFilters): { where: string; having: string; params: unknown[] } {
   const clauses: string[] = [];
   const params: unknown[] = [];
   if (filters?.freeOnly) clauses.push("p.is_free = 1");
   if (filters?.publicOnly) clauses.push("p.id NOT LIKE 'KA-%' AND p.id NOT LIKE 'NV-%'");
   if (filters?.excludeNoSang) clauses.push("p.type != '노상'");
+
+  const diffCond = buildDifficultyCondition(filters);
+  const having = diffCond ? ` HAVING ${diffCond}` : "";
+
   return {
     where: clauses.length > 0 ? " AND " + clauses.join(" AND ") : "",
+    having,
     params,
   };
 }
@@ -91,7 +97,7 @@ export const fetchParkingLots = createServerFn({ method: "GET" })
   .handler(async ({ data }) => {
     const db = getDB();
     const limit = data.limit ?? 200;
-    const { where } = buildFilterClauses(data.filters);
+    const { where, having } = buildFilterClauses(data.filters);
 
     const result = await db
       .prepare(
@@ -102,7 +108,7 @@ export const fetchParkingLots = createServerFn({ method: "GET" })
         LEFT JOIN reviews r ON r.parking_lot_id = p.id
         WHERE p.lat BETWEEN ?1 AND ?2
           AND p.lng BETWEEN ?3 AND ?4${where}
-        GROUP BY p.id
+        GROUP BY p.id${having}
         LIMIT ?5`
       )
       .bind(data.south, data.north, data.west, data.east, limit)
@@ -120,6 +126,7 @@ export const fetchParkingClusters = createServerFn({ method: "GET" })
     const db = getDB();
     const cellSize = 360 / Math.pow(2, data.zoom);
     const { where } = buildFilterClauses(data.filters);
+    const diffWhere = buildDifficultyCondition(data.filters, "ls.avg_score");
 
     const result = await db
       .prepare(
@@ -136,7 +143,7 @@ export const fetchParkingClusters = createServerFn({ method: "GET" })
           GROUP BY parking_lot_id
         ) ls ON ls.parking_lot_id = p.id
         WHERE p.lat BETWEEN ?2 AND ?3
-          AND p.lng BETWEEN ?4 AND ?5${where}
+          AND p.lng BETWEEN ?4 AND ?5${where}${diffWhere ? ` AND ${diffWhere}` : ""}
         GROUP BY CAST(p.lat / ?1 AS INTEGER), CAST(p.lng / ?1 AS INTEGER)`
       )
       .bind(cellSize, data.south, data.north, data.west, data.east)

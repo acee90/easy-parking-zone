@@ -27,7 +27,7 @@ function App() {
     requestLocation,
   } = useGeolocation();
 
-  const { filters, toggle, activeCount } = useParkingFilters();
+  const { filters, toggle, toggleDifficulty, activeCount } = useParkingFilters();
 
   const [isClient, setIsClient] = useState(false);
   const [mapReady, setMapReady] = useState(false);
@@ -118,6 +118,7 @@ function App() {
           <FloatingFilters
             filters={filters}
             onToggle={toggle}
+            onToggleDifficulty={toggleDifficulty}
             activeCount={activeCount}
           />
           {mapLoading && (

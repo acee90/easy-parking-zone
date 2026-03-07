@@ -1,10 +1,8 @@
 import { useState, useEffect } from "react";
 import { fetchVoteSummary, toggleVote, type VoteSummary } from "@/server/votes";
-import { authClient } from "@/lib/auth-client";
 import { ThumbsUp, ThumbsDown } from "lucide-react";
 
 export function VoteBookmarkBar({ lotId }: { lotId: string }) {
-  const { data: session } = authClient.useSession();
   const [summary, setSummary] = useState<VoteSummary>({
     upCount: 0,
     downCount: 0,
@@ -20,11 +18,9 @@ export function VoteBookmarkBar({ lotId }: { lotId: string }) {
   }, [lotId]);
 
   const handleVote = async (voteType: "up" | "down") => {
-    if (!session) return;
     if (loading) return;
     setLoading(true);
 
-    // optimistic update
     setSummary((prev) => {
       const wasVoted = prev.myVote === voteType;
       const wasOther = prev.myVote !== null && prev.myVote !== voteType;
@@ -56,9 +52,8 @@ export function VoteBookmarkBar({ lotId }: { lotId: string }) {
     <div className="flex items-center gap-1">
       <button
         onClick={() => handleVote("up")}
-        disabled={!session}
-        title={session ? "주차 쉬워요" : "로그인 필요"}
-        className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 ${
+        title="주차 쉬워요"
+        className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer ${
           summary.myVote === "up"
             ? "bg-green-100 text-green-700"
             : "bg-gray-100 text-gray-600 hover:bg-gray-200"
@@ -69,9 +64,8 @@ export function VoteBookmarkBar({ lotId }: { lotId: string }) {
       </button>
       <button
         onClick={() => handleVote("down")}
-        disabled={!session}
-        title={session ? "주차 어려워요" : "로그인 필요"}
-        className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 ${
+        title="주차 어려워요"
+        className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer ${
           summary.myVote === "down"
             ? "bg-red-100 text-red-700"
             : "bg-gray-100 text-gray-600 hover:bg-gray-200"

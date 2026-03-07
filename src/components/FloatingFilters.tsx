@@ -1,19 +1,44 @@
-import { SlidersHorizontal } from "lucide-react";
-import type { ParkingFilters } from "@/types/parking";
+import { useState, useRef, useEffect } from "react";
+import { SlidersHorizontal, ChevronDown, Check } from "lucide-react";
+import type { ParkingFilters, DifficultyFilter } from "@/types/parking";
 
 interface FloatingFiltersProps {
   filters: ParkingFilters;
-  onToggle: (key: keyof ParkingFilters) => void;
+  onToggle: (key: "freeOnly" | "publicOnly" | "excludeNoSang") => void;
+  onToggleDifficulty: (key: keyof DifficultyFilter) => void;
   activeCount: number;
 }
 
-const FILTER_OPTIONS: { key: keyof ParkingFilters; label: string }[] = [
+const FILTER_OPTIONS: { key: "freeOnly" | "publicOnly" | "excludeNoSang"; label: string }[] = [
   { key: "freeOnly", label: "무료만" },
   { key: "publicOnly", label: "공영만" },
   { key: "excludeNoSang", label: "노상 제외" },
 ];
 
-export function FloatingFilters({ filters, onToggle, activeCount }: FloatingFiltersProps) {
+const DIFFICULTY_OPTIONS: { key: keyof DifficultyFilter; icon: string; label: string; desc: string }[] = [
+  { key: "easy", icon: "😊", label: "초보 추천", desc: "4.0~5.0점" },
+  { key: "normal", icon: "🙂", label: "보통", desc: "2.5~3.9점" },
+  { key: "hard", icon: "💀", label: "주의", desc: "1.5~2.4점" },
+  { key: "hell", icon: "💀💀", label: "초보 비추", desc: "1.0~1.4점" },
+  { key: "noReview", icon: "🅿️", label: "리뷰 없음", desc: "평가 전" },
+];
+
+export function FloatingFilters({ filters, onToggle, onToggleDifficulty, activeCount }: FloatingFiltersProps) {
+  const [diffOpen, setDiffOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const diffOff = Object.values(filters.difficulty).filter((v) => !v).length;
+
+  useEffect(() => {
+    if (!diffOpen) return;
+    function handleClick(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDiffOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [diffOpen]);
+
   return (
     <div className="absolute top-3 left-3 z-10 flex items-center gap-1.5">
       <div className="flex size-8 items-center justify-center rounded-full bg-white shadow-md border border-border relative">
@@ -37,6 +62,52 @@ export function FloatingFilters({ filters, onToggle, activeCount }: FloatingFilt
           {label}
         </button>
       ))}
+
+      <div className="relative" ref={dropdownRef}>
+        <button
+          onClick={() => setDiffOpen(!diffOpen)}
+          className={`rounded-full px-3 py-1.5 text-xs font-medium shadow-md border transition-colors flex items-center gap-1 ${
+            diffOff > 0
+              ? "bg-blue-500 text-white border-blue-500"
+              : "bg-white text-zinc-700 border-border hover:bg-zinc-50"
+          }`}
+        >
+          난이도{diffOff > 0 && ` (${5 - diffOff})`}
+          <ChevronDown className={`size-3 transition-transform ${diffOpen ? "rotate-180" : ""}`} />
+        </button>
+
+        {diffOpen && (
+          <div className="absolute top-full left-0 mt-1.5 w-48 rounded-lg bg-white shadow-lg border border-border py-1 animate-in fade-in slide-in-from-top-1 duration-150">
+            {DIFFICULTY_OPTIONS.map(({ key, icon, label, desc }) => {
+              const checked = filters.difficulty[key];
+              return (
+                <button
+                  key={key}
+                  onClick={() => onToggleDifficulty(key)}
+                  className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm hover:bg-zinc-50 transition-colors"
+                >
+                  <span
+                    className={`flex size-4 shrink-0 items-center justify-center rounded border transition-colors ${
+                      checked
+                        ? "bg-blue-500 border-blue-500"
+                        : "border-zinc-300 bg-white"
+                    }`}
+                  >
+                    {checked && <Check className="size-3 text-white" strokeWidth={3} />}
+                  </span>
+                  <span className="text-base leading-none">{icon}</span>
+                  <span className="flex flex-col">
+                    <span className={`text-xs font-medium ${checked ? "text-zinc-900" : "text-zinc-400"}`}>
+                      {label}
+                    </span>
+                    <span className="text-[10px] text-zinc-400">{desc}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

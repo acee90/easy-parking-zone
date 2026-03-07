@@ -69,16 +69,34 @@ export interface ParkingMedia {
   description?: string
 }
 
+export interface DifficultyFilter {
+  easy: boolean       // 😊 초보 추천 (4.0-5.0)
+  normal: boolean     // 🙂 보통 (2.5-3.9)
+  hard: boolean       // 💀 주의 (1.5-2.4)
+  hell: boolean       // 💀💀 초보 비추 (1.0-1.4)
+  noReview: boolean   // 🅿️ 리뷰 없음
+}
+
 export interface ParkingFilters {
   freeOnly: boolean
   publicOnly: boolean       // 공영(공공데이터 출처)만
   excludeNoSang: boolean    // 노상 제외
+  difficulty: DifficultyFilter
+}
+
+export const DEFAULT_DIFFICULTY: DifficultyFilter = {
+  easy: true,
+  normal: true,
+  hard: true,
+  hell: true,
+  noReview: true,
 }
 
 export const DEFAULT_FILTERS: ParkingFilters = {
   freeOnly: false,
   publicOnly: false,
   excludeNoSang: false,
+  difficulty: { ...DEFAULT_DIFFICULTY },
 }
 
 export interface UserReview {
