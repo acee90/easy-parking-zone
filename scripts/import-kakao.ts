@@ -7,9 +7,12 @@
  *
  * 사용법: bun run import-kakao
  */
-import { writeFileSync, readFileSync, existsSync, unlinkSync } from "fs";
+import { writeFileSync, existsSync, unlinkSync } from "fs";
 import { resolve } from "path";
 import { d1ExecFile } from "./lib/d1";
+import { sleep } from "./lib/geo";
+import { loadProgress, saveProgress } from "./lib/progress";
+import { esc, flushStatements } from "./lib/sql-flush";
 
 const API_KEY = process.env.KAKAO_REST_API_KEY;
 if (!API_KEY) {
@@ -47,8 +50,8 @@ interface KakaoResponse {
 }
 
 interface Progress {
-  completedCells: string[]; // "latIdx,lngIdx" 형태
-  collectedIds: string[];   // 카카오 place id 목록
+  completedCells: string[];
+  collectedIds: string[];
   totalPlaces: number;
   totalApiCalls: number;
   dbSavedCount: number;
@@ -56,28 +59,7 @@ interface Progress {
   lastUpdatedAt: string;
 }
 
-// --- Progress management ---
-function loadProgress(): Progress {
-  if (existsSync(PROGRESS_JSON)) {
-    return JSON.parse(readFileSync(PROGRESS_JSON, "utf-8"));
-  }
-  return {
-    completedCells: [],
-    collectedIds: [],
-    totalPlaces: 0,
-    totalApiCalls: 0,
-    dbSavedCount: 0,
-    startedAt: new Date().toISOString(),
-    lastUpdatedAt: new Date().toISOString(),
-  };
-}
-
-function saveProgress(p: Progress) {
-  p.lastUpdatedAt = new Date().toISOString();
-  writeFileSync(PROGRESS_JSON, JSON.stringify(p));
-  updateProgressMd(p);
-}
-
+// --- Progress display ---
 function updateProgressMd(p: Progress) {
   const latSteps = Math.ceil((KOREA.north - KOREA.south) / GRID_SIZE);
   const lngSteps = Math.ceil((KOREA.east - KOREA.west) / GRID_SIZE);
@@ -101,9 +83,12 @@ ${p.completedCells.length >= totalCells ? "✅ 완료" : "🔄 진행 중..."}
   writeFileSync(PROGRESS_MD, md);
 }
 
-// --- API ---
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+function saveProgressWithMd(p: Progress) {
+  saveProgress(PROGRESS_JSON, p);
+  updateProgressMd(p);
+}
 
+// --- API ---
 async function fetchCategory(
   rect: string,
   page: number,
@@ -149,7 +134,6 @@ async function collectCell(
 
   if (first.meta.total_count === 0) return [];
 
-  // 675건 초과 → 4분할
   if (first.meta.total_count > 675 && depth < 4) {
     const midLat = (south + north) / 2;
     const midLng = (west + east) / 2;
@@ -174,10 +158,6 @@ async function collectCell(
 }
 
 // --- DB ---
-function esc(s: string): string {
-  return s.replace(/'/g, "''");
-}
-
 function inferType(categoryName: string, placeName: string): string {
   const cat = categoryName + placeName;
   if (cat.includes("노상")) return "노상";
@@ -191,27 +171,32 @@ function inferType(categoryName: string, placeName: string): string {
 function saveBatchToDB(places: KakaoPlace[], progress: Progress) {
   if (places.length === 0) return;
 
-  const stmts = places
-    .map((p) => {
-      const id = `KA-${p.id}`;
-      const name = esc(p.place_name);
-      const type = inferType(p.category_name, p.place_name);
-      const address = esc(p.road_address_name || p.address_name || "");
-      const lat = parseFloat(p.y);
-      const lng = parseFloat(p.x);
-      const phone = esc(p.phone || "");
-      return `INSERT OR IGNORE INTO parking_lots (id,name,type,address,lat,lng,total_spaces,is_free,phone) VALUES ('${id}','${name}','${type}','${address}',${lat},${lng},0,0,'${phone}');`;
-    })
-    .join("\n");
+  const stmts = places.map((p) => {
+    const id = `KA-${p.id}`;
+    const name = esc(p.place_name);
+    const type = inferType(p.category_name, p.place_name);
+    const address = esc(p.road_address_name || p.address_name || "");
+    const lat = parseFloat(p.y);
+    const lng = parseFloat(p.x);
+    const phone = esc(p.phone || "");
+    return `INSERT OR IGNORE INTO parking_lots (id,name,type,address,lat,lng,total_spaces,is_free,phone) VALUES ('${id}','${name}','${type}','${address}',${lat},${lng},0,0,'${phone}');`;
+  });
 
-  writeFileSync(TMP_SQL, stmts);
-  d1ExecFile(TMP_SQL);
+  flushStatements(TMP_SQL, stmts);
   progress.dbSavedCount += places.length;
 }
 
 // --- Main ---
 async function main() {
-  const progress = loadProgress();
+  const progress = loadProgress<Progress>(PROGRESS_JSON, {
+    completedCells: [],
+    collectedIds: [],
+    totalPlaces: 0,
+    totalApiCalls: 0,
+    dbSavedCount: 0,
+    startedAt: "",
+    lastUpdatedAt: "",
+  });
   const completedSet = new Set(progress.completedCells);
   const collectedIdSet = new Set(progress.collectedIds);
 
@@ -220,9 +205,8 @@ async function main() {
   const totalCells = latSteps * lngSteps;
 
   console.log(`카카오 PK6 수집 시작 (${completedSet.size}/${totalCells} 셀 완료됨)`);
-  saveProgress(progress);
+  saveProgressWithMd(progress);
 
-  // 새로 수집된 place를 모아서 주기적으로 DB 저장
   let pendingPlaces: KakaoPlace[] = [];
   const DB_FLUSH_SIZE = 200;
 
@@ -254,16 +238,14 @@ async function main() {
       completedSet.add(cellKey);
       progress.completedCells.push(cellKey);
 
-      // DB flush
       if (pendingPlaces.length >= DB_FLUSH_SIZE) {
         saveBatchToDB(pendingPlaces, progress);
         pendingPlaces = [];
       }
 
-      // 50셀마다 진행상황 저장
       if (completedSet.size % 50 === 0) {
         progress.collectedIds = [...collectedIdSet];
-        saveProgress(progress);
+        saveProgressWithMd(progress);
         process.stdout.write(
           `\r  ${completedSet.size}/${totalCells} (${((completedSet.size / totalCells) * 100).toFixed(1)}%) | ${progress.totalPlaces}건 | API ${progress.totalApiCalls}회`
         );
@@ -271,13 +253,12 @@ async function main() {
     }
   }
 
-  // 나머지 flush
   if (pendingPlaces.length > 0) {
     saveBatchToDB(pendingPlaces, progress);
   }
 
   progress.collectedIds = [...collectedIdSet];
-  saveProgress(progress);
+  saveProgressWithMd(progress);
 
   if (existsSync(TMP_SQL)) unlinkSync(TMP_SQL);
 

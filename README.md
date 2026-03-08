@@ -13,7 +13,7 @@
 
 - **주차장 난이도 지도** — 네이버 지도 기반, 난이도를 아이콘(😊/🙂/💀)으로 표시
 - **난이도 평가 시스템** — 진입로, 주차면 크기, 통로 여유, 출차 난이도, 종합 추천도 5개 항목 평가
-- **헬 주차장 큐레이션** — 유명 난코스 주차장 59곳 태그 + YouTube 영상/댓글 연동
+- **헬 주차장 큐레이션** — 유명 난코스 주차장 99곳 태그 + YouTube 영상/댓글 연동
 - **소셜 로그인** — 카카오/네이버/구글 로그인 후 리뷰 작성
 - **투표/북마크** — 주차장 난이도 투표 및 즐겨찾기
 - **플로팅 필터** — 주차장 유형, 요금, 난이도 등 필터링
@@ -95,21 +95,43 @@ scripts/               # 데이터 수집/처리 스크립트
 | 한국교통안전공단 주차정보 API | 실시간 잔여면수 | 실시간 |
 | 카카오 Local API (PK6) | 보완 데이터 | 수시 |
 | 네이버 블로그/카페 크롤링 | 리뷰 데이터 (56K+건) | 수시 |
+| 네이버 플레이스 크롤링 | 방문자 리뷰 (Playwright) | 수시 |
 | YouTube 크롤링 | 헬 주차장 영상/댓글 | 수시 |
 | 자체 크라우드소싱 | 난이도 평가 리뷰 | 실시간 |
 
-## 데이터 스크립트
+## 데이터 수집 스크립트
+
+모든 스크립트는 `--remote` 플래그로 리모트 D1에 직접 실행 가능.
+자세한 아키텍처는 [docs/crawling-architecture-strategy.md](docs/crawling-architecture-strategy.md) 참고.
+
+### 활성 스크립트
+
+| 스크립트 | 역할 | 실행 시점 |
+|----------|------|-----------|
+| `import-csv.ts` | 공공데이터 CSV → D1 | 월 1회 (데이터 갱신 시) |
+| `import-kakao.ts` | 카카오 PK6 주차장 수집 | 비정기 |
+| `import-naver-local.ts` | 네이버 지역검색 주차장 수집 | 비정기 |
+| `crawl-naver-blogs.ts` | 네이버 블로그/카페 리뷰 | 비정기 (리뷰 보강) |
+| `crawl-youtube.ts` | YouTube 영상/댓글 | 비정기 (리뷰 보강) |
+| `crawl-naver-place.ts` | 네이버 플레이스 방문자 리뷰 | 비정기 (리뷰 보강) |
+| `curate-hell-parking.ts` | 헬/이지 큐레이션 태그 적용 | 큐레이션 추가 시 |
+| `collect-1010-channel.ts` | 10시10분 채널 영상 분석 | 비정기 (수동) |
 
 ```bash
-bun run import-csv          # 공공데이터 CSV 임포트
-bun run import-kakao        # 카카오 API 데이터 임포트
-bun run import-naver-local  # 네이버 로컬 데이터 임포트
-bun run crawl-naver         # 네이버 블로그/카페 크롤링
-bun run crawl-youtube       # YouTube 영상/댓글 크롤링
-bun run curate-hell         # 헬 주차장 큐레이션
-bun run seed-reviews        # 시드 리뷰 생성
-bun run backfill-summaries  # AI 요약 백필
+bun run scripts/crawl-naver-place.ts           # 로컬 D1
+bun run scripts/crawl-naver-place.ts --remote  # 리모트 D1
 ```
+
+### 공통 라이브러리 (`scripts/lib/`)
+
+| 파일 | 역할 |
+|------|------|
+| `d1.ts` | D1 쿼리/실행 유틸, `--remote` 지원 |
+| `naver-api.ts` | 네이버 검색 API 래퍼 |
+| `youtube-api.ts` | YouTube Data API 래퍼 |
+| `progress.ts` | JSON 기반 진행 상태 관리 (중단/재개) |
+| `sql-flush.ts` | SQL escape, INSERT 생성, 배치 flush |
+| `geo.ts` | 주소→지역 추출, 제네릭 이름 판별 |
 
 ## 라이선스
 

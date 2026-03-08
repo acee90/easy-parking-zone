@@ -1,7 +1,7 @@
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
 	"name": "easy-parking-zone",
-	"main": "@tanstack/react-start/server-entry",
+	"main": "src/server/worker-entry.ts",
 	"compatibility_date": "2025-04-01",
 	"compatibility_flags": [
 		"nodejs_compat"
@@ -9,6 +9,9 @@
 	"vars": {
 		"VITE_NAVER_MAP_CLIENT_ID": "uw8likbp4e",
 		"BETTER_AUTH_URL": "https://easy-parking.xyz"
+	},
+	"triggers": {
+		"crons": ["0 3 * * *"]
 	},
 	"d1_databases": [
 		{

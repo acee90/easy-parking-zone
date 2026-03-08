@@ -7,9 +7,10 @@
  *
  * 사용법: bun run scripts/curate-hell-parking.ts [--suggest]
  */
-import { writeFileSync, readFileSync, existsSync, unlinkSync } from "fs";
+import { readFileSync, existsSync } from "fs";
 import { resolve } from "path";
-import { d1Query, d1ExecFile, isRemote } from "./lib/d1";
+import { d1Query, isRemote } from "./lib/d1";
+import { esc, flushStatements } from "./lib/sql-flush";
 
 const TMP_SQL = resolve(import.meta.dir, "../.tmp-curate.sql");
 const LIST_JSON = resolve(import.meta.dir, "hell-parking-list.json");
@@ -18,20 +19,14 @@ if (isRemote) console.log("🌐 리모트 D1 모드\n");
 
 // ── 수동 큐레이션 리스트 타입 ──
 interface CuratedEntry {
-  id?: string; // DB id (있으면 직접 매칭)
-  name: string; // 주차장명 (검색용)
+  id?: string;
+  name: string;
   tag: "hell" | "easy";
-  reason: string; // "골뱅이 나선형", "넓은 평면" 등
-}
-
-// ── DB 헬퍼 ──
-function esc(s: string): string {
-  return s.replace(/'/g, "''");
+  reason: string;
 }
 
 // ── 이름으로 주차장 검색 ──
 function findParkingByName(name: string): { id: string; name: string; address: string }[] {
-  // LIKE 검색 — 핵심 키워드 추출
   const keywords = name
     .replace(/주차장|주차/g, "")
     .trim()
@@ -72,7 +67,6 @@ function applyTags() {
   for (const entry of entries) {
     let targetId = entry.id;
 
-    // id가 없으면 이름으로 검색
     if (!targetId) {
       const candidates = findParkingByName(entry.name);
       if (candidates.length === 0) {
@@ -85,7 +79,6 @@ function applyTags() {
         for (const c of candidates) {
           console.warn(`     - ${c.id} | ${c.name} | ${c.address}`);
         }
-        // 첫 번째 결과 사용
       }
       targetId = candidates[0].id;
       console.log(`  ✅ "${entry.name}" → ${targetId} (${candidates[0].name})`);
@@ -98,14 +91,12 @@ function applyTags() {
   }
 
   if (stmts.length > 0) {
-    writeFileSync(TMP_SQL, stmts.join("\n"));
-    d1ExecFile(TMP_SQL);
+    flushStatements(TMP_SQL, stmts);
     console.log(`\n✅ ${matched}개 태깅 완료, ${unmatched}개 매칭 실패`);
   } else {
     console.log("\n태깅할 항목이 없습니다.");
   }
 
-  // 결과 확인
   const tagged = d1Query(
     "SELECT id, name, curation_tag, curation_reason FROM parking_lots WHERE is_curated = 1 ORDER BY curation_tag, name"
   );
@@ -148,5 +139,3 @@ if (args.includes("--suggest")) {
 } else {
   applyTags();
 }
-
-if (existsSync(TMP_SQL)) unlinkSync(TMP_SQL);

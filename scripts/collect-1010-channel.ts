@@ -15,6 +15,8 @@ import { resolve } from "path";
 import Anthropic from "@anthropic-ai/sdk";
 import { getUploadsPlaylistId, getChannelVideos, type YouTubeVideo } from "./lib/youtube-api";
 import { d1Query } from "./lib/d1";
+import { sleep } from "./lib/geo";
+import { esc } from "./lib/sql-flush";
 
 // --- Config ---
 const CHANNEL_HANDLE = "1010thtm";
@@ -22,16 +24,16 @@ const VIDEOS_JSON = resolve(import.meta.dir, "1010-videos.json");
 const RESULT_JSON = resolve(import.meta.dir, "1010-parking-result.json");
 const HELL_LIST_JSON = resolve(import.meta.dir, "hell-parking-list.json");
 const DELAY = 800;
-const BATCH_SIZE = 15; // Claude API 배치 크기
+const BATCH_SIZE = 15;
 
 // --- Types ---
 interface ParsedParking {
   videoId: string;
   videoTitle: string;
   parkingName: string;
-  location: string; // 지역 (서울 영등포, 부산 해운대 등)
-  reason: string; // 난이도 사유
-  isParking: boolean; // 주차장 관련 영상인지
+  location: string;
+  reason: string;
+  isParking: boolean;
 }
 
 interface HellListEntry {
@@ -39,13 +41,6 @@ interface HellListEntry {
   name: string;
   tag: "hell" | "easy";
   reason: string;
-}
-
-// --- Helpers ---
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-function esc(s: string): string {
-  return s.replace(/'/g, "''");
 }
 
 function findParkingByName(name: string): { id: string; name: string; address: string }[] {
@@ -97,7 +92,6 @@ async function parseVideos(videos: YouTubeVideo[]): Promise<ParsedParking[]> {
   const client = new Anthropic();
   const results: ParsedParking[] = [];
 
-  // 배치로 처리
   for (let i = 0; i < videos.length; i += BATCH_SIZE) {
     const batch = videos.slice(i, i + BATCH_SIZE);
     const batchNum = Math.floor(i / BATCH_SIZE) + 1;
@@ -176,7 +170,6 @@ function matchAndUpdate(parsed: ParsedParking[], dryRun: boolean) {
   const hellList: HellListEntry[] = JSON.parse(readFileSync(HELL_LIST_JSON, "utf-8"));
   const existingNames = new Set(hellList.map((e) => e.name.replace(/주차장|주차/g, "").trim().toLowerCase()));
 
-  // 중복 제거 (같은 주차장명)
   const uniqueMap = new Map<string, ParsedParking>();
   for (const p of parsed) {
     if (!p.parkingName) continue;
@@ -192,13 +185,11 @@ function matchAndUpdate(parsed: ParsedParking[], dryRun: boolean) {
   let alreadyExists = 0;
 
   for (const [key, p] of uniqueMap) {
-    // 기존 리스트에 있는지 확인
     if (existingNames.has(key)) {
       alreadyExists++;
       continue;
     }
 
-    // DB에서 매칭
     const candidates = findParkingByName(p.parkingName);
     if (candidates.length > 0) {
       const best = candidates[0];
@@ -241,7 +232,6 @@ function matchAndUpdate(parsed: ParsedParking[], dryRun: boolean) {
     return;
   }
 
-  // hell-parking-list.json 업데이트
   const updated = [...hellList, ...newEntries];
   writeFileSync(HELL_LIST_JSON, JSON.stringify(updated, null, 2));
   console.log(`\nhell-parking-list.json 업데이트: ${hellList.length} → ${updated.length}개 (+${newEntries.length})`);
@@ -261,7 +251,6 @@ async function main() {
 
   console.log("=== 10시10분 채널 주차장 수집 ===\n");
 
-  // Step 1
   const videos = parseOnly
     ? JSON.parse(readFileSync(VIDEOS_JSON, "utf-8"))
     : await fetchVideos();
@@ -271,10 +260,8 @@ async function main() {
     return;
   }
 
-  // Step 2
   const parsed = await parseVideos(videos);
 
-  // Step 3
   matchAndUpdate(parsed, dryRun);
 
   console.log("\n=== 완료 ===");

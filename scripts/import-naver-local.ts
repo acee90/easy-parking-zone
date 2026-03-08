@@ -8,9 +8,12 @@
  *
  * 사용법: bun run import-naver-local
  */
-import { writeFileSync, readFileSync, existsSync, unlinkSync } from "fs";
+import { writeFileSync, existsSync, unlinkSync } from "fs";
 import { resolve } from "path";
-import { d1Query as d1QueryLib, d1ExecFile, isRemote } from "./lib/d1";
+import { d1Query, d1ExecFile, isRemote } from "./lib/d1";
+import { sleep } from "./lib/geo";
+import { loadProgress, saveProgress } from "./lib/progress";
+import { esc, flushStatements } from "./lib/sql-flush";
 
 // ── 환경변수 ──
 const CLIENT_ID = process.env.NAVER_CLIENT_ID;
@@ -23,7 +26,7 @@ if (!CLIENT_ID || !CLIENT_SECRET) {
 const API_URL = "https://openapi.naver.com/v1/search/local.json";
 const PROGRESS_FILE = resolve(import.meta.dir, "naver-local-progress.json");
 const TMP_SQL = resolve(import.meta.dir, "../.tmp-naver.sql");
-const DELAY = 200; // ms between API calls
+const DELAY = 200;
 
 // ── 전국 시군구 목록 ──
 const REGIONS: string[] = [
@@ -89,7 +92,6 @@ const REGIONS: string[] = [
   "제주 제주시","제주 서귀포시",
 ];
 
-// 검색어 접미사 (2개로 줄여서 API 호출 절약)
 const SUFFIXES = ["주차장", "공영주차장"];
 
 // ── Types ──
@@ -132,29 +134,7 @@ function parseCoords(mapx: string, mapy: string): { lat: number; lng: number } {
   return { lat, lng };
 }
 
-// ── Progress ──
-function loadProgress(): Progress {
-  if (existsSync(PROGRESS_FILE)) {
-    return JSON.parse(readFileSync(PROGRESS_FILE, "utf-8"));
-  }
-  return {
-    completedQueries: [],
-    newPlaces: 0,
-    skippedDuplicates: 0,
-    totalApiCalls: 0,
-    startedAt: new Date().toISOString(),
-    lastUpdatedAt: new Date().toISOString(),
-  };
-}
-
-function saveProgress(p: Progress) {
-  p.lastUpdatedAt = new Date().toISOString();
-  writeFileSync(PROGRESS_FILE, JSON.stringify(p));
-}
-
 // ── API ──
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
 async function searchLocal(query: string, progress: Progress): Promise<NaverPlace[]> {
   const params = new URLSearchParams({
     query,
@@ -188,12 +168,6 @@ async function searchLocal(query: string, progress: Progress): Promise<NaverPlac
 }
 
 // ── DB 헬퍼 ──
-const d1Query = d1QueryLib;
-
-function esc(s: string): string {
-  return s.replace(/'/g, "''").replace(/<\/?b>/g, "");
-}
-
 function stripHtml(s: string): string {
   return s.replace(/<[^>]*>/g, "");
 }
@@ -232,15 +206,19 @@ function isDuplicate(
 
 // ── 메인 ──
 async function main() {
-  const progress = loadProgress();
+  const progress = loadProgress<Progress>(PROGRESS_FILE, {
+    completedQueries: [],
+    newPlaces: 0,
+    skippedDuplicates: 0,
+    totalApiCalls: 0,
+    startedAt: "",
+    lastUpdatedAt: "",
+  });
   const completedSet = new Set(progress.completedQueries);
 
-  // 기존 DB를 메모리에 로드 (중복 체크용)
   const existingLots = loadExistingLots();
-  // 새로 추가하는 것도 중복 체크에 포함
   const newLots: ExistingLot[] = [];
 
-  // 검색어 목록 생성
   const queries: string[] = [];
   for (const region of REGIONS) {
     for (const suffix of SUFFIXES) {
@@ -264,7 +242,6 @@ async function main() {
       const places = await searchLocal(query, progress);
 
       for (const place of places) {
-        // 주차장 카테고리 필터
         const title = stripHtml(place.title);
         if (
           !place.category.includes("주차") &&
@@ -277,10 +254,8 @@ async function main() {
 
         const { lat, lng } = parseCoords(place.mapx, place.mapy);
 
-        // 좌표 유효성 (한국 범위)
         if (lat < 33 || lat > 39 || lng < 124 || lng > 132) continue;
 
-        // 기존 DB + 이번 세션 신규 모두에서 중복 체크
         if (
           isDuplicate(existingLots, title, lat, lng) ||
           isDuplicate(newLots, title, lat, lng)
@@ -304,7 +279,7 @@ async function main() {
       console.error(`\n  Error on "${query}": ${(err as Error).message}`);
       if ((err as Error).message.includes("401") || (err as Error).message.includes("403")) {
         console.error("\n인증 에러 - https://developers.naver.com/apps/ 에서 '검색 > 지역' API 활성화 필요");
-        saveProgress(progress);
+        saveProgress(PROGRESS_FILE, progress);
         process.exit(1);
       }
     }
@@ -312,35 +287,28 @@ async function main() {
     completedSet.add(query);
     progress.completedQueries.push(query);
 
-    // DB flush
     if (pendingSql.length >= FLUSH_SIZE) {
-      writeFileSync(TMP_SQL, pendingSql.join("\n"));
-      d1ExecFile(TMP_SQL);
+      flushStatements(TMP_SQL, pendingSql);
       pendingSql = [];
     }
 
-    // 진행상황 표시
     const pct = ((completedSet.size / totalQueries) * 100).toFixed(1);
     process.stdout.write(
       `\r  ${completedSet.size}/${totalQueries} (${pct}%) | 신규: ${progress.newPlaces} | 중복스킵: ${progress.skippedDuplicates} | API: ${progress.totalApiCalls}`
     );
 
-    // 50개마다 진행상황 저장
     if (completedSet.size % 50 === 0) {
-      saveProgress(progress);
+      saveProgress(PROGRESS_FILE, progress);
     }
   }
 
-  // 나머지 flush
   if (pendingSql.length > 0) {
-    writeFileSync(TMP_SQL, pendingSql.join("\n"));
-    d1ExecFile(TMP_SQL);
+    flushStatements(TMP_SQL, pendingSql);
   }
 
-  saveProgress(progress);
+  saveProgress(PROGRESS_FILE, progress);
   if (existsSync(TMP_SQL)) unlinkSync(TMP_SQL);
 
-  // 최종 결과
   const totalAfter = d1Query<{ cnt: number }>("SELECT COUNT(*) as cnt FROM parking_lots")[0]?.cnt ?? 0;
 
   console.log(`\n\n=== 완료 ===`);

@@ -12,6 +12,7 @@
 import { readFileSync, writeFileSync, unlinkSync } from "fs";
 import { resolve } from "path";
 import { d1ExecFile } from "./lib/d1";
+import { esc } from "./lib/sql-flush";
 
 const CSV_PATH = resolve(
   import.meta.dir,
@@ -36,8 +37,8 @@ const col = (name: string) => {
 const COL = {
   id: col("주차장관리번호"),
   name: col("주차장명"),
-  division: col("주차장구분"), // 공영/민영
-  type: col("주차장유형"), // 노외/노상
+  division: col("주차장구분"),
+  type: col("주차장유형"),
   roadAddr: col("소재지도로명주소"),
   lotAddr: col("소재지지번주소"),
   spaces: col("주차구획수"),
@@ -86,17 +87,11 @@ function parseCSVLine(line: string): string[] {
   return fields;
 }
 
-// 주차장유형 → DB type 매핑
 function mapType(csvType: string): string {
   if (csvType.includes("노상")) return "노상";
   if (csvType.includes("노외")) return "노외";
   if (csvType.includes("부설")) return "부설";
   return csvType || "노외";
-}
-
-// SQL escape
-function esc(s: string): string {
-  return s.replace(/'/g, "''");
 }
 
 interface Row {

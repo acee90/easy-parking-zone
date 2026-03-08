@@ -8,9 +8,9 @@
  *
  * 사용법: bun run crawl-naver
  */
-import { writeFileSync, readFileSync, existsSync, unlinkSync } from "fs";
+import { existsSync, unlinkSync } from "fs";
 import { resolve } from "path";
-import { d1Query, d1ExecFile, isRemote } from "./lib/d1";
+import { d1Query, isRemote } from "./lib/d1";
 import {
   searchNaverBlog,
   searchNaverCafe,
@@ -19,9 +19,12 @@ import {
   hashUrl,
   type NaverSearchItem,
 } from "./lib/naver-api";
+import { extractRegion, isGenericName, sleep } from "./lib/geo";
+import { loadProgress, saveProgress } from "./lib/progress";
+import { esc, buildInsert, flushStatements } from "./lib/sql-flush";
 
 // --- Config ---
-const DELAY = 300; // API 호출 간 딜레이 (ms)
+const DELAY = 300;
 const RELEVANCE_THRESHOLD = 40;
 const RESULTS_PER_QUERY = 5;
 const DB_FLUSH_SIZE = 50;
@@ -58,76 +61,10 @@ interface PendingReview {
   relevanceScore: number;
 }
 
-// --- Progress ---
-function loadProgress(): Progress {
-  if (existsSync(PROGRESS_JSON)) {
-    return JSON.parse(readFileSync(PROGRESS_JSON, "utf-8"));
-  }
-  return {
-    completedIds: [],
-    totalApiCalls: 0,
-    savedReviews: 0,
-    skippedGeneric: 0,
-    skippedLowRelevance: 0,
-    startedAt: new Date().toISOString(),
-    lastUpdatedAt: new Date().toISOString(),
-  };
-}
-
-function saveProgress(p: Progress) {
-  p.lastUpdatedAt = new Date().toISOString();
-  writeFileSync(PROGRESS_JSON, JSON.stringify(p));
-}
-
-// --- Mapping accuracy helpers ---
-
-/** 제네릭 주차장 이름 감지 — 검색해도 무의미한 결과만 나옴 */
-const GENERIC_PATTERNS = [
-  /^제?\d+주차장$/,
-  /^지하주차장$/,
-  /^주차장$/,
-  /^옥상주차장$/,
-  /^야외주차장$/,
-  /^주차타워$/,
-  /^기계식주차장$/,
-  /^자주식주차장$/,
-  /^공영주차장$/,
-  /^\S{1,2}주차장$/, // "A주차장", "B1주차장" 등
+const REVIEW_COLUMNS = [
+  "parking_lot_id", "source", "source_id", "title", "content",
+  "source_url", "author", "published_at", "relevance_score",
 ];
-
-function isGenericName(name: string): boolean {
-  const cleaned = name.replace(/\s/g, "");
-  return GENERIC_PATTERNS.some((p) => p.test(cleaned));
-}
-
-/** 주소에서 동/구/시 추출 — 검색 쿼리 지역 한정용 */
-function extractRegion(address: string): string {
-  // "서울특별시 강남구 역삼동 123-4" → "강남구 역삼동"
-  // "경기도 수원시 팔달구 인계동" → "팔달구 인계동"
-  const parts = address.split(/\s+/);
-  const regionParts: string[] = [];
-
-  for (const part of parts) {
-    // 시/도 레벨은 스킵 (너무 넓음)
-    if (/^(서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주)/.test(part)) continue;
-    // 시 레벨도 스킵
-    if (/시$/.test(part) && !/(구$|군$)/.test(part)) continue;
-    // 구/군/동/읍/면 → 유용한 지역 키워드
-    if (/(구|군|동|읍|면|로|길)$/.test(part)) {
-      regionParts.push(part);
-      if (regionParts.length >= 2) break;
-    }
-  }
-
-  return regionParts.join(" ");
-}
-
-/** 검색 쿼리 생성 */
-function buildSearchQuery(name: string, address: string): string {
-  const region = extractRegion(address);
-  // "롯데마트 주차장 강남구" 형태
-  return `${name} 주차장 ${region}`.trim();
-}
 
 /** 검색 결과 관련도 점수 (0-100) */
 function scoreRelevance(
@@ -140,71 +77,56 @@ function scoreRelevance(
   const desc = stripHtml(item.description).toLowerCase();
   const nameLower = name.toLowerCase();
 
-  // 이름의 핵심 키워드 추출 (2글자 이상 단어)
   const nameKeywords = nameLower
     .replace(/주차장|공영|노외|노상|부설/g, "")
     .split(/\s+/)
     .filter((w) => w.length >= 2);
 
-  // 이름 키워드가 제목에 포함: 40점
-  if (nameKeywords.some((kw) => title.includes(kw))) {
-    score += 40;
-  }
+  if (nameKeywords.some((kw) => title.includes(kw))) score += 40;
+  if (nameKeywords.some((kw) => desc.includes(kw))) score += 20;
 
-  // 이름 키워드가 본문에 포함: 20점
-  if (nameKeywords.some((kw) => desc.includes(kw))) {
-    score += 20;
-  }
-
-  // 지역 키워드 일치: 20점
   const region = extractRegion(address).toLowerCase();
   const regionWords = region.split(/\s+/).filter((w) => w.length >= 2);
-  if (regionWords.some((rw) => title.includes(rw) || desc.includes(rw))) {
-    score += 20;
-  }
+  if (regionWords.some((rw) => title.includes(rw) || desc.includes(rw))) score += 20;
 
-  // "주차" 포함: 20점
-  if (title.includes("주차") || desc.includes("주차")) {
-    score += 20;
-  }
+  if (title.includes("주차") || desc.includes("주차")) score += 20;
 
   return score;
 }
 
 // --- DB helpers ---
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-function esc(s: string): string {
-  return s.replace(/'/g, "''");
-}
-
 function flushToDB(reviews: PendingReview[], progress: Progress) {
   if (reviews.length === 0) return;
 
-  const stmts = reviews
-    .map(
-      (r) =>
-        `INSERT OR IGNORE INTO crawled_reviews (parking_lot_id, source, source_id, title, content, source_url, author, published_at, relevance_score) VALUES ('${esc(r.parkingLotId)}', '${r.source}', '${r.sourceId}', '${esc(r.title)}', '${esc(r.content)}', '${esc(r.sourceUrl)}', '${esc(r.author)}', ${r.publishedAt ? `'${r.publishedAt}'` : "NULL"}, ${r.relevanceScore});`
-    )
-    .join("\n");
+  const stmts = reviews.map((r) =>
+    buildInsert("crawled_reviews", REVIEW_COLUMNS, [
+      r.parkingLotId, r.source, r.sourceId, r.title, r.content,
+      r.sourceUrl, r.author, r.publishedAt, r.relevanceScore,
+    ])
+  );
 
-  writeFileSync(TMP_SQL, stmts);
-  d1ExecFile(TMP_SQL);
+  flushStatements(TMP_SQL, stmts);
   progress.savedReviews += reviews.length;
 }
 
 // --- Main ---
 async function main() {
-  // 환경변수 체크
   if (!process.env.NAVER_CLIENT_ID || !process.env.NAVER_CLIENT_SECRET) {
     console.error("NAVER_CLIENT_ID / NAVER_CLIENT_SECRET가 .env에 설정되지 않았습니다.");
     process.exit(1);
   }
 
-  const progress = loadProgress();
+  const progress = loadProgress<Progress>(PROGRESS_JSON, {
+    completedIds: [],
+    totalApiCalls: 0,
+    savedReviews: 0,
+    skippedGeneric: 0,
+    skippedLowRelevance: 0,
+    startedAt: "",
+    lastUpdatedAt: "",
+  });
   const completedSet = new Set(progress.completedIds);
 
-  // D1에서 주차장 목록 조회
   if (isRemote) console.log("🌐 리모트 D1 모드\n");
   console.log("주차장 목록 조회 중...");
   const lots: ParkingRow[] = d1Query("SELECT id, name, address FROM parking_lots");
@@ -216,7 +138,6 @@ async function main() {
   for (const lot of lots) {
     if (completedSet.has(lot.id)) continue;
 
-    // 제네릭 이름 스킵
     if (isGenericName(lot.name)) {
       progress.skippedGeneric++;
       completedSet.add(lot.id);
@@ -225,7 +146,8 @@ async function main() {
       continue;
     }
 
-    const query = buildSearchQuery(lot.name, lot.address);
+    const region = extractRegion(lot.address);
+    const query = `${lot.name} 주차장 ${region}`.trim();
 
     // 블로그 검색
     try {
@@ -291,27 +213,24 @@ async function main() {
     progress.completedIds.push(lot.id);
     processed++;
 
-    // DB flush
     if (pending.length >= DB_FLUSH_SIZE) {
       flushToDB(pending, progress);
       pending = [];
     }
 
-    // 진행상황 출력 (20건마다)
     if (processed % 20 === 0) {
-      saveProgress(progress);
+      saveProgress(PROGRESS_JSON, progress);
       process.stdout.write(
         `\r  ${completedSet.size}/${lots.length} | 저장 ${progress.savedReviews}건 | API ${progress.totalApiCalls}회 | 제네릭스킵 ${progress.skippedGeneric} | 저관련도스킵 ${progress.skippedLowRelevance}`
       );
     }
   }
 
-  // 나머지 flush
   if (pending.length > 0) {
     flushToDB(pending, progress);
   }
 
-  saveProgress(progress);
+  saveProgress(PROGRESS_JSON, progress);
   if (existsSync(TMP_SQL)) unlinkSync(TMP_SQL);
 
   console.log(
