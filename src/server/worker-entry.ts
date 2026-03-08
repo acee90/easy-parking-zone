@@ -14,10 +14,18 @@ interface Env {
   YOUTUBE_API_KEY: string;
 }
 
-const fetch = createStartHandler(defaultStreamHandler);
+const startHandler = createStartHandler(defaultStreamHandler);
 
 export default {
-  fetch,
+  async fetch(request: Request, env: Env, ctx: ExecutionContext) {
+    // /__scheduled 경로로 수동 트리거 (dev/testing용)
+    const url = new URL(request.url);
+    if (url.pathname === "/__scheduled") {
+      await handleScheduled(env);
+      return new Response("OK", { status: 200 });
+    }
+    return startHandler(request, env, ctx);
+  },
   async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext) {
     ctx.waitUntil(handleScheduled(env));
   },
