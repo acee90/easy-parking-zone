@@ -34,6 +34,7 @@ export interface ParkingLot {
   notes?: string           // 특기사항
   curationTag?: 'hell' | 'easy' | null  // 큐레이션 태그
   curationReason?: string               // 큐레이션 사유
+  featuredSource?: string               // 출처 (e.g. '1010' = 10시10분 채널)
 }
 
 export interface MapBounds {

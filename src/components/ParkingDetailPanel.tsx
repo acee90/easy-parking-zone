@@ -405,6 +405,11 @@ export function ParkingDetailPanel({
           }`}>
             {lot.curationTag === 'hell' ? '⚠️' : '✅'}{' '}
             {lot.curationReason}
+            {lot.featuredSource === '1010' && (
+              <span className="block mt-1 text-muted-foreground">
+                📺 10시10분 유튜브에 소개된 주차장
+              </span>
+            )}
           </div>
         )}
 

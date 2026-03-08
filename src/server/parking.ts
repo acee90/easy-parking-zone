@@ -30,6 +30,7 @@ interface ParkingLotRow {
   notes: string | null;
   curation_tag: string | null;
   curation_reason: string | null;
+  featured_source: string | null;
   avg_score: number | null;
   review_count: number;
 }
@@ -85,6 +86,7 @@ function rowToParkingLot(row: ParkingLotRow): ParkingLot {
     notes: row.notes ?? undefined,
     curationTag: row.curation_tag as ParkingLot['curationTag'],
     curationReason: row.curation_reason ?? undefined,
+    featuredSource: row.featured_source ?? undefined,
   };
 }
 
@@ -205,6 +207,8 @@ export const fetchBlogPosts = createServerFn({ method: "GET" })
          FROM crawled_reviews
          WHERE parking_lot_id = ?1
            AND relevance_score >= 40
+           AND source_url NOT LIKE '%youtube.com%'
+           AND source_url NOT LIKE '%youtu.be%'
          ORDER BY relevance_score DESC
          LIMIT 5`
       )
