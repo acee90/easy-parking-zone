@@ -37,6 +37,14 @@ export interface ParkingLot {
   featuredSource?: string               // 출처 (e.g. '1010' = 10시10분 채널)
 }
 
+export interface Place {
+  name: string
+  address: string
+  lat: number
+  lng: number
+  category?: string
+}
+
 export interface MapBounds {
   south: number
   north: number

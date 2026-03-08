@@ -6,6 +6,7 @@ import type { ParkingLot } from "@/types/parking";
 
 interface HeaderProps {
   onSearchSelect: (lot: ParkingLot) => void;
+  onPlaceSelect?: (coords: { lat: number; lng: number }) => void;
 }
 
 function LoginModal({ onClose }: { onClose: () => void }) {
@@ -95,7 +96,7 @@ function UserMenu() {
   );
 }
 
-export function Header({ onSearchSelect }: HeaderProps) {
+export function Header({ onSearchSelect, onPlaceSelect }: HeaderProps) {
   const { data: session } = authClient.useSession();
   const [showLogin, setShowLogin] = useState(false);
 
@@ -106,7 +107,7 @@ export function Header({ onSearchSelect }: HeaderProps) {
           <Car className="size-5 text-blue-500" />
           <h1 className="font-bold text-base">쉬운주차</h1>
         </div>
-        <SearchBar onSelect={onSearchSelect} />
+        <SearchBar onSelect={onSearchSelect} onPlaceSelect={onPlaceSelect} />
         <div className="hidden sm:flex items-center gap-3 text-xs text-muted-foreground shrink-0">
           <span>😊 추천</span>
           <span>🙂 보통</span>

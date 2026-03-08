@@ -79,6 +79,11 @@ function App() {
     setSelectedLot(lot);
   }, []);
 
+  const handlePlaceSelect = useCallback((coords: { lat: number; lng: number }) => {
+    setSelectedLot(null);
+    setMoveTo(coords);
+  }, []);
+
   const handleSidebarSelect = useCallback((lot: ParkingLot) => {
     setMoveTo({ lat: lot.lat, lng: lot.lng });
     setSelectedLot(lot);
@@ -88,7 +93,7 @@ function App() {
 
   return (
     <div className="flex h-dvh flex-col">
-      <Header onSearchSelect={handleSearchSelect} />
+      <Header onSearchSelect={handleSearchSelect} onPlaceSelect={handlePlaceSelect} />
 
       <div className="flex flex-1 overflow-hidden">
         {/* 리스트 사이드바 — 항상 표시 (데스크톱) */}

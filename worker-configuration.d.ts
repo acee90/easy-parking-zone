@@ -4,6 +4,7 @@ declare namespace Cloudflare {
 	interface Env {
 		DB: D1Database;
 		VITE_NAVER_MAP_CLIENT_ID: string;
+		KAKAO_CLIENT_ID: string;
 	}
 }
 interface Env extends Cloudflare.Env {}

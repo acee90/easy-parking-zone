@@ -1,7 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getDB } from "@/lib/db";
 import { buildDifficultyCondition } from "@/lib/filter-utils";
-import type { ParkingLot, MapBounds, MarkerCluster, BlogPost, ParkingFilters, ParkingMedia } from "@/types/parking";
+import { env } from "cloudflare:workers";
+import type { ParkingLot, MapBounds, MarkerCluster, BlogPost, ParkingFilters, ParkingMedia, Place } from "@/types/parking";
 
 interface ParkingLotRow {
   id: string;
@@ -282,4 +283,39 @@ export const reportReview = createServerFn({ method: "POST" })
       .bind(data.sourceUrl, data.parkingLotId, data.reason)
       .run();
     return { ok: true };
+  });
+
+/** 카카오 키워드 장소 검색 (목적지 → 주변 주차장 찾기용) */
+export const searchPlaces = createServerFn({ method: "GET" })
+  .inputValidator((input: { query: string }): { query: string } => input)
+  .handler(async ({ data }): Promise<Place[]> => {
+    const apiKey = env.KAKAO_CLIENT_ID;
+    if (!apiKey || data.query.trim().length < 2) return [];
+
+    const url = `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(data.query)}&size=5`;
+    const res = await fetch(url, {
+      headers: { Authorization: `KakaoAK ${apiKey}` },
+    });
+    if (!res.ok) return [];
+
+    const json = (await res.json()) as {
+      documents: Array<{
+        place_name: string;
+        address_name: string;
+        x: string;
+        y: string;
+        category_group_name: string;
+      }>;
+    };
+
+    return json.documents
+      .filter((d) => d.category_group_name !== "주차장")
+      .slice(0, 5)
+      .map((d) => ({
+        name: d.place_name,
+        address: d.address_name,
+        lat: parseFloat(d.y),
+        lng: parseFloat(d.x),
+        category: d.category_group_name || undefined,
+      }));
   });
