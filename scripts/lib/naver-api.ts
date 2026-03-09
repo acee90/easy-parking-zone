@@ -60,11 +60,13 @@ export async function searchNaverBlog(
 /** 네이버 카페 검색 */
 export async function searchNaverCafe(
   query: string,
-  display = 10
+  display = 10,
+  start = 1
 ): Promise<NaverSearchResponse> {
   const params = new URLSearchParams({
     query,
     display: String(display),
+    start: String(start),
     sort: "sim",
   });
   const res = await fetch(`${CAFE_URL}?${params}`, { headers: getHeaders() });

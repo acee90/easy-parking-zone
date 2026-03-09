@@ -13,6 +13,8 @@ export function createAuth() {
             usePlural: false,
           },
         },
+        geolocationTracking: false,
+        autoDetectIpAddress: false,
       },
       {
         socialProviders: {

@@ -24,7 +24,7 @@ export default {
       await handleScheduled(env);
       return new Response("OK", { status: 200 });
     }
-    return startHandler(request, env, ctx);
+    return startHandler(request, env);
   },
   async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext) {
     ctx.waitUntil(handleScheduled(env));
