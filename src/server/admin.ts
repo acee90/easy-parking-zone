@@ -33,33 +33,20 @@ async function requireAdmin(request: Request) {
 
 // --- Types ---
 
-interface SignalRow {
-  id: number;
-  parking_lot_id: string;
-  url: string;
-  title: string;
-  snippet: string;
-  ai_sentiment: string;
-  human_score: number | null;
-  lot_name: string;
-  lot_address: string;
-}
-
 export interface LotTag {
   parkingLotId: string;
   name: string;
   address: string;
-  count: number;
 }
 
-export interface GroupedSignal {
+export interface SignalItem {
+  id: number;
   title: string;
+  url: string;
   snippet: string;
   aiSentiment: string;
   humanScore: number | null;
-  urls: string[];
   lots: LotTag[];
-  signalIds: number[];
 }
 
 // --- Server functions ---
@@ -82,7 +69,7 @@ export const checkAdminAccess = createServerFn({ method: "GET" }).handler(
   }
 );
 
-export const fetchGroupedSignals = createServerFn({ method: "GET" })
+export const fetchSignals = createServerFn({ method: "GET" })
   .inputValidator(
     (input: {
       status?: "pending" | "tagged" | "irrelevant" | "all";
@@ -99,132 +86,123 @@ export const fetchGroupedSignals = createServerFn({ method: "GET" })
     const db = getDB();
     const offset = (page - 1) * limit;
 
-    // Build dynamic query parts
-    const where: string[] = [];
-    const binds: unknown[] = [];
+    const conditions: string[] = [];
+    const params: unknown[] = [];
     let idx = 1;
 
+    if (status === "pending") {
+      conditions.push("cs.human_score IS NULL");
+    } else if (status === "tagged") {
+      conditions.push("cs.human_score IS NOT NULL AND cs.human_score > 0");
+    } else if (status === "irrelevant") {
+      conditions.push("cs.human_score = 0");
+    }
+
+    let joinClause = "";
     if (lotSearch) {
-      where.push(`p.name LIKE ?${idx}`);
-      binds.push(`%${lotSearch}%`);
+      joinClause = `
+        JOIN cafe_signal_lots csl_f ON csl_f.signal_id = cs.id
+        JOIN parking_lots p_f ON p_f.id = csl_f.parking_lot_id`;
+      conditions.push(`p_f.name LIKE ?${idx}`);
+      params.push(`%${lotSearch}%`);
       idx++;
     }
 
-    const whereClause =
-      where.length > 0 ? `WHERE ${where.join(" AND ")}` : "";
+    const where =
+      conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
-    let having = "";
-    if (status === "pending") {
-      having =
-        "HAVING SUM(CASE WHEN cs.human_score IS NOT NULL THEN 1 ELSE 0 END) = 0";
-    } else if (status === "tagged") {
-      having =
-        "HAVING SUM(CASE WHEN cs.human_score > 0 THEN 1 ELSE 0 END) > 0";
-    } else if (status === "irrelevant") {
-      having =
-        "HAVING SUM(CASE WHEN cs.human_score = 0 THEN 1 ELSE 0 END) > 0";
-    }
-
-    // Count unique title groups
+    // Count
     const countResult = await db
       .prepare(
-        `SELECT COUNT(*) as total FROM (
-           SELECT cs.title
-           FROM cafe_signals cs
-           JOIN parking_lots p ON p.id = cs.parking_lot_id
-           ${whereClause}
-           GROUP BY cs.title
-           ${having}
-         )`
+        `SELECT COUNT(DISTINCT cs.id) as total
+         FROM cafe_signals cs ${joinClause} ${where}`
       )
-      .bind(...binds)
+      .bind(...params)
       .first<{ total: number }>();
 
-    // Get paginated title groups
-    const titlesResult = await db
+    // Paginated signals
+    const signalsResult = await db
       .prepare(
-        `SELECT cs.title
-         FROM cafe_signals cs
-         JOIN parking_lots p ON p.id = cs.parking_lot_id
-         ${whereClause}
-         GROUP BY cs.title
-         ${having}
-         ORDER BY MIN(cs.id)
+        `SELECT DISTINCT cs.id, cs.title, cs.url, cs.snippet,
+                cs.ai_sentiment, cs.human_score
+         FROM cafe_signals cs ${joinClause} ${where}
+         ORDER BY cs.id
          LIMIT ?${idx} OFFSET ?${idx + 1}`
       )
-      .bind(...binds, limit, offset)
-      .all<{ title: string }>();
+      .bind(...params, limit, offset)
+      .all<{
+        id: number;
+        title: string;
+        url: string;
+        snippet: string;
+        ai_sentiment: string;
+        human_score: number | null;
+      }>();
 
-    const titles: string[] =
-      titlesResult.results?.map((r: { title: string }) => r.title) ?? [];
-
-    if (titles.length === 0) {
-      return { items: [] as GroupedSignal[], total: countResult?.total ?? 0, page, limit };
+    const signals = signalsResult.results ?? [];
+    if (signals.length === 0) {
+      return {
+        items: [] as SignalItem[],
+        total: countResult?.total ?? 0,
+        page,
+        limit,
+      };
     }
 
-    // Fetch all rows for these title groups
-    const ph = titles.map((_: string, i: number) => `?${i + 1}`).join(",");
-    const dataResult = await db
+    // Fetch lots for these signals
+    const ids = signals.map((s: { id: number }) => s.id);
+    const ph = ids.map((_: number, i: number) => `?${i + 1}`).join(",");
+    const lotsResult = await db
       .prepare(
-        `SELECT cs.id, cs.parking_lot_id, cs.url, cs.title, cs.snippet,
-                cs.ai_sentiment, cs.human_score,
-                p.name as lot_name, p.address as lot_address
-         FROM cafe_signals cs
-         JOIN parking_lots p ON p.id = cs.parking_lot_id
-         WHERE cs.title IN (${ph})
-         ORDER BY cs.title, cs.id`
+        `SELECT csl.signal_id, csl.parking_lot_id, p.name, p.address
+         FROM cafe_signal_lots csl
+         JOIN parking_lots p ON p.id = csl.parking_lot_id
+         WHERE csl.signal_id IN (${ph})`
       )
-      .bind(...titles)
-      .all<SignalRow>();
+      .bind(...ids)
+      .all<{
+        signal_id: number;
+        parking_lot_id: string;
+        name: string;
+        address: string;
+      }>();
 
-    // Group by title
-    const groupMap = new Map<string, GroupedSignal>();
-    for (const row of dataResult.results ?? []) {
-      let group = groupMap.get(row.title);
-      if (!group) {
-        group = {
-          title: row.title,
-          snippet: row.snippet,
-          aiSentiment: row.ai_sentiment,
-          humanScore: row.human_score,
-          urls: [],
-          lots: [],
-          signalIds: [],
-        };
-        groupMap.set(row.title, group);
-      }
-
-      group.signalIds.push(row.id);
-      if (!group.urls.includes(row.url)) group.urls.push(row.url);
-      if (row.human_score !== null && group.humanScore === null) {
-        group.humanScore = row.human_score;
-      }
-
-      const existing = group.lots.find(
-        (l) => l.parkingLotId === row.parking_lot_id
-      );
-      if (existing) {
-        existing.count++;
-      } else {
-        group.lots.push({
-          parkingLotId: row.parking_lot_id,
-          name: row.lot_name,
-          address: row.lot_address,
-          count: 1,
-        });
-      }
+    const lotsMap = new Map<number, LotTag[]>();
+    for (const row of lotsResult.results ?? []) {
+      const arr = lotsMap.get(row.signal_id) ?? [];
+      arr.push({
+        parkingLotId: row.parking_lot_id,
+        name: row.name,
+        address: row.address,
+      });
+      lotsMap.set(row.signal_id, arr);
     }
 
-    const items = titles
-      .map((t: string) => groupMap.get(t))
-      .filter((g: GroupedSignal | undefined): g is GroupedSignal => g !== undefined);
+    const items: SignalItem[] = signals.map(
+      (s: {
+        id: number;
+        title: string;
+        url: string;
+        snippet: string;
+        ai_sentiment: string;
+        human_score: number | null;
+      }) => ({
+        id: s.id,
+        title: s.title,
+        url: s.url,
+        snippet: s.snippet,
+        aiSentiment: s.ai_sentiment,
+        humanScore: s.human_score,
+        lots: lotsMap.get(s.id) ?? [],
+      })
+    );
 
     return { items, total: countResult?.total ?? 0, page, limit };
   });
 
-export const tagGroup = createServerFn({ method: "POST" })
+export const tagSignal = createServerFn({ method: "POST" })
   .inputValidator(
-    (input: { title: string; humanScore: number | null }) => input
+    (input: { signalId: number; humanScore: number | null }) => input
   )
   .handler(async ({ data, request }) => {
     if (!request) throw new Error("서버 요청 필요");
@@ -233,65 +211,47 @@ export const tagGroup = createServerFn({ method: "POST" })
     const db = getDB();
     await db
       .prepare(
-        "UPDATE cafe_signals SET human_score = ?1, updated_at = datetime('now') WHERE title = ?2"
+        "UPDATE cafe_signals SET human_score = ?1, updated_at = datetime('now') WHERE id = ?2"
       )
-      .bind(data.humanScore, data.title)
+      .bind(data.humanScore, data.signalId)
       .run();
 
     return { ok: true };
   });
 
-export const removeLotFromGroup = createServerFn({ method: "POST" })
+export const removeLotFromSignal = createServerFn({ method: "POST" })
   .inputValidator(
-    (input: { title: string; parkingLotId: string }) => input
+    (input: { signalId: number; parkingLotId: string }) => input
   )
   .handler(async ({ data, request }) => {
     if (!request) throw new Error("서버 요청 필요");
     await requireAdmin(request);
 
     const db = getDB();
-    const result = await db
-      .prepare(
-        "DELETE FROM cafe_signals WHERE title = ?1 AND parking_lot_id = ?2"
-      )
-      .bind(data.title, data.parkingLotId)
-      .run();
-
-    return { deleted: result.meta.changes ?? 0 };
-  });
-
-export const addLotToGroup = createServerFn({ method: "POST" })
-  .inputValidator(
-    (input: { title: string; parkingLotId: string }) => input
-  )
-  .handler(async ({ data, request }) => {
-    if (!request) throw new Error("서버 요청 필요");
-    await requireAdmin(request);
-
-    const db = getDB();
-
-    const existing = await db
-      .prepare(
-        "SELECT url, snippet, ai_sentiment FROM cafe_signals WHERE title = ?1 LIMIT 1"
-      )
-      .bind(data.title)
-      .first<{ url: string; snippet: string; ai_sentiment: string }>();
-
-    if (!existing) throw new Error("시그널을 찾을 수 없습니다");
-
     await db
       .prepare(
-        `INSERT OR IGNORE INTO cafe_signals
-         (parking_lot_id, url, title, snippet, ai_sentiment, created_at, updated_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, datetime('now'), datetime('now'))`
+        "DELETE FROM cafe_signal_lots WHERE signal_id = ?1 AND parking_lot_id = ?2"
       )
-      .bind(
-        data.parkingLotId,
-        existing.url,
-        data.title,
-        existing.snippet,
-        existing.ai_sentiment
+      .bind(data.signalId, data.parkingLotId)
+      .run();
+
+    return { ok: true };
+  });
+
+export const addLotToSignal = createServerFn({ method: "POST" })
+  .inputValidator(
+    (input: { signalId: number; parkingLotId: string }) => input
+  )
+  .handler(async ({ data, request }) => {
+    if (!request) throw new Error("서버 요청 필요");
+    await requireAdmin(request);
+
+    const db = getDB();
+    await db
+      .prepare(
+        "INSERT OR IGNORE INTO cafe_signal_lots (signal_id, parking_lot_id) VALUES (?1, ?2)"
       )
+      .bind(data.signalId, data.parkingLotId)
       .run();
 
     const lot = await db
@@ -306,27 +266,6 @@ export const addLotToGroup = createServerFn({ method: "POST" })
         address: lot?.address ?? "",
       },
     };
-  });
-
-export const deduplicateGroup = createServerFn({ method: "POST" })
-  .inputValidator((input: { title: string }) => input)
-  .handler(async ({ data, request }) => {
-    if (!request) throw new Error("서버 요청 필요");
-    await requireAdmin(request);
-
-    const db = getDB();
-    const result = await db
-      .prepare(
-        `DELETE FROM cafe_signals
-         WHERE title = ?1
-         AND id NOT IN (
-           SELECT MIN(id) FROM cafe_signals WHERE title = ?1 GROUP BY parking_lot_id
-         )`
-      )
-      .bind(data.title)
-      .run();
-
-    return { deleted: result.meta.changes ?? 0 };
   });
 
 export const searchParkingLots = createServerFn({ method: "GET" })

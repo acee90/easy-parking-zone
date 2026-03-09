@@ -3,14 +3,13 @@ import { useState, useEffect, useRef } from "react";
 import { authClient } from "@/lib/auth-client";
 import {
   checkAdminAccess,
-  fetchGroupedSignals,
+  fetchSignals,
   fetchSignalStats,
-  tagGroup,
-  removeLotFromGroup,
-  addLotToGroup,
-  deduplicateGroup,
+  tagSignal,
+  removeLotFromSignal,
+  addLotToSignal,
   searchParkingLots,
-  type GroupedSignal,
+  type SignalItem,
 } from "@/server/admin";
 
 export const Route = createFileRoute("/admin")({
@@ -23,7 +22,7 @@ function AdminPage() {
   const [stats, setStats] = useState<Awaited<
     ReturnType<typeof fetchSignalStats>
   > | null>(null);
-  const [groups, setGroups] = useState<GroupedSignal[]>([]);
+  const [signals, setSignals] = useState<SignalItem[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<
@@ -35,7 +34,7 @@ function AdminPage() {
   const reload = () => {
     setLoading(true);
     Promise.all([
-      fetchGroupedSignals({
+      fetchSignals({
         data: {
           status: statusFilter,
           lotSearch: lotSearch || undefined,
@@ -45,7 +44,7 @@ function AdminPage() {
       }),
       fetchSignalStats(),
     ]).then(([res, s]) => {
-      setGroups(res.items);
+      setSignals(res.items);
       setTotal(res.total);
       setStats(s);
       setLoading(false);
@@ -80,58 +79,41 @@ function AdminPage() {
     );
   }
 
-  async function handleTag(title: string, score: number | null) {
-    await tagGroup({ data: { title, humanScore: score } });
+  async function handleTag(signalId: number, score: number | null) {
+    await tagSignal({ data: { signalId, humanScore: score } });
     if (statusFilter === "pending" && score !== null) {
-      setGroups((prev) => prev.filter((g) => g.title !== title));
+      setSignals((prev) => prev.filter((s) => s.id !== signalId));
       setTotal((t) => t - 1);
     } else {
-      setGroups((prev) =>
-        prev.map((g) =>
-          g.title === title ? { ...g, humanScore: score } : g
+      setSignals((prev) =>
+        prev.map((s) =>
+          s.id === signalId ? { ...s, humanScore: score } : s
         )
       );
     }
     fetchSignalStats().then(setStats);
   }
 
-  async function handleRemoveLot(title: string, lotId: string) {
-    await removeLotFromGroup({ data: { title, parkingLotId: lotId } });
-    setGroups((prev) =>
-      prev
-        .map((g) => {
-          if (g.title !== title) return g;
-          const lots = g.lots.filter((l) => l.parkingLotId !== lotId);
-          return lots.length === 0 ? null : { ...g, lots };
-        })
-        .filter((g): g is GroupedSignal => g !== null)
+  async function handleRemoveLot(signalId: number, lotId: string) {
+    await removeLotFromSignal({ data: { signalId, parkingLotId: lotId } });
+    setSignals((prev) =>
+      prev.map((s) =>
+        s.id === signalId
+          ? { ...s, lots: s.lots.filter((l) => l.parkingLotId !== lotId) }
+          : s
+      )
     );
-    fetchSignalStats().then(setStats);
   }
 
-  async function handleAddLot(title: string, lotId: string) {
-    const res = await addLotToGroup({ data: { title, parkingLotId: lotId } });
-    setGroups((prev) =>
-      prev.map((g) => {
-        if (g.title !== title) return g;
-        if (g.lots.some((l) => l.parkingLotId === lotId)) return g;
-        return {
-          ...g,
-          lots: [
-            ...g.lots,
-            { ...res.lot, count: 1 },
-          ],
-        };
+  async function handleAddLot(signalId: number, lotId: string) {
+    const res = await addLotToSignal({ data: { signalId, parkingLotId: lotId } });
+    setSignals((prev) =>
+      prev.map((s) => {
+        if (s.id !== signalId) return s;
+        if (s.lots.some((l) => l.parkingLotId === lotId)) return s;
+        return { ...s, lots: [...s.lots, res.lot] };
       })
     );
-  }
-
-  async function handleDedup(title: string) {
-    const res = await deduplicateGroup({ data: { title } });
-    if (res.deleted > 0) {
-      alert(`${res.deleted}건 중복 제거됨`);
-      reload();
-    }
   }
 
   const totalPages = Math.ceil(total / 50);
@@ -196,13 +178,13 @@ function AdminPage() {
             }}
             className="ml-auto px-3 py-1.5 border rounded-md text-sm w-48"
           />
-          <span className="text-sm text-gray-500">{total}그룹</span>
+          <span className="text-sm text-gray-500">{total}건</span>
         </div>
 
         {/* Table */}
         {loading ? (
           <div className="text-center py-12 text-gray-500">로딩 중...</div>
-        ) : groups.length === 0 ? (
+        ) : signals.length === 0 ? (
           <div className="text-center py-12 text-gray-500">
             데이터가 없습니다.
           </div>
@@ -224,20 +206,19 @@ function AdminPage() {
                     <th className="px-4 py-3 font-medium text-gray-600 w-16 text-center">
                       AI
                     </th>
-                    <th className="px-4 py-3 font-medium text-gray-600 w-64 text-center">
+                    <th className="px-4 py-3 font-medium text-gray-600 w-56 text-center">
                       액션
                     </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {groups.map((g) => (
-                    <GroupRow
-                      key={g.title}
-                      group={g}
+                  {signals.map((s) => (
+                    <SignalRow
+                      key={s.id}
+                      signal={s}
                       onTag={handleTag}
                       onRemoveLot={handleRemoveLot}
                       onAddLot={handleAddLot}
-                      onDedup={handleDedup}
                     />
                   ))}
                 </tbody>
@@ -304,7 +285,7 @@ function StatCard({
 }
 
 const SCORE_BUTTONS = [
-  { score: 0, label: "❌", title: "무관 — 이 글은 해당 주차장 난이도와 관련 없음", style: "bg-gray-50 text-gray-500 hover:bg-gray-100" },
+  { score: 0, label: "❌", title: "무관", style: "bg-gray-50 text-gray-500 hover:bg-gray-100" },
   { score: 1, label: "💀💀", title: "매우 어려움", style: "bg-red-100 text-red-800 hover:bg-red-200" },
   { score: 2, label: "💀", title: "어려움", style: "bg-red-50 text-red-700 hover:bg-red-100" },
   { score: 3, label: "😐", title: "보통", style: "bg-yellow-50 text-yellow-700 hover:bg-yellow-100" },
@@ -316,53 +297,49 @@ function scoreLabel(score: number): string {
   return SCORE_BUTTONS.find((b) => b.score === score)?.label ?? "?";
 }
 
-function GroupRow({
-  group: g,
+function SignalRow({
+  signal: s,
   onTag,
   onRemoveLot,
   onAddLot,
-  onDedup,
 }: {
-  group: GroupedSignal;
-  onTag: (title: string, score: number | null) => void;
-  onRemoveLot: (title: string, lotId: string) => void;
-  onAddLot: (title: string, lotId: string) => void;
-  onDedup: (title: string) => void;
+  signal: SignalItem;
+  onTag: (id: number, score: number | null) => void;
+  onRemoveLot: (id: number, lotId: string) => void;
+  onAddLot: (id: number, lotId: string) => void;
 }) {
   const [addingLot, setAddingLot] = useState(false);
 
   const aiIcon =
-    g.aiSentiment === "positive"
+    s.aiSentiment === "positive"
       ? "👍"
-      : g.aiSentiment === "negative"
+      : s.aiSentiment === "negative"
         ? "👎"
         : "➖";
-
-  const hasDuplicates = g.signalIds.length > g.lots.length;
 
   return (
     <tr className="border-b hover:bg-gray-50/50 align-top">
       {/* 관련 주차장 (태그) */}
       <td className="px-4 py-3">
         <div className="flex flex-wrap gap-1">
-          {g.lots.map((lot) => (
+          {s.lots.map((lot) => (
             <span
               key={lot.parkingLotId}
               className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-xs max-w-[200px]"
-              title={`${lot.name}\n${lot.address}${lot.count > 1 ? `\n(${lot.count}건 중복)` : ""}`}
+              title={`${lot.name}\n${lot.address}`}
             >
               <span className="truncate">{lot.name}</span>
-              {lot.count > 1 && (
-                <span className="text-blue-400 shrink-0">×{lot.count}</span>
-              )}
               <button
-                onClick={() => onRemoveLot(g.title, lot.parkingLotId)}
+                onClick={() => onRemoveLot(s.id, lot.parkingLotId)}
                 className="text-blue-300 hover:text-red-500 shrink-0 ml-0.5"
               >
                 ×
               </button>
             </span>
           ))}
+          {s.lots.length === 0 && (
+            <span className="text-xs text-gray-400 italic">주차장 없음</span>
+          )}
           <div className="relative">
             <button
               onClick={() => setAddingLot(!addingLot)}
@@ -373,7 +350,7 @@ function GroupRow({
             {addingLot && (
               <LotSearchDropdown
                 onSelect={(lotId) => {
-                  onAddLot(g.title, lotId);
+                  onAddLot(s.id, lotId);
                   setAddingLot(false);
                 }}
                 onClose={() => setAddingLot(false)}
@@ -385,24 +362,19 @@ function GroupRow({
 
       {/* 언급 스니펫 */}
       <td className="px-4 py-3">
-        <p className="text-xs text-gray-600 line-clamp-2">{g.snippet}</p>
+        <p className="text-xs text-gray-600 line-clamp-2">{s.snippet}</p>
       </td>
 
       {/* 카페 제목 */}
       <td className="px-4 py-3">
         <a
-          href={g.urls[0]}
+          href={s.url}
           target="_blank"
           rel="noopener noreferrer"
           className="text-xs text-blue-600 hover:underline line-clamp-2"
         >
-          {g.title}
+          {s.title}
         </a>
-        {g.urls.length > 1 && (
-          <p className="text-xs text-gray-400 mt-0.5">
-            +{g.urls.length - 1}개 URL
-          </p>
-        )}
       </td>
 
       {/* AI */}
@@ -410,41 +382,30 @@ function GroupRow({
 
       {/* 액션 */}
       <td className="px-4 py-3">
-        <div className="flex flex-col gap-1.5">
-          {g.humanScore === null ? (
-            <div className="flex gap-1 justify-center flex-wrap">
-              {SCORE_BUTTONS.map((btn) => (
-                <button
-                  key={btn.score}
-                  onClick={() => onTag(g.title, btn.score)}
-                  title={btn.title}
-                  className={`px-1.5 py-1 rounded text-xs transition-colors ${btn.style}`}
-                >
-                  {btn.label}
-                </button>
-              ))}
-            </div>
-          ) : (
-            <div className="flex gap-1 justify-center items-center">
-              <span className="text-sm">{scoreLabel(g.humanScore)}</span>
+        {s.humanScore === null ? (
+          <div className="flex gap-1 justify-center flex-wrap">
+            {SCORE_BUTTONS.map((btn) => (
               <button
-                onClick={() => onTag(g.title, null)}
-                className="px-1.5 py-0.5 rounded text-xs text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+                key={btn.score}
+                onClick={() => onTag(s.id, btn.score)}
+                title={btn.title}
+                className={`px-1.5 py-1 rounded text-xs transition-colors ${btn.style}`}
               >
-                되돌리기
+                {btn.label}
               </button>
-            </div>
-          )}
-          {hasDuplicates && (
+            ))}
+          </div>
+        ) : (
+          <div className="flex gap-1 justify-center items-center">
+            <span className="text-sm">{scoreLabel(s.humanScore)}</span>
             <button
-              onClick={() => onDedup(g.title)}
-              className="px-2 py-0.5 rounded text-xs bg-orange-50 text-orange-600 hover:bg-orange-100 self-center"
-              title={`${g.signalIds.length - g.lots.length}건 중복 URL 제거`}
+              onClick={() => onTag(s.id, null)}
+              className="px-1.5 py-0.5 rounded text-xs text-gray-400 hover:text-gray-600 hover:bg-gray-100"
             >
-              중복제거 ({g.signalIds.length - g.lots.length})
+              되돌리기
             </button>
-          )}
-        </div>
+          </div>
+        )}
       </td>
     </tr>
   );
