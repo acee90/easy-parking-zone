@@ -1,12 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { authClient } from "@/lib/auth-client";
 import {
   checkAdminAccess,
-  fetchSignals,
+  fetchGroupedSignals,
   fetchSignalStats,
-  tagSignal,
-  type CafeSignal,
+  tagGroup,
+  removeLotFromGroup,
+  addLotToGroup,
+  deduplicateGroup,
+  searchParkingLots,
+  type GroupedSignal,
 } from "@/server/admin";
 
 export const Route = createFileRoute("/admin")({
@@ -19,7 +23,7 @@ function AdminPage() {
   const [stats, setStats] = useState<Awaited<
     ReturnType<typeof fetchSignalStats>
   > | null>(null);
-  const [signals, setSignals] = useState<CafeSignal[]>([]);
+  const [groups, setGroups] = useState<GroupedSignal[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<
@@ -27,7 +31,26 @@ function AdminPage() {
   >("pending");
   const [lotSearch, setLotSearch] = useState("");
   const [loading, setLoading] = useState(true);
-  const [actionLoading, setActionLoading] = useState<number | null>(null);
+
+  const reload = () => {
+    setLoading(true);
+    Promise.all([
+      fetchGroupedSignals({
+        data: {
+          status: statusFilter,
+          lotSearch: lotSearch || undefined,
+          page,
+          limit: 50,
+        },
+      }),
+      fetchSignalStats(),
+    ]).then(([res, s]) => {
+      setGroups(res.items);
+      setTotal(res.total);
+      setStats(s);
+      setLoading(false);
+    });
+  };
 
   useEffect(() => {
     checkAdminAccess().then((r) => setIsAdmin(r.isAdmin));
@@ -35,18 +58,7 @@ function AdminPage() {
 
   useEffect(() => {
     if (!isAdmin) return;
-    setLoading(true);
-    Promise.all([
-      fetchSignals({
-        data: { status: statusFilter, lotSearch: lotSearch || undefined, page, limit: 50 },
-      }),
-      fetchSignalStats(),
-    ]).then(([res, s]) => {
-      setSignals(res.items);
-      setTotal(res.total);
-      setStats(s);
-      setLoading(false);
-    });
+    reload();
   }, [isAdmin, statusFilter, lotSearch, page]);
 
   if (isAdmin === null) {
@@ -68,23 +80,58 @@ function AdminPage() {
     );
   }
 
-  async function handleTag(signalId: number, humanScore: number) {
-    setActionLoading(signalId);
-    try {
-      await tagSignal({ data: { signalId, humanScore } });
-      if (statusFilter === "pending" && humanScore !== null) {
-        setSignals((prev) => prev.filter((s) => s.id !== signalId));
-        setTotal((t) => t - 1);
-      } else {
-        setSignals((prev) =>
-          prev.map((s) => (s.id === signalId ? { ...s, humanScore } : s))
-        );
-      }
-      fetchSignalStats().then(setStats);
-    } catch (err) {
-      alert((err as Error).message);
+  async function handleTag(title: string, score: number | null) {
+    await tagGroup({ data: { title, humanScore: score } });
+    if (statusFilter === "pending" && score !== null) {
+      setGroups((prev) => prev.filter((g) => g.title !== title));
+      setTotal((t) => t - 1);
+    } else {
+      setGroups((prev) =>
+        prev.map((g) =>
+          g.title === title ? { ...g, humanScore: score } : g
+        )
+      );
     }
-    setActionLoading(null);
+    fetchSignalStats().then(setStats);
+  }
+
+  async function handleRemoveLot(title: string, lotId: string) {
+    await removeLotFromGroup({ data: { title, parkingLotId: lotId } });
+    setGroups((prev) =>
+      prev
+        .map((g) => {
+          if (g.title !== title) return g;
+          const lots = g.lots.filter((l) => l.parkingLotId !== lotId);
+          return lots.length === 0 ? null : { ...g, lots };
+        })
+        .filter((g): g is GroupedSignal => g !== null)
+    );
+    fetchSignalStats().then(setStats);
+  }
+
+  async function handleAddLot(title: string, lotId: string) {
+    const res = await addLotToGroup({ data: { title, parkingLotId: lotId } });
+    setGroups((prev) =>
+      prev.map((g) => {
+        if (g.title !== title) return g;
+        if (g.lots.some((l) => l.parkingLotId === lotId)) return g;
+        return {
+          ...g,
+          lots: [
+            ...g.lots,
+            { ...res.lot, count: 1 },
+          ],
+        };
+      })
+    );
+  }
+
+  async function handleDedup(title: string) {
+    const res = await deduplicateGroup({ data: { title } });
+    if (res.deleted > 0) {
+      alert(`${res.deleted}건 중복 제거됨`);
+      reload();
+    }
   }
 
   const totalPages = Math.ceil(total / 50);
@@ -149,13 +196,13 @@ function AdminPage() {
             }}
             className="ml-auto px-3 py-1.5 border rounded-md text-sm w-48"
           />
-          <span className="text-sm text-gray-500">{total}건</span>
+          <span className="text-sm text-gray-500">{total}그룹</span>
         </div>
 
         {/* Table */}
         {loading ? (
           <div className="text-center py-12 text-gray-500">로딩 중...</div>
-        ) : signals.length === 0 ? (
+        ) : groups.length === 0 ? (
           <div className="text-center py-12 text-gray-500">
             데이터가 없습니다.
           </div>
@@ -165,14 +212,14 @@ function AdminPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-gray-50 border-b text-left">
-                    <th className="px-4 py-3 font-medium text-gray-600 w-48">
+                    <th className="px-4 py-3 font-medium text-gray-600 w-56">
                       관련 주차장
                     </th>
                     <th className="px-4 py-3 font-medium text-gray-600">
                       언급 스니펫
                     </th>
                     <th className="px-4 py-3 font-medium text-gray-600 w-56">
-                      글제목
+                      카페 제목
                     </th>
                     <th className="px-4 py-3 font-medium text-gray-600 w-16 text-center">
                       AI
@@ -183,12 +230,14 @@ function AdminPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {signals.map((s) => (
-                    <SignalRow
-                      key={s.id}
-                      signal={s}
+                  {groups.map((g) => (
+                    <GroupRow
+                      key={g.title}
+                      group={g}
                       onTag={handleTag}
-                      loading={actionLoading === s.id}
+                      onRemoveLot={handleRemoveLot}
+                      onAddLot={handleAddLot}
+                      onDedup={handleDedup}
                     />
                   ))}
                 </tbody>
@@ -255,83 +304,224 @@ function StatCard({
 }
 
 const SCORE_BUTTONS = [
-  { score: 0, label: "❌ 무관", title: "이 글은 해당 주차장 난이도와 관련 없음", style: "bg-gray-50 text-gray-500 hover:bg-gray-100" },
-  { score: 1, label: "💀💀", title: "매우 어려움 — 절대 비추", style: "bg-red-100 text-red-800 hover:bg-red-200" },
-  { score: 2, label: "💀", title: "어려움 — 초보 힘들어", style: "bg-red-50 text-red-700 hover:bg-red-100" },
-  { score: 3, label: "😐", title: "보통 — 일반적", style: "bg-yellow-50 text-yellow-700 hover:bg-yellow-100" },
-  { score: 4, label: "🙂", title: "쉬움 — 괜찮아요", style: "bg-green-50 text-green-700 hover:bg-green-100" },
-  { score: 5, label: "😊", title: "매우 쉬움 — 초보 추천", style: "bg-green-100 text-green-800 hover:bg-green-200" },
+  { score: 0, label: "❌", title: "무관 — 이 글은 해당 주차장 난이도와 관련 없음", style: "bg-gray-50 text-gray-500 hover:bg-gray-100" },
+  { score: 1, label: "💀💀", title: "매우 어려움", style: "bg-red-100 text-red-800 hover:bg-red-200" },
+  { score: 2, label: "💀", title: "어려움", style: "bg-red-50 text-red-700 hover:bg-red-100" },
+  { score: 3, label: "😐", title: "보통", style: "bg-yellow-50 text-yellow-700 hover:bg-yellow-100" },
+  { score: 4, label: "🙂", title: "쉬움", style: "bg-green-50 text-green-700 hover:bg-green-100" },
+  { score: 5, label: "😊", title: "매우 쉬움", style: "bg-green-100 text-green-800 hover:bg-green-200" },
 ] as const;
 
 function scoreLabel(score: number): string {
   return SCORE_BUTTONS.find((b) => b.score === score)?.label ?? "?";
 }
 
-function SignalRow({
-  signal: s,
+function GroupRow({
+  group: g,
   onTag,
-  loading,
+  onRemoveLot,
+  onAddLot,
+  onDedup,
 }: {
-  signal: CafeSignal;
-  onTag: (id: number, score: number) => void;
-  loading: boolean;
+  group: GroupedSignal;
+  onTag: (title: string, score: number | null) => void;
+  onRemoveLot: (title: string, lotId: string) => void;
+  onAddLot: (title: string, lotId: string) => void;
+  onDedup: (title: string) => void;
 }) {
+  const [addingLot, setAddingLot] = useState(false);
+
   const aiIcon =
-    s.aiSentiment === "positive"
+    g.aiSentiment === "positive"
       ? "👍"
-      : s.aiSentiment === "negative"
+      : g.aiSentiment === "negative"
         ? "👎"
         : "➖";
 
+  const hasDuplicates = g.signalIds.length > g.lots.length;
+
   return (
-    <tr className="border-b hover:bg-gray-50 transition-colors">
+    <tr className="border-b hover:bg-gray-50/50 align-top">
+      {/* 관련 주차장 (태그) */}
       <td className="px-4 py-3">
-        <p className="font-medium text-gray-900 line-clamp-1">{s.lot.name}</p>
-        <p className="text-xs text-gray-400 line-clamp-1">{s.lot.address}</p>
+        <div className="flex flex-wrap gap-1">
+          {g.lots.map((lot) => (
+            <span
+              key={lot.parkingLotId}
+              className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-xs max-w-[200px]"
+              title={`${lot.name}\n${lot.address}${lot.count > 1 ? `\n(${lot.count}건 중복)` : ""}`}
+            >
+              <span className="truncate">{lot.name}</span>
+              {lot.count > 1 && (
+                <span className="text-blue-400 shrink-0">×{lot.count}</span>
+              )}
+              <button
+                onClick={() => onRemoveLot(g.title, lot.parkingLotId)}
+                className="text-blue-300 hover:text-red-500 shrink-0 ml-0.5"
+              >
+                ×
+              </button>
+            </span>
+          ))}
+          <div className="relative">
+            <button
+              onClick={() => setAddingLot(!addingLot)}
+              className="px-1.5 py-0.5 rounded-full border border-dashed text-xs text-gray-400 hover:text-blue-500 hover:border-blue-300"
+            >
+              +
+            </button>
+            {addingLot && (
+              <LotSearchDropdown
+                onSelect={(lotId) => {
+                  onAddLot(g.title, lotId);
+                  setAddingLot(false);
+                }}
+                onClose={() => setAddingLot(false)}
+              />
+            )}
+          </div>
+        </div>
       </td>
+
+      {/* 언급 스니펫 */}
       <td className="px-4 py-3">
-        <p className="text-xs text-gray-600 line-clamp-2">{s.snippet}</p>
+        <p className="text-xs text-gray-600 line-clamp-2">{g.snippet}</p>
       </td>
+
+      {/* 카페 제목 */}
       <td className="px-4 py-3">
         <a
-          href={s.url}
+          href={g.urls[0]}
           target="_blank"
           rel="noopener noreferrer"
           className="text-xs text-blue-600 hover:underline line-clamp-2"
         >
-          {s.title}
+          {g.title}
         </a>
-      </td>
-      <td className="px-4 py-3 text-center text-base">{aiIcon}</td>
-      <td className="px-4 py-3">
-        {loading ? (
-          <span className="text-gray-400 text-xs">처리 중...</span>
-        ) : s.humanScore === null ? (
-          <div className="flex gap-1 justify-center flex-wrap">
-            {SCORE_BUTTONS.map((btn) => (
-              <button
-                key={btn.score}
-                onClick={() => onTag(s.id, btn.score)}
-                title={btn.title}
-                className={`px-1.5 py-1 rounded text-xs transition-colors ${btn.style}`}
-              >
-                {btn.label}
-              </button>
-            ))}
-          </div>
-        ) : (
-          <div className="flex gap-1 justify-center items-center">
-            <span className="text-sm">{scoreLabel(s.humanScore)}</span>
-            <button
-              onClick={() => onTag(s.id, null as unknown as number)}
-              title="미검수 상태로 되돌리기"
-              className="px-1.5 py-0.5 rounded text-xs text-gray-400 hover:text-gray-600 hover:bg-gray-100"
-            >
-              되돌리기
-            </button>
-          </div>
+        {g.urls.length > 1 && (
+          <p className="text-xs text-gray-400 mt-0.5">
+            +{g.urls.length - 1}개 URL
+          </p>
         )}
       </td>
+
+      {/* AI */}
+      <td className="px-4 py-3 text-center text-base">{aiIcon}</td>
+
+      {/* 액션 */}
+      <td className="px-4 py-3">
+        <div className="flex flex-col gap-1.5">
+          {g.humanScore === null ? (
+            <div className="flex gap-1 justify-center flex-wrap">
+              {SCORE_BUTTONS.map((btn) => (
+                <button
+                  key={btn.score}
+                  onClick={() => onTag(g.title, btn.score)}
+                  title={btn.title}
+                  className={`px-1.5 py-1 rounded text-xs transition-colors ${btn.style}`}
+                >
+                  {btn.label}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="flex gap-1 justify-center items-center">
+              <span className="text-sm">{scoreLabel(g.humanScore)}</span>
+              <button
+                onClick={() => onTag(g.title, null)}
+                className="px-1.5 py-0.5 rounded text-xs text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+              >
+                되돌리기
+              </button>
+            </div>
+          )}
+          {hasDuplicates && (
+            <button
+              onClick={() => onDedup(g.title)}
+              className="px-2 py-0.5 rounded text-xs bg-orange-50 text-orange-600 hover:bg-orange-100 self-center"
+              title={`${g.signalIds.length - g.lots.length}건 중복 URL 제거`}
+            >
+              중복제거 ({g.signalIds.length - g.lots.length})
+            </button>
+          )}
+        </div>
+      </td>
     </tr>
+  );
+}
+
+function LotSearchDropdown({
+  onSelect,
+  onClose,
+}: {
+  onSelect: (lotId: string) => void;
+  onClose: () => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<
+    { id: string; name: string; address: string }[]
+  >([]);
+  const [searching, setSearching] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [onClose]);
+
+  useEffect(() => {
+    if (query.length < 2) {
+      setResults([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      setSearching(true);
+      try {
+        const res = await searchParkingLots({ data: { query } });
+        setResults(res);
+      } catch {}
+      setSearching(false);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  return (
+    <div
+      ref={ref}
+      className="absolute z-50 top-full left-0 mt-1 w-64 bg-white border rounded-lg shadow-lg"
+    >
+      <input
+        autoFocus
+        type="text"
+        placeholder="주차장 이름 검색..."
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") onClose();
+        }}
+        className="w-full px-3 py-2 border-b text-xs rounded-t-lg outline-none"
+      />
+      <div className="max-h-48 overflow-y-auto">
+        {searching && (
+          <p className="px-3 py-2 text-xs text-gray-400">검색 중...</p>
+        )}
+        {!searching && query.length >= 2 && results.length === 0 && (
+          <p className="px-3 py-2 text-xs text-gray-400">결과 없음</p>
+        )}
+        {results.map((lot) => (
+          <button
+            key={lot.id}
+            onClick={() => onSelect(lot.id)}
+            className="w-full text-left px-3 py-2 hover:bg-blue-50 text-xs border-b last:border-b-0"
+          >
+            <p className="font-medium text-gray-900">{lot.name}</p>
+            <p className="text-gray-400 truncate">{lot.address}</p>
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
