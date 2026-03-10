@@ -108,7 +108,7 @@ export const fetchParkingLots = createServerFn({ method: "GET" })
           AVG(r.overall_score) as avg_score,
           COUNT(r.id) as review_count
         FROM parking_lots p
-        LEFT JOIN reviews r ON r.parking_lot_id = p.id
+        LEFT JOIN user_reviews r ON r.parking_lot_id = p.id
         WHERE p.lat BETWEEN ?1 AND ?2
           AND p.lng BETWEEN ?3 AND ?4${where}
         GROUP BY p.id${having}
@@ -142,7 +142,7 @@ export const fetchParkingClusters = createServerFn({ method: "GET" })
         FROM parking_lots p
         LEFT JOIN (
           SELECT parking_lot_id, AVG(overall_score) as avg_score
-          FROM reviews
+          FROM user_reviews
           GROUP BY parking_lot_id
         ) ls ON ls.parking_lot_id = p.id
         WHERE p.lat BETWEEN ?2 AND ?3
@@ -174,7 +174,7 @@ export const searchParkingLots = createServerFn({ method: "GET" })
           AVG(r.overall_score) as avg_score,
           COUNT(r.id) as review_count
         FROM parking_lots p
-        LEFT JOIN reviews r ON r.parking_lot_id = p.id
+        LEFT JOIN user_reviews r ON r.parking_lot_id = p.id
         WHERE p.name LIKE ?1 OR p.address LIKE ?1
         GROUP BY p.id
         LIMIT 20`
@@ -185,7 +185,7 @@ export const searchParkingLots = createServerFn({ method: "GET" })
     return (result.results ?? []).map(rowToParkingLot);
   });
 
-/** 주차장별 블로그 후기 (스니펫) */
+/** 주차장별 웹사이트 후기 (스니펫) */
 interface BlogPostRow {
   title: string;
   content: string;
@@ -203,10 +203,10 @@ export const fetchTabCounts = createServerFn({ method: "GET" })
   .handler(async ({ data }): Promise<{ reviews: number; blog: number; media: number }> => {
     const db = getDB();
     const [reviews, blog, media] = await Promise.all([
-      db.prepare(`SELECT COUNT(*) as cnt FROM reviews WHERE parking_lot_id = ?1`)
+      db.prepare(`SELECT COUNT(*) as cnt FROM user_reviews WHERE parking_lot_id = ?1`)
         .bind(data.parkingLotId).first<{ cnt: number }>(),
       db.prepare(
-        `SELECT COUNT(*) as cnt FROM crawled_reviews
+        `SELECT COUNT(*) as cnt FROM web_sources
          WHERE parking_lot_id = ?1 AND relevance_score >= 40
            AND source_url NOT LIKE '%youtube.com%' AND source_url NOT LIKE '%youtu.be%'`
       ).bind(data.parkingLotId).first<{ cnt: number }>(),
@@ -230,7 +230,7 @@ export const fetchBlogPosts = createServerFn({ method: "GET" })
     const result = await db
       .prepare(
         `SELECT title, content, source_url, source, author, published_at
-         FROM crawled_reviews
+         FROM web_sources
          WHERE parking_lot_id = ?1
            AND relevance_score >= 40
            AND source_url NOT LIKE '%youtube.com%'

@@ -93,7 +93,7 @@ export async function runNaverBlogsBatch(
         const sourceId = await hashUrl(item.link);
         batch.push(
           db.prepare(
-            "INSERT OR IGNORE INTO crawled_reviews (parking_lot_id, source, source_id, title, content, source_url, author, published_at, relevance_score) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)"
+            "INSERT OR IGNORE INTO web_sources (parking_lot_id, source, source_id, title, content, source_url, author, published_at, relevance_score) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)"
           ).bind(
             lot.id, "naver_blog", sourceId,
             stripHtml(item.title), stripHtml(item.description),
@@ -117,7 +117,7 @@ export async function runNaverBlogsBatch(
         const sourceId = await hashUrl(item.link);
         batch.push(
           db.prepare(
-            "INSERT OR IGNORE INTO crawled_reviews (parking_lot_id, source, source_id, title, content, source_url, author, published_at, relevance_score) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)"
+            "INSERT OR IGNORE INTO web_sources (parking_lot_id, source, source_id, title, content, source_url, author, published_at, relevance_score) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)"
           ).bind(
             lot.id, "naver_cafe", sourceId,
             stripHtml(item.title), stripHtml(item.description),

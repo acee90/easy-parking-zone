@@ -26,6 +26,8 @@ const SOURCE_LABELS: Record<string, string> = {
   naver_blog: "블로그",
   naver_cafe: "카페",
   clien: "클리앙",
+  poi: "POI",
+  naver_place: "플레이스",
 };
 
 function BlogPostCard({ post }: { post: BlogPost }) {
@@ -301,7 +303,7 @@ export function ParkingTabs({ lotId }: ParkingTabsProps) {
   const tabs = [
     { key: "reviews" as const, icon: <MessageSquare className="size-3.5" />, label: "리뷰", count: tabCounts.reviews },
     { key: "media" as const, icon: <Play className="size-3.5" />, label: "영상", count: tabCounts.media },
-    { key: "blog" as const, icon: <FileText className="size-3.5" />, label: "블로그", count: tabCounts.blog },
+    { key: "blog" as const, icon: <FileText className="size-3.5" />, label: "웹사이트", count: tabCounts.blog },
   ];
 
   return (
@@ -449,7 +451,7 @@ export function ParkingTabs({ lotId }: ParkingTabsProps) {
               </div>
             ) : (
               <p className="text-xs text-muted-foreground text-center py-6">
-                블로그 후기가 없습니다
+                관련 웹사이트 글이 없습니다
               </p>
             )}
           </div>

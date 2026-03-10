@@ -11,6 +11,9 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AdminIndexRouteImport } from './routes/admin/index'
+import { Route as AdminWebSourcesRouteImport } from './routes/admin/web-sources'
+import { Route as AdminReviewsRouteImport } from './routes/admin/reviews'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 
 const AdminRoute = AdminRouteImport.update({
@@ -23,6 +26,21 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminWebSourcesRoute = AdminWebSourcesRouteImport.update({
+  id: '/web-sources',
+  path: '/web-sources',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminReviewsRoute = AdminReviewsRouteImport.update({
+  id: '/reviews',
+  path: '/reviews',
+  getParentRoute: () => AdminRoute,
+} as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
@@ -31,31 +49,52 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/admin': typeof AdminRoute
+  '/admin': typeof AdminRouteWithChildren
+  '/admin/reviews': typeof AdminReviewsRoute
+  '/admin/web-sources': typeof AdminWebSourcesRoute
+  '/admin/': typeof AdminIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/admin': typeof AdminRoute
+  '/admin/reviews': typeof AdminReviewsRoute
+  '/admin/web-sources': typeof AdminWebSourcesRoute
+  '/admin': typeof AdminIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/admin': typeof AdminRoute
+  '/admin': typeof AdminRouteWithChildren
+  '/admin/reviews': typeof AdminReviewsRoute
+  '/admin/web-sources': typeof AdminWebSourcesRoute
+  '/admin/': typeof AdminIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/admin' | '/api/auth/$'
+  fullPaths:
+    | '/'
+    | '/admin'
+    | '/admin/reviews'
+    | '/admin/web-sources'
+    | '/admin/'
+    | '/api/auth/$'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/admin' | '/api/auth/$'
-  id: '__root__' | '/' | '/admin' | '/api/auth/$'
+  to: '/' | '/admin/reviews' | '/admin/web-sources' | '/admin' | '/api/auth/$'
+  id:
+    | '__root__'
+    | '/'
+    | '/admin'
+    | '/admin/reviews'
+    | '/admin/web-sources'
+    | '/admin/'
+    | '/api/auth/$'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AdminRoute: typeof AdminRoute
+  AdminRoute: typeof AdminRouteWithChildren
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
 }
 
@@ -75,6 +114,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/': {
+      id: '/admin/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/web-sources': {
+      id: '/admin/web-sources'
+      path: '/web-sources'
+      fullPath: '/admin/web-sources'
+      preLoaderRoute: typeof AdminWebSourcesRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/reviews': {
+      id: '/admin/reviews'
+      path: '/reviews'
+      fullPath: '/admin/reviews'
+      preLoaderRoute: typeof AdminReviewsRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
@@ -85,9 +145,23 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AdminRouteChildren {
+  AdminReviewsRoute: typeof AdminReviewsRoute
+  AdminWebSourcesRoute: typeof AdminWebSourcesRoute
+  AdminIndexRoute: typeof AdminIndexRoute
+}
+
+const AdminRouteChildren: AdminRouteChildren = {
+  AdminReviewsRoute: AdminReviewsRoute,
+  AdminWebSourcesRoute: AdminWebSourcesRoute,
+  AdminIndexRoute: AdminIndexRoute,
+}
+
+const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AdminRoute: AdminRoute,
+  AdminRoute: AdminRouteWithChildren,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
 }
 export const routeTree = rootRouteImport

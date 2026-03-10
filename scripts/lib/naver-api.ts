@@ -45,11 +45,13 @@ function getHeaders(): Record<string, string> {
 /** 네이버 블로그 검색 */
 export async function searchNaverBlog(
   query: string,
-  display = 10
+  display = 10,
+  start = 1
 ): Promise<NaverSearchResponse> {
   const params = new URLSearchParams({
     query,
     display: String(display),
+    start: String(start),
     sort: "sim",
   });
   const res = await fetch(`${BLOG_URL}?${params}`, { headers: getHeaders() });

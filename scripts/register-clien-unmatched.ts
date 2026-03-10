@@ -3,8 +3,8 @@
  *
  * 1) 네이버 지역검색 API로 주차장 좌표+ID 획득
  * 2) parking_lots INSERT
- * 3) 본문(body) → crawled_reviews INSERT (블로그 탭)
- * 4) 댓글(comment) → reviews INSERT (리뷰 탭)
+ * 3) 본문(body) → web_sources INSERT (웹사이트 탭)
+ * 4) 댓글(comment) → user_reviews INSERT (리뷰 탭)
  *
  * 사용법: bun run scripts/register-clien-unmatched.ts [--dry-run] [--remote]
  */
@@ -237,13 +237,13 @@ async function main() {
     stmts.push(`INSERT OR IGNORE INTO parking_lots (id,name,type,address,lat,lng,total_spaces,is_free,phone) VALUES ('${m.id}','${esc(m.name)}','부설','${addr}',${m.lat},${m.lng},0,0,'${phone}');`);
   }
 
-  // 2) 본문 → crawled_reviews, 댓글 → reviews
+  // 2) 본문 → web_sources, 댓글 → user_reviews
   for (const m of matched) {
     if (m.entry.from === "body") {
       const sid = sourceId(m.entry.name);
-      stmts.push(`INSERT OR IGNORE INTO crawled_reviews (parking_lot_id, source, source_id, title, content, source_url, author, relevance_score) VALUES ('${esc(m.id)}', 'clien', '${sid}', '${esc(CLIEN_TITLE)}', '${esc(m.entry.reason)}', '${esc(CLIEN_URL)}', '클리앙', 80);`);
+      stmts.push(`INSERT OR IGNORE INTO web_sources (parking_lot_id, source, source_id, title, content, source_url, author, relevance_score) VALUES ('${esc(m.id)}', 'clien', '${sid}', '${esc(CLIEN_TITLE)}', '${esc(m.entry.reason)}', '${esc(CLIEN_URL)}', '클리앙', 80);`);
     } else {
-      stmts.push(`INSERT INTO reviews (parking_lot_id, guest_nickname, entry_score, space_score, passage_score, exit_score, overall_score, comment, is_seed, source_type, source_url) VALUES ('${esc(m.id)}', '클리앙 사용자', 1, 1, 1, 1, 1, '${esc(m.entry.reason)}', 1, 'clien', '${esc(CLIEN_URL)}');`);
+      stmts.push(`INSERT INTO user_reviews (parking_lot_id, guest_nickname, entry_score, space_score, passage_score, exit_score, overall_score, comment, is_seed, source_type, source_url) VALUES ('${esc(m.id)}', '클리앙 사용자', 1, 1, 1, 1, 1, '${esc(m.entry.reason)}', 1, 'clien', '${esc(CLIEN_URL)}');`);
     }
   }
 

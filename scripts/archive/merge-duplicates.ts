@@ -131,33 +131,33 @@ console.log(`제외 (주소 불일치): ${candidates.length - mergeTargets.lengt
 
 // 3) 병합 실행
 let mergedCount = 0;
-let crawledReassigned = 0;
-let reviewsReassigned = 0;
+let webSourcesReassigned = 0;
+let userReviewsReassigned = 0;
 let infoUpdated = 0;
 
 for (const row of mergeTargets) {
-  // 3a) crawled_reviews 재매핑
+  // 3a) web_sources 재매핑
   const crCount = d1Query<{ cnt: number }>(
-    `SELECT COUNT(*) as cnt FROM crawled_reviews WHERE parking_lot_id = '${row.ka_id}'`
+    `SELECT COUNT(*) as cnt FROM web_sources WHERE parking_lot_id = '${row.ka_id}'`
   )[0]?.cnt ?? 0;
 
   if (crCount > 0) {
     d1Execute(
-      `UPDATE crawled_reviews SET parking_lot_id = '${row.pub_id}' WHERE parking_lot_id = '${row.ka_id}'`
+      `UPDATE web_sources SET parking_lot_id = '${row.pub_id}' WHERE parking_lot_id = '${row.ka_id}'`
     );
-    crawledReassigned += crCount;
+    webSourcesReassigned += crCount;
   }
 
-  // 3b) reviews 재매핑
+  // 3b) user_reviews 재매핑
   const rvCount = d1Query<{ cnt: number }>(
-    `SELECT COUNT(*) as cnt FROM reviews WHERE parking_lot_id = '${row.ka_id}'`
+    `SELECT COUNT(*) as cnt FROM user_reviews WHERE parking_lot_id = '${row.ka_id}'`
   )[0]?.cnt ?? 0;
 
   if (rvCount > 0) {
     d1Execute(
-      `UPDATE reviews SET parking_lot_id = '${row.pub_id}' WHERE parking_lot_id = '${row.ka_id}'`
+      `UPDATE user_reviews SET parking_lot_id = '${row.pub_id}' WHERE parking_lot_id = '${row.ka_id}'`
     );
-    reviewsReassigned += rvCount;
+    userReviewsReassigned += rvCount;
   }
 
   // 3c) 공공데이터 정보 보완 (빈 값이면 카카오에서 가져오기)
@@ -229,8 +229,8 @@ const report = `# 중복 주차장 병합 결과 (1차 - 보수적)
 | 주소 정규화 일치 | ${mergeTargets.length}개 |
 | 주소 불일치 (보류) | ${candidates.length - mergeTargets.length}개 |
 | **실제 병합** | **${mergedCount}개** |
-| crawled_reviews 재매핑 | ${crawledReassigned}건 |
-| reviews 재매핑 | ${reviewsReassigned}건 |
+| web_sources 재매핑 | ${webSourcesReassigned}건 |
+| user_reviews 재매핑 | ${userReviewsReassigned}건 |
 | 정보 보완 (운영시간/요금 등) | ${infoUpdated}개 |
 
 ## 병합 후 현황
@@ -267,8 +267,8 @@ writeFileSync("/Users/junhee/Documents/projects/parking-map/docs/merge-duplicate
 
 console.log("\n=== 결과 요약 ===");
 console.log(`병합 완료: ${mergedCount}개`);
-console.log(`crawled_reviews 재매핑: ${crawledReassigned}건`);
-console.log(`reviews 재매핑: ${reviewsReassigned}건`);
+console.log(`web_sources 재매핑: ${webSourcesReassigned}건`);
+console.log(`user_reviews 재매핑: ${userReviewsReassigned}건`);
 console.log(`정보 보완: ${infoUpdated}개`);
 console.log(`\n병합 후 전체 주차장: ${afterTotal}개 (카카오: ${afterKa}개)`);
 console.log(`\n보고서: docs/merge-duplicates-report.md`);

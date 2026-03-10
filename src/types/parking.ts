@@ -64,7 +64,7 @@ export interface BlogPost {
   title: string
   snippet: string            // 네이버 검색 스니펫 (원문 일부)
   sourceUrl: string
-  source: "naver_blog" | "naver_cafe" | "youtube_comment" | "google_search"
+  source: "naver_blog" | "naver_cafe" | "youtube_comment" | "google_search" | "clien"
   author: string
   publishedAt?: string
 }
@@ -126,4 +126,6 @@ export interface UserReview {
   visitedAt?: string
   createdAt: string
   isMine: boolean
+  sourceType?: string       // 'clien' 등 외부 커뮤니티 출처
+  sourceUrl?: string        // 원본 URL
 }

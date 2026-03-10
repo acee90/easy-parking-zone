@@ -3,7 +3,7 @@
  *
  * - curated 주차장(is_curated=1)에 대해 YouTube 영상 검색
  * - 영상 URL/썸네일 → parking_media 테이블
- * - 주차 관련 댓글 → crawled_reviews 테이블 (source='youtube_comment')
+ * - 주차 관련 댓글 → web_sources 테이블 (source='youtube_comment')
  * - 진행상황을 scripts/youtube-progress.json에 저장 → 중단 후 재개 가능
  *
  * 사용법: bun run scripts/crawl-youtube.ts
@@ -116,7 +116,7 @@ function flushCommentsToDB(items: PendingComment[], progress: Progress) {
   if (items.length === 0) return;
 
   const stmts = items.map((c) =>
-    buildInsert("crawled_reviews", REVIEW_COLUMNS, [
+    buildInsert("web_sources", REVIEW_COLUMNS, [
       c.parkingLotId, "youtube_comment", c.sourceId, c.title, c.content,
       c.sourceUrl, c.author, c.publishedAt, c.relevanceScore,
     ])

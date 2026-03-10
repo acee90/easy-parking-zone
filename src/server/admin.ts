@@ -287,6 +287,230 @@ export const searchParkingLots = createServerFn({ method: "GET" })
     return result.results ?? [];
   });
 
+// --- 리뷰 모니터링 ---
+
+export type ReviewSource = "user" | "clien" | "all";
+
+export interface AdminReviewItem {
+  id: number;
+  parkingLotId: string;
+  parkingLotName: string;
+  authorName: string;
+  source: string;
+  overallScore: number | null;
+  comment: string | null;
+  sourceUrl: string | null;
+  createdAt: string;
+}
+
+export const fetchRecentReviews = createServerFn({ method: "GET" })
+  .inputValidator(
+    (input: { page?: number; limit?: number; source?: ReviewSource }) => input
+  )
+  .handler(async ({ data, request }) => {
+    if (!request) throw new Error("서버 요청 필요");
+    await requireAdmin(request);
+
+    const { page = 1, limit = 30, source = "all" } = data;
+    const offset = (page - 1) * limit;
+    const db = getDB();
+
+    const cond = source === "user"
+      ? "r.source_type IS NULL"
+      : source === "clien"
+        ? "r.source_type = 'clien'"
+        : "1=1";
+
+    const countRow = await db
+      .prepare(`SELECT COUNT(*) as total FROM user_reviews r WHERE ${cond}`)
+      .first<{ total: number }>();
+
+    const rows = await db
+      .prepare(
+        `SELECT r.id, r.parking_lot_id, p.name as lot_name,
+                COALESCE(u.name, r.guest_nickname, '익명') as author_name,
+                COALESCE(r.source_type, 'user') as source,
+                r.overall_score, r.comment, r.source_url, r.created_at
+         FROM user_reviews r
+         JOIN parking_lots p ON p.id = r.parking_lot_id
+         LEFT JOIN user u ON u.id = r.user_id
+         WHERE ${cond}
+         ORDER BY r.created_at DESC
+         LIMIT ?1 OFFSET ?2`
+      )
+      .bind(limit, offset)
+      .all<{
+        id: number;
+        parking_lot_id: string;
+        lot_name: string;
+        author_name: string;
+        source: string;
+        overall_score: number | null;
+        comment: string | null;
+        source_url: string | null;
+        created_at: string;
+      }>();
+
+    const items: AdminReviewItem[] = (rows.results ?? []).map((r) => ({
+      id: r.id,
+      parkingLotId: r.parking_lot_id,
+      parkingLotName: r.lot_name,
+      authorName: r.author_name,
+      source: r.source,
+      overallScore: r.overall_score,
+      comment: r.comment,
+      sourceUrl: r.source_url,
+      createdAt: r.created_at,
+    }));
+
+    return { items, total: countRow?.total ?? 0, page, limit };
+  });
+
+export const fetchReviewStats = createServerFn({ method: "GET" }).handler(
+  async ({ request }) => {
+    if (!request) throw new Error("서버 요청 필요");
+    await requireAdmin(request);
+
+    const db = getDB();
+    const result = await db
+      .prepare(
+        `SELECT COALESCE(source_type, 'user') as source, COUNT(*) as cnt
+         FROM user_reviews GROUP BY source`
+      )
+      .all<{ source: string; cnt: number }>();
+
+    const counts: Record<string, number> = {};
+    let total = 0;
+    for (const r of result.results ?? []) {
+      counts[r.source] = r.cnt;
+      total += r.cnt;
+    }
+
+    return { total, counts };
+  }
+);
+
+export const adminDeleteReview = createServerFn({ method: "POST" })
+  .inputValidator(
+    (input: { reviewId: number }) => input
+  )
+  .handler(async ({ data, request }) => {
+    if (!request) throw new Error("서버 요청 필요");
+    await requireAdmin(request);
+
+    const db = getDB();
+    await db
+      .prepare("DELETE FROM user_reviews WHERE id = ?1")
+      .bind(data.reviewId)
+      .run();
+
+    return { ok: true };
+  });
+
+// --- 웹 소스 관리 ---
+
+export type WebSourceType = "naver_blog" | "naver_cafe" | "poi" | "youtube_comment" | "naver_place" | "all";
+
+export interface WebSourceItem {
+  id: number;
+  parkingLotName: string;
+  source: string;
+  author: string | null;
+  title: string | null;
+  content: string | null;
+  sourceUrl: string | null;
+  crawledAt: string;
+}
+
+export const fetchWebSources = createServerFn({ method: "GET" })
+  .inputValidator(
+    (input: { page?: number; limit?: number; source?: WebSourceType }) => input
+  )
+  .handler(async ({ data, request }) => {
+    if (!request) throw new Error("서버 요청 필요");
+    await requireAdmin(request);
+
+    const { page = 1, limit = 30, source = "all" } = data;
+    const offset = (page - 1) * limit;
+    const db = getDB();
+
+    const cond = source === "all" ? "1=1" : "ws.source = ?1";
+    const bindParams = source === "all" ? [limit, offset] : [source, limit, offset];
+    const limitIdx = source === "all" ? "?1" : "?2";
+    const offsetIdx = source === "all" ? "?2" : "?3";
+
+    const countRow = await db
+      .prepare(`SELECT COUNT(*) as total FROM web_sources ws WHERE ${cond}`)
+      .bind(...(source === "all" ? [] : [source]))
+      .first<{ total: number }>();
+
+    const rows = await db
+      .prepare(
+        `SELECT ws.id, p.name as lot_name, ws.source,
+                ws.author, ws.title, ws.content, ws.source_url, ws.crawled_at
+         FROM web_sources ws
+         JOIN parking_lots p ON p.id = ws.parking_lot_id
+         WHERE ${cond}
+         ORDER BY ws.crawled_at DESC
+         LIMIT ${limitIdx} OFFSET ${offsetIdx}`
+      )
+      .bind(...bindParams)
+      .all<{
+        id: number;
+        lot_name: string;
+        source: string;
+        author: string | null;
+        title: string | null;
+        content: string | null;
+        source_url: string | null;
+        crawled_at: string;
+      }>();
+
+    const items: WebSourceItem[] = (rows.results ?? []).map((r) => ({
+      id: r.id,
+      parkingLotName: r.lot_name,
+      source: r.source,
+      author: r.author,
+      title: r.title,
+      content: r.content,
+      sourceUrl: r.source_url,
+      crawledAt: r.crawled_at,
+    }));
+
+    return { items, total: countRow?.total ?? 0, page, limit };
+  });
+
+export const fetchWebSourceStats = createServerFn({ method: "GET" }).handler(
+  async ({ request }) => {
+    if (!request) throw new Error("서버 요청 필요");
+    await requireAdmin(request);
+
+    const db = getDB();
+    const result = await db
+      .prepare("SELECT source, COUNT(*) as cnt FROM web_sources GROUP BY source")
+      .all<{ source: string; cnt: number }>();
+
+    const counts: Record<string, number> = {};
+    let total = 0;
+    for (const r of result.results ?? []) {
+      counts[r.source] = r.cnt;
+      total += r.cnt;
+    }
+    return { total, counts };
+  }
+);
+
+export const adminDeleteWebSource = createServerFn({ method: "POST" })
+  .inputValidator((input: { id: number }) => input)
+  .handler(async ({ data, request }) => {
+    if (!request) throw new Error("서버 요청 필요");
+    await requireAdmin(request);
+
+    const db = getDB();
+    await db.prepare("DELETE FROM web_sources WHERE id = ?1").bind(data.id).run();
+    return { ok: true };
+  });
+
 export const fetchSignalStats = createServerFn({ method: "GET" }).handler(
   async ({ request }) => {
     if (!request) throw new Error("서버 요청 필요");

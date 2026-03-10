@@ -99,7 +99,7 @@ function flushToDB(reviews: PendingReview[], progress: Progress) {
   if (reviews.length === 0) return;
 
   const stmts = reviews.map((r) =>
-    buildInsert("crawled_reviews", REVIEW_COLUMNS, [
+    buildInsert("web_sources", REVIEW_COLUMNS, [
       r.parkingLotId, r.source, r.sourceId, r.title, r.content,
       r.sourceUrl, r.author, r.publishedAt, r.relevanceScore,
     ])

@@ -1,9 +1,9 @@
 /**
  * 헬 주차장 Seed 리뷰 생성
  *
- * - curated 주차장에 대해 crawled_reviews(블로그 후기)를 분석
+ * - curated 주차장에 대해 web_sources(블로그 후기)를 분석
  * - Claude API로 후기에서 난이도 관련 정보를 추출하여 Seed 리뷰 생성
- * - reviews 테이블에 is_seed=1로 저장
+ * - user_reviews 테이블에 is_seed=1로 저장
  *
  * 사용법: bun run scripts/seed-reviews.ts
  */
@@ -151,10 +151,10 @@ async function main() {
   console.log("큐레이션 주차장 조회 중...");
   const lots: CuratedLot[] = d1Query(`
     SELECT p.id, p.name, p.address, p.curation_tag, p.curation_reason,
-      (SELECT COUNT(*) FROM crawled_reviews WHERE parking_lot_id = p.id AND relevance_score >= 40) as blog_count
+      (SELECT COUNT(*) FROM web_sources WHERE parking_lot_id = p.id AND relevance_score >= 40) as blog_count
     FROM parking_lots p
     WHERE p.is_curated = 1
-      AND NOT EXISTS (SELECT 1 FROM reviews WHERE parking_lot_id = p.id AND is_seed = 1)
+      AND NOT EXISTS (SELECT 1 FROM user_reviews WHERE parking_lot_id = p.id AND is_seed = 1)
     ORDER BY blog_count DESC
   `);
 
@@ -175,7 +175,7 @@ async function main() {
 
     // 블로그 후기 가져오기
     const blogs: BlogSnippet[] = d1Query(`
-      SELECT title, content, source FROM crawled_reviews
+      SELECT title, content, source FROM web_sources
       WHERE parking_lot_id = '${esc(lot.id)}' AND relevance_score >= 40
       ORDER BY relevance_score DESC LIMIT 5
     `);
@@ -187,7 +187,7 @@ async function main() {
       progress.apiCalls++;
 
       if (review) {
-        const stmt = `INSERT INTO reviews (parking_lot_id, entry_score, space_score, passage_score, exit_score, overall_score, comment, is_seed) VALUES ('${esc(lot.id)}', ${review.overallScore}, ${review.overallScore}, ${review.overallScore}, ${review.overallScore}, ${review.overallScore}, '${esc(review.comment)}', 1);`;
+        const stmt = `INSERT INTO user_reviews (parking_lot_id, entry_score, space_score, passage_score, exit_score, overall_score, comment, is_seed) VALUES ('${esc(lot.id)}', ${review.overallScore}, ${review.overallScore}, ${review.overallScore}, ${review.overallScore}, ${review.overallScore}, '${esc(review.comment)}', 1);`;
         executeSQL(stmt);
         progress.generatedReviews++;
         console.log(`    ✅ 점수=${review.overallScore} "${review.comment.slice(0, 50)}..."`);

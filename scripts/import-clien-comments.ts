@@ -2,7 +2,7 @@
  * 클리앙 댓글 → 리뷰 데이터 생성 (AI 매칭 기반)
  *
  * AI가 257개 댓글 스레드를 분석하여 47개 등록 주차장에 매칭한 결과를
- * reviews 테이블에 INSERT (source_type='clien', 모든 점수=1 극악)
+ * user_reviews 테이블에 INSERT (source_type='clien', 모든 점수=1 극악)
  *
  * 사용법: bun run scripts/import-clien-comments.ts [--dry-run] [--remote]
  */
@@ -138,7 +138,7 @@ if (reviews.length === 0) {
 const stmts: string[] = [];
 for (const r of reviews) {
   stmts.push(
-    `INSERT INTO reviews (parking_lot_id, guest_nickname, entry_score, space_score, passage_score, exit_score, overall_score, comment, is_seed, source_type, source_url) VALUES ('${esc(r.lotId)}', '${esc(r.nickname)}', 1, 1, 1, 1, 1, '${esc(r.comment)}', 1, 'clien', '${esc(SOURCE_URL)}');`
+    `INSERT INTO user_reviews (parking_lot_id, guest_nickname, entry_score, space_score, passage_score, exit_score, overall_score, comment, is_seed, source_type, source_url) VALUES ('${esc(r.lotId)}', '${esc(r.nickname)}', 1, 1, 1, 1, 1, '${esc(r.comment)}', 1, 'clien', '${esc(SOURCE_URL)}');`
   );
 }
 

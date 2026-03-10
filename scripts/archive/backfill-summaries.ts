@@ -1,7 +1,7 @@
 /**
  * AI 기반 리뷰 요약 백필 스크립트
  *
- * Claude Haiku로 crawled_reviews의 리뷰를 분석하여:
+ * Claude Haiku로 web_sources의 리뷰를 분석하여:
  * 1) 실제 주차 경험 후기인지 판별
  * 2) 맞으면 1-2문장 요약 + 긍부정 판단
  *
@@ -112,12 +112,12 @@ async function main() {
 
   if (isReset) {
     console.log("기존 summary 전체 리셋 중...");
-    d1Execute("UPDATE crawled_reviews SET summary = NULL, is_positive = NULL");
+    d1Execute("UPDATE web_sources SET summary = NULL, is_positive = NULL");
     console.log("리셋 완료.");
   }
 
   console.log("미처리 리뷰 조회 중...");
-  const rows: ReviewRow[] = d1Query("SELECT id, title, content FROM crawled_reviews WHERE summary IS NULL");
+  const rows: ReviewRow[] = d1Query("SELECT id, title, content FROM web_sources WHERE summary IS NULL");
 
   console.log(`미처리 리뷰 ${rows.length}건 발견`);
   if (rows.length === 0) {
@@ -148,12 +148,12 @@ async function main() {
     for (const r of results) {
       if (r.relevant && r.summary) {
         sqlBuffer.push(
-          `UPDATE crawled_reviews SET summary = '${esc(r.summary)}', is_positive = ${r.positive ? 1 : 0} WHERE id = ${r.id};`
+          `UPDATE web_sources SET summary = '${esc(r.summary)}', is_positive = ${r.positive ? 1 : 0} WHERE id = ${r.id};`
         );
         summarized++;
       } else {
         sqlBuffer.push(
-          `UPDATE crawled_reviews SET summary = '', is_positive = NULL WHERE id = ${r.id};`
+          `UPDATE web_sources SET summary = '', is_positive = NULL WHERE id = ${r.id};`
         );
         irrelevant++;
       }

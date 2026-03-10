@@ -3,7 +3,7 @@
  *
  * 1) 수동 큐레이션 리스트(hell-parking-list.json)의 주차장을 DB에서 매칭
  * 2) parking_lots.is_curated / curation_tag / curation_reason 업데이트
- * 3) crawled_reviews에서 부정 키워드 빈도 기반 추가 후보 제안
+ * 3) web_sources에서 부정 키워드 빈도 기반 추가 후보 제안
  *
  * 사용법: bun run scripts/curate-hell-parking.ts [--suggest]
  */
@@ -109,12 +109,12 @@ function applyTags() {
 
 // ── 서브: 자동 후보 제안 ──
 function suggestCandidates() {
-  console.log("\n🔍 crawled_reviews 부정 키워드 기반 헬 주차장 후보:\n");
+  console.log("\n🔍 web_sources 부정 키워드 기반 헬 주차장 후보:\n");
 
   const candidates = d1Query(`
     SELECT p.id, p.name, p.address, COUNT(*) as neg
     FROM parking_lots p
-    JOIN crawled_reviews cr ON cr.parking_lot_id = p.id
+    JOIN web_sources cr ON cr.parking_lot_id = p.id
     WHERE (cr.content LIKE '%좁%' OR cr.content LIKE '%무서%'
        OR cr.content LIKE '%힘들%' OR cr.content LIKE '%골뱅이%'
        OR cr.content LIKE '%긁%' OR cr.content LIKE '%기계식%'

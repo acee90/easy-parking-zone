@@ -17,6 +17,8 @@ interface ReviewRow {
   created_at: string;
   user_name: string | null;
   user_image: string | null;
+  source_type: string | null;
+  source_url: string | null;
 }
 
 function rowToReview(row: ReviewRow, currentUserId: string | null): UserReview {
@@ -41,6 +43,8 @@ function rowToReview(row: ReviewRow, currentUserId: string | null): UserReview {
     visitedAt: row.visited_at ?? undefined,
     createdAt: row.created_at,
     isMine: currentUserId !== null && row.user_id === currentUserId,
+    sourceType: row.source_type ?? undefined,
+    sourceUrl: row.source_url ?? undefined,
   };
 }
 
@@ -85,8 +89,9 @@ export const fetchUserReviews = createServerFn({ method: "GET" })
                 r.entry_score, r.space_score, r.passage_score,
                 r.exit_score, r.overall_score,
                 r.comment, r.visited_at, r.created_at,
+                r.source_type, r.source_url,
                 u.name as user_name, u.image as user_image
-         FROM reviews r
+         FROM user_reviews r
          LEFT JOIN user u ON u.id = r.user_id
          WHERE r.parking_lot_id = ?1
          ORDER BY r.created_at DESC
@@ -140,7 +145,7 @@ export const createReview = createServerFn({ method: "POST" })
       ipHash = await hashIP(getClientIP(request));
       const existing = await db
         .prepare(
-          `SELECT COUNT(*) as cnt FROM reviews
+          `SELECT COUNT(*) as cnt FROM user_reviews
            WHERE ip_hash = ?1 AND parking_lot_id = ?2
              AND created_at > datetime('now', '-24 hours')`
         )
@@ -155,7 +160,7 @@ export const createReview = createServerFn({ method: "POST" })
     if (userId) {
       const existing = await db
         .prepare(
-          `SELECT COUNT(*) as cnt FROM reviews
+          `SELECT COUNT(*) as cnt FROM user_reviews
            WHERE user_id = ?1 AND parking_lot_id = ?2
              AND created_at > datetime('now', '-24 hours')`
         )
@@ -168,7 +173,7 @@ export const createReview = createServerFn({ method: "POST" })
 
     await db
       .prepare(
-        `INSERT INTO reviews (
+        `INSERT INTO user_reviews (
           parking_lot_id, user_id, guest_nickname, ip_hash,
           entry_score, space_score, passage_score, exit_score,
           overall_score, comment, visited_at
@@ -203,7 +208,7 @@ export const deleteReview = createServerFn({ method: "POST" })
 
     const db = getDB();
     const review = await db
-      .prepare("SELECT user_id FROM reviews WHERE id = ?1")
+      .prepare("SELECT user_id FROM user_reviews WHERE id = ?1")
       .bind(data.reviewId)
       .first<{ user_id: string | null }>();
 
@@ -212,7 +217,7 @@ export const deleteReview = createServerFn({ method: "POST" })
     }
 
     await db
-      .prepare("DELETE FROM reviews WHERE id = ?1")
+      .prepare("DELETE FROM user_reviews WHERE id = ?1")
       .bind(data.reviewId)
       .run();
 

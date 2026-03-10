@@ -70,7 +70,7 @@ async function flushToDB() {
   if (pendingReviews.length === 0) return;
 
   const stmts = pendingReviews.map((r) =>
-    buildInsert("crawled_reviews", REVIEW_COLUMNS, [
+    buildInsert("web_sources", REVIEW_COLUMNS, [
       r.parkingLotId, "naver_place", r.sourceId, r.title, r.content,
       r.sourceUrl, r.author, r.publishedAt, r.relevanceScore,
     ])

@@ -1,8 +1,8 @@
 /**
  * 클리앙 극악 주차장 데이터 → DB 임포트
  *
- * - 본문(body) → crawled_reviews (source='clien') → 블로그 탭
- * - 댓글(comment) → reviews (source_type='clien') → 리뷰 탭
+ * - 본문(body) → web_sources (source='clien') → 웹사이트 탭
+ * - 댓글(comment) → user_reviews (source_type='clien') → 리뷰 탭
  *
  * 사용법: bun run scripts/import-clien-hell.ts [--remote] [--dry-run]
  */
@@ -143,7 +143,7 @@ function main() {
   const bodyEntries = data.entries.filter((e) => e.from === "body");
   const commentEntries = data.entries.filter((e) => e.from === "comment");
 
-  console.log(`  본문 항목: ${bodyEntries.length}개 → 블로그 탭`);
+  console.log(`  본문 항목: ${bodyEntries.length}개 → 웹사이트 탭`);
   console.log(`  댓글 항목: ${commentEntries.length}개 → 리뷰 탭\n`);
 
   const blogStmts: string[] = [];
@@ -152,8 +152,8 @@ function main() {
   let unmatched = 0;
   const unmatchedList: ClienEntry[] = [];
 
-  // 본문 → crawled_reviews (블로그 탭)
-  console.log("── 본문 → 블로그 탭 매칭 ──\n");
+  // 본문 → web_sources (웹사이트 탭)
+  console.log("── 본문 → 웹사이트 탭 매칭 ──\n");
   for (const entry of bodyEntries) {
     const lot = matchParking(entry);
     if (!lot) {
@@ -168,12 +168,12 @@ function main() {
 
     const sid = sourceId(data.sourceUrl, entry.name);
     blogStmts.push(
-      `INSERT OR IGNORE INTO crawled_reviews (parking_lot_id, source, source_id, title, content, source_url, author, relevance_score)` +
+      `INSERT OR IGNORE INTO web_sources (parking_lot_id, source, source_id, title, content, source_url, author, relevance_score)` +
       ` VALUES ('${esc(lot.id)}', 'clien', '${sid}', '${esc(data.title)}', '${esc(entry.reason)}', '${esc(data.sourceUrl)}', '클리앙', 80);`
     );
   }
 
-  // 댓글 → reviews (리뷰 탭)
+  // 댓글 → user_reviews (리뷰 탭)
   console.log("\n── 댓글 → 리뷰 탭 매칭 ──\n");
   for (const entry of commentEntries) {
     const lot = matchParking(entry);
@@ -189,7 +189,7 @@ function main() {
 
     // 클리앙 댓글은 점수 정보가 없으므로 난이도 1(극악) 기본값
     reviewStmts.push(
-      `INSERT INTO reviews (parking_lot_id, guest_nickname, entry_score, space_score, passage_score, exit_score, overall_score, comment, is_seed, source_type, source_url)` +
+      `INSERT INTO user_reviews (parking_lot_id, guest_nickname, entry_score, space_score, passage_score, exit_score, overall_score, comment, is_seed, source_type, source_url)` +
       ` VALUES ('${esc(lot.id)}', '클리앙 사용자', 1, 1, 1, 1, 1, '${esc(entry.reason)}', 1, 'clien', '${esc(data.sourceUrl)}');`
     );
   }
@@ -206,7 +206,7 @@ function main() {
   if (DRY_RUN) {
     console.log("\n🔍 [DRY RUN] SQL 미실행");
     if (blogStmts.length > 0) {
-      console.log(`\n블로그 SQL (${blogStmts.length}건):`);
+      console.log(`\n웹사이트 SQL (${blogStmts.length}건):`);
       blogStmts.forEach((s) => console.log(`  ${s}`));
     }
     if (reviewStmts.length > 0) {
@@ -219,7 +219,7 @@ function main() {
   const allStmts = [...blogStmts, ...reviewStmts];
   if (allStmts.length > 0) {
     flushStatements(TMP_SQL, allStmts);
-    console.log(`\n✅ ${blogStmts.length}건 블로그 + ${reviewStmts.length}건 리뷰 INSERT 완료`);
+    console.log(`\n✅ ${blogStmts.length}건 웹사이트 + ${reviewStmts.length}건 리뷰 INSERT 완료`);
   } else {
     console.log("\nINSERT할 항목이 없습니다.");
   }
