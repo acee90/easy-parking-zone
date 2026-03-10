@@ -40,7 +40,7 @@ export function ParkingDetailPanel({
       : null;
 
   return (
-    <div className="hidden md:flex w-[360px] shrink-0 flex-col border-r bg-white animate-in slide-in-from-left-full duration-200">
+    <div className="hidden md:flex w-[360px] shrink-0 flex-col border-r bg-white animate-in slide-in-from-left-full duration-150">
       {/* 헤더 */}
       <div className="shrink-0 border-b px-4 py-4">
         <div className="flex items-start justify-between gap-2 mb-3">

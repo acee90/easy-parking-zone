@@ -77,7 +77,6 @@ function markerHtml(lot: ParkingLot, selected: boolean, hovered: boolean): strin
     font-size:${highlighted ? 14 : 11}px;
     box-shadow:${shadow};
     cursor:pointer;
-    transition:all 0.15s;
   ">${icon}${curationBadge}</div>`;
 }
 

@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { ParkingLot } from "@/types/parking";
 import {
   getDifficultyIcon,
@@ -6,6 +6,8 @@ import {
   getDistance,
 } from "@/lib/geo-utils";
 import { MapPin, ParkingSquare } from "lucide-react";
+
+const PAGE_SIZE = 20;
 
 interface ParkingSidebarProps {
   parkingLots: ParkingLot[];
@@ -36,7 +38,12 @@ export function ParkingSidebar({
   userLocated,
   isClustered,
 }: ParkingSidebarProps) {
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+
+  // parkingLots 변경 시 표시 개수 초기화
   const sortedLots = useMemo(() => {
+    setVisibleCount(PAGE_SIZE);
+
     const withDistance = parkingLots.map((lot) => ({
       lot,
       distance:
@@ -56,6 +63,9 @@ export function ParkingSidebar({
 
     return withDistance;
   }, [parkingLots, userLat, userLng, userLocated]);
+
+  const visibleLots = sortedLots.slice(0, visibleCount);
+  const hasMore = visibleCount < sortedLots.length;
 
   return (
     <aside className="hidden md:flex w-[280px] shrink-0 flex-col border-r bg-white">
@@ -82,8 +92,8 @@ export function ParkingSidebar({
             <p>현재 지도 영역에</p>
             <p>주차장이 없습니다</p>
           </div>
-        ) : (
-          sortedLots.map(({ lot, distance }) => {
+        ) : (<>
+          {visibleLots.map(({ lot, distance }) => {
             const selected = lot.id === selectedLotId;
             const icon = getDifficultyIcon(lot.difficulty.score);
             const label = getDifficultyLabel(lot.difficulty.score);
@@ -149,7 +159,16 @@ export function ParkingSidebar({
                 </div>
               </button>
             );
-          })
+          })}
+          {hasMore && (
+            <button
+              className="w-full py-3 text-xs text-blue-500 hover:bg-blue-50 transition-colors cursor-pointer font-medium"
+              onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
+            >
+              더 보기 ({sortedLots.length - visibleCount}개 남음)
+            </button>
+          )}
+        </>
         )}
       </div>
     </aside>
