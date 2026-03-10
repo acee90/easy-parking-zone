@@ -50,16 +50,42 @@ function clusterMarkerHtml(count: number, score: number | null): string {
 function markerHtml(lot: ParkingLot, selected: boolean, hovered: boolean): string {
   const color = markerColor(lot.difficulty.score);
   const icon = getDifficultyIcon(lot.difficulty.score);
-  const highlighted = selected || hovered;
-  const size = highlighted ? 40 : 32;
-  const border = selected
-    ? "3px solid #3b82f6"
-    : hovered
-      ? "3px solid #60a5fa"
-      : lot.curationTag
-        ? "2px solid " + (lot.curationTag === "hell" ? "#ef4444" : "#22c55e")
-        : "2px solid white";
-  const shadow = highlighted
+
+  if (selected) {
+    // 선택 마커: 크게 + 핀 꼬리 + 바운스 애니메이션
+    const size = 48;
+    return `<div style="
+      display:flex;flex-direction:column;align-items:center;
+      animation:marker-bounce 0.8s ease-in-out infinite alternate;
+      filter:drop-shadow(0 4px 12px rgba(59,130,246,0.5));
+    ">
+      <div style="
+        position:relative;
+        width:${size}px;height:${size}px;
+        background:${color};
+        border:3px solid #3b82f6;
+        border-radius:50%;
+        display:flex;align-items:center;justify-content:center;
+        font-size:18px;
+        box-shadow:0 0 0 3px rgba(59,130,246,0.25);
+      ">${icon}</div>
+      <div style="
+        width:0;height:0;
+        border-left:7px solid transparent;
+        border-right:7px solid transparent;
+        border-top:8px solid #3b82f6;
+        margin-top:-2px;
+      "></div>
+    </div>`;
+  }
+
+  const size = hovered ? 40 : 32;
+  const border = hovered
+    ? "3px solid #60a5fa"
+    : lot.curationTag
+      ? "2px solid " + (lot.curationTag === "hell" ? "#ef4444" : "#22c55e")
+      : "2px solid white";
+  const shadow = hovered
     ? "0 2px 8px rgba(59,130,246,0.4)"
     : lot.curationTag
       ? "0 2px 8px " + (lot.curationTag === "hell" ? "rgba(239,68,68,0.4)" : "rgba(34,197,94,0.4)")
@@ -74,7 +100,7 @@ function markerHtml(lot: ParkingLot, selected: boolean, hovered: boolean): strin
     border:${border};
     border-radius:50%;
     display:flex;align-items:center;justify-content:center;
-    font-size:${highlighted ? 14 : 11}px;
+    font-size:${hovered ? 14 : 11}px;
     box-shadow:${shadow};
     cursor:pointer;
   ">${icon}${curationBadge}</div>`;
@@ -113,7 +139,7 @@ export function MapView({
     return parkingLots.map((lot) => {
       const selected = lot.id === selectedLotId;
       const hovered = lot.id === hoveredLotId;
-      const size = selected || hovered ? 40 : 32;
+      const size = selected ? 48 : hovered ? 40 : 32;
       const cacheKey = `${lot.id}:${selected}:${hovered}`;
 
       let html = cache.get(cacheKey);
@@ -121,7 +147,7 @@ export function MapView({
         html = markerHtml(lot, selected, hovered);
         cache.set(cacheKey, html);
       }
-      return { lot, html, size };
+      return { lot, html, size, selected };
     });
   }, [parkingLots, selectedLotId, hoveredLotId]);
 
@@ -194,14 +220,17 @@ export function MapView({
                 }}
               />
             ))
-          : markerData.map(({ lot, html, size }) => (
+          : markerData.map(({ lot, html, size, selected }) => (
               <Marker
                 key={lot.id}
                 position={new navermaps.LatLng(lot.lat, lot.lng)}
                 icon={{
                   content: html,
-                  anchor: new navermaps.Point(size / 2, size / 2),
+                  anchor: selected
+                    ? new navermaps.Point(size / 2, size / 2 + 6)
+                    : new navermaps.Point(size / 2, size / 2),
                 }}
+                zIndex={selected ? 200 : 0}
                 onClick={() => onMarkerClick(lot)}
               />
             ))}
