@@ -30,8 +30,8 @@ describe("buildDifficultyCondition", () => {
       noReview: false,
     });
     const result = buildDifficultyCondition(filters);
-    expect(result).toContain("avg_score >= 4.0");
-    expect(result).not.toContain("avg_score >= 2.5");
+    expect(result).toContain("s.final_score >= 4.0");
+    expect(result).not.toContain("s.final_score >= 2.5");
   });
 
   it("filters hell only (1.0-1.5)", () => {
@@ -43,8 +43,8 @@ describe("buildDifficultyCondition", () => {
       noReview: false,
     });
     const result = buildDifficultyCondition(filters);
-    expect(result).toContain("avg_score >= 1.0");
-    expect(result).toContain("avg_score < 1.5");
+    expect(result).toContain("s.final_score >= 1.0");
+    expect(result).toContain("s.final_score < 1.5");
   });
 
   it("filters noReview (IS NULL)", () => {
@@ -69,8 +69,8 @@ describe("buildDifficultyCondition", () => {
     });
     const result = buildDifficultyCondition(filters);
     expect(result).toContain("OR");
-    expect(result).toContain("avg_score >= 4.0");
-    expect(result).toContain("avg_score >= 1.5");
+    expect(result).toContain("s.final_score >= 4.0");
+    expect(result).toContain("s.final_score >= 1.5");
   });
 
   it("returns '0' when all levels are OFF", () => {
@@ -92,8 +92,8 @@ describe("buildDifficultyCondition", () => {
       hell: false,
       noReview: false,
     });
-    const result = buildDifficultyCondition(filters, "ls.avg_score");
-    expect(result).toContain("ls.avg_score >= 4.0");
-    expect(result).not.toContain("(avg_score");
+    const result = buildDifficultyCondition(filters, "custom.score");
+    expect(result).toContain("custom.score >= 4.0");
+    expect(result).not.toContain("(s.final_score");
   });
 });

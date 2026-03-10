@@ -34,21 +34,22 @@ interface ParkingLotRow {
   featured_source: string | null;
   avg_score: number | null;
   review_count: number;
+  reliability: string | null;
 }
 
-function buildFilterClauses(filters?: ParkingFilters): { where: string; having: string; params: unknown[] } {
+function buildFilterClauses(filters?: ParkingFilters): { where: string; params: unknown[] } {
   const clauses: string[] = [];
   const params: unknown[] = [];
   if (filters?.freeOnly) clauses.push("p.is_free = 1");
   if (filters?.publicOnly) clauses.push("p.id NOT LIKE 'KA-%' AND p.id NOT LIKE 'NV-%'");
   if (filters?.excludeNoSang) clauses.push("p.type != '노상'");
 
-  const diffCond = buildDifficultyCondition(filters);
-  const having = diffCond ? ` HAVING ${diffCond}` : "";
+  // 난이도 필터는 parking_lot_stats.final_score 기반 WHERE 조건
+  const diffCond = buildDifficultyCondition(filters, "s.final_score");
+  if (diffCond) clauses.push(diffCond);
 
   return {
     where: clauses.length > 0 ? " AND " + clauses.join(" AND ") : "",
-    having,
     params,
   };
 }
@@ -81,6 +82,7 @@ function rowToParkingLot(row: ParkingLotRow): ParkingLot {
     difficulty: {
       score,
       reviewCount: row.review_count,
+      reliability: (row.reliability as ParkingLot['difficulty']['reliability']) ?? undefined,
     },
     phone: row.phone ?? undefined,
     paymentMethods: row.payment_methods ?? undefined,
@@ -141,18 +143,18 @@ export const fetchParkingLots = createServerFn({ method: "GET" })
   .handler(async ({ data }) => {
     const db = getDB();
     const limit = data.limit ?? 200;
-    const { where, having } = buildFilterClauses(data.filters);
+    const { where } = buildFilterClauses(data.filters);
 
     const result = await db
       .prepare(
         `SELECT p.*,
-          AVG(r.overall_score) as avg_score,
-          COUNT(r.id) as review_count
+          s.final_score as avg_score,
+          COALESCE(s.user_review_count, 0) + COALESCE(s.community_count, 0) as review_count,
+          s.reliability
         FROM parking_lots p
-        LEFT JOIN user_reviews r ON r.parking_lot_id = p.id
+        LEFT JOIN parking_lot_stats s ON s.parking_lot_id = p.id
         WHERE p.lat BETWEEN ?1 AND ?2
           AND p.lng BETWEEN ?3 AND ?4${where}
-        GROUP BY p.id${having}
         LIMIT ?5`
       )
       .bind(data.south, data.north, data.west, data.east, limit)
@@ -170,7 +172,6 @@ export const fetchParkingClusters = createServerFn({ method: "GET" })
     const db = getDB();
     const cellSize = 360 / Math.pow(2, data.zoom);
     const { where } = buildFilterClauses(data.filters);
-    const diffWhere = buildDifficultyCondition(data.filters, "ls.avg_score");
 
     const result = await db
       .prepare(
@@ -179,15 +180,11 @@ export const fetchParkingClusters = createServerFn({ method: "GET" })
           AVG(p.lat) as lat,
           AVG(p.lng) as lng,
           COUNT(*) as count,
-          AVG(ls.avg_score) as avg_score
+          AVG(s.final_score) as avg_score
         FROM parking_lots p
-        LEFT JOIN (
-          SELECT parking_lot_id, AVG(overall_score) as avg_score
-          FROM user_reviews
-          GROUP BY parking_lot_id
-        ) ls ON ls.parking_lot_id = p.id
+        LEFT JOIN parking_lot_stats s ON s.parking_lot_id = p.id
         WHERE p.lat BETWEEN ?2 AND ?3
-          AND p.lng BETWEEN ?4 AND ?5${where}${diffWhere ? ` AND ${diffWhere}` : ""}
+          AND p.lng BETWEEN ?4 AND ?5${where}
         GROUP BY CAST(p.lat / ?1 AS INTEGER), CAST(p.lng / ?1 AS INTEGER)`
       )
       .bind(cellSize, data.south, data.north, data.west, data.east)
@@ -212,12 +209,12 @@ export const searchParkingLots = createServerFn({ method: "GET" })
     const result = await db
       .prepare(
         `SELECT p.*,
-          AVG(r.overall_score) as avg_score,
-          COUNT(r.id) as review_count
+          s.final_score as avg_score,
+          COALESCE(s.user_review_count, 0) + COALESCE(s.community_count, 0) as review_count,
+          s.reliability
         FROM parking_lots p
-        LEFT JOIN user_reviews r ON r.parking_lot_id = p.id
+        LEFT JOIN parking_lot_stats s ON s.parking_lot_id = p.id
         WHERE p.name LIKE ?1 OR p.address LIKE ?1
-        GROUP BY p.id
         LIMIT 20`
       )
       .bind(q)

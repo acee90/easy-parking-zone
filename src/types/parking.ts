@@ -21,13 +21,14 @@ export interface ParkingLot {
     dailyMax?: number      // 1일 최대요금
     monthlyPass?: number   // 월정기권
   }
-  difficulty: {            // 난이도 (사용자 리뷰 기반)
-    score: number | null   // 1.0-5.0, null이면 리뷰 없음
+  difficulty: {            // 난이도 (통합 점수)
+    score: number | null   // 1.0-5.0, null이면 데이터 없음
     entryScore?: number    // 진입로
     spaceScore?: number    // 주차면 크기
     passageScore?: number  // 통로 여유
     exitScore?: number     // 출차 난이도
     reviewCount: number    // 리뷰 수
+    reliability?: 'confirmed' | 'estimated' | 'reference' | 'structural' | 'none'
   }
   phone?: string
   paymentMethods?: string
