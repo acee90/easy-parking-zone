@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { BlogPost, UserReview, ParkingMedia } from "@/types/parking";
 import { fetchBlogPosts, fetchParkingMedia } from "@/server/parking";
 import { fetchUserReviews, createReview, deleteReview } from "@/server/reviews";
@@ -10,6 +10,7 @@ import {
   User,
   Pen,
   Play,
+  ExternalLink,
 } from "lucide-react";
 
 function decodeHtmlEntities(text: string): string {
@@ -20,8 +21,14 @@ function decodeHtmlEntities(text: string): string {
   return text.replace(/&(?:amp|lt|gt|quot|apos|#39);/g, (m) => entities[m] ?? m);
 }
 
+const SOURCE_LABELS: Record<string, string> = {
+  naver_blog: "블로그",
+  naver_cafe: "카페",
+  clien: "클리앙",
+};
+
 function BlogPostCard({ post }: { post: BlogPost }) {
-  const sourceLabel = post.source === "naver_blog" ? "블로그" : "카페";
+  const sourceLabel = SOURCE_LABELS[post.source] ?? post.source;
   return (
     <a
       href={post.sourceUrl}
@@ -68,6 +75,10 @@ function StarRating({
   );
 }
 
+const REVIEW_SOURCE_LABELS: Record<string, string> = {
+  clien: "클리앙",
+};
+
 function UserReviewCard({
   review,
   onDelete,
@@ -89,6 +100,23 @@ function UserReviewCard({
             <User className="size-4 text-muted-foreground" />
           )}
           <span className="text-xs font-medium">{review.author.nickname}</span>
+          {review.sourceType && (
+            review.sourceUrl ? (
+              <a
+                href={review.sourceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-0.5 rounded-full bg-orange-50 px-1.5 py-0.5 text-[10px] font-medium text-orange-600 hover:bg-orange-100 transition-colors"
+              >
+                {REVIEW_SOURCE_LABELS[review.sourceType] ?? review.sourceType}
+                <ExternalLink className="size-2.5" />
+              </a>
+            ) : (
+              <span className="inline-flex items-center rounded-full bg-orange-50 px-1.5 py-0.5 text-[10px] font-medium text-orange-600">
+                {REVIEW_SOURCE_LABELS[review.sourceType] ?? review.sourceType}
+              </span>
+            )
+          )}
         </div>
         <div className="flex items-center gap-2">
           <div className="flex gap-0.5">
@@ -219,20 +247,35 @@ export function ParkingTabs({ lotId }: ParkingTabsProps) {
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [reviewKey, setReviewKey] = useState(0);
   const [activeTab, setActiveTab] = useState<"reviews" | "media" | "blog">("reviews");
+  const fetchedTabsRef = useRef<Set<string>>(new Set(["reviews"]));
 
+  // lotId 변경 시 상태 초기화 + 기본 탭(reviews)만 fetch
   useEffect(() => {
-    fetchBlogPosts({ data: { parkingLotId: lotId } })
-      .then(setBlogPosts)
-      .catch(() => setBlogPosts([]));
+    setBlogPosts([]);
+    setMedia([]);
+    setUserReviews([]);
+    setShowReviewForm(false);
+    setActiveTab("reviews");
+    fetchedTabsRef.current = new Set(["reviews"]);
     fetchUserReviews({ data: { parkingLotId: lotId } })
       .then(setUserReviews)
       .catch(() => setUserReviews([]));
-    fetchParkingMedia({ data: { parkingLotId: lotId } })
-      .then(setMedia)
-      .catch(() => setMedia([]));
-    setShowReviewForm(false);
-    setActiveTab("reviews");
   }, [lotId]);
+
+  // 탭 전환 시 아직 fetch하지 않은 탭만 lazy fetch
+  useEffect(() => {
+    if (fetchedTabsRef.current.has(activeTab)) return;
+    fetchedTabsRef.current.add(activeTab);
+    if (activeTab === "blog") {
+      fetchBlogPosts({ data: { parkingLotId: lotId } })
+        .then(setBlogPosts)
+        .catch(() => setBlogPosts([]));
+    } else if (activeTab === "media") {
+      fetchParkingMedia({ data: { parkingLotId: lotId } })
+        .then(setMedia)
+        .catch(() => setMedia([]));
+    }
+  }, [activeTab, lotId]);
 
   const refreshReviews = () => {
     fetchUserReviews({ data: { parkingLotId: lotId } })

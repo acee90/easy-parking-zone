@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useMemo } from "react";
 import {
   Container as MapDiv,
   NaverMap,
@@ -99,6 +99,32 @@ export function MapView({
   const navermaps = useNavermaps();
   const mapRef = useRef<naver.maps.Map | null>(null);
   const boundsTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const markerHtmlCacheRef = useRef<Map<string, string>>(new Map());
+
+  // 마커 HTML을 캐시하여 selected/hovered 변경 시 해당 마커만 재생성
+  const markerData = useMemo(() => {
+    const cache = markerHtmlCacheRef.current;
+    // parkingLots가 바뀌면 (bounds 변경) 캐시 정리
+    const currentIds = new Set(parkingLots.map((l) => l.id));
+    for (const key of cache.keys()) {
+      const id = key.split(":")[0];
+      if (!currentIds.has(id)) cache.delete(key);
+    }
+
+    return parkingLots.map((lot) => {
+      const selected = lot.id === selectedLotId;
+      const hovered = lot.id === hoveredLotId;
+      const size = selected || hovered ? 40 : 32;
+      const cacheKey = `${lot.id}:${selected}:${hovered}`;
+
+      let html = cache.get(cacheKey);
+      if (!html) {
+        html = markerHtml(lot, selected, hovered);
+        cache.set(cacheKey, html);
+      }
+      return { lot, html, size };
+    });
+  }, [parkingLots, selectedLotId, hoveredLotId]);
 
   useEffect(() => {
     if (mapRef.current && userLocated) {
@@ -169,22 +195,17 @@ export function MapView({
                 }}
               />
             ))
-          : parkingLots.map((lot) => {
-              const selected = lot.id === selectedLotId;
-              const hovered = lot.id === hoveredLotId;
-              const size = selected || hovered ? 40 : 32;
-              return (
-                <Marker
-                  key={lot.id}
-                  position={new navermaps.LatLng(lot.lat, lot.lng)}
-                  icon={{
-                    content: markerHtml(lot, selected, hovered),
-                    anchor: new navermaps.Point(size / 2, size / 2),
-                  }}
-                  onClick={() => onMarkerClick(lot)}
-                />
-              );
-            })}
+          : markerData.map(({ lot, html, size }) => (
+              <Marker
+                key={lot.id}
+                position={new navermaps.LatLng(lot.lat, lot.lng)}
+                icon={{
+                  content: html,
+                  anchor: new navermaps.Point(size / 2, size / 2),
+                }}
+                onClick={() => onMarkerClick(lot)}
+              />
+            ))}
       </NaverMap>
 
       <button
