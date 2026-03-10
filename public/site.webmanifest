@@ -1,6 +1,6 @@
 {
-  "name": "쉬운주차 - 전국 주차장 난이도 지도",
-  "short_name": "쉬운주차",
+  "name": "쉬운주차장 - 전국 주차장 난이도 지도",
+  "short_name": "쉬운주차장",
   "description": "전국 주차장의 주차 난이도를 한눈에! 초보운전자를 위한 주차장 찾기.",
   "start_url": "/",
   "display": "standalone",

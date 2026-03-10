@@ -3,8 +3,8 @@ import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
 import appCss from '../styles.css?url'
 
 const SITE_URL = 'https://easy-parking.xyz'
-const SITE_NAME = '쉬운주차'
-const SITE_TITLE = '쉬운주차 - 전국 주차장 난이도 지도'
+const SITE_NAME = '쉬운주차장'
+const SITE_TITLE = '쉬운주차장 - 전국 주차장 난이도 지도'
 const SITE_DESC = '전국 주차장의 주차 난이도를 한눈에! 초보운전자를 위한 주차장 찾기 서비스.'
 
 export const Route = createRootRoute({

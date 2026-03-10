@@ -123,7 +123,7 @@ function AdminPage() {
       <header className="bg-white border-b px-6 py-4">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold">쉬운주차 Admin</h1>
+            <h1 className="text-xl font-bold">쉬운주차장 Admin</h1>
             <p className="text-sm text-gray-500">카페 시그널 검수</p>
           </div>
           <a href="/" className="text-sm text-blue-600 hover:underline">
