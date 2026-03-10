@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { NavermapsProvider } from "react-naver-maps";
 import { MapView } from "@/components/MapView";
 import { Header } from "@/components/Header";
@@ -67,6 +67,13 @@ function App() {
     }
   }, [filters]);
 
+  // 검색으로 선택된 주차장이 필터에 의해 빠져있으면 렌더 시점에 삽입
+  const displayedLots = useMemo(() => {
+    if (!selectedLot) return parkingLots;
+    if (parkingLots.some((l) => l.id === selectedLot.id)) return parkingLots;
+    return [selectedLot, ...parkingLots];
+  }, [parkingLots, selectedLot]);
+
   // Re-fetch when filters change
   useEffect(() => {
     if (lastViewRef.current) {
@@ -103,7 +110,7 @@ function App() {
       <div className="flex flex-1 overflow-hidden">
         {/* 리스트 사이드바 — 항상 표시 (데스크톱) */}
         <ParkingSidebar
-          parkingLots={parkingLots}
+          parkingLots={displayedLots}
           selectedLotId={selectedLot?.id ?? null}
           onSelect={handleSidebarSelect}
           onHover={setHoveredLotId}
@@ -153,7 +160,7 @@ function App() {
                   locationLoading={locationLoading}
                   onRequestLocation={requestLocation}
                   onMapReady={() => setMapReady(true)}
-                  parkingLots={parkingLots}
+                  parkingLots={displayedLots}
                   clusters={clusters}
                   onBoundsChanged={handleBoundsChanged}
                   onMarkerClick={handleMarkerClick}
