@@ -32,6 +32,7 @@ interface AiMatch {
   lotId: string;
   via: "direct" | "parent";
   note: string;
+  snippet?: string;
 }
 
 // ── 데이터 로드 ──
@@ -70,8 +71,10 @@ for (const match of aiMatches) {
     continue;
   }
 
-  // 댓글 내용 정리 (@ 멘션 제거)
-  let content = c.content.replace(/｢@[^｣]*님｣\s*/g, "").trim();
+  // snippet 우선, 없으면 전체 댓글 (@ 멘션 제거)
+  let content = match.snippet
+    ? match.snippet.trim()
+    : c.content.replace(/｢@[^｣]*님｣\s*/g, "").trim();
   if (content.length < 5) {
     skippedNoComment++;
     continue;
