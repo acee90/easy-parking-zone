@@ -107,69 +107,78 @@ export function SearchBar({ onSelect, onPlaceSelect }: SearchBarProps) {
       </div>
 
       {open && (
-        <div className="absolute top-full left-0 right-0 mt-1 z-50 rounded-md border bg-white shadow-lg max-h-72 overflow-y-auto">
+        <div className="absolute top-full left-0 right-0 mt-1 z-50 rounded-md border bg-white shadow-lg flex flex-col max-h-72">
           {loading ? (
             <div className="px-3 py-2 text-sm text-muted-foreground">
               검색 중...
             </div>
           ) : (
             <>
-              {placeResults.length > 0 && (
-                <>
-                  <div className="px-3 py-1.5 text-[11px] font-medium text-muted-foreground bg-gray-50 sticky top-0">
-                    주변 주차장 찾기
-                  </div>
-                  {placeResults.map((place, i) => (
-                    <button
-                      key={`place-${i}`}
-                      onClick={() => handleSelectPlace(place)}
-                      className="w-full text-left px-3 py-2 hover:bg-gray-50 border-b last:border-b-0 transition-colors"
-                    >
-                      <div className="flex items-center gap-2">
-                        <Navigation className="size-3.5 text-orange-500 shrink-0" />
-                        <span className="text-sm font-medium truncate">
-                          {place.name}
-                        </span>
-                        {place.category && (
-                          <span className="shrink-0 text-[10px] text-muted-foreground">
-                            {place.category}
+              <div className="search-dropdown-scroll overscroll-contain flex-1">
+                {placeResults.length > 0 && (
+                  <>
+                    <div className="px-3 py-1.5 text-[11px] font-medium text-muted-foreground bg-gray-50 sticky top-0">
+                      주변 주차장 찾기
+                    </div>
+                    {placeResults.map((place, i) => (
+                      <button
+                        key={`place-${i}`}
+                        onClick={() => handleSelectPlace(place)}
+                        className="w-full text-left px-3 py-2 hover:bg-gray-50 border-b last:border-b-0 transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Navigation className="size-3.5 text-orange-500 shrink-0" />
+                          <span className="text-sm font-medium truncate">
+                            {place.name}
                           </span>
-                        )}
-                      </div>
-                      <p className="text-xs text-muted-foreground truncate pl-5.5">
-                        {place.address}
-                      </p>
-                    </button>
-                  ))}
-                </>
-              )}
-              {lotResults.length > 0 && (
-                <>
-                  <div className="px-3 py-1.5 text-[11px] font-medium text-muted-foreground bg-gray-50 sticky top-0">
-                    주차장 바로가기
-                  </div>
-                  {lotResults.slice(0, 3).map((lot) => (
-                    <button
-                      key={lot.id}
-                      onClick={() => handleSelectLot(lot)}
-                      className="w-full text-left px-3 py-2 hover:bg-gray-50 border-b last:border-b-0 transition-colors"
-                    >
-                      <div className="flex items-center gap-2">
-                        <MapPin className="size-3.5 text-blue-500 shrink-0" />
-                        <span className="text-sm font-medium truncate">
-                          {lot.name}
-                        </span>
-                        <span className="shrink-0 text-xs">
-                          {getDifficultyIcon(lot.difficulty.score)}
-                        </span>
-                      </div>
-                      <p className="text-xs text-muted-foreground truncate pl-5.5">
-                        {lot.address}
-                      </p>
-                    </button>
-                  ))}
-                </>
-              )}
+                          {place.category && (
+                            <span className="shrink-0 text-[10px] text-muted-foreground">
+                              {place.category}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground truncate pl-5.5">
+                          {place.address}
+                        </p>
+                      </button>
+                    ))}
+                  </>
+                )}
+                {lotResults.length > 0 && (
+                  <>
+                    <div className="px-3 py-1.5 text-[11px] font-medium text-muted-foreground bg-gray-50 sticky top-0">
+                      주차장 바로가기
+                    </div>
+                    {lotResults.slice(0, 3).map((lot) => (
+                      <button
+                        key={lot.id}
+                        onClick={() => handleSelectLot(lot)}
+                        className="w-full text-left px-3 py-2 hover:bg-gray-50 border-b last:border-b-0 transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <MapPin className="size-3.5 text-blue-500 shrink-0" />
+                          <span className="text-sm font-medium truncate">
+                            {lot.name}
+                          </span>
+                          <span className="shrink-0 text-xs">
+                            {getDifficultyIcon(lot.difficulty.score)}
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground truncate pl-5.5">
+                          {lot.address}
+                        </p>
+                      </button>
+                    ))}
+                  </>
+                )}
+              </div>
+              <div className="shrink-0 border-t bg-gray-50 px-3 py-1 text-[11px] text-muted-foreground text-right">
+                {placeResults.length > 0 && lotResults.length > 0
+                  ? `장소 ${placeResults.length}건 · 주차장 ${lotResults.length}건`
+                  : placeResults.length > 0
+                    ? `장소 ${placeResults.length}건`
+                    : `주차장 ${lotResults.length}건`}
+              </div>
             </>
           )}
         </div>
