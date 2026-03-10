@@ -14,6 +14,7 @@ import {
   getDifficultyLabel,
   getDistance,
 } from "@/lib/geo-utils";
+import { ParkingTabs } from "@/components/ParkingTabs";
 import { MapPin, Clock, CreditCard, Phone, Flame, ThumbsUp } from "lucide-react";
 
 interface ParkingCardProps {
@@ -60,7 +61,7 @@ export function ParkingCard({
 
   return (
     <Sheet open={!!lot} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent side="bottom" className="rounded-t-xl max-h-[50vh]">
+      <SheetContent side="bottom" className="rounded-t-xl max-h-[85vh]">
         <SheetHeader>
           <div className="flex items-center gap-2">
             <div
@@ -167,6 +168,9 @@ export function ParkingCard({
               {lot.notes}
             </p>
           )}
+
+          {/* 리뷰/영상/블로그 탭 */}
+          <ParkingTabs lotId={lot.id} />
         </div>
       </SheetContent>
     </Sheet>
