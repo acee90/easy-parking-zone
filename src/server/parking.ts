@@ -91,6 +91,47 @@ function rowToParkingLot(row: ParkingLotRow): ParkingLot {
   };
 }
 
+/** 사이트 전체 통계 (6시간 Cache API 캐싱) */
+export const fetchSiteStats = createServerFn({ method: "GET" }).handler(
+  async () => {
+    const CACHE_KEY = "https://easy-parking.xyz/__internal/site-stats";
+    const CACHE_TTL = 6 * 60 * 60; // 6시간
+
+    const cache = typeof caches !== "undefined" ? await caches.open("site-stats") : null;
+    if (cache) {
+      const cached = await cache.match(CACHE_KEY);
+      if (cached) return cached.json();
+    }
+
+    const db = getDB();
+    const [lots, reviews, media] = await Promise.all([
+      db.prepare("SELECT COUNT(*) as cnt FROM parking_lots").first<{ cnt: number }>(),
+      db.prepare("SELECT COUNT(*) as cnt FROM user_reviews").first<{ cnt: number }>(),
+      db.prepare(
+        `SELECT
+           (SELECT COUNT(*) FROM parking_media) +
+           (SELECT COUNT(*) FROM web_sources) as cnt`
+      ).first<{ cnt: number }>(),
+    ]);
+    const stats = {
+      parkingLots: lots?.cnt ?? 0,
+      reviews: reviews?.cnt ?? 0,
+      mediaPosts: media?.cnt ?? 0,
+    };
+
+    if (cache) {
+      await cache.put(
+        CACHE_KEY,
+        new Response(JSON.stringify(stats), {
+          headers: { "Content-Type": "application/json", "Cache-Control": `public, max-age=${CACHE_TTL}` },
+        })
+      );
+    }
+
+    return stats;
+  }
+);
+
 /** bounds 내 주차장 목록 조회 (리뷰 평균 점수 JOIN) */
 export const fetchParkingLots = createServerFn({ method: "GET" })
   .inputValidator(

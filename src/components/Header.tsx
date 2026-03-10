@@ -4,9 +4,16 @@ import { SearchBar } from "@/components/SearchBar";
 import { authClient } from "@/lib/auth-client";
 import type { ParkingLot } from "@/types/parking";
 
+interface SiteStats {
+  parkingLots: number;
+  reviews: number;
+  mediaPosts: number;
+}
+
 interface HeaderProps {
   onSearchSelect: (lot: ParkingLot) => void;
   onPlaceSelect?: (coords: { lat: number; lng: number }) => void;
+  siteStats?: SiteStats;
 }
 
 function LoginModal({ onClose }: { onClose: () => void }) {
@@ -96,7 +103,13 @@ function UserMenu() {
   );
 }
 
-export function Header({ onSearchSelect, onPlaceSelect }: HeaderProps) {
+function formatCount(n: number): string {
+  if (n >= 10000) return `${(n / 10000).toFixed(1)}만`;
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}천`;
+  return n.toLocaleString();
+}
+
+export function Header({ onSearchSelect, onPlaceSelect, siteStats }: HeaderProps) {
   const { data: session } = authClient.useSession();
   const [showLogin, setShowLogin] = useState(false);
 
@@ -114,6 +127,14 @@ export function Header({ onSearchSelect, onPlaceSelect }: HeaderProps) {
           <span>💀 주의</span>
           <span>💀💀 비추</span>
         </div>
+        {siteStats && (
+          <div className="hidden md:flex items-center gap-3 text-xs text-muted-foreground shrink-0">
+            <span className="w-px h-4 bg-border" />
+            <span>주차장 <strong className="text-foreground">{formatCount(siteStats.parkingLots)}</strong></span>
+            <span>리뷰 <strong className="text-foreground">{formatCount(siteStats.reviews)}</strong></span>
+            <span>영상/포스팅 <strong className="text-foreground">{formatCount(siteStats.mediaPosts)}</strong></span>
+          </div>
+        )}
         <div className="flex-1" />
         {session?.user ? (
           <UserMenu />
