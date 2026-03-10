@@ -49,9 +49,12 @@ function App() {
     lastViewRef.current = { bounds, zoom };
     try {
       if (zoom <= 12) {
-        setParkingLots([]);
-        const data = await fetchParkingClusters({ data: { ...bounds, zoom, filters } });
-        setClusters(data);
+        const [clusterData, lots] = await Promise.all([
+          fetchParkingClusters({ data: { ...bounds, zoom, filters } }),
+          fetchParkingLots({ data: { ...bounds, filters } }),
+        ]);
+        setClusters(clusterData);
+        setParkingLots(lots);
       } else {
         setClusters(null);
         const lots = await fetchParkingLots({ data: { ...bounds, filters } });
@@ -105,7 +108,6 @@ function App() {
           userLat={userLat}
           userLng={userLng}
           userLocated={userLocated}
-          isClustered={clusters !== null}
         />
 
         {/* 상세 패널 — 선택 시에만 표시 (데스크톱) */}

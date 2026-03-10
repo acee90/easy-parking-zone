@@ -195,6 +195,31 @@ interface BlogPostRow {
   published_at: string | null;
 }
 
+/** 주차장 탭 카운트 (리뷰/블로그/영상) 한번에 조회 */
+export const fetchTabCounts = createServerFn({ method: "GET" })
+  .inputValidator(
+    (input: { parkingLotId: string }): { parkingLotId: string } => input
+  )
+  .handler(async ({ data }): Promise<{ reviews: number; blog: number; media: number }> => {
+    const db = getDB();
+    const [reviews, blog, media] = await Promise.all([
+      db.prepare(`SELECT COUNT(*) as cnt FROM reviews WHERE parking_lot_id = ?1`)
+        .bind(data.parkingLotId).first<{ cnt: number }>(),
+      db.prepare(
+        `SELECT COUNT(*) as cnt FROM crawled_reviews
+         WHERE parking_lot_id = ?1 AND relevance_score >= 40
+           AND source_url NOT LIKE '%youtube.com%' AND source_url NOT LIKE '%youtu.be%'`
+      ).bind(data.parkingLotId).first<{ cnt: number }>(),
+      db.prepare(`SELECT COUNT(*) as cnt FROM parking_media WHERE parking_lot_id = ?1`)
+        .bind(data.parkingLotId).first<{ cnt: number }>(),
+    ]);
+    return {
+      reviews: reviews?.cnt ?? 0,
+      blog: blog?.cnt ?? 0,
+      media: media?.cnt ?? 0,
+    };
+  });
+
 export const fetchBlogPosts = createServerFn({ method: "GET" })
   .inputValidator(
     (input: { parkingLotId: string }): { parkingLotId: string } => input
@@ -220,7 +245,7 @@ export const fetchBlogPosts = createServerFn({ method: "GET" })
       title: row.title,
       snippet: row.content,
       sourceUrl: row.source_url,
-      source: row.source as "naver_blog" | "naver_cafe",
+      source: row.source as BlogPost["source"],
       author: row.author,
       publishedAt: row.published_at ?? undefined,
     }));

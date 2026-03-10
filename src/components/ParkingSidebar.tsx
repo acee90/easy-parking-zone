@@ -17,7 +17,6 @@ interface ParkingSidebarProps {
   userLat?: number;
   userLng?: number;
   userLocated?: boolean;
-  isClustered?: boolean;
 }
 
 function difficultyColor(score: number | null) {
@@ -36,7 +35,6 @@ export function ParkingSidebar({
   userLat,
   userLng,
   userLocated,
-  isClustered,
 }: ParkingSidebarProps) {
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
@@ -80,13 +78,7 @@ export function ParkingSidebar({
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        {isClustered ? (
-          <div className="flex flex-col items-center justify-center h-full text-muted-foreground text-sm px-4 text-center">
-            <MapPin className="size-8 mb-2 opacity-30" />
-            <p>지도를 확대하면</p>
-            <p>주차장 목록이 표시됩니다</p>
-          </div>
-        ) : sortedLots.length === 0 ? (
+        {sortedLots.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground text-sm px-4 text-center">
             <ParkingSquare className="size-8 mb-2 opacity-30" />
             <p>현재 지도 영역에</p>

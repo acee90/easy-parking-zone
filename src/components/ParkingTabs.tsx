@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import type { BlogPost, UserReview, ParkingMedia } from "@/types/parking";
-import { fetchBlogPosts, fetchParkingMedia } from "@/server/parking";
+import { fetchBlogPosts, fetchParkingMedia, fetchTabCounts } from "@/server/parking";
 import { fetchUserReviews, createReview, deleteReview } from "@/server/reviews";
 import { authClient } from "@/lib/auth-client";
 import {
@@ -11,6 +11,7 @@ import {
   Pen,
   Play,
   ExternalLink,
+  Loader2,
 } from "lucide-react";
 
 function decodeHtmlEntities(text: string): string {
@@ -247,16 +248,22 @@ export function ParkingTabs({ lotId }: ParkingTabsProps) {
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [reviewKey, setReviewKey] = useState(0);
   const [activeTab, setActiveTab] = useState<"reviews" | "media" | "blog">("reviews");
+  const [tabCounts, setTabCounts] = useState<{ reviews: number; blog: number; media: number }>({ reviews: 0, blog: 0, media: 0 });
+  const [loadingTabs, setLoadingTabs] = useState<Set<string>>(new Set());
   const fetchedTabsRef = useRef<Set<string>>(new Set(["reviews"]));
 
-  // lotId 변경 시 상태 초기화 + 기본 탭(reviews)만 fetch
+  // lotId 변경 시 상태 초기화 + 카운트 즉시 조회 + 기본 탭(reviews) fetch
   useEffect(() => {
     setBlogPosts([]);
     setMedia([]);
     setUserReviews([]);
     setShowReviewForm(false);
     setActiveTab("reviews");
+    setTabCounts({ reviews: 0, blog: 0, media: 0 });
     fetchedTabsRef.current = new Set(["reviews"]);
+    fetchTabCounts({ data: { parkingLotId: lotId } })
+      .then(setTabCounts)
+      .catch(() => {});
     fetchUserReviews({ data: { parkingLotId: lotId } })
       .then(setUserReviews)
       .catch(() => setUserReviews([]));
@@ -266,14 +273,17 @@ export function ParkingTabs({ lotId }: ParkingTabsProps) {
   useEffect(() => {
     if (fetchedTabsRef.current.has(activeTab)) return;
     fetchedTabsRef.current.add(activeTab);
+    setLoadingTabs((s) => new Set(s).add(activeTab));
     if (activeTab === "blog") {
       fetchBlogPosts({ data: { parkingLotId: lotId } })
         .then(setBlogPosts)
-        .catch(() => setBlogPosts([]));
+        .catch(() => setBlogPosts([]))
+        .finally(() => setLoadingTabs((s) => { const n = new Set(s); n.delete("blog"); return n; }));
     } else if (activeTab === "media") {
       fetchParkingMedia({ data: { parkingLotId: lotId } })
         .then(setMedia)
-        .catch(() => setMedia([]));
+        .catch(() => setMedia([]))
+        .finally(() => setLoadingTabs((s) => { const n = new Set(s); n.delete("media"); return n; }));
     }
   }, [activeTab, lotId]);
 
@@ -281,14 +291,17 @@ export function ParkingTabs({ lotId }: ParkingTabsProps) {
     fetchUserReviews({ data: { parkingLotId: lotId } })
       .then(setUserReviews)
       .catch(() => setUserReviews([]));
+    fetchTabCounts({ data: { parkingLotId: lotId } })
+      .then(setTabCounts)
+      .catch(() => {});
     setShowReviewForm(false);
     setReviewKey((k) => k + 1);
   };
 
   const tabs = [
-    { key: "reviews" as const, icon: <MessageSquare className="size-3.5" />, label: "리뷰", count: userReviews.length },
-    { key: "media" as const, icon: <Play className="size-3.5" />, label: "영상", count: media.length },
-    { key: "blog" as const, icon: <FileText className="size-3.5" />, label: "블로그", count: blogPosts.length },
+    { key: "reviews" as const, icon: <MessageSquare className="size-3.5" />, label: "리뷰", count: tabCounts.reviews },
+    { key: "media" as const, icon: <Play className="size-3.5" />, label: "영상", count: tabCounts.media },
+    { key: "blog" as const, icon: <FileText className="size-3.5" />, label: "블로그", count: tabCounts.blog },
   ];
 
   return (
@@ -408,6 +421,11 @@ export function ParkingTabs({ lotId }: ParkingTabsProps) {
                   </a>
                 ))}
               </div>
+            ) : loadingTabs.has("media") ? (
+              <div className="flex items-center justify-center gap-1.5 py-6">
+                <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
+                <span className="text-xs text-muted-foreground">불러오는 중...</span>
+              </div>
             ) : (
               <p className="text-xs text-muted-foreground text-center py-6">
                 관련 영상이 없습니다
@@ -423,6 +441,11 @@ export function ParkingTabs({ lotId }: ParkingTabsProps) {
                 {blogPosts.map((post) => (
                   <BlogPostCard key={post.sourceUrl} post={post} />
                 ))}
+              </div>
+            ) : loadingTabs.has("blog") ? (
+              <div className="flex items-center justify-center gap-1.5 py-6">
+                <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
+                <span className="text-xs text-muted-foreground">불러오는 중...</span>
               </div>
             ) : (
               <p className="text-xs text-muted-foreground text-center py-6">
