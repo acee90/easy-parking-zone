@@ -1,52 +1,10 @@
 import { createServerFn } from "@tanstack/react-start";
-import { getDB } from "@/lib/db";
+import { getDb } from "@/db";
+import { schema } from "@/db";
+import { eq, and, sql, gt, count } from "drizzle-orm";
 import { createAuth } from "@/lib/auth";
 import type { UserReview } from "@/types/parking";
-
-interface ReviewRow {
-  id: number;
-  user_id: string | null;
-  guest_nickname: string | null;
-  entry_score: number;
-  space_score: number;
-  passage_score: number;
-  exit_score: number;
-  overall_score: number;
-  comment: string | null;
-  visited_at: string | null;
-  created_at: string;
-  user_name: string | null;
-  user_image: string | null;
-  source_type: string | null;
-  source_url: string | null;
-}
-
-function rowToReview(row: ReviewRow, currentUserId: string | null): UserReview {
-  const isMember = row.user_id !== null;
-  return {
-    id: row.id,
-    author: {
-      type: isMember ? "member" : "guest",
-      nickname: isMember
-        ? (row.user_name ?? "사용자")
-        : (row.guest_nickname ?? "익명"),
-      profileImage: row.user_image ?? undefined,
-    },
-    scores: {
-      entry: row.entry_score,
-      space: row.space_score,
-      passage: row.passage_score,
-      exit: row.exit_score,
-      overall: row.overall_score,
-    },
-    comment: row.comment ?? undefined,
-    visitedAt: row.visited_at ?? undefined,
-    createdAt: row.created_at,
-    isMine: currentUserId !== null && row.user_id === currentUserId,
-    sourceType: row.source_type ?? undefined,
-    sourceUrl: row.source_url ?? undefined,
-  };
-}
+import { rowToReview, validateScore, type ReviewRow } from "./transforms";
 
 async function getSessionUserId(request: Request): Promise<string | null> {
   try {
@@ -80,29 +38,35 @@ export const fetchUserReviews = createServerFn({ method: "GET" })
     (input: { parkingLotId: string }): { parkingLotId: string } => input
   )
   .handler(async ({ data, request }): Promise<UserReview[]> => {
-    const db = getDB();
+    const db = getDb();
     const currentUserId = request ? await getSessionUserId(request) : null;
 
-    const result = await db
-      .prepare(
-        `SELECT r.id, r.user_id, r.guest_nickname,
-                r.entry_score, r.space_score, r.passage_score,
-                r.exit_score, r.overall_score,
-                r.comment, r.visited_at, r.created_at,
-                r.source_type, r.source_url,
-                u.name as user_name, u.image as user_image
-         FROM user_reviews r
-         LEFT JOIN user u ON u.id = r.user_id
-         WHERE r.parking_lot_id = ?1
-         ORDER BY r.created_at DESC
-         LIMIT 20`
-      )
-      .bind(data.parkingLotId)
-      .all<ReviewRow>();
+    // LEFT JOIN user 테이블은 Drizzle에서 raw SQL로 유지 (better-auth 테이블)
+    const rows = await db
+      .select({
+        id: schema.userReviews.id,
+        user_id: schema.userReviews.userId,
+        guest_nickname: schema.userReviews.guestNickname,
+        entry_score: schema.userReviews.entryScore,
+        space_score: schema.userReviews.spaceScore,
+        passage_score: schema.userReviews.passageScore,
+        exit_score: schema.userReviews.exitScore,
+        overall_score: schema.userReviews.overallScore,
+        comment: schema.userReviews.comment,
+        visited_at: schema.userReviews.visitedAt,
+        created_at: schema.userReviews.createdAt,
+        source_type: schema.userReviews.sourceType,
+        source_url: schema.userReviews.sourceUrl,
+        user_name: schema.users.name,
+        user_image: schema.users.image,
+      })
+      .from(schema.userReviews)
+      .leftJoin(schema.users, eq(schema.users.id, schema.userReviews.userId))
+      .where(eq(schema.userReviews.parkingLotId, data.parkingLotId))
+      .orderBy(sql`${schema.userReviews.createdAt} DESC`)
+      .limit(20);
 
-    return (result.results ?? []).map((row) =>
-      rowToReview(row, currentUserId)
-    );
+    return rows.map((row) => rowToReview(row as ReviewRow, currentUserId));
   });
 
 interface CreateReviewInput {
@@ -115,10 +79,6 @@ interface CreateReviewInput {
   comment?: string;
   visitedAt?: string;
   guestNickname?: string;
-}
-
-function validateScore(v: unknown): v is number {
-  return typeof v === "number" && v >= 1 && v <= 5 && Number.isInteger(v);
 }
 
 /** 리뷰 작성 (회원/비회원) */
@@ -136,21 +96,23 @@ export const createReview = createServerFn({ method: "POST" })
     return input;
   })
   .handler(async ({ data, request }) => {
-    const db = getDB();
+    const db = getDb();
     const userId = request ? await getSessionUserId(request) : null;
 
     // 비회원 rate limit: 같은 IP + 주차장에 24시간 내 1건
     let ipHash: string | null = null;
     if (!userId && request) {
       ipHash = await hashIP(getClientIP(request));
-      const existing = await db
-        .prepare(
-          `SELECT COUNT(*) as cnt FROM user_reviews
-           WHERE ip_hash = ?1 AND parking_lot_id = ?2
-             AND created_at > datetime('now', '-24 hours')`
-        )
-        .bind(ipHash, data.parkingLotId)
-        .first<{ cnt: number }>();
+      const [existing] = await db
+        .select({ cnt: count() })
+        .from(schema.userReviews)
+        .where(
+          and(
+            eq(schema.userReviews.ipHash, ipHash),
+            eq(schema.userReviews.parkingLotId, data.parkingLotId),
+            gt(schema.userReviews.createdAt, sql`datetime('now', '-24 hours')`),
+          )
+        );
       if (existing && existing.cnt > 0) {
         throw new Error("24시간 내에 같은 주차장에 이미 리뷰를 남겼습니다");
       }
@@ -158,41 +120,34 @@ export const createReview = createServerFn({ method: "POST" })
 
     // 회원 rate limit: 같은 주차장에 24시간 내 1건
     if (userId) {
-      const existing = await db
-        .prepare(
-          `SELECT COUNT(*) as cnt FROM user_reviews
-           WHERE user_id = ?1 AND parking_lot_id = ?2
-             AND created_at > datetime('now', '-24 hours')`
-        )
-        .bind(userId, data.parkingLotId)
-        .first<{ cnt: number }>();
+      const [existing] = await db
+        .select({ cnt: count() })
+        .from(schema.userReviews)
+        .where(
+          and(
+            eq(schema.userReviews.userId, userId),
+            eq(schema.userReviews.parkingLotId, data.parkingLotId),
+            gt(schema.userReviews.createdAt, sql`datetime('now', '-24 hours')`),
+          )
+        );
       if (existing && existing.cnt > 0) {
         throw new Error("24시간 내에 같은 주차장에 이미 리뷰를 남겼습니다");
       }
     }
 
-    await db
-      .prepare(
-        `INSERT INTO user_reviews (
-          parking_lot_id, user_id, guest_nickname, ip_hash,
-          entry_score, space_score, passage_score, exit_score,
-          overall_score, comment, visited_at
-        ) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11)`
-      )
-      .bind(
-        data.parkingLotId,
-        userId,
-        userId ? null : (data.guestNickname || "익명"),
-        userId ? null : ipHash,
-        data.entryScore,
-        data.spaceScore,
-        data.passageScore,
-        data.exitScore,
-        data.overallScore,
-        data.comment ?? null,
-        data.visitedAt ?? null
-      )
-      .run();
+    await db.insert(schema.userReviews).values({
+      parkingLotId: data.parkingLotId,
+      userId,
+      guestNickname: userId ? null : (data.guestNickname || "익명"),
+      ipHash: userId ? null : ipHash,
+      entryScore: data.entryScore,
+      spaceScore: data.spaceScore,
+      passageScore: data.passageScore,
+      exitScore: data.exitScore,
+      overallScore: data.overallScore,
+      comment: data.comment ?? null,
+      visitedAt: data.visitedAt ?? null,
+    });
 
     return { ok: true };
   });
@@ -206,20 +161,20 @@ export const deleteReview = createServerFn({ method: "POST" })
     const userId = request ? await getSessionUserId(request) : null;
     if (!userId) throw new Error("로그인 필요");
 
-    const db = getDB();
+    const db = getDb();
     const review = await db
-      .prepare("SELECT user_id FROM user_reviews WHERE id = ?1")
-      .bind(data.reviewId)
-      .first<{ user_id: string | null }>();
+      .select({ userId: schema.userReviews.userId })
+      .from(schema.userReviews)
+      .where(eq(schema.userReviews.id, data.reviewId))
+      .get();
 
-    if (!review || review.user_id !== userId) {
+    if (!review || review.userId !== userId) {
       throw new Error("본인 리뷰만 삭제 가능");
     }
 
     await db
-      .prepare("DELETE FROM user_reviews WHERE id = ?1")
-      .bind(data.reviewId)
-      .run();
+      .delete(schema.userReviews)
+      .where(eq(schema.userReviews.id, data.reviewId));
 
     return { ok: true };
   });

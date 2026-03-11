@@ -1,6 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { setResponseHeader } from "@tanstack/react-start/server";
-import { getDB } from "@/lib/db";
+import { getDb } from "@/db";
+import { schema } from "@/db";
+import { eq, and, sql } from "drizzle-orm";
 import { createAuth } from "@/lib/auth";
 import { getAnonIdFromRequest, resolveVoterId, generateAnonId, buildAnonCookieValue } from "@/lib/vote-utils";
 
@@ -36,48 +38,54 @@ export const fetchVoteSummary = createServerFn({ method: "GET" })
     (input: { parkingLotId: string }): { parkingLotId: string } => input
   )
   .handler(async ({ data, request }): Promise<VoteSummary> => {
-    const db = getDB();
+    const db = getDb();
     const userId = request ? await getSessionUserId(request) : null;
     const anonId = request ? ensureAnonId(request) : null;
     const voterId = resolveVoterId(userId, anonId);
 
     const counts = await db
-      .prepare(
-        `SELECT
-          SUM(CASE WHEN vote_type = 'up' THEN 1 ELSE 0 END) as up_count,
-          SUM(CASE WHEN vote_type = 'down' THEN 1 ELSE 0 END) as down_count
-        FROM parking_votes
-        WHERE parking_lot_id = ?1`
-      )
-      .bind(data.parkingLotId)
-      .first<{ up_count: number; down_count: number }>();
+      .select({
+        upCount: sql<number>`SUM(CASE WHEN ${schema.parkingVotes.voteType} = 'up' THEN 1 ELSE 0 END)`,
+        downCount: sql<number>`SUM(CASE WHEN ${schema.parkingVotes.voteType} = 'down' THEN 1 ELSE 0 END)`,
+      })
+      .from(schema.parkingVotes)
+      .where(eq(schema.parkingVotes.parkingLotId, data.parkingLotId))
+      .get();
 
     let myVote: "up" | "down" | null = null;
     let bookmarked = false;
 
     if (voterId) {
       const vote = await db
-        .prepare(
-          "SELECT vote_type FROM parking_votes WHERE user_id = ?1 AND parking_lot_id = ?2"
+        .select({ voteType: schema.parkingVotes.voteType })
+        .from(schema.parkingVotes)
+        .where(
+          and(
+            eq(schema.parkingVotes.userId, voterId),
+            eq(schema.parkingVotes.parkingLotId, data.parkingLotId),
+          )
         )
-        .bind(voterId, data.parkingLotId)
-        .first<{ vote_type: string }>();
-      myVote = (vote?.vote_type as "up" | "down") ?? null;
+        .get();
+      myVote = (vote?.voteType as "up" | "down") ?? null;
     }
 
     if (userId) {
       const bm = await db
-        .prepare(
-          "SELECT 1 FROM parking_bookmarks WHERE user_id = ?1 AND parking_lot_id = ?2"
+        .select({ id: schema.parkingBookmarks.id })
+        .from(schema.parkingBookmarks)
+        .where(
+          and(
+            eq(schema.parkingBookmarks.userId, userId),
+            eq(schema.parkingBookmarks.parkingLotId, data.parkingLotId),
+          )
         )
-        .bind(userId, data.parkingLotId)
-        .first();
-      bookmarked = bm !== null;
+        .get();
+      bookmarked = bm !== undefined;
     }
 
     return {
-      upCount: counts?.up_count ?? 0,
-      downCount: counts?.down_count ?? 0,
+      upCount: counts?.upCount ?? 0,
+      downCount: counts?.downCount ?? 0,
       myVote,
       bookmarked,
     };
@@ -98,37 +106,45 @@ export const toggleVote = createServerFn({ method: "POST" })
     const voterId = resolveVoterId(userId, anonId);
     if (!voterId) throw new Error("투표할 수 없습니다");
 
-    const db = getDB();
+    const db = getDb();
     const existing = await db
-      .prepare(
-        "SELECT vote_type FROM parking_votes WHERE user_id = ?1 AND parking_lot_id = ?2"
+      .select({ voteType: schema.parkingVotes.voteType })
+      .from(schema.parkingVotes)
+      .where(
+        and(
+          eq(schema.parkingVotes.userId, voterId),
+          eq(schema.parkingVotes.parkingLotId, data.parkingLotId),
+        )
       )
-      .bind(voterId, data.parkingLotId)
-      .first<{ vote_type: string }>();
+      .get();
 
     if (existing) {
-      if (existing.vote_type === data.voteType) {
+      if (existing.voteType === data.voteType) {
         await db
-          .prepare(
-            "DELETE FROM parking_votes WHERE user_id = ?1 AND parking_lot_id = ?2"
-          )
-          .bind(voterId, data.parkingLotId)
-          .run();
+          .delete(schema.parkingVotes)
+          .where(
+            and(
+              eq(schema.parkingVotes.userId, voterId),
+              eq(schema.parkingVotes.parkingLotId, data.parkingLotId),
+            )
+          );
       } else {
         await db
-          .prepare(
-            "UPDATE parking_votes SET vote_type = ?3 WHERE user_id = ?1 AND parking_lot_id = ?2"
-          )
-          .bind(voterId, data.parkingLotId, data.voteType)
-          .run();
+          .update(schema.parkingVotes)
+          .set({ voteType: data.voteType })
+          .where(
+            and(
+              eq(schema.parkingVotes.userId, voterId),
+              eq(schema.parkingVotes.parkingLotId, data.parkingLotId),
+            )
+          );
       }
     } else {
-      await db
-        .prepare(
-          "INSERT INTO parking_votes (user_id, parking_lot_id, vote_type) VALUES (?1, ?2, ?3)"
-        )
-        .bind(voterId, data.parkingLotId, data.voteType)
-        .run();
+      await db.insert(schema.parkingVotes).values({
+        userId: voterId,
+        parkingLotId: data.parkingLotId,
+        voteType: data.voteType,
+      });
     }
 
     return { ok: true };
@@ -143,28 +159,32 @@ export const toggleBookmark = createServerFn({ method: "POST" })
     const userId = request ? await getSessionUserId(request) : null;
     if (!userId) throw new Error("로그인 필요");
 
-    const db = getDB();
+    const db = getDb();
     const existing = await db
-      .prepare(
-        "SELECT 1 FROM parking_bookmarks WHERE user_id = ?1 AND parking_lot_id = ?2"
+      .select({ id: schema.parkingBookmarks.id })
+      .from(schema.parkingBookmarks)
+      .where(
+        and(
+          eq(schema.parkingBookmarks.userId, userId),
+          eq(schema.parkingBookmarks.parkingLotId, data.parkingLotId),
+        )
       )
-      .bind(userId, data.parkingLotId)
-      .first();
+      .get();
 
     if (existing) {
       await db
-        .prepare(
-          "DELETE FROM parking_bookmarks WHERE user_id = ?1 AND parking_lot_id = ?2"
-        )
-        .bind(userId, data.parkingLotId)
-        .run();
+        .delete(schema.parkingBookmarks)
+        .where(
+          and(
+            eq(schema.parkingBookmarks.userId, userId),
+            eq(schema.parkingBookmarks.parkingLotId, data.parkingLotId),
+          )
+        );
     } else {
-      await db
-        .prepare(
-          "INSERT INTO parking_bookmarks (user_id, parking_lot_id) VALUES (?1, ?2)"
-        )
-        .bind(userId, data.parkingLotId)
-        .run();
+      await db.insert(schema.parkingBookmarks).values({
+        userId,
+        parkingLotId: data.parkingLotId,
+      });
     }
 
     return { ok: true };

@@ -1,5 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
-import { getDB } from "@/lib/db";
+import { getDb } from "@/db";
+import { schema } from "@/db";
+import { eq, and, sql, count } from "drizzle-orm";
 import { createAuth } from "@/lib/auth";
 
 // --- Auth helpers ---
@@ -21,13 +23,14 @@ async function requireAdmin(request: Request) {
   const session = await getSession(request);
   if (!session?.user?.id) throw new Error("로그인 필요");
 
-  const db = getDB();
+  const db = getDb();
   const user = await db
-    .prepare("SELECT is_admin FROM user WHERE id = ?1")
-    .bind(session.user.id)
-    .first<{ is_admin: number }>();
+    .select({ isAdmin: schema.users.isAdmin })
+    .from(schema.users)
+    .where(eq(schema.users.id, session.user.id))
+    .get();
 
-  if (!user?.is_admin) throw new Error("관리자 권한 필요");
+  if (!user?.isAdmin) throw new Error("관리자 권한 필요");
   return session.user.id;
 }
 
@@ -59,16 +62,18 @@ export const checkAdminAccess = createServerFn({ method: "GET" }).handler(
     const session = await getSession(request);
     if (!session?.user?.id) return { isAdmin: false };
 
-    const db = getDB();
+    const db = getDb();
     const user = await db
-      .prepare("SELECT is_admin FROM user WHERE id = ?1")
-      .bind(session.user.id)
-      .first<{ is_admin: number }>();
+      .select({ isAdmin: schema.users.isAdmin })
+      .from(schema.users)
+      .where(eq(schema.users.id, session.user.id))
+      .get();
 
-    return { isAdmin: !!user?.is_admin };
+    return { isAdmin: !!user?.isAdmin };
   }
 );
 
+/** 시그널 목록 — 동적 WHERE + JOIN이 복잡하여 raw SQL 유지 */
 export const fetchSignals = createServerFn({ method: "GET" })
   .inputValidator(
     (input: {
@@ -83,7 +88,7 @@ export const fetchSignals = createServerFn({ method: "GET" })
     await requireAdmin(request);
 
     const { status = "pending", lotSearch, page = 1, limit = 50 } = data;
-    const db = getDB();
+    const db = getDb();
     const offset = (page - 1) * limit;
 
     const conditions: string[] = [];
@@ -112,63 +117,63 @@ export const fetchSignals = createServerFn({ method: "GET" })
       conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
     // Count
-    const countResult = await db
-      .prepare(
+    const countResult = await db.run(
+      sql.raw(
         `SELECT COUNT(DISTINCT cs.id) as total
          FROM cafe_signals cs ${joinClause} ${where}`
       )
-      .bind(...params)
-      .first<{ total: number }>();
+    );
+    const total = (countResult.rows?.[0] as { total: number } | undefined)?.total ?? 0;
 
     // Paginated signals
-    const signalsResult = await db
-      .prepare(
+    params.push(limit, offset);
+    const signalsResult = await db.run(
+      sql.raw(
         `SELECT DISTINCT cs.id, cs.title, cs.url, cs.snippet,
                 cs.ai_sentiment, cs.human_score
          FROM cafe_signals cs ${joinClause} ${where}
          ORDER BY cs.id
          LIMIT ?${idx} OFFSET ?${idx + 1}`
       )
-      .bind(...params, limit, offset)
-      .all<{
-        id: number;
-        title: string;
-        url: string;
-        snippet: string;
-        ai_sentiment: string;
-        human_score: number | null;
-      }>();
+    );
 
-    const signals = signalsResult.results ?? [];
+    const signals = (signalsResult.rows ?? []) as unknown as {
+      id: number;
+      title: string;
+      url: string;
+      snippet: string;
+      ai_sentiment: string;
+      human_score: number | null;
+    }[];
+
     if (signals.length === 0) {
       return {
         items: [] as SignalItem[],
-        total: countResult?.total ?? 0,
+        total,
         page,
         limit,
       };
     }
 
     // Fetch lots for these signals
-    const ids = signals.map((s: { id: number }) => s.id);
-    const ph = ids.map((_: number, i: number) => `?${i + 1}`).join(",");
-    const lotsResult = await db
-      .prepare(
+    const ids = signals.map((s) => s.id);
+    const ph = ids.map((_, i) => `?${i + 1}`).join(",");
+    const lotsResult = await db.run(
+      sql.raw(
         `SELECT csl.signal_id, csl.parking_lot_id, p.name, p.address
          FROM cafe_signal_lots csl
          JOIN parking_lots p ON p.id = csl.parking_lot_id
          WHERE csl.signal_id IN (${ph})`
       )
-      .bind(...ids)
-      .all<{
-        signal_id: number;
-        parking_lot_id: string;
-        name: string;
-        address: string;
-      }>();
+    );
 
     const lotsMap = new Map<number, LotTag[]>();
-    for (const row of lotsResult.results ?? []) {
+    for (const row of (lotsResult.rows ?? []) as unknown as {
+      signal_id: number;
+      parking_lot_id: string;
+      name: string;
+      address: string;
+    }[]) {
       const arr = lotsMap.get(row.signal_id) ?? [];
       arr.push({
         parkingLotId: row.parking_lot_id,
@@ -178,26 +183,17 @@ export const fetchSignals = createServerFn({ method: "GET" })
       lotsMap.set(row.signal_id, arr);
     }
 
-    const items: SignalItem[] = signals.map(
-      (s: {
-        id: number;
-        title: string;
-        url: string;
-        snippet: string;
-        ai_sentiment: string;
-        human_score: number | null;
-      }) => ({
-        id: s.id,
-        title: s.title,
-        url: s.url,
-        snippet: s.snippet,
-        aiSentiment: s.ai_sentiment,
-        humanScore: s.human_score,
-        lots: lotsMap.get(s.id) ?? [],
-      })
-    );
+    const items: SignalItem[] = signals.map((s) => ({
+      id: s.id,
+      title: s.title,
+      url: s.url,
+      snippet: s.snippet,
+      aiSentiment: s.ai_sentiment,
+      humanScore: s.human_score,
+      lots: lotsMap.get(s.id) ?? [],
+    }));
 
-    return { items, total: countResult?.total ?? 0, page, limit };
+    return { items, total, page, limit };
   });
 
 export const tagSignal = createServerFn({ method: "POST" })
@@ -208,13 +204,11 @@ export const tagSignal = createServerFn({ method: "POST" })
     if (!request) throw new Error("서버 요청 필요");
     await requireAdmin(request);
 
-    const db = getDB();
+    const db = getDb();
     await db
-      .prepare(
-        "UPDATE cafe_signals SET human_score = ?1, updated_at = datetime('now') WHERE id = ?2"
-      )
-      .bind(data.humanScore, data.signalId)
-      .run();
+      .update(schema.cafeSignals)
+      .set({ humanScore: data.humanScore, updatedAt: sql`datetime('now')` })
+      .where(eq(schema.cafeSignals.id, data.signalId));
 
     return { ok: true };
   });
@@ -227,13 +221,15 @@ export const removeLotFromSignal = createServerFn({ method: "POST" })
     if (!request) throw new Error("서버 요청 필요");
     await requireAdmin(request);
 
-    const db = getDB();
+    const db = getDb();
     await db
-      .prepare(
-        "DELETE FROM cafe_signal_lots WHERE signal_id = ?1 AND parking_lot_id = ?2"
-      )
-      .bind(data.signalId, data.parkingLotId)
-      .run();
+      .delete(schema.cafeSignalLots)
+      .where(
+        and(
+          eq(schema.cafeSignalLots.signalId, data.signalId),
+          eq(schema.cafeSignalLots.parkingLotId, data.parkingLotId),
+        )
+      );
 
     return { ok: true };
   });
@@ -246,18 +242,17 @@ export const addLotToSignal = createServerFn({ method: "POST" })
     if (!request) throw new Error("서버 요청 필요");
     await requireAdmin(request);
 
-    const db = getDB();
+    const db = getDb();
     await db
-      .prepare(
-        "INSERT OR IGNORE INTO cafe_signal_lots (signal_id, parking_lot_id) VALUES (?1, ?2)"
-      )
-      .bind(data.signalId, data.parkingLotId)
-      .run();
+      .insert(schema.cafeSignalLots)
+      .values({ signalId: data.signalId, parkingLotId: data.parkingLotId })
+      .onConflictDoNothing();
 
     const lot = await db
-      .prepare("SELECT name, address FROM parking_lots WHERE id = ?1")
-      .bind(data.parkingLotId)
-      .first<{ name: string; address: string }>();
+      .select({ name: schema.parkingLots.name, address: schema.parkingLots.address })
+      .from(schema.parkingLots)
+      .where(eq(schema.parkingLots.id, data.parkingLotId))
+      .get();
 
     return {
       lot: {
@@ -274,17 +269,22 @@ export const searchParkingLots = createServerFn({ method: "GET" })
     if (!request) throw new Error("서버 요청 필요");
     await requireAdmin(request);
 
-    const db = getDB();
-    const result = await db
-      .prepare(
-        `SELECT id, name, address FROM parking_lots
-         WHERE name LIKE ?1 OR address LIKE ?1
-         ORDER BY name LIMIT 10`
+    const db = getDb();
+    const q = `%${data.query}%`;
+    const rows = await db
+      .select({
+        id: schema.parkingLots.id,
+        name: schema.parkingLots.name,
+        address: schema.parkingLots.address,
+      })
+      .from(schema.parkingLots)
+      .where(
+        sql`${schema.parkingLots.name} LIKE ${q} OR ${schema.parkingLots.address} LIKE ${q}`
       )
-      .bind(`%${data.query}%`)
-      .all<{ id: string; name: string; address: string }>();
+      .orderBy(schema.parkingLots.name)
+      .limit(10);
 
-    return result.results ?? [];
+    return rows;
   });
 
 // --- 리뷰 모니터링 ---
@@ -303,6 +303,7 @@ export interface AdminReviewItem {
   createdAt: string;
 }
 
+/** 리뷰 목록 — 동적 WHERE + 복합 JOIN으로 raw SQL 유지 */
 export const fetchRecentReviews = createServerFn({ method: "GET" })
   .inputValidator(
     (input: { page?: number; limit?: number; source?: ReviewSource }) => input
@@ -313,7 +314,7 @@ export const fetchRecentReviews = createServerFn({ method: "GET" })
 
     const { page = 1, limit = 30, source = "all" } = data;
     const offset = (page - 1) * limit;
-    const db = getDB();
+    const db = getDb();
 
     const cond = source === "user"
       ? "r.source_type IS NULL"
@@ -321,37 +322,35 @@ export const fetchRecentReviews = createServerFn({ method: "GET" })
         ? "r.source_type = 'clien'"
         : "1=1";
 
-    const countRow = await db
-      .prepare(`SELECT COUNT(*) as total FROM user_reviews r WHERE ${cond}`)
-      .first<{ total: number }>();
+    const countRow = await db.run(
+      sql.raw(`SELECT COUNT(*) as total FROM user_reviews r WHERE ${cond}`)
+    );
+    const total = (countRow.rows?.[0] as { total: number } | undefined)?.total ?? 0;
 
-    const rows = await db
-      .prepare(
-        `SELECT r.id, r.parking_lot_id, p.name as lot_name,
-                COALESCE(u.name, r.guest_nickname, '익명') as author_name,
-                COALESCE(r.source_type, 'user') as source,
-                r.overall_score, r.comment, r.source_url, r.created_at
-         FROM user_reviews r
-         JOIN parking_lots p ON p.id = r.parking_lot_id
-         LEFT JOIN user u ON u.id = r.user_id
-         WHERE ${cond}
-         ORDER BY r.created_at DESC
-         LIMIT ?1 OFFSET ?2`
-      )
-      .bind(limit, offset)
-      .all<{
-        id: number;
-        parking_lot_id: string;
-        lot_name: string;
-        author_name: string;
-        source: string;
-        overall_score: number | null;
-        comment: string | null;
-        source_url: string | null;
-        created_at: string;
-      }>();
+    const rows = await db.run(
+      sql`SELECT r.id, r.parking_lot_id, p.name as lot_name,
+              COALESCE(u.name, r.guest_nickname, '익명') as author_name,
+              COALESCE(r.source_type, 'user') as source,
+              r.overall_score, r.comment, r.source_url, r.created_at
+       FROM user_reviews r
+       JOIN parking_lots p ON p.id = r.parking_lot_id
+       LEFT JOIN user u ON u.id = r.user_id
+       WHERE ${sql.raw(cond)}
+       ORDER BY r.created_at DESC
+       LIMIT ${limit} OFFSET ${offset}`
+    );
 
-    const items: AdminReviewItem[] = (rows.results ?? []).map((r) => ({
+    const items: AdminReviewItem[] = ((rows.rows ?? []) as unknown as {
+      id: number;
+      parking_lot_id: string;
+      lot_name: string;
+      author_name: string;
+      source: string;
+      overall_score: number | null;
+      comment: string | null;
+      source_url: string | null;
+      created_at: string;
+    }[]).map((r) => ({
       id: r.id,
       parkingLotId: r.parking_lot_id,
       parkingLotName: r.lot_name,
@@ -363,7 +362,7 @@ export const fetchRecentReviews = createServerFn({ method: "GET" })
       createdAt: r.created_at,
     }));
 
-    return { items, total: countRow?.total ?? 0, page, limit };
+    return { items, total, page, limit };
   });
 
 export const fetchReviewStats = createServerFn({ method: "GET" }).handler(
@@ -371,17 +370,15 @@ export const fetchReviewStats = createServerFn({ method: "GET" }).handler(
     if (!request) throw new Error("서버 요청 필요");
     await requireAdmin(request);
 
-    const db = getDB();
-    const result = await db
-      .prepare(
-        `SELECT COALESCE(source_type, 'user') as source, COUNT(*) as cnt
-         FROM user_reviews GROUP BY source`
-      )
-      .all<{ source: string; cnt: number }>();
+    const db = getDb();
+    const result = await db.run(
+      sql`SELECT COALESCE(source_type, 'user') as source, COUNT(*) as cnt
+       FROM user_reviews GROUP BY source`
+    );
 
     const counts: Record<string, number> = {};
     let total = 0;
-    for (const r of result.results ?? []) {
+    for (const r of (result.rows ?? []) as unknown as { source: string; cnt: number }[]) {
       counts[r.source] = r.cnt;
       total += r.cnt;
     }
@@ -398,11 +395,10 @@ export const adminDeleteReview = createServerFn({ method: "POST" })
     if (!request) throw new Error("서버 요청 필요");
     await requireAdmin(request);
 
-    const db = getDB();
+    const db = getDb();
     await db
-      .prepare("DELETE FROM user_reviews WHERE id = ?1")
-      .bind(data.reviewId)
-      .run();
+      .delete(schema.userReviews)
+      .where(eq(schema.userReviews.id, data.reviewId));
 
     return { ok: true };
   });
@@ -422,6 +418,7 @@ export interface WebSourceItem {
   crawledAt: string;
 }
 
+/** 웹 소스 목록 — 동적 WHERE로 raw SQL 유지 */
 export const fetchWebSources = createServerFn({ method: "GET" })
   .inputValidator(
     (input: { page?: number; limit?: number; source?: WebSourceType }) => input
@@ -432,41 +429,35 @@ export const fetchWebSources = createServerFn({ method: "GET" })
 
     const { page = 1, limit = 30, source = "all" } = data;
     const offset = (page - 1) * limit;
-    const db = getDB();
+    const db = getDb();
 
-    const cond = source === "all" ? "1=1" : "ws.source = ?1";
-    const bindParams = source === "all" ? [limit, offset] : [source, limit, offset];
-    const limitIdx = source === "all" ? "?1" : "?2";
-    const offsetIdx = source === "all" ? "?2" : "?3";
+    const cond = source === "all" ? "1=1" : `ws.source = '${source}'`;
 
-    const countRow = await db
-      .prepare(`SELECT COUNT(*) as total FROM web_sources ws WHERE ${cond}`)
-      .bind(...(source === "all" ? [] : [source]))
-      .first<{ total: number }>();
+    const countRow = await db.run(
+      sql.raw(`SELECT COUNT(*) as total FROM web_sources ws WHERE ${cond}`)
+    );
+    const total = (countRow.rows?.[0] as { total: number } | undefined)?.total ?? 0;
 
-    const rows = await db
-      .prepare(
-        `SELECT ws.id, p.name as lot_name, ws.source,
-                ws.author, ws.title, ws.content, ws.source_url, ws.crawled_at
-         FROM web_sources ws
-         JOIN parking_lots p ON p.id = ws.parking_lot_id
-         WHERE ${cond}
-         ORDER BY ws.crawled_at DESC
-         LIMIT ${limitIdx} OFFSET ${offsetIdx}`
-      )
-      .bind(...bindParams)
-      .all<{
-        id: number;
-        lot_name: string;
-        source: string;
-        author: string | null;
-        title: string | null;
-        content: string | null;
-        source_url: string | null;
-        crawled_at: string;
-      }>();
+    const rows = await db.run(
+      sql`SELECT ws.id, p.name as lot_name, ws.source,
+              ws.author, ws.title, ws.content, ws.source_url, ws.crawled_at
+       FROM web_sources ws
+       JOIN parking_lots p ON p.id = ws.parking_lot_id
+       WHERE ${sql.raw(cond)}
+       ORDER BY ws.crawled_at DESC
+       LIMIT ${limit} OFFSET ${offset}`
+    );
 
-    const items: WebSourceItem[] = (rows.results ?? []).map((r) => ({
+    const items: WebSourceItem[] = ((rows.rows ?? []) as unknown as {
+      id: number;
+      lot_name: string;
+      source: string;
+      author: string | null;
+      title: string | null;
+      content: string | null;
+      source_url: string | null;
+      crawled_at: string;
+    }[]).map((r) => ({
       id: r.id,
       parkingLotName: r.lot_name,
       source: r.source,
@@ -477,7 +468,7 @@ export const fetchWebSources = createServerFn({ method: "GET" })
       crawledAt: r.crawled_at,
     }));
 
-    return { items, total: countRow?.total ?? 0, page, limit };
+    return { items, total, page, limit };
   });
 
 export const fetchWebSourceStats = createServerFn({ method: "GET" }).handler(
@@ -485,14 +476,14 @@ export const fetchWebSourceStats = createServerFn({ method: "GET" }).handler(
     if (!request) throw new Error("서버 요청 필요");
     await requireAdmin(request);
 
-    const db = getDB();
-    const result = await db
-      .prepare("SELECT source, COUNT(*) as cnt FROM web_sources GROUP BY source")
-      .all<{ source: string; cnt: number }>();
+    const db = getDb();
+    const result = await db.run(
+      sql`SELECT source, COUNT(*) as cnt FROM web_sources GROUP BY source`
+    );
 
     const counts: Record<string, number> = {};
     let total = 0;
-    for (const r of result.results ?? []) {
+    for (const r of (result.rows ?? []) as unknown as { source: string; cnt: number }[]) {
       counts[r.source] = r.cnt;
       total += r.cnt;
     }
@@ -506,8 +497,141 @@ export const adminDeleteWebSource = createServerFn({ method: "POST" })
     if (!request) throw new Error("서버 요청 필요");
     await requireAdmin(request);
 
-    const db = getDB();
-    await db.prepare("DELETE FROM web_sources WHERE id = ?1").bind(data.id).run();
+    const db = getDb();
+    await db
+      .delete(schema.webSources)
+      .where(eq(schema.webSources.id, data.id));
+    return { ok: true };
+  });
+
+// --- POI 매칭 실패 관리 ---
+
+export type UnmatchedStatus = "pending" | "resolved" | "ignored" | "all";
+
+export interface UnmatchedItem {
+  id: number;
+  poiName: string;
+  lotName: string;
+  poiLat: number;
+  poiLng: number;
+  category: string | null;
+  status: string;
+  resolvedLotId: string | null;
+  resolvedLotName: string | null;
+  createdAt: string;
+}
+
+/** POI 매칭 실패 목록 — 동적 WHERE + LEFT JOIN으로 raw SQL 유지 */
+export const fetchUnmatched = createServerFn({ method: "GET" })
+  .inputValidator(
+    (input: { status?: UnmatchedStatus; page?: number; limit?: number }) => input,
+  )
+  .handler(async ({ data, request }) => {
+    if (!request) throw new Error("서버 요청 필요");
+    await requireAdmin(request);
+
+    const { status = "pending", page = 1, limit = 50 } = data;
+    const offset = (page - 1) * limit;
+    const db = getDb();
+
+    const cond = status === "all" ? "1=1" : `u.status = '${status}'`;
+
+    const countRow = await db.run(
+      sql.raw(`SELECT COUNT(*) as total FROM poi_unmatched u WHERE ${cond}`)
+    );
+    const total = (countRow.rows?.[0] as { total: number } | undefined)?.total ?? 0;
+
+    const rows = await db.run(
+      sql`SELECT u.id, u.poi_name, u.lot_name, u.poi_lat, u.poi_lng,
+              u.category, u.status, u.resolved_lot_id,
+              p.name as resolved_lot_name, u.created_at
+       FROM poi_unmatched u
+       LEFT JOIN parking_lots p ON p.id = u.resolved_lot_id
+       WHERE ${sql.raw(cond)}
+       ORDER BY u.created_at DESC
+       LIMIT ${limit} OFFSET ${offset}`
+    );
+
+    const items: UnmatchedItem[] = ((rows.rows ?? []) as unknown as {
+      id: number;
+      poi_name: string;
+      lot_name: string;
+      poi_lat: number;
+      poi_lng: number;
+      category: string | null;
+      status: string;
+      resolved_lot_id: string | null;
+      resolved_lot_name: string | null;
+      created_at: string;
+    }[]).map((r) => ({
+      id: r.id,
+      poiName: r.poi_name,
+      lotName: r.lot_name,
+      poiLat: r.poi_lat,
+      poiLng: r.poi_lng,
+      category: r.category,
+      status: r.status,
+      resolvedLotId: r.resolved_lot_id,
+      resolvedLotName: r.resolved_lot_name,
+      createdAt: r.created_at,
+    }));
+
+    return { items, total, page, limit };
+  });
+
+export const fetchUnmatchedStats = createServerFn({ method: "GET" }).handler(
+  async ({ request }) => {
+    if (!request) throw new Error("서버 요청 필요");
+    await requireAdmin(request);
+
+    const db = getDb();
+    const stats = await db
+      .select({
+        total: count(),
+        pending: sql<number>`SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END)`,
+        resolved: sql<number>`SUM(CASE WHEN status = 'resolved' THEN 1 ELSE 0 END)`,
+        ignored: sql<number>`SUM(CASE WHEN status = 'ignored' THEN 1 ELSE 0 END)`,
+      })
+      .from(schema.poiUnmatched)
+      .get();
+
+    return stats ?? { total: 0, pending: 0, resolved: 0, ignored: 0 };
+  },
+);
+
+export const resolveUnmatched = createServerFn({ method: "POST" })
+  .inputValidator(
+    (input: { id: number; parkingLotId: string }) => input,
+  )
+  .handler(async ({ data, request }) => {
+    if (!request) throw new Error("서버 요청 필요");
+    await requireAdmin(request);
+
+    const db = getDb();
+    await db
+      .update(schema.poiUnmatched)
+      .set({
+        status: "resolved",
+        resolvedLotId: data.parkingLotId,
+        updatedAt: sql`datetime('now')`,
+      })
+      .where(eq(schema.poiUnmatched.id, data.id));
+
+    return { ok: true };
+  });
+
+export const ignoreUnmatched = createServerFn({ method: "POST" })
+  .inputValidator((input: { id: number }) => input)
+  .handler(async ({ data, request }) => {
+    if (!request) throw new Error("서버 요청 필요");
+    await requireAdmin(request);
+
+    const db = getDb();
+    await db
+      .update(schema.poiUnmatched)
+      .set({ status: "ignored", updatedAt: sql`datetime('now')` })
+      .where(eq(schema.poiUnmatched.id, data.id));
+
     return { ok: true };
   });
 
@@ -516,22 +640,16 @@ export const fetchSignalStats = createServerFn({ method: "GET" }).handler(
     if (!request) throw new Error("서버 요청 필요");
     await requireAdmin(request);
 
-    const db = getDB();
+    const db = getDb();
     const stats = await db
-      .prepare(
-        `SELECT
-           COUNT(*) as total,
-           SUM(CASE WHEN human_score IS NULL THEN 1 ELSE 0 END) as pending,
-           SUM(CASE WHEN human_score IS NOT NULL AND human_score > 0 THEN 1 ELSE 0 END) as tagged,
-           SUM(CASE WHEN human_score = 0 THEN 1 ELSE 0 END) as irrelevant
-         FROM cafe_signals`
-      )
-      .first<{
-        total: number;
-        pending: number;
-        tagged: number;
-        irrelevant: number;
-      }>();
+      .select({
+        total: count(),
+        pending: sql<number>`SUM(CASE WHEN human_score IS NULL THEN 1 ELSE 0 END)`,
+        tagged: sql<number>`SUM(CASE WHEN human_score IS NOT NULL AND human_score > 0 THEN 1 ELSE 0 END)`,
+        irrelevant: sql<number>`SUM(CASE WHEN human_score = 0 THEN 1 ELSE 0 END)`,
+      })
+      .from(schema.cafeSignals)
+      .get();
 
     return stats ?? { total: 0, pending: 0, tagged: 0, irrelevant: 0 };
   }
