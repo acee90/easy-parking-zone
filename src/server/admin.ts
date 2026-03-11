@@ -117,17 +117,17 @@ export const fetchSignals = createServerFn({ method: "GET" })
       conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
     // Count
-    const countResult = await db.run(
+    const countRows = await db.all(
       sql.raw(
         `SELECT COUNT(DISTINCT cs.id) as total
          FROM cafe_signals cs ${joinClause} ${where}`
       )
     );
-    const total = (countResult.rows?.[0] as { total: number } | undefined)?.total ?? 0;
+    const total = (countRows[0] as { total: number } | undefined)?.total ?? 0;
 
     // Paginated signals
     params.push(limit, offset);
-    const signalsResult = await db.run(
+    const signals = await db.all(
       sql.raw(
         `SELECT DISTINCT cs.id, cs.title, cs.url, cs.snippet,
                 cs.ai_sentiment, cs.human_score
@@ -135,9 +135,7 @@ export const fetchSignals = createServerFn({ method: "GET" })
          ORDER BY cs.id
          LIMIT ?${idx} OFFSET ?${idx + 1}`
       )
-    );
-
-    const signals = (signalsResult.rows ?? []) as unknown as {
+    ) as unknown as {
       id: number;
       title: string;
       url: string;
@@ -158,22 +156,22 @@ export const fetchSignals = createServerFn({ method: "GET" })
     // Fetch lots for these signals
     const ids = signals.map((s) => s.id);
     const ph = ids.map((_, i) => `?${i + 1}`).join(",");
-    const lotsResult = await db.run(
+    const lotRows = await db.all(
       sql.raw(
         `SELECT csl.signal_id, csl.parking_lot_id, p.name, p.address
          FROM cafe_signal_lots csl
          JOIN parking_lots p ON p.id = csl.parking_lot_id
          WHERE csl.signal_id IN (${ph})`
       )
-    );
-
-    const lotsMap = new Map<number, LotTag[]>();
-    for (const row of (lotsResult.rows ?? []) as unknown as {
+    ) as unknown as {
       signal_id: number;
       parking_lot_id: string;
       name: string;
       address: string;
-    }[]) {
+    }[];
+
+    const lotsMap = new Map<number, LotTag[]>();
+    for (const row of lotRows) {
       const arr = lotsMap.get(row.signal_id) ?? [];
       arr.push({
         parkingLotId: row.parking_lot_id,
@@ -322,12 +320,12 @@ export const fetchRecentReviews = createServerFn({ method: "GET" })
         ? "r.source_type = 'clien'"
         : "1=1";
 
-    const countRow = await db.run(
+    const countRows = await db.all(
       sql.raw(`SELECT COUNT(*) as total FROM user_reviews r WHERE ${cond}`)
     );
-    const total = (countRow.rows?.[0] as { total: number } | undefined)?.total ?? 0;
+    const total = (countRows[0] as { total: number } | undefined)?.total ?? 0;
 
-    const rows = await db.run(
+    const rows = await db.all(
       sql`SELECT r.id, r.parking_lot_id, p.name as lot_name,
               COALESCE(u.name, r.guest_nickname, '익명') as author_name,
               COALESCE(r.source_type, 'user') as source,
@@ -340,7 +338,7 @@ export const fetchRecentReviews = createServerFn({ method: "GET" })
        LIMIT ${limit} OFFSET ${offset}`
     );
 
-    const items: AdminReviewItem[] = ((rows.rows ?? []) as unknown as {
+    const items: AdminReviewItem[] = (rows as unknown as {
       id: number;
       parking_lot_id: string;
       lot_name: string;
@@ -371,14 +369,14 @@ export const fetchReviewStats = createServerFn({ method: "GET" }).handler(
     await requireAdmin(request);
 
     const db = getDb();
-    const result = await db.run(
+    const rows = await db.all(
       sql`SELECT COALESCE(source_type, 'user') as source, COUNT(*) as cnt
        FROM user_reviews GROUP BY source`
     );
 
     const counts: Record<string, number> = {};
     let total = 0;
-    for (const r of (result.rows ?? []) as unknown as { source: string; cnt: number }[]) {
+    for (const r of rows as unknown as { source: string; cnt: number }[]) {
       counts[r.source] = r.cnt;
       total += r.cnt;
     }
@@ -433,12 +431,12 @@ export const fetchWebSources = createServerFn({ method: "GET" })
 
     const cond = source === "all" ? "1=1" : `ws.source = '${source}'`;
 
-    const countRow = await db.run(
+    const countRows = await db.all(
       sql.raw(`SELECT COUNT(*) as total FROM web_sources ws WHERE ${cond}`)
     );
-    const total = (countRow.rows?.[0] as { total: number } | undefined)?.total ?? 0;
+    const total = (countRows[0] as { total: number } | undefined)?.total ?? 0;
 
-    const rows = await db.run(
+    const rows = await db.all(
       sql`SELECT ws.id, p.name as lot_name, ws.source,
               ws.author, ws.title, ws.content, ws.source_url, ws.crawled_at
        FROM web_sources ws
@@ -448,7 +446,7 @@ export const fetchWebSources = createServerFn({ method: "GET" })
        LIMIT ${limit} OFFSET ${offset}`
     );
 
-    const items: WebSourceItem[] = ((rows.rows ?? []) as unknown as {
+    const items: WebSourceItem[] = (rows as unknown as {
       id: number;
       lot_name: string;
       source: string;
@@ -477,13 +475,13 @@ export const fetchWebSourceStats = createServerFn({ method: "GET" }).handler(
     await requireAdmin(request);
 
     const db = getDb();
-    const result = await db.run(
+    const rows = await db.all(
       sql`SELECT source, COUNT(*) as cnt FROM web_sources GROUP BY source`
     );
 
     const counts: Record<string, number> = {};
     let total = 0;
-    for (const r of (result.rows ?? []) as unknown as { source: string; cnt: number }[]) {
+    for (const r of rows as unknown as { source: string; cnt: number }[]) {
       counts[r.source] = r.cnt;
       total += r.cnt;
     }
@@ -536,12 +534,12 @@ export const fetchUnmatched = createServerFn({ method: "GET" })
 
     const cond = status === "all" ? "1=1" : `u.status = '${status}'`;
 
-    const countRow = await db.run(
+    const countRows = await db.all(
       sql.raw(`SELECT COUNT(*) as total FROM poi_unmatched u WHERE ${cond}`)
     );
-    const total = (countRow.rows?.[0] as { total: number } | undefined)?.total ?? 0;
+    const total = (countRows[0] as { total: number } | undefined)?.total ?? 0;
 
-    const rows = await db.run(
+    const rows = await db.all(
       sql`SELECT u.id, u.poi_name, u.lot_name, u.poi_lat, u.poi_lng,
               u.category, u.status, u.resolved_lot_id,
               p.name as resolved_lot_name, u.created_at
@@ -552,7 +550,7 @@ export const fetchUnmatched = createServerFn({ method: "GET" })
        LIMIT ${limit} OFFSET ${offset}`
     );
 
-    const items: UnmatchedItem[] = ((rows.rows ?? []) as unknown as {
+    const items: UnmatchedItem[] = (rows as unknown as {
       id: number;
       poi_name: string;
       lot_name: string;

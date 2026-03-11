@@ -18,7 +18,7 @@
 			"binding": "DB",
 			"database_name": "parking-db",
 			"database_id": "ff5d77af-8ca6-4e5c-acf2-2fdf765dd248",
-			"remote": true
+			"migrations_dir": "migrations"
 		}
 	]
 }

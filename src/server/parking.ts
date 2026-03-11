@@ -60,7 +60,7 @@ export const fetchParkingLots = createServerFn({ method: "GET" })
     const limit = data.limit ?? 200;
     const { where } = buildFilterClauses(data.filters);
 
-    const result = await db.run(
+    const rows = await db.all(
       sql.raw(
         `SELECT p.*,
           s.final_score as avg_score,
@@ -74,7 +74,7 @@ export const fetchParkingLots = createServerFn({ method: "GET" })
       )
     );
 
-    return ((result.rows ?? []) as unknown as ParkingLotRow[]).map(rowToParkingLot);
+    return (rows as unknown as ParkingLotRow[]).map(rowToParkingLot);
   });
 
 /** bounds 내 주차장을 그리드 셀로 클러스터링 (zoom ≤ 12) — raw SQL */
@@ -87,7 +87,7 @@ export const fetchParkingClusters = createServerFn({ method: "GET" })
     const cellSize = 360 / Math.pow(2, data.zoom);
     const { where } = buildFilterClauses(data.filters);
 
-    const result = await db.run(
+    const rows = await db.all(
       sql.raw(
         `SELECT
           CAST(p.lat / ${cellSize} AS INTEGER) || '_' || CAST(p.lng / ${cellSize} AS INTEGER) as cell_key,
@@ -103,7 +103,7 @@ export const fetchParkingClusters = createServerFn({ method: "GET" })
       )
     );
 
-    return ((result.rows ?? []) as unknown as { cell_key: string; lat: number; lng: number; count: number; avg_score: number | null }[]).map((row) => ({
+    return (rows as unknown as { cell_key: string; lat: number; lng: number; count: number; avg_score: number | null }[]).map((row) => ({
       key: row.cell_key,
       lat: row.lat,
       lng: row.lng,
@@ -119,7 +119,7 @@ export const searchParkingLots = createServerFn({ method: "GET" })
     const db = getDb();
     const q = `%${data.query}%`;
 
-    const result = await db.run(
+    const rows = await db.all(
       sql`SELECT p.*,
           s.final_score as avg_score,
           COALESCE(s.user_review_count, 0) + COALESCE(s.community_count, 0) as review_count,
@@ -130,7 +130,7 @@ export const searchParkingLots = createServerFn({ method: "GET" })
         LIMIT 20`
     );
 
-    return ((result.rows ?? []) as unknown as ParkingLotRow[]).map(rowToParkingLot);
+    return (rows as unknown as ParkingLotRow[]).map(rowToParkingLot);
   });
 
 /** 주차장 탭 카운트 (리뷰/블로그/영상) 한번에 조회 */

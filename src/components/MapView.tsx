@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
   Container as MapDiv,
   NaverMap,
@@ -35,15 +35,26 @@ function markerColor(score: number | null): string {
   return "#ef4444";                      // red-500 — 헬
 }
 
+const CLUSTER_MIN_SIZE = 32;
+const CLUSTER_MAX_SIZE = 160;
+const CLUSTER_MAX_COUNT = 300;
+
+function clusterSize(count: number): number {
+  const t = Math.sqrt(Math.min(count, CLUSTER_MAX_COUNT) / CLUSTER_MAX_COUNT);
+  return Math.round(CLUSTER_MIN_SIZE + t * (CLUSTER_MAX_SIZE - CLUSTER_MIN_SIZE));
+}
+
 function clusterMarkerHtml(count: number, score: number | null): string {
   const color = markerColor(score);
+  const size = clusterSize(count);
+  const fontSize = Math.round(11 + (size - CLUSTER_MIN_SIZE) / (CLUSTER_MAX_SIZE - CLUSTER_MIN_SIZE) * 5);
   return `<div style="
-    width:44px;height:44px;
+    width:${size}px;height:${size}px;
     background:${color};
     border:2px solid white;
     border-radius:50%;
     display:flex;align-items:center;justify-content:center;
-    font-size:14px;font-weight:700;color:white;
+    font-size:${fontSize}px;font-weight:700;color:white;
     box-shadow:0 2px 6px rgba(0,0,0,0.3);
     cursor:pointer;
   ">${count}</div>`;
@@ -166,12 +177,15 @@ export function MapView({
     }
   }, [navermaps, moveTo]);
 
+  const [currentZoom, setCurrentZoom] = useState<number>(DEFAULT_ZOOM);
+
   const emitBounds = useCallback(() => {
     if (!mapRef.current) return;
     const b = mapRef.current.getBounds() as naver.maps.LatLngBounds;
     const sw = b.getSW();
     const ne = b.getNE();
     const zoom = mapRef.current.getZoom();
+    setCurrentZoom(zoom);
     onBoundsChanged(
       { south: sw.lat(), north: ne.lat(), west: sw.lng(), east: ne.lng() },
       zoom,
@@ -212,16 +226,28 @@ export function MapView({
         )}
 
         {clusters
-          ? clusters.map((c) => (
-              <Marker
-                key={c.key}
-                position={new navermaps.LatLng(c.lat, c.lng)}
-                icon={{
-                  content: clusterMarkerHtml(c.count, c.avgScore),
-                  anchor: new navermaps.Point(22, 22),
-                }}
-              />
-            ))
+          ? clusters.map((c) => {
+              const size = clusterSize(c.count);
+              const half = size / 2;
+              return (
+                <Marker
+                  key={c.key}
+                  position={new navermaps.LatLng(c.lat, c.lng)}
+                  icon={{
+                    content: clusterMarkerHtml(c.count, c.avgScore),
+                    anchor: new navermaps.Point(half, half),
+                  }}
+                  onClick={() => {
+                    if (!mapRef.current) return;
+                    const cur = mapRef.current.getZoom();
+                    mapRef.current.morph(
+                      new navermaps.LatLng(c.lat, c.lng),
+                      Math.min(cur + 3, 21),
+                    );
+                  }}
+                />
+              );
+            })
           : markerData.map(({ lot, html, size, selected }) => (
               <Marker
                 key={lot.id}
@@ -237,6 +263,12 @@ export function MapView({
               />
             ))}
       </NaverMap>
+
+      {import.meta.env.DEV && (
+        <div className="absolute top-3 right-3 z-10 rounded bg-black/70 px-2 py-1 text-xs font-mono text-white">
+          z{currentZoom}
+        </div>
+      )}
 
       <button
         className="absolute bottom-6 right-4 z-10 flex size-10 items-center justify-center rounded-full bg-white shadow-lg border border-border hover:bg-gray-50 transition-colors"

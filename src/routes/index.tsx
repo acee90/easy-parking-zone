@@ -50,7 +50,8 @@ function App() {
   const handleBoundsChanged = useCallback(async (bounds: MapBounds, zoom: number) => {
     lastViewRef.current = { bounds, zoom };
     try {
-      if (zoom <= 12) {
+      const clusterMaxZoom = Number(import.meta.env.VITE_CLUSTER_MAX_ZOOM) || 9;
+      if (zoom <= clusterMaxZoom) {
         const [clusterData, lots] = await Promise.all([
           fetchParkingClusters({ data: { ...bounds, zoom, filters } }),
           fetchParkingLots({ data: { ...bounds, filters } }),
@@ -62,8 +63,8 @@ function App() {
         const lots = await fetchParkingLots({ data: { ...bounds, filters } });
         setParkingLots(lots);
       }
-    } catch {
-      // D1 not available (e.g., dev without local D1) — silently ignore
+    } catch (err) {
+      console.error("[fetchParkingLots] error:", err);
     }
   }, [filters]);
 
