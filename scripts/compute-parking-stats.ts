@@ -42,36 +42,38 @@ interface ParkingLot {
 
 function computeStructuralPrior(lot: ParkingLot): number {
   // 큐레이션 태그가 있으면 앵커 값 직접 사용
-  if (lot.curation_tag === "hell") return 1.5;
+  if (lot.curation_tag === "hell") return 1.3;  // 헬 임계값(1.5) 아래
   if (lot.curation_tag === "easy") return 4.0;
 
-  let score = 3.0; // 중립 기본값
+  // 리뷰 없는 주차장은 "보통"(2.7-3.2) 범위에 모이도록 조정폭 축소
+  let score = 3.0; // 중립 기본값 (보통 중앙)
 
-  // 기계식 주차장 감지 (이름/메모에서)
   const nameNotes = `${lot.name} ${lot.notes ?? ""}`.toLowerCase();
+
+  // 기계식 주차장 감지 — 보통 하단(별로 경계)
   if (nameNotes.includes("기계식") || nameNotes.includes("기계")) {
-    score -= 1.0;
+    score -= 0.15;
   }
 
   // 총 면수
   if (lot.total_spaces !== null) {
-    if (lot.total_spaces < 30) score -= 0.3;
-    if (lot.total_spaces > 200) score += 0.3;
+    if (lot.total_spaces < 30) score -= 0.05;
+    if (lot.total_spaces > 200) score += 0.1;
   }
 
   // 지하 주차장 감지
   if (nameNotes.includes("지하")) {
-    score -= 0.2;
+    score -= 0.05;
   }
 
   // 노외 주차장 (넓은 편)
   if (lot.type === "노외") {
-    score += 0.3;
+    score += 0.08;
   }
 
   // 무료 주차장 (접근성)
   if (lot.is_free === 1) {
-    score += 0.1;
+    score += 0.04;
   }
 
   return Math.max(1.0, Math.min(5.0, score));
@@ -342,15 +344,24 @@ async function main() {
 
   // 통계 요약
   const reliabilityCounts: Record<string, number> = {};
-  const scoreBuckets = { "1.0-1.4 💀💀": 0, "1.5-2.4 💀": 0, "2.5-3.9 🙂": 0, "4.0-5.0 😊": 0 };
+  const scoreBuckets = {
+    "4.0-5.0 😊 초보추천": 0,
+    "3.3-3.9 🙂 무난": 0,
+    "2.7-3.2 😐 보통": 0,
+    "2.0-2.6 😕 별로": 0,
+    "1.5-1.9 💀 비추": 0,
+    "1.0-1.4 🔥 헬": 0,
+  };
   for (const r of results) {
     reliabilityCounts[r.reliability] =
       (reliabilityCounts[r.reliability] ?? 0) + 1;
     const s = r.finalScore;
-    if (s >= 4.0) scoreBuckets["4.0-5.0 😊"]++;
-    else if (s >= 2.5) scoreBuckets["2.5-3.9 🙂"]++;
-    else if (s >= 1.5) scoreBuckets["1.5-2.4 💀"]++;
-    else scoreBuckets["1.0-1.4 💀💀"]++;
+    if (s >= 4.0) scoreBuckets["4.0-5.0 😊 초보추천"]++;
+    else if (s >= 3.3) scoreBuckets["3.3-3.9 🙂 무난"]++;
+    else if (s >= 2.7) scoreBuckets["2.7-3.2 😐 보통"]++;
+    else if (s >= 2.0) scoreBuckets["2.0-2.6 😕 별로"]++;
+    else if (s >= 1.5) scoreBuckets["1.5-1.9 💀 비추"]++;
+    else scoreBuckets["1.0-1.4 🔥 헬"]++;
   }
 
   console.log("\n[Stats] === 결과 요약 ===");

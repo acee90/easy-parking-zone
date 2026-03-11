@@ -12,7 +12,9 @@ describe("DEFAULT_FILTERS", () => {
   it("has all difficulty levels ON by default", () => {
     const d = DEFAULT_FILTERS.difficulty;
     expect(d.easy).toBe(true);
+    expect(d.decent).toBe(true);
     expect(d.normal).toBe(true);
+    expect(d.bad).toBe(true);
     expect(d.hard).toBe(true);
     expect(d.hell).toBe(true);
     expect(d.noReview).toBe(true);
@@ -28,15 +30,17 @@ describe("DEFAULT_DIFFICULTY", () => {
 });
 
 describe("DifficultyFilter type", () => {
-  it("has exactly 5 keys", () => {
+  it("has exactly 7 keys", () => {
     const keys: (keyof DifficultyFilter)[] = [
       "easy",
+      "decent",
       "normal",
+      "bad",
       "hard",
       "hell",
       "noReview",
     ];
-    expect(keys).toHaveLength(5);
+    expect(keys).toHaveLength(7);
     for (const key of keys) {
       expect(typeof DEFAULT_DIFFICULTY[key]).toBe("boolean");
     }

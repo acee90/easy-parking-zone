@@ -20,7 +20,9 @@ interface ParkingDetailPanelProps {
 function difficultyColor(score: number | null) {
   if (score === null) return "bg-gray-400";
   if (score >= 4.0) return "bg-green-500";
-  if (score >= 2.5) return "bg-yellow-500";
+  if (score >= 3.3) return "bg-green-300";
+  if (score >= 2.7) return "bg-zinc-300";
+  if (score >= 2.0) return "bg-amber-400";
   if (score >= 1.5) return "bg-orange-500";
   return "bg-red-500";
 }

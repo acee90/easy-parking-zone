@@ -22,20 +22,24 @@ function toRad(deg: number) {
 export const DEFAULT_CENTER = { lat: 37.5666, lng: 126.9784 }
 export const DEFAULT_ZOOM = Number(import.meta.env.VITE_DEFAULT_ZOOM) || 14
 
-/** Difficulty score → 아이콘 (쉬움=😊, 어려움=💀) */
+/** Difficulty score → 아이콘 (6단계) */
 export function getDifficultyIcon(score: number | null): string {
-  if (score === null) return '🅿️'     // 리뷰 없음
-  if (score >= 4.0) return '😊'       // 초보 추천
-  if (score >= 2.5) return '🙂'       // 보통
-  if (score >= 1.5) return '💀'       // 주의
-  return '💀💀'                        // 초보 비추
+  if (score === null) return '🅿️'     // 데이터 없음
+  if (score >= 4.0) return '😊'       // 초보추천
+  if (score >= 3.3) return '🙂'       // 무난
+  if (score >= 2.7) return '😐'       // 보통
+  if (score >= 2.0) return '😕'       // 별로
+  if (score >= 1.5) return '💀'       // 비추
+  return '🔥'                          // 헬
 }
 
-/** Difficulty score to label */
+/** Difficulty score to label (6단계) */
 export function getDifficultyLabel(score: number | null): string {
-  if (score === null) return '리뷰 없음'
-  if (score >= 4.0) return '초보 추천'
-  if (score >= 2.5) return '보통'
-  if (score >= 1.5) return '주의'
-  return '초보 비추'
+  if (score === null) return '데이터 없음'
+  if (score >= 4.0) return '초보추천'
+  if (score >= 3.3) return '무난'
+  if (score >= 2.7) return '보통'
+  if (score >= 2.0) return '별로'
+  if (score >= 1.5) return '비추'
+  return '헬'
 }

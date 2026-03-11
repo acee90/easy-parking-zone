@@ -16,10 +16,12 @@ const FILTER_OPTIONS: { key: "freeOnly" | "publicOnly" | "excludeNoSang"; label:
 ];
 
 const DIFFICULTY_OPTIONS: { key: keyof DifficultyFilter; icon: string; label: string; desc: string }[] = [
-  { key: "easy", icon: "😊", label: "초보 추천", desc: "4.0~5.0점" },
-  { key: "normal", icon: "🙂", label: "보통", desc: "2.5~3.9점" },
-  { key: "hard", icon: "💀", label: "주의", desc: "1.5~2.4점" },
-  { key: "hell", icon: "💀💀", label: "초보 비추", desc: "1.0~1.4점" },
+  { key: "easy", icon: "😊", label: "초보추천", desc: "4.0~5.0점" },
+  { key: "decent", icon: "🙂", label: "무난", desc: "3.3~3.9점" },
+  { key: "normal", icon: "😐", label: "보통", desc: "2.7~3.2점" },
+  { key: "bad", icon: "😕", label: "별로", desc: "2.0~2.6점" },
+  { key: "hard", icon: "💀", label: "비추", desc: "1.5~1.9점" },
+  { key: "hell", icon: "🔥", label: "헬", desc: "1.0~1.4점" },
   { key: "noReview", icon: "🅿️", label: "리뷰 없음", desc: "평가 전" },
 ];
 
@@ -72,7 +74,7 @@ export function FloatingFilters({ filters, onToggle, onToggleDifficulty, activeC
               : "bg-white text-zinc-700 border-border hover:bg-zinc-50"
           }`}
         >
-          난이도{diffOff > 0 && ` (${5 - diffOff})`}
+          난이도{diffOff > 0 && ` (${7 - diffOff})`}
           <ChevronDown className={`size-3 transition-transform ${diffOpen ? "rotate-180" : ""}`} />
         </button>
 

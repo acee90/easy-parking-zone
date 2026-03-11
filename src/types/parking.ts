@@ -80,11 +80,13 @@ export interface ParkingMedia {
 }
 
 export interface DifficultyFilter {
-  easy: boolean       // 😊 초보 추천 (4.0-5.0)
-  normal: boolean     // 🙂 보통 (2.5-3.9)
-  hard: boolean       // 💀 주의 (1.5-2.4)
-  hell: boolean       // 💀💀 초보 비추 (1.0-1.4)
-  noReview: boolean   // 🅿️ 리뷰 없음
+  easy: boolean       // 😊 초보추천 (4.0-5.0)
+  decent: boolean     // 🙂 무난 (3.3-3.9)
+  normal: boolean     // 😐 보통 (2.7-3.2)
+  bad: boolean        // 😕 별로 (2.0-2.6)
+  hard: boolean       // 💀 비추 (1.5-1.9)
+  hell: boolean       // 🔥 헬 (1.0-1.4)
+  noReview: boolean   // 🅿️ 데이터 없음
 }
 
 export interface ParkingFilters {
@@ -96,7 +98,9 @@ export interface ParkingFilters {
 
 export const DEFAULT_DIFFICULTY: DifficultyFilter = {
   easy: true,
+  decent: true,
   normal: true,
+  bad: true,
   hard: true,
   hell: true,
   noReview: true,

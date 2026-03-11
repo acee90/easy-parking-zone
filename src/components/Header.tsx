@@ -121,11 +121,13 @@ export function Header({ onSearchSelect, onPlaceSelect, siteStats }: HeaderProps
           <h1 className="font-bold text-base">쉬운주차장</h1>
         </div>
         <SearchBar onSelect={onSearchSelect} onPlaceSelect={onPlaceSelect} />
-        <div className="hidden sm:flex items-center gap-3 text-xs text-muted-foreground shrink-0">
-          <span>😊 추천</span>
-          <span>🙂 보통</span>
-          <span>💀 주의</span>
-          <span>💀💀 비추</span>
+        <div className="hidden lg:flex items-center gap-2 text-xs text-muted-foreground shrink-0">
+          <span>😊추천</span>
+          <span>🙂무난</span>
+          <span>😐보통</span>
+          <span>😕별로</span>
+          <span>💀비추</span>
+          <span>🔥헬</span>
         </div>
         {siteStats && (
           <div className="hidden md:flex items-center gap-3 text-xs text-muted-foreground shrink-0">

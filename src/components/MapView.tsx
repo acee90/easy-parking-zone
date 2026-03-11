@@ -26,11 +26,13 @@ interface MapViewProps {
 }
 
 function markerColor(score: number | null): string {
-  if (score === null) return "#9ca3af";  // gray — 리뷰 없음
-  if (score >= 4.0) return "#22c55e";
-  if (score >= 2.5) return "#eab308";
-  if (score >= 1.5) return "#f97316";
-  return "#ef4444";
+  if (score === null) return "#9ca3af";  // gray-400 — 데이터 없음
+  if (score >= 4.0) return "#22c55e";    // green-500 — 초보추천
+  if (score >= 3.3) return "#86efac";    // green-300 — 무난
+  if (score >= 2.7) return "#d4d4d8";    // zinc-300 — 보통
+  if (score >= 2.0) return "#fbbf24";    // amber-400 — 별로
+  if (score >= 1.5) return "#f97316";    // orange-500 — 비추
+  return "#ef4444";                      // red-500 — 헬
 }
 
 function clusterMarkerHtml(count: number, score: number | null): string {
