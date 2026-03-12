@@ -73,7 +73,7 @@ function markerHtml(lot: ParkingLot, selected: boolean, hovered: boolean, showLa
   const isEasy = lot.curationTag === "easy";
 
   // 공통 스타일
-  const pillBase = "display:inline-flex;align-items:center;white-space:nowrap;cursor:pointer;";
+  const pillBase = "display:inline-flex;align-items:center;white-space:nowrap;cursor:pointer;user-select:none;-webkit-user-select:none;";
 
   if (selected) {
     const inner = showLabel
