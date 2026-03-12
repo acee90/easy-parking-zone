@@ -5,7 +5,7 @@ import {
   Marker,
   useNavermaps,
 } from "react-naver-maps";
-import { DEFAULT_CENTER, DEFAULT_ZOOM, getDifficultyIcon } from "@/lib/geo-utils";
+import { DEFAULT_CENTER, DEFAULT_ZOOM } from "@/lib/geo-utils";
 import { Locate, Loader2 } from "lucide-react";
 import type { ParkingLot, MapBounds, MarkerCluster } from "@/types/parking";
 
@@ -60,63 +60,88 @@ function clusterMarkerHtml(count: number, score: number | null): string {
   ">${count}</div>`;
 }
 
-function markerHtml(lot: ParkingLot, selected: boolean, hovered: boolean): string {
+function shortName(name: string): string {
+  const stripped = name.replace(/\s*(공영|노외|노상|부설)?\s*주차장$/, "").trim();
+  return stripped.length > 8 ? stripped.slice(0, 7) + "…" : stripped;
+}
+
+const LABEL_ZOOM = 16;
+
+function markerHtml(lot: ParkingLot, selected: boolean, hovered: boolean, showLabel: boolean): string {
   const color = markerColor(lot.difficulty.score);
-  const icon = getDifficultyIcon(lot.difficulty.score);
+  const isHell = lot.curationTag === "hell";
+  const isEasy = lot.curationTag === "easy";
+
+  // 공통 스타일
+  const pillBase = "display:inline-flex;align-items:center;white-space:nowrap;cursor:pointer;";
 
   if (selected) {
-    // 선택 마커: 크게 + 핀 꼬리 + 바운스 애니메이션
-    const size = 48;
+    const inner = showLabel
+      ? `${isHell ? "💀 " : ""}${shortName(lot.name)}`
+      : isHell ? "💀" : "P";
     return `<div style="
       display:flex;flex-direction:column;align-items:center;
       animation:marker-bounce 0.8s ease-in-out infinite alternate;
       filter:drop-shadow(0 4px 12px rgba(59,130,246,0.5));
     ">
-      <div style="
-        position:relative;
-        width:${size}px;height:${size}px;
+      <div style="${pillBase}
+        padding:6px 12px;
         background:${color};
         border:3px solid #3b82f6;
-        border-radius:50%;
-        display:flex;align-items:center;justify-content:center;
-        font-size:18px;
+        border-radius:16px;
+        font-size:12px;font-weight:600;
+        color:white;
         box-shadow:0 0 0 3px rgba(59,130,246,0.25);
-      ">${icon}</div>
+        text-shadow:0 1px 2px rgba(0,0,0,0.3);
+      ">${inner}</div>
       <div style="
         width:0;height:0;
-        border-left:7px solid transparent;
-        border-right:7px solid transparent;
-        border-top:8px solid #3b82f6;
-        margin-top:-2px;
+        border-left:6px solid transparent;
+        border-right:6px solid transparent;
+        border-top:7px solid #3b82f6;
+        margin-top:-1px;
       "></div>
     </div>`;
   }
 
-  const size = hovered ? 40 : 32;
+  // 테두리/그림자
   const border = hovered
-    ? "3px solid #60a5fa"
-    : lot.curationTag
-      ? "2px solid " + (lot.curationTag === "hell" ? "#ef4444" : "#22c55e")
-      : "2px solid white";
+    ? "2px solid #60a5fa"
+    : isHell ? "2px solid #ef4444"
+    : isEasy ? "2px solid #22c55e"
+    : "1.5px solid rgba(255,255,255,0.9)";
   const shadow = hovered
     ? "0 2px 8px rgba(59,130,246,0.4)"
-    : lot.curationTag
-      ? "0 2px 8px " + (lot.curationTag === "hell" ? "rgba(239,68,68,0.4)" : "rgba(34,197,94,0.4)")
-      : "0 2px 6px rgba(0,0,0,0.3)";
-  const curationBadge = lot.curationTag
-    ? `<div style="position:absolute;top:-4px;right:-4px;font-size:10px;line-height:1;">${lot.curationTag === "hell" ? "🔥" : "👍"}</div>`
-    : "";
-  return `<div style="
-    position:relative;
-    width:${size}px;height:${size}px;
+    : isHell ? "0 2px 6px rgba(239,68,68,0.3)"
+    : isEasy ? "0 2px 6px rgba(34,197,94,0.3)"
+    : "0 1px 4px rgba(0,0,0,0.2)";
+
+  if (showLabel) {
+    const prefix = isHell ? "💀 " : "";
+    return `<div style="${pillBase}
+      padding:${hovered ? "5px 12px" : "4px 10px"};
+      background:${color};
+      border:${border};
+      border-radius:14px;
+      font-size:${hovered ? "14px" : "13px"};font-weight:600;
+      color:white;
+      box-shadow:${shadow};
+      text-shadow:0 1px 2px rgba(0,0,0,0.25);
+      letter-spacing:-0.2px;
+    ">${prefix}${shortName(lot.name)}</div>`;
+  }
+
+  // 줌 낮을 때: 작은 dot pill
+  const h = hovered ? 16 : 12;
+  const w = isHell ? (hovered ? 28 : 24) : (hovered ? 16 : 12);
+  return `<div style="${pillBase}justify-content:center;
+    width:${w}px;height:${h}px;
     background:${color};
     border:${border};
-    border-radius:50%;
-    display:flex;align-items:center;justify-content:center;
-    font-size:${hovered ? 14 : 11}px;
+    border-radius:${h}px;
+    font-size:10px;
     box-shadow:${shadow};
-    cursor:pointer;
-  ">${icon}${curationBadge}</div>`;
+  ">${isHell ? "💀" : ""}</div>`;
 }
 
 export function MapView({
@@ -138,8 +163,10 @@ export function MapView({
   const mapRef = useRef<naver.maps.Map | null>(null);
   const boundsTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const markerHtmlCacheRef = useRef<Map<string, string>>(new Map());
+  const [currentZoom, setCurrentZoom] = useState<number>(DEFAULT_ZOOM);
 
   // 마커 HTML을 캐시하여 selected/hovered 변경 시 해당 마커만 재생성
+  const showLabels = currentZoom >= LABEL_ZOOM;
   const markerData = useMemo(() => {
     const cache = markerHtmlCacheRef.current;
     // parkingLots가 바뀌면 (bounds 변경) 캐시 정리
@@ -152,17 +179,20 @@ export function MapView({
     return parkingLots.map((lot) => {
       const selected = lot.id === selectedLotId;
       const hovered = lot.id === hoveredLotId;
-      const size = selected ? 48 : hovered ? 40 : 32;
-      const cacheKey = `${lot.id}:${selected}:${hovered}`;
+      const cacheKey = `${lot.id}:${selected}:${hovered}:${showLabels}`;
 
       let html = cache.get(cacheKey);
       if (!html) {
-        html = markerHtml(lot, selected, hovered);
+        html = markerHtml(lot, selected, hovered, showLabels);
         cache.set(cacheKey, html);
       }
-      return { lot, html, size, selected };
+
+      // pill 높이: selected ~30px+꼬리, label ~26px, dot ~12px
+      const h = selected ? 30 : showLabels ? (hovered ? 28 : 25) : (hovered ? 16 : 12);
+      const anchorY = selected ? h + 7 : h / 2;
+      return { lot, html, anchorY, selected };
     });
-  }, [parkingLots, selectedLotId, hoveredLotId]);
+  }, [parkingLots, selectedLotId, hoveredLotId, showLabels]);
 
   useEffect(() => {
     if (mapRef.current && userLocated) {
@@ -176,8 +206,6 @@ export function MapView({
       mapRef.current.setZoom(16);
     }
   }, [navermaps, moveTo]);
-
-  const [currentZoom, setCurrentZoom] = useState<number>(DEFAULT_ZOOM);
 
   const emitBounds = useCallback(() => {
     if (!mapRef.current) return;
@@ -248,15 +276,13 @@ export function MapView({
                 />
               );
             })
-          : markerData.map(({ lot, html, size, selected }) => (
+          : markerData.map(({ lot, html, anchorY, selected }) => (
               <Marker
                 key={lot.id}
                 position={new navermaps.LatLng(lot.lat, lot.lng)}
                 icon={{
-                  content: html,
-                  anchor: selected
-                    ? new navermaps.Point(size / 2, size / 2 + 6)
-                    : new navermaps.Point(size / 2, size / 2),
+                  content: `<div style="display:flex;justify-content:center;">${html}</div>`,
+                  anchor: new navermaps.Point(0, anchorY),
                 }}
                 zIndex={selected ? 200 : 0}
                 onClick={() => onMarkerClick(lot)}
@@ -271,7 +297,7 @@ export function MapView({
       )}
 
       <button
-        className="absolute bottom-6 right-4 z-10 flex size-10 items-center justify-center rounded-full bg-white shadow-lg border border-border hover:bg-gray-50 transition-colors"
+        className="absolute bottom-16 md:bottom-6 right-4 z-10 flex size-10 items-center justify-center rounded-full bg-white shadow-lg border border-border hover:bg-gray-50 transition-colors"
         onClick={onRequestLocation}
         disabled={locationLoading}
         title="내 위치"

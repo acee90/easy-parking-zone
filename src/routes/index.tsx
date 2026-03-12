@@ -5,6 +5,7 @@ import { MapView } from "@/components/MapView";
 import { Header } from "@/components/Header";
 import { ParkingCard } from "@/components/ParkingCard";
 import { ParkingSidebar } from "@/components/ParkingSidebar";
+import { MobileBottomPanel } from "@/components/MobileBottomPanel";
 import { ParkingDetailPanel } from "@/components/ParkingDetailPanel";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { useParkingFilters } from "@/hooks/useParkingFilters";
@@ -174,6 +175,16 @@ function App() {
           )}
         </div>
       </div>
+
+      {/* 하단 목록 패널 — 모바일 전용 */}
+      <MobileBottomPanel
+        parkingLots={displayedLots}
+        selectedLotId={selectedLot?.id ?? null}
+        onSelect={handleSidebarSelect}
+        userLat={userLat}
+        userLng={userLng}
+        userLocated={userLocated}
+      />
 
       {/* 하단 시트 — 모바일 전용 */}
       <ParkingCard
