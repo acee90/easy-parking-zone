@@ -21,3 +21,20 @@ scripts/*-progress.md
 scripts/1010-videos.json
 scripts/1010-parking-result.json
 scripts/1010-still-unmatched.json
+
+# 파이프라인 중간산출물
+scripts/poi-analysis-*.json
+scripts/poi-content-*.json
+scripts/poi-pilot-*.json
+scripts/poi-match-report-*.json
+scripts/poi-load-batch*.sql
+scripts/poi-cleanup-*.sql
+scripts/cafe-community-results.json
+scripts/cafe-signals.json
+scripts/verify-lots-removals.json
+
+# DB 덤프 / 크롤링 원본
+cafe_signals_data.sql
+cafe_signals_dump.sql
+clien_comments.html
+.skills/
