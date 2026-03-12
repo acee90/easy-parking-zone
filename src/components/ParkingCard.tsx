@@ -10,12 +10,13 @@ import { Badge } from "@/components/ui/badge";
 import type { ParkingLot } from "@/types/parking";
 import { VoteBookmarkBar } from "@/components/VoteBookmarkBar";
 import {
+  getDifficultyColor,
   getDifficultyIcon,
   getDifficultyLabel,
   getDistance,
 } from "@/lib/geo-utils";
 import { ParkingTabs } from "@/components/ParkingTabs";
-import { MapPin, Clock, CreditCard, Phone, Flame, ThumbsUp, Navigation, ExternalLink, X } from "lucide-react";
+import { MapPin, Clock, CreditCard, Phone, Flame, ThumbsUp, Tag, ExternalLink, X } from "lucide-react";
 
 interface ParkingCardProps {
   lot: ParkingLot | null;
@@ -23,16 +24,6 @@ interface ParkingCardProps {
   userLat?: number;
   userLng?: number;
   userLocated?: boolean;
-}
-
-function difficultyColor(score: number | null) {
-  if (score === null) return "bg-gray-400";
-  if (score >= 4.0) return "bg-green-500";
-  if (score >= 3.3) return "bg-green-300";
-  if (score >= 2.7) return "bg-zinc-300";
-  if (score >= 2.0) return "bg-amber-400";
-  if (score >= 1.5) return "bg-orange-500";
-  return "bg-red-500";
 }
 
 export function ParkingCard({
@@ -91,8 +82,13 @@ export function ParkingCard({
   }, []);
   const handleSheetTouchEnd = useCallback((e: React.TouchEvent) => {
     const dy = e.changedTouches[0].clientY - sheetTouchY.current;
-if (dy > 30 && !expanded) {
-      handleClose();
+    if (dy > 30) {
+      if (expanded) {
+        setExpanded(false);
+        scrollRef.current?.scrollTo(0, 0);
+      } else {
+        handleClose();
+      }
     }
     if (dy < -30 && !expanded) {
       setExpanded(true);
@@ -141,7 +137,7 @@ if (dy > 30 && !expanded) {
             <SheetHeader className="[&]:p-0 [&]:px-4 [&]:pb-1">
               <div className="flex items-center gap-2">
                 <div
-                  className={`size-3 rounded-full shrink-0 ${difficultyColor(lot.difficulty.score)}`}
+                  className={`size-3 rounded-full shrink-0 ${getDifficultyColor(lot.difficulty.score)}`}
                 />
                 <SheetTitle className="text-lg truncate">{lot.name}</SheetTitle>
               </div>
@@ -254,7 +250,7 @@ if (dy > 30 && !expanded) {
           {/* POI 태그 */}
           {lot.poiTags && lot.poiTags.length > 0 && (
             <div className="flex items-start gap-2 text-sm">
-              <Navigation className="size-4 shrink-0 mt-0.5 text-muted-foreground" />
+              <Tag className="size-4 shrink-0 mt-0.5 text-muted-foreground" />
               <div className="flex flex-wrap gap-1.5">
                 {lot.poiTags.map((tag) => (
                   <Badge key={tag} variant="outline" className="text-xs">

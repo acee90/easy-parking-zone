@@ -281,7 +281,7 @@ export function MapView({
                 key={lot.id}
                 position={new navermaps.LatLng(lot.lat, lot.lng)}
                 icon={{
-                  content: `<div style="display:flex;justify-content:center;">${html}</div>`,
+                  content: `<div style="transform:translateX(-50%);display:inline-block;">${html}</div>`,
                   anchor: new navermaps.Point(0, anchorY),
                 }}
                 zIndex={selected ? 200 : 0}

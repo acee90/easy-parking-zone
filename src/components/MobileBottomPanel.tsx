@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback, useRef } from "react";
 import type { ParkingLot } from "@/types/parking";
 import {
+  getDifficultyColor,
   getDifficultyIcon,
   getDifficultyLabel,
   getDistance,
@@ -16,16 +17,6 @@ interface MobileBottomPanelProps {
   userLocated?: boolean;
 }
 
-function difficultyColor(score: number | null) {
-  if (score === null) return "bg-gray-400";
-  if (score >= 4.0) return "bg-green-500";
-  if (score >= 3.3) return "bg-green-300";
-  if (score >= 2.7) return "bg-zinc-300";
-  if (score >= 2.0) return "bg-amber-400";
-  if (score >= 1.5) return "bg-orange-500";
-  return "bg-red-500";
-}
-
 export function MobileBottomPanel({
   parkingLots,
   selectedLotId,
@@ -35,7 +26,6 @@ export function MobileBottomPanel({
   userLocated,
 }: MobileBottomPanelProps) {
   const [expanded, setExpanded] = useState(false);
-  const listRef = useRef<HTMLDivElement>(null);
 
   // 터치 스와이프 핸들링
   const touchStartY = useRef(0);
@@ -85,7 +75,7 @@ export function MobileBottomPanel({
             {sortedLots.slice(0, 5).map(({ lot }) => (
               <div
                 key={lot.id}
-                className={`size-2 rounded-full ${difficultyColor(lot.difficulty.score)} ring-1 ring-white`}
+                className={`size-2 rounded-full ${getDifficultyColor(lot.difficulty.score)} ring-1 ring-white`}
               />
             ))}
           </div>
@@ -109,7 +99,6 @@ export function MobileBottomPanel({
       {/* 펼친 상태: 목록 */}
       {expanded && (
         <div
-          ref={listRef}
           className="bg-white max-h-[45vh] overflow-y-auto overscroll-contain border-t border-border"
         >
           {sortedLots.slice(0, 30).map(({ lot, distance }) => (
