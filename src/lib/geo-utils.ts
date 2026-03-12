@@ -20,7 +20,7 @@ function toRad(deg: number) {
 
 /** Default center: 서울 시청 */
 export const DEFAULT_CENTER = { lat: 37.5666, lng: 126.9784 }
-export const DEFAULT_ZOOM = Number(import.meta.env.VITE_DEFAULT_ZOOM) || 14
+export const DEFAULT_ZOOM = Number(import.meta.env.VITE_DEFAULT_ZOOM) || 17
 
 /** Difficulty score → 아이콘 (6단계) */
 export function getDifficultyIcon(score: number | null): string {
