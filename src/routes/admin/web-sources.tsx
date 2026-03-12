@@ -10,9 +10,15 @@ import {
   removeLotFromSignal,
   addLotToSignal,
   searchParkingLots,
+  fetchUnmatched,
+  fetchUnmatchedStats,
+  resolveUnmatched,
+  ignoreUnmatched,
   type SignalItem,
   type WebSourceItem,
   type WebSourceType,
+  type UnmatchedItem,
+  type UnmatchedStatus,
 } from "@/server/admin";
 
 const WS_SOURCE_FILTERS: { value: WebSourceType; label: string }[] = [
@@ -32,23 +38,26 @@ const WS_SOURCE_BADGE: Record<string, { label: string; class: string }> = {
   naver_place: { label: "플레이스", class: "bg-teal-50 text-teal-700" },
 };
 
-type Tab = "signals" | "web-sources";
+type Tab = "signals" | "web-sources" | "unmatched";
 
 export const Route = createFileRoute("/admin/web-sources")({
   loader: async () => {
-    const [signalData, signalStats, wsData, wsStats] = await Promise.all([
+    const [signalData, signalStats, wsData, wsStats, unmatchedData, unmatchedStats] = await Promise.all([
       fetchSignals({ data: { status: "pending", page: 1, limit: 50 } }),
       fetchSignalStats(),
       fetchWebSources({ data: { page: 1, limit: 30, source: "all" } }),
       fetchWebSourceStats(),
+      fetchUnmatched({ data: { status: "pending", page: 1, limit: 50 } }),
+      fetchUnmatchedStats(),
     ]);
-    return { signalData, signalStats, wsData, wsStats };
+    return { signalData, signalStats, wsData, wsStats, unmatchedData, unmatchedStats };
   },
   component: WebSourcesPage,
 });
 
 function WebSourcesPage() {
   const [tab, setTab] = useState<Tab>("signals");
+  const { unmatchedStats } = Route.useLoaderData();
 
   return (
     <>
@@ -56,10 +65,11 @@ function WebSourcesPage() {
         {([
           ["signals", "크롤링 카페글 검수"],
           ["web-sources", "관심지점 주변 주차장"],
+          ["unmatched", `POI 매칭 실패${unmatchedStats.pending > 0 ? ` (${unmatchedStats.pending})` : ""}`],
         ] as const).map(([value, label]) => (
           <button
             key={value}
-            onClick={() => setTab(value)}
+            onClick={() => setTab(value as Tab)}
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
               tab === value
                 ? "border-gray-900 text-gray-900"
@@ -70,7 +80,7 @@ function WebSourcesPage() {
           </button>
         ))}
       </div>
-      {tab === "signals" ? <SignalsSection /> : <WebSourcesSection />}
+      {tab === "signals" ? <SignalsSection /> : tab === "web-sources" ? <WebSourcesSection /> : <UnmatchedSection />}
     </>
   );
 }
@@ -555,6 +565,206 @@ function SignalRow({
               되돌리기
             </button>
           </div>
+        )}
+      </td>
+    </tr>
+  );
+}
+
+// ============================================================
+// POI 매칭 실패 섹션
+// ============================================================
+
+function UnmatchedSection() {
+  const { unmatchedData, unmatchedStats: initialStats } = Route.useLoaderData();
+  const [stats, setStats] = useState(initialStats);
+  const [items, setItems] = useState<UnmatchedItem[]>(unmatchedData.items);
+  const [total, setTotal] = useState(unmatchedData.total);
+  const [page, setPage] = useState(1);
+  const [statusFilter, setStatusFilter] = useState<UnmatchedStatus>("pending");
+  const [loading, setLoading] = useState(false);
+
+  async function reload(newStatus: UnmatchedStatus, newPage: number) {
+    setLoading(true);
+    const [res, s] = await Promise.all([
+      fetchUnmatched({ data: { status: newStatus, page: newPage, limit: 50 } }),
+      fetchUnmatchedStats(),
+    ]);
+    setItems(res.items);
+    setTotal(res.total);
+    setStats(s);
+    setLoading(false);
+  }
+
+  async function handleIgnore(id: number) {
+    await ignoreUnmatched({ data: { id } });
+    if (statusFilter === "pending") {
+      setItems((prev) => prev.filter((item) => item.id !== id));
+      setTotal((t) => t - 1);
+    } else {
+      setItems((prev) => prev.map((item) => (item.id === id ? { ...item, status: "ignored" } : item)));
+    }
+    fetchUnmatchedStats().then(setStats);
+  }
+
+  async function handleResolve(id: number, lotId: string) {
+    await resolveUnmatched({ data: { id, parkingLotId: lotId } });
+    if (statusFilter === "pending") {
+      setItems((prev) => prev.filter((item) => item.id !== id));
+      setTotal((t) => t - 1);
+    } else {
+      reload(statusFilter, page);
+    }
+    fetchUnmatchedStats().then(setStats);
+  }
+
+  const totalPages = Math.ceil(total / 50);
+
+  return (
+    <>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+        <StatCard label="전체" value={stats.total} />
+        <StatCard label="미처리" value={stats.pending} highlight />
+        <StatCard label="매칭완료" value={stats.resolved} color="green" />
+        <StatCard label="무시" value={stats.ignored} color="gray" />
+      </div>
+
+      <div className="flex flex-wrap gap-2 mb-4 items-center">
+        {([
+          ["pending", "미처리"],
+          ["resolved", "매칭완료"],
+          ["ignored", "무시"],
+          ["all", "전체"],
+        ] as const).map(([value, label]) => (
+          <button
+            key={value}
+            onClick={() => { setStatusFilter(value); setPage(1); reload(value, 1); }}
+            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+              statusFilter === value
+                ? "bg-gray-900 text-white"
+                : "bg-white text-gray-700 border hover:bg-gray-50"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+        <span className="ml-auto text-sm text-gray-500">{total}건</span>
+      </div>
+
+      {loading ? (
+        <div className="text-center py-12 text-gray-500">로딩 중...</div>
+      ) : items.length === 0 ? (
+        <div className="text-center py-12 text-gray-500">데이터가 없습니다.</div>
+      ) : (
+        <div className="bg-white rounded-lg border overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-gray-50 border-b text-left">
+                  <th className="px-4 py-3 font-medium text-gray-600 w-40">POI 이름</th>
+                  <th className="px-4 py-3 font-medium text-gray-600">추출된 주차장명</th>
+                  <th className="px-4 py-3 font-medium text-gray-600 w-28">카테고리</th>
+                  <th className="px-4 py-3 font-medium text-gray-600 w-20">상태</th>
+                  <th className="px-4 py-3 font-medium text-gray-600 w-64 text-center">액션</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((item) => (
+                  <UnmatchedRow
+                    key={item.id}
+                    item={item}
+                    onIgnore={handleIgnore}
+                    onResolve={handleResolve}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {totalPages > 1 && (
+        <div className="flex justify-center gap-2 mt-4">
+          <button
+            onClick={() => { const p = Math.max(1, page - 1); setPage(p); reload(statusFilter, p); }}
+            disabled={page === 1}
+            className="px-3 py-1.5 rounded border text-sm disabled:opacity-50"
+          >이전</button>
+          <span className="px-3 py-1.5 text-sm text-gray-600">{page} / {totalPages}</span>
+          <button
+            onClick={() => { const p = Math.min(totalPages, page + 1); setPage(p); reload(statusFilter, p); }}
+            disabled={page === totalPages}
+            className="px-3 py-1.5 rounded border text-sm disabled:opacity-50"
+          >다음</button>
+        </div>
+      )}
+    </>
+  );
+}
+
+function UnmatchedRow({
+  item,
+  onIgnore,
+  onResolve,
+}: {
+  item: UnmatchedItem;
+  onIgnore: (id: number) => void;
+  onResolve: (id: number, lotId: string) => void;
+}) {
+  const [linking, setLinking] = useState(false);
+
+  const statusBadge = item.status === "resolved"
+    ? { label: "매칭완료", class: "bg-green-50 text-green-700" }
+    : item.status === "ignored"
+      ? { label: "무시", class: "bg-gray-50 text-gray-500" }
+      : { label: "미처리", class: "bg-yellow-50 text-yellow-700" };
+
+  return (
+    <tr className="border-b hover:bg-gray-50/50 align-top">
+      <td className="px-4 py-3">
+        <p className="text-xs font-medium">{item.poiName}</p>
+        <p className="text-[11px] text-gray-400">{item.poiLat.toFixed(4)}, {item.poiLng.toFixed(4)}</p>
+      </td>
+      <td className="px-4 py-3">
+        <p className="text-xs font-medium text-gray-800">{item.lotName}</p>
+        {item.resolvedLotName && (
+          <p className="text-[11px] text-green-600 mt-0.5">→ {item.resolvedLotName}</p>
+        )}
+      </td>
+      <td className="px-4 py-3">
+        <span className="text-xs text-gray-500">{item.category ?? "-"}</span>
+      </td>
+      <td className="px-4 py-3">
+        <span className={`px-1.5 py-0.5 rounded text-[11px] font-medium ${statusBadge.class}`}>
+          {statusBadge.label}
+        </span>
+      </td>
+      <td className="px-4 py-3">
+        {item.status === "pending" ? (
+          <div className="flex gap-1 justify-center items-center">
+            <div className="relative">
+              <button
+                onClick={() => setLinking(!linking)}
+                className="px-2 py-1 rounded text-xs bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
+              >
+                주차장 연결
+              </button>
+              {linking && (
+                <LotSearchDropdown
+                  onSelect={(lotId) => { onResolve(item.id, lotId); setLinking(false); }}
+                  onClose={() => setLinking(false)}
+                />
+              )}
+            </div>
+            <button
+              onClick={() => onIgnore(item.id)}
+              className="px-2 py-1 rounded text-xs text-gray-500 hover:bg-gray-100 transition-colors"
+            >
+              무시
+            </button>
+          </div>
+        ) : (
+          <span className="text-xs text-gray-400">처리됨</span>
         )}
       </td>
     </tr>

@@ -7,7 +7,7 @@ import {
   getDifficultyLabel,
   getDistance,
 } from "@/lib/geo-utils";
-import { MapPin, Clock, CreditCard, Phone, ParkingSquare, X, Flame, ThumbsUp } from "lucide-react";
+import { MapPin, Clock, CreditCard, Phone, ParkingSquare, X, Flame, ThumbsUp, Navigation } from "lucide-react";
 
 interface ParkingDetailPanelProps {
   lot: ParkingLot;
@@ -155,6 +155,20 @@ export function ParkingDetailPanel({
             <a href={`tel:${lot.phone}`} className="text-blue-500 underline">
               {lot.phone}
             </a>
+          </div>
+        )}
+
+        {/* POI 태그 */}
+        {lot.poiTags && lot.poiTags.length > 0 && (
+          <div className="flex items-start gap-2.5 text-sm">
+            <Navigation className="size-4 shrink-0 mt-0.5 text-muted-foreground" />
+            <div className="flex flex-wrap gap-1.5">
+              {lot.poiTags.map((tag) => (
+                <Badge key={tag} variant="outline" className="text-xs">
+                  {tag}
+                </Badge>
+              ))}
+            </div>
           </div>
         )}
 

@@ -33,6 +33,7 @@ export interface ParkingLot {
   phone?: string
   paymentMethods?: string
   notes?: string           // 특기사항
+  poiTags?: string[]       // POI 태그 (e.g. ['서울역', '용산역'])
   curationTag?: 'hell' | 'easy' | null  // 큐레이션 태그
   curationReason?: string               // 큐레이션 사유
   featuredSource?: string               // 출처 (e.g. '1010' = 10시10분 채널)
