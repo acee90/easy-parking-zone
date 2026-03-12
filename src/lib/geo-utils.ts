@@ -33,6 +33,17 @@ export function getDifficultyIcon(score: number | null): string {
   return '🔥'                          // 헬
 }
 
+/** Difficulty score → Tailwind bg color class (6단계) */
+export function getDifficultyColor(score: number | null): string {
+  if (score === null) return 'bg-gray-400'
+  if (score >= 4.0) return 'bg-green-500'
+  if (score >= 3.3) return 'bg-green-300'
+  if (score >= 2.7) return 'bg-zinc-300'
+  if (score >= 2.0) return 'bg-amber-400'
+  if (score >= 1.5) return 'bg-orange-500'
+  return 'bg-red-500'
+}
+
 /** Difficulty score to label (6단계) */
 export function getDifficultyLabel(score: number | null): string {
   if (score === null) return '데이터 없음'

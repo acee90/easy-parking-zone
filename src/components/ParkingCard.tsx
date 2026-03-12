@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Sheet,
   SheetContent,
@@ -10,12 +10,13 @@ import { Badge } from "@/components/ui/badge";
 import type { ParkingLot } from "@/types/parking";
 import { VoteBookmarkBar } from "@/components/VoteBookmarkBar";
 import {
+  getDifficultyColor,
   getDifficultyIcon,
   getDifficultyLabel,
   getDistance,
 } from "@/lib/geo-utils";
 import { ParkingTabs } from "@/components/ParkingTabs";
-import { MapPin, Clock, CreditCard, Phone, Flame, ThumbsUp } from "lucide-react";
+import { MapPin, Clock, CreditCard, Phone, Flame, ThumbsUp, Tag, ExternalLink, X } from "lucide-react";
 
 interface ParkingCardProps {
   lot: ParkingLot | null;
@@ -25,16 +26,6 @@ interface ParkingCardProps {
   userLocated?: boolean;
 }
 
-function difficultyColor(score: number | null) {
-  if (score === null) return "bg-gray-400";
-  if (score >= 4.0) return "bg-green-500";
-  if (score >= 3.3) return "bg-green-300";
-  if (score >= 2.7) return "bg-zinc-300";
-  if (score >= 2.0) return "bg-amber-400";
-  if (score >= 1.5) return "bg-orange-500";
-  return "bg-red-500";
-}
-
 export function ParkingCard({
   lot,
   onClose,
@@ -42,8 +33,11 @@ export function ParkingCard({
   userLng,
   userLocated,
 }: ParkingCardProps) {
-  // 데스크톱(md+)에서는 Sheet를 렌더링하지 않음 — 상세 패널이 대신 표시됨
   const [isMobile, setIsMobile] = useState(true);
+  const [expanded, setExpanded] = useState(false);
+  const prevLotId = useRef<string | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     const mql = window.matchMedia("(min-width: 768px)");
     setIsMobile(!mql.matches);
@@ -51,6 +45,55 @@ export function ParkingCard({
     mql.addEventListener("change", handler);
     return () => mql.removeEventListener("change", handler);
   }, []);
+
+  // 새 주차장 선택 시 접힌 상태로 리셋 + 스크롤 맨 위로
+  useEffect(() => {
+    if (lot && lot.id !== prevLotId.current) {
+      setExpanded(false);
+      prevLotId.current = lot.id;
+      scrollRef.current?.scrollTo(0, 0);
+    }
+    if (!lot) {
+      prevLotId.current = null;
+    }
+  }, [lot]);
+
+  // 아래로 스크롤 → 확장 (CSS transition 없으므로 즉시 리사이즈, 충돌 없음)
+  const lastScrollTop = useRef(0);
+  const handleScroll = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const st = el.scrollTop;
+    if (!expanded && st > lastScrollTop.current) {
+      setExpanded(true);
+    }
+    lastScrollTop.current = st;
+  }, [expanded]);
+
+  const handleClose = useCallback(() => {
+    setExpanded(false);
+    onClose();
+  }, [onClose]);
+
+  // 시트 전체 터치: 위로 스와이프 → 확장, 아래로 스와이프 → 닫기
+  const sheetTouchY = useRef(0);
+  const handleSheetTouchStart = useCallback((e: React.TouchEvent) => {
+    sheetTouchY.current = e.touches[0].clientY;
+  }, []);
+  const handleSheetTouchEnd = useCallback((e: React.TouchEvent) => {
+    const dy = e.changedTouches[0].clientY - sheetTouchY.current;
+    if (dy > 30) {
+      if (expanded) {
+        setExpanded(false);
+        scrollRef.current?.scrollTo(0, 0);
+      } else {
+        handleClose();
+      }
+    }
+    if (dy < -30 && !expanded) {
+      setExpanded(true);
+    }
+  }, [expanded, handleClose]);
 
   if (!lot || !isMobile) return null;
 
@@ -62,22 +105,50 @@ export function ParkingCard({
       : null;
 
   return (
-    <Sheet open={!!lot} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent side="bottom" className="rounded-t-xl max-h-[85vh]">
-        <SheetHeader>
-          <div className="flex items-center gap-2">
-            <div
-              className={`size-3 rounded-full ${difficultyColor(lot.difficulty.score)}`}
-            />
-            <SheetTitle className="text-base">{lot.name}</SheetTitle>
-          </div>
-          <SheetDescription className="sr-only">
-            주차장 상세 정보
-          </SheetDescription>
-        </SheetHeader>
+    <Sheet open={!!lot} onOpenChange={(open) => !open && handleClose()}>
+      <SheetContent
+        side="bottom"
+        className={`rounded-t-xl overflow-hidden flex flex-col ${
+          expanded ? "max-h-[85vh]" : "max-h-[320px]"
+        }`}
+        showCloseButton={false}
+        onTouchStart={handleSheetTouchStart}
+        onTouchEnd={handleSheetTouchEnd}
+      >
+        <div
+          ref={scrollRef}
+          onScroll={handleScroll}
+          className="flex-1 overflow-y-auto overscroll-contain"
+        >
+          {/* 드래그 핸들 + 타이틀 — sticky 고정 */}
+          <div className="sticky top-0 z-10 bg-background">
+            <div className="flex items-center justify-between px-4 pt-1.5">
+              <div className="w-8" />
+              <div className="w-10 h-1 rounded-full bg-gray-300" />
+              <button
+                onClick={handleClose}
+                className="flex size-7 items-center justify-center rounded-full hover:bg-gray-100 active:bg-gray-200 transition-colors cursor-pointer"
+                aria-label="닫기"
+              >
+                <X className="size-4 text-muted-foreground" />
+              </button>
+            </div>
 
-        <div className="px-4 pb-4 space-y-3">
-          {/* 난이도 + 거리 */}
+            <SheetHeader className="[&]:p-0 [&]:px-4 [&]:pb-1">
+              <div className="flex items-center gap-2">
+                <div
+                  className={`size-3 rounded-full shrink-0 ${getDifficultyColor(lot.difficulty.score)}`}
+                />
+                <SheetTitle className="text-lg truncate">{lot.name}</SheetTitle>
+              </div>
+              <SheetDescription className="sr-only">
+                주차장 상세 정보
+              </SheetDescription>
+            </SheetHeader>
+          </div>
+
+          <div className="px-4 pb-4 space-y-3">
+          {/* 난이도 배지 */}
           <div className="flex items-center gap-2 flex-wrap">
             {lot.curationTag === 'hell' && (
               <Badge variant="destructive" className="text-xs gap-1">
@@ -111,7 +182,19 @@ export function ParkingCard({
             )}
           </div>
 
-          <VoteBookmarkBar lotId={lot.id} />
+          {/* 길찾기 + 투표 */}
+          <div className="flex items-center gap-2">
+            <a
+              href={`https://map.naver.com/v5/directions/-/${lot.lng},${lot.lat},${encodeURIComponent(lot.name)}/-/transit?c=${lot.lng},${lot.lat},15,0,0,0,dh`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-green-500 px-3 py-1.5 text-xs font-medium text-white active:bg-green-600 transition-colors"
+            >
+              <ExternalLink className="size-3" />
+              길찾기
+            </a>
+            <VoteBookmarkBar lotId={lot.id} />
+          </div>
 
           {/* 주소 */}
           <div className="flex items-start gap-2 text-sm">
@@ -164,6 +247,20 @@ export function ParkingCard({
             </div>
           )}
 
+          {/* POI 태그 */}
+          {lot.poiTags && lot.poiTags.length > 0 && (
+            <div className="flex items-start gap-2 text-sm">
+              <Tag className="size-4 shrink-0 mt-0.5 text-muted-foreground" />
+              <div className="flex flex-wrap gap-1.5">
+                {lot.poiTags.map((tag) => (
+                  <Badge key={tag} variant="outline" className="text-xs">
+                    {tag}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* 특기사항 */}
           {lot.notes && (
             <p className="text-xs text-muted-foreground bg-gray-50 rounded px-2 py-1">
@@ -173,6 +270,7 @@ export function ParkingCard({
 
           {/* 리뷰/영상/블로그 탭 */}
           <ParkingTabs lotId={lot.id} />
+          </div>
         </div>
       </SheetContent>
     </Sheet>
