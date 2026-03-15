@@ -40,3 +40,14 @@ clien_comments.html
 .skills/
 docs/velog-post-*.md
 docs/marketing-persona.md
+scripts/pilot-*-data.json
+scripts/pilot-*-checkpoint.json
+scripts/pilot-*-result*.json
+scripts/pilot-*-sample*.json
+scripts/ad-filter-validation.json
+scripts/parking-stats-results.json
+scripts/pilot-ai-match-result.json
+scripts/pilot-filter-result.json
+scripts/pilot-filter-v2-data.json
+scripts/pilot-filter-v2-checkpoint.json
+scripts/pilot-filter-v2-sample.json
