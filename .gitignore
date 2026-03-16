@@ -51,3 +51,9 @@ scripts/pilot-filter-result.json
 scripts/pilot-filter-v2-data.json
 scripts/pilot-filter-v2-checkpoint.json
 scripts/pilot-filter-v2-sample.json
+
+# POI pipeline local artifacts
+local-parking.db
+d1-dump.sql
+scripts/poi-local-*-checkpoint.json
+scripts/poi-run-*-checkpoint.json
