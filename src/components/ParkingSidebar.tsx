@@ -41,9 +41,11 @@ export function ParkingSidebar({
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
   // parkingLots 변경 시 표시 개수 초기화
-  const sortedLots = useMemo(() => {
+  useEffect(() => {
     setVisibleCount(PAGE_SIZE);
+  }, [parkingLots]);
 
+  const sortedLots = useMemo(() => {
     const withDistance = parkingLots.map((lot) => ({
       lot,
       distance:
@@ -181,7 +183,7 @@ export function ParkingSidebar({
               className="w-full py-3 text-xs text-blue-500 hover:bg-blue-50 transition-colors cursor-pointer font-medium"
               onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
             >
-              더 보기 ({sortedLots.length - visibleCount}개 남음)
+              더 보기 ({sortedLots.length - effectiveCount}개 남음)
             </button>
           )}
         </>

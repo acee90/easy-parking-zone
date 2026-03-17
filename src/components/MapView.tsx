@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useEffectEvent, useRef, useCallback, useMemo } from "react";
 import {
   Container as MapDiv,
   NaverMap,
@@ -131,6 +131,7 @@ export function MapView({
   const mapRef = useRef<naver.maps.Map | null>(null);
   const boundsTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const markerHtmlCacheRef = useRef<Map<string, string>>(new Map());
+  const animatingRef = useRef(false);
   const [currentZoom, setCurrentZoom] = useState<number>(DEFAULT_ZOOM);
 
   const markerData = useMemo(() => {
@@ -173,7 +174,7 @@ export function MapView({
     }
   }, [navermaps, moveTo]);
 
-  const emitBounds = useCallback(() => {
+  const emitBounds = useEffectEvent(() => {
     if (!mapRef.current) return;
     const b = mapRef.current.getBounds() as naver.maps.LatLngBounds;
     const sw = b.getSW();
@@ -184,19 +185,17 @@ export function MapView({
       { south: sw.lat(), north: ne.lat(), west: sw.lng(), east: ne.lng() },
       zoom,
     );
-  }, [onBoundsChanged]);
-
-  const animatingRef = useRef(false);
+  });
 
   const handleBoundsChanged = useCallback(() => {
     clearTimeout(boundsTimerRef.current);
     boundsTimerRef.current = setTimeout(emitBounds, animatingRef.current ? 800 : 300);
-  }, [emitBounds]);
+  }, []);
 
   const handleInit = useCallback(() => {
     onMapReady();
     setTimeout(emitBounds, 100);
-  }, [onMapReady, emitBounds]);
+  }, [onMapReady]);
 
   return (
     <MapDiv style={{ width: "100%", height: "100%" }}>
@@ -256,22 +255,10 @@ export function MapView({
                 zIndex={selected ? 200 : lot.id === hoveredLotId ? 100 : 0}
                 onClick={() => {
                   onMarkerClick(lot);
-                  // 패널(640px)을 고려해 마커가 가시 영역 중앙에 오도록 패닝
                   if (mapRef.current) {
-                    const map = mapRef.current;
-                    const proj = map.getProjection();
-                    const markerCoord = new navermaps.LatLng(lot.lat, lot.lng);
-                    const markerPixel = proj.fromCoordToOffset(markerCoord);
-                    const mapSize = map.getSize();
-                    const panelWidth = 640;
-                    const visibleCenterX = panelWidth + (mapSize.width - panelWidth) / 2;
-                    const dx = markerPixel.x - visibleCenterX;
-                    const dy = markerPixel.y - mapSize.height / 2;
-                    if (Math.abs(dx) > 50 || Math.abs(dy) > 50) {
-                      animatingRef.current = true;
-                      map.panBy(new navermaps.Point(dx, dy));
-                      setTimeout(() => { animatingRef.current = false; }, 800);
-                    }
+                    animatingRef.current = true;
+                    mapRef.current.panTo(new navermaps.LatLng(lot.lat, lot.lng));
+                    setTimeout(() => { animatingRef.current = false; }, 800);
                   }
                 }}
                 onMouseover={() => onMarkerHover(lot.id)}
