@@ -82,7 +82,7 @@ export function ParkingSidebar({
     if (!selectedLotId) return;
     const el = itemRefs.current.get(selectedLotId);
     if (el) {
-      el.scrollIntoView({ behavior: "smooth", block: "start" });
+      el.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }
   }, [selectedLotId]);
 
