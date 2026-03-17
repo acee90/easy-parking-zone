@@ -114,6 +114,7 @@ function App() {
         <ParkingSidebar
           parkingLots={displayedLots}
           selectedLotId={selectedLot?.id ?? null}
+          hoveredLotId={hoveredLotId}
           onSelect={handleSidebarSelect}
           onHover={setHoveredLotId}
           userLat={userLat}
@@ -166,6 +167,7 @@ function App() {
                   clusters={clusters}
                   onBoundsChanged={handleBoundsChanged}
                   onMarkerClick={handleMarkerClick}
+                  onMarkerHover={setHoveredLotId}
                   selectedLotId={selectedLot?.id}
                   hoveredLotId={hoveredLotId}
                   moveTo={moveTo}

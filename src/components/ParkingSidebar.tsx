@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ParkingLot } from "@/types/parking";
 import {
   getDifficultyIcon,
@@ -12,6 +12,7 @@ const PAGE_SIZE = 20;
 interface ParkingSidebarProps {
   parkingLots: ParkingLot[];
   selectedLotId: string | null;
+  hoveredLotId?: string | null;
   onSelect: (lot: ParkingLot) => void;
   onHover: (lotId: string | null) => void;
   userLat?: number;
@@ -31,6 +32,7 @@ export function ParkingSidebar({
   parkingLots,
   selectedLotId,
   onSelect,
+  hoveredLotId,
   onHover,
   userLat,
   userLng,
@@ -62,8 +64,25 @@ export function ParkingSidebar({
     return withDistance;
   }, [parkingLots, userLat, userLng, userLocated]);
 
-  const visibleLots = sortedLots.slice(0, visibleCount);
-  const hasMore = visibleCount < sortedLots.length;
+  // 선택된 주차장이 visibleCount 밖이면 확장
+  const selectedIdx = selectedLotId
+    ? sortedLots.findIndex((s) => s.lot.id === selectedLotId)
+    : -1;
+  const effectiveCount =
+    selectedIdx >= visibleCount ? selectedIdx + 1 : visibleCount;
+
+  const visibleLots = sortedLots.slice(0, effectiveCount);
+  const hasMore = effectiveCount < sortedLots.length;
+
+  // 마커 클릭 시 리스트 자동 스크롤
+  const itemRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
+  useEffect(() => {
+    if (!selectedLotId) return;
+    const el = itemRefs.current.get(selectedLotId);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [selectedLotId]);
 
   return (
     <aside className="hidden md:flex w-[280px] shrink-0 flex-col border-r bg-white">
@@ -87,14 +106,19 @@ export function ParkingSidebar({
         ) : (<>
           {visibleLots.map(({ lot, distance }) => {
             const selected = lot.id === selectedLotId;
+            const hovered = lot.id === hoveredLotId;
             const icon = getDifficultyIcon(lot.difficulty.score);
             const label = getDifficultyLabel(lot.difficulty.score);
 
             return (
               <button
                 key={lot.id}
+                ref={(el) => {
+                  if (el) itemRefs.current.set(lot.id, el);
+                  else itemRefs.current.delete(lot.id);
+                }}
                 className={`w-full text-left px-4 py-3 border-b border-gray-100 hover:bg-blue-50 transition-colors cursor-pointer ${
-                  selected ? "bg-blue-50 border-l-2 border-l-blue-500" : ""
+                  selected ? "bg-blue-50 border-l-2 border-l-blue-500" : hovered ? "bg-blue-50" : ""
                 }`}
                 onClick={() => onSelect(lot)}
                 onMouseEnter={() => onHover(lot.id)}
