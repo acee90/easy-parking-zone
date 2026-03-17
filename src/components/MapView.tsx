@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useEffectEvent, useRef, useCallback, useMemo } from "react";
 import {
   Container as MapDiv,
   NaverMap,
@@ -19,6 +19,7 @@ interface MapViewProps {
   parkingLots: ParkingLot[];
   onBoundsChanged: (bounds: MapBounds, zoom: number) => void;
   onMarkerClick: (lot: ParkingLot) => void;
+  onMarkerHover: (lotId: string | null) => void;
   clusters: MarkerCluster[] | null;
   selectedLotId?: string | null;
   hoveredLotId?: string | null;
@@ -60,51 +61,32 @@ function clusterMarkerHtml(count: number, score: number | null): string {
   ">${count}</div>`;
 }
 
-function shortName(name: string): string {
-  const stripped = name.replace(/\s*(공영|노외|노상|부설)?\s*주차장$/, "").trim();
-  return stripped.length > 8 ? stripped.slice(0, 7) + "…" : stripped;
+function displayName(name: string): string {
+  return name.replace(/\s*(공영|노외|노상|부설)?\s*주차장$/, "").trim();
 }
 
-const LABEL_ZOOM = 16;
-
-function markerHtml(lot: ParkingLot, selected: boolean, hovered: boolean, showLabel: boolean): string {
+function markerHtml(lot: ParkingLot, selected: boolean, hovered: boolean): string {
   const color = markerColor(lot.difficulty.score);
   const isHell = lot.curationTag === "hell";
   const isEasy = lot.curationTag === "easy";
 
-  // 공통 스타일
   const pillBase = "display:inline-flex;align-items:center;white-space:nowrap;cursor:pointer;user-select:none;-webkit-user-select:none;";
+  const nameStyle = "max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
+  const name = displayName(lot.name);
 
   if (selected) {
-    const inner = showLabel
-      ? `${isHell ? "💀 " : ""}${shortName(lot.name)}`
-      : isHell ? "💀" : "P";
-    return `<div style="
-      display:flex;flex-direction:column;align-items:center;
-      animation:marker-bounce 0.8s ease-in-out infinite alternate;
-      filter:drop-shadow(0 4px 12px rgba(59,130,246,0.5));
-    ">
-      <div style="${pillBase}
-        padding:6px 12px;
-        background:${color};
-        border:3px solid #3b82f6;
-        border-radius:16px;
-        font-size:12px;font-weight:600;
-        color:white;
-        box-shadow:0 0 0 3px rgba(59,130,246,0.25);
-        text-shadow:0 1px 2px rgba(0,0,0,0.3);
-      ">${inner}</div>
-      <div style="
-        width:0;height:0;
-        border-left:6px solid transparent;
-        border-right:6px solid transparent;
-        border-top:7px solid #3b82f6;
-        margin-top:-1px;
-      "></div>
-    </div>`;
+    return `<div style="${pillBase}
+      padding:5px 12px;
+      background:${color};
+      border:3px solid #3b82f6;
+      border-radius:16px;
+      font-size:13px;font-weight:600;
+      color:white;
+      box-shadow:0 0 0 3px rgba(59,130,246,0.25);
+      text-shadow:0 1px 2px rgba(0,0,0,0.3);
+    ">${isHell ? "💀 " : ""}<span style="${nameStyle}">${name}</span></div>`;
   }
 
-  // 테두리/그림자
   const border = hovered
     ? "2px solid #60a5fa"
     : isHell ? "2px solid #ef4444"
@@ -116,32 +98,17 @@ function markerHtml(lot: ParkingLot, selected: boolean, hovered: boolean, showLa
     : isEasy ? "0 2px 6px rgba(34,197,94,0.3)"
     : "0 1px 4px rgba(0,0,0,0.2)";
 
-  if (showLabel) {
-    const prefix = isHell ? "💀 " : "";
-    return `<div style="${pillBase}
-      padding:${hovered ? "5px 12px" : "4px 10px"};
-      background:${color};
-      border:${border};
-      border-radius:14px;
-      font-size:${hovered ? "14px" : "13px"};font-weight:600;
-      color:white;
-      box-shadow:${shadow};
-      text-shadow:0 1px 2px rgba(0,0,0,0.25);
-      letter-spacing:-0.2px;
-    ">${prefix}${shortName(lot.name)}</div>`;
-  }
-
-  // 줌 낮을 때: 작은 dot pill
-  const h = hovered ? 16 : 12;
-  const w = isHell ? (hovered ? 28 : 24) : (hovered ? 16 : 12);
-  return `<div style="${pillBase}justify-content:center;
-    width:${w}px;height:${h}px;
+  return `<div style="${pillBase}
+    padding:${hovered ? "5px 12px" : "4px 10px"};
     background:${color};
     border:${border};
-    border-radius:${h}px;
-    font-size:10px;
+    border-radius:14px;
+    font-size:${hovered ? "14px" : "13px"};font-weight:600;
+    color:white;
     box-shadow:${shadow};
-  ">${isHell ? "💀" : ""}</div>`;
+    text-shadow:0 1px 2px rgba(0,0,0,0.25);
+    letter-spacing:-0.2px;
+  ">${isHell ? "💀 " : ""}<span style="${nameStyle}">${name}</span></div>`;
 }
 
 export function MapView({
@@ -154,6 +121,7 @@ export function MapView({
   parkingLots,
   onBoundsChanged,
   onMarkerClick,
+  onMarkerHover,
   clusters,
   selectedLotId,
   hoveredLotId,
@@ -163,13 +131,11 @@ export function MapView({
   const mapRef = useRef<naver.maps.Map | null>(null);
   const boundsTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const markerHtmlCacheRef = useRef<Map<string, string>>(new Map());
+  const animatingRef = useRef(false);
   const [currentZoom, setCurrentZoom] = useState<number>(DEFAULT_ZOOM);
 
-  // 마커 HTML을 캐시하여 selected/hovered 변경 시 해당 마커만 재생성
-  const showLabels = currentZoom >= LABEL_ZOOM;
   const markerData = useMemo(() => {
     const cache = markerHtmlCacheRef.current;
-    // parkingLots가 바뀌면 (bounds 변경) 캐시 정리
     const currentIds = new Set(parkingLots.map((l) => l.id));
     for (const key of cache.keys()) {
       const id = key.split(":")[0];
@@ -179,20 +145,19 @@ export function MapView({
     return parkingLots.map((lot) => {
       const selected = lot.id === selectedLotId;
       const hovered = lot.id === hoveredLotId;
-      const cacheKey = `${lot.id}:${selected}:${hovered}:${showLabels}`;
+      const cacheKey = `${lot.id}:${selected}:${hovered}`;
 
       let html = cache.get(cacheKey);
       if (!html) {
-        html = markerHtml(lot, selected, hovered, showLabels);
+        html = markerHtml(lot, selected, hovered);
         cache.set(cacheKey, html);
       }
 
-      // pill 높이: selected ~30px+꼬리, label ~26px, dot ~12px
-      const h = selected ? 30 : showLabels ? (hovered ? 28 : 25) : (hovered ? 16 : 12);
-      const anchorY = selected ? h + 7 : h / 2;
+      const h = selected ? 28 : hovered ? 28 : 25;
+      const anchorY = h / 2;
       return { lot, html, anchorY, selected };
     });
-  }, [parkingLots, selectedLotId, hoveredLotId, showLabels]);
+  }, [parkingLots, selectedLotId, hoveredLotId]);
 
   useEffect(() => {
     if (mapRef.current && userLocated) {
@@ -202,12 +167,14 @@ export function MapView({
 
   useEffect(() => {
     if (mapRef.current && moveTo) {
-      mapRef.current.setCenter(new navermaps.LatLng(moveTo.lat, moveTo.lng));
+      animatingRef.current = true;
+      mapRef.current.panTo(new navermaps.LatLng(moveTo.lat, moveTo.lng));
       mapRef.current.setZoom(16);
+      setTimeout(() => { animatingRef.current = false; }, 800);
     }
   }, [navermaps, moveTo]);
 
-  const emitBounds = useCallback(() => {
+  const emitBounds = useEffectEvent(() => {
     if (!mapRef.current) return;
     const b = mapRef.current.getBounds() as naver.maps.LatLngBounds;
     const sw = b.getSW();
@@ -218,17 +185,17 @@ export function MapView({
       { south: sw.lat(), north: ne.lat(), west: sw.lng(), east: ne.lng() },
       zoom,
     );
-  }, [onBoundsChanged]);
+  });
 
   const handleBoundsChanged = useCallback(() => {
     clearTimeout(boundsTimerRef.current);
-    boundsTimerRef.current = setTimeout(emitBounds, 300);
-  }, [emitBounds]);
+    boundsTimerRef.current = setTimeout(emitBounds, animatingRef.current ? 800 : 300);
+  }, []);
 
   const handleInit = useCallback(() => {
     onMapReady();
     setTimeout(emitBounds, 100);
-  }, [onMapReady, emitBounds]);
+  }, [onMapReady]);
 
   return (
     <MapDiv style={{ width: "100%", height: "100%" }}>
@@ -267,11 +234,12 @@ export function MapView({
                   }}
                   onClick={() => {
                     if (!mapRef.current) return;
-                    const cur = mapRef.current.getZoom();
+                    animatingRef.current = true;
                     mapRef.current.morph(
                       new navermaps.LatLng(c.lat, c.lng),
-                      Math.min(cur + 3, 21),
+                      16,
                     );
+                    setTimeout(() => { animatingRef.current = false; }, 800);
                   }}
                 />
               );
@@ -284,8 +252,17 @@ export function MapView({
                   content: `<div style="transform:translateX(-50%);display:inline-block;">${html}</div>`,
                   anchor: new navermaps.Point(0, anchorY),
                 }}
-                zIndex={selected ? 200 : 0}
-                onClick={() => onMarkerClick(lot)}
+                zIndex={selected ? 200 : lot.id === hoveredLotId ? 100 : 0}
+                onClick={() => {
+                  onMarkerClick(lot);
+                  if (mapRef.current) {
+                    animatingRef.current = true;
+                    mapRef.current.panTo(new navermaps.LatLng(lot.lat, lot.lng));
+                    setTimeout(() => { animatingRef.current = false; }, 800);
+                  }
+                }}
+                onMouseover={() => onMarkerHover(lot.id)}
+                onMouseout={() => onMarkerHover(null)}
               />
             ))}
       </NaverMap>
