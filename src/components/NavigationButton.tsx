@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { Navigation } from "lucide-react";
 import { getNavOptions, type NavApp } from "@/lib/navigation";
 
@@ -33,13 +33,17 @@ export function NavigationButton({ lat, lng, name }: NavigationButtonProps) {
     };
   }, [open]);
 
-  const options = getNavOptions({ lat, lng, name });
+  // 클라이언트에서만 URL 생성 (SSR hydration mismatch 방지)
+  const options = useMemo(
+    () => (open ? getNavOptions({ lat, lng, name }) : []),
+    [open, lat, lng, name],
+  );
 
   return (
     <div ref={ref} className="relative">
       <button
         aria-expanded={open}
-        aria-haspopup="listbox"
+        aria-haspopup="menu"
         onClick={() => setOpen((v) => !v)}
         className="inline-flex items-center gap-1.5 rounded-lg bg-blue-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-600 active:bg-blue-700 transition-colors cursor-pointer"
       >
