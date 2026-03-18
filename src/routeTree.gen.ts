@@ -9,16 +9,21 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as WikiIndexRouteImport } from './routes/wiki/index'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as WikiSlugRouteImport } from './routes/wiki/$slug'
-import { Route as ApiSitemapRouteImport } from './routes/api/sitemap'
 import { Route as AdminWebSourcesRouteImport } from './routes/admin/web-sources'
 import { Route as AdminReviewsRouteImport } from './routes/admin/reviews'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminRoute = AdminRouteImport.update({
   id: '/admin',
   path: '/admin',
@@ -44,11 +49,6 @@ const WikiSlugRoute = WikiSlugRouteImport.update({
   path: '/wiki/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiSitemapRoute = ApiSitemapRouteImport.update({
-  id: '/api/sitemap',
-  path: '/api/sitemap',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AdminWebSourcesRoute = AdminWebSourcesRouteImport.update({
   id: '/web-sources',
   path: '/web-sources',
@@ -68,9 +68,9 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/admin/reviews': typeof AdminReviewsRoute
   '/admin/web-sources': typeof AdminWebSourcesRoute
-  '/api/sitemap': typeof ApiSitemapRoute
   '/wiki/$slug': typeof WikiSlugRoute
   '/admin/': typeof AdminIndexRoute
   '/wiki/': typeof WikiIndexRoute
@@ -78,9 +78,9 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/admin/reviews': typeof AdminReviewsRoute
   '/admin/web-sources': typeof AdminWebSourcesRoute
-  '/api/sitemap': typeof ApiSitemapRoute
   '/wiki/$slug': typeof WikiSlugRoute
   '/admin': typeof AdminIndexRoute
   '/wiki': typeof WikiIndexRoute
@@ -90,9 +90,9 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/admin/reviews': typeof AdminReviewsRoute
   '/admin/web-sources': typeof AdminWebSourcesRoute
-  '/api/sitemap': typeof ApiSitemapRoute
   '/wiki/$slug': typeof WikiSlugRoute
   '/admin/': typeof AdminIndexRoute
   '/wiki/': typeof WikiIndexRoute
@@ -103,9 +103,9 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/admin'
+    | '/sitemap.xml'
     | '/admin/reviews'
     | '/admin/web-sources'
-    | '/api/sitemap'
     | '/wiki/$slug'
     | '/admin/'
     | '/wiki/'
@@ -113,9 +113,9 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/sitemap.xml'
     | '/admin/reviews'
     | '/admin/web-sources'
-    | '/api/sitemap'
     | '/wiki/$slug'
     | '/admin'
     | '/wiki'
@@ -124,9 +124,9 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/admin'
+    | '/sitemap.xml'
     | '/admin/reviews'
     | '/admin/web-sources'
-    | '/api/sitemap'
     | '/wiki/$slug'
     | '/admin/'
     | '/wiki/'
@@ -136,7 +136,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRouteWithChildren
-  ApiSitemapRoute: typeof ApiSitemapRoute
+  SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   WikiSlugRoute: typeof WikiSlugRoute
   WikiIndexRoute: typeof WikiIndexRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
@@ -144,6 +144,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin': {
       id: '/admin'
       path: '/admin'
@@ -177,13 +184,6 @@ declare module '@tanstack/react-router' {
       path: '/wiki/$slug'
       fullPath: '/wiki/$slug'
       preLoaderRoute: typeof WikiSlugRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/sitemap': {
-      id: '/api/sitemap'
-      path: '/api/sitemap'
-      fullPath: '/api/sitemap'
-      preLoaderRoute: typeof ApiSitemapRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/web-sources': {
@@ -227,7 +227,7 @@ const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRouteWithChildren,
-  ApiSitemapRoute: ApiSitemapRoute,
+  SitemapDotxmlRoute: SitemapDotxmlRoute,
   WikiSlugRoute: WikiSlugRoute,
   WikiIndexRoute: WikiIndexRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,

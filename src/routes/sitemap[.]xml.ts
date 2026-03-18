@@ -51,7 +51,7 @@ async function handleSitemap() {
   });
 }
 
-export const Route = createFileRoute("/api/sitemap")({
+export const Route = createFileRoute("/sitemap.xml")({
   server: {
     handlers: {
       GET: () => handleSitemap(),

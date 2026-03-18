@@ -1,6 +1,6 @@
 User-agent: *
 Allow: /
-Disallow: /api/auth/
+Disallow: /api/
 Disallow: /admin/
 
-Sitemap: https://easy-parking.xyz/api/sitemap
+Sitemap: https://easy-parking.xyz/sitemap.xml
