@@ -6,7 +6,8 @@ import {
   getDifficultyLabel,
   getDistance,
 } from "@/lib/geo-utils";
-import { ChevronUp } from "lucide-react";
+import { ChevronUp, ArrowUpDown } from "lucide-react";
+import type { SortMode } from "@/types/parking";
 
 interface MobileBottomPanelProps {
   parkingLots: ParkingLot[];
@@ -15,6 +16,7 @@ interface MobileBottomPanelProps {
   userLat?: number;
   userLng?: number;
   userLocated?: boolean;
+  mapCenter?: { lat: number; lng: number } | null;
 }
 
 export function MobileBottomPanel({
@@ -24,8 +26,10 @@ export function MobileBottomPanel({
   userLat,
   userLng,
   userLocated,
+  mapCenter,
 }: MobileBottomPanelProps) {
   const [expanded, setExpanded] = useState(false);
+  const [sortMode, setSortMode] = useState<SortMode>("distance");
 
   // 터치 스와이프 핸들링
   const touchStartY = useRef(0);
@@ -38,21 +42,30 @@ export function MobileBottomPanel({
     if (dy < -40) setExpanded(false);
   }, []);
 
+  const refLat = userLocated && userLat != null ? userLat : mapCenter?.lat;
+  const refLng = userLocated && userLng != null ? userLng : mapCenter?.lng;
+
   const sortedLots = useMemo(() => {
-    return parkingLots
-      .map((lot) => ({
-        lot,
-        distance:
-          userLocated && userLat && userLng
-            ? getDistance(userLat, userLng, lot.lat, lot.lng)
-            : null,
-      }))
-      .sort((a, b) => {
+    const withDistance = parkingLots.map((lot) => ({
+      lot,
+      distance:
+        refLat != null && refLng != null ? getDistance(refLat, refLng, lot.lat, lot.lng) : null,
+    }));
+
+    if (sortMode === "distance") {
+      withDistance.sort((a, b) => {
         if (a.distance !== null && b.distance !== null)
           return a.distance - b.distance;
         return (b.lot.difficulty.score ?? -1) - (a.lot.difficulty.score ?? -1);
       });
-  }, [parkingLots, userLat, userLng, userLocated]);
+    } else {
+      withDistance.sort(
+        (a, b) => (b.lot.difficulty.score ?? -1) - (a.lot.difficulty.score ?? -1)
+      );
+    }
+
+    return withDistance;
+  }, [parkingLots, refLat, refLng, sortMode]);
 
   // 선택된 주차장이 있거나, 데스크톱이면 숨김
   // (md: breakpoint는 CSS로 처리)
@@ -101,6 +114,31 @@ export function MobileBottomPanel({
         <div
           className="bg-white max-h-[45vh] overflow-y-auto overscroll-contain border-t border-border"
         >
+          <div className="flex items-center gap-1 px-4 py-2 border-b border-gray-100">
+            <ArrowUpDown className="size-3 text-muted-foreground" />
+            <button
+              type="button"
+              onClick={() => setSortMode("distance")}
+              className={`px-2 py-0.5 rounded text-xs cursor-pointer transition-colors ${
+                sortMode === "distance"
+                  ? "bg-blue-100 text-blue-700 font-medium"
+                  : "text-muted-foreground hover:bg-gray-100"
+              }`}
+            >
+              {userLocated ? "가까운 순" : "지도 중심 순"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setSortMode("difficulty")}
+              className={`px-2 py-0.5 rounded text-xs cursor-pointer transition-colors ${
+                sortMode === "difficulty"
+                  ? "bg-blue-100 text-blue-700 font-medium"
+                  : "text-muted-foreground hover:bg-gray-100"
+              }`}
+            >
+              쉬운 순
+            </button>
+          </div>
           {sortedLots.slice(0, 30).map(({ lot, distance }) => (
             <button
               key={lot.id}
