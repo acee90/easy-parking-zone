@@ -58,10 +58,11 @@ export function NavigationButton({ lat, lng, name }: NavigationButtonProps) {
       </button>
 
       {open && (
-        <div className="absolute left-0 top-full mt-1 z-50 rounded-lg border bg-white shadow-lg py-1 min-w-[140px]">
+        <div role="menu" className="absolute left-0 top-full mt-1 z-50 rounded-lg border bg-white shadow-lg py-1 min-w-[140px]">
           {options.map((opt) => (
             <a
               key={opt.app}
+              role="menuitem"
               href={opt.url}
               target="_blank"
               rel="noopener noreferrer"

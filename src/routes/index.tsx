@@ -51,10 +51,10 @@ function App() {
 
   const handleBoundsChanged = useCallback(async (bounds: MapBounds, zoom: number) => {
     lastViewRef.current = { bounds, zoom };
-    const center = {
+    setMapCenter({
       lat: (bounds.south + bounds.north) / 2,
       lng: (bounds.west + bounds.east) / 2,
-    };
+    });
     try {
       const clusterMaxZoom = Number(import.meta.env.VITE_CLUSTER_MAX_ZOOM) || 9;
       if (zoom <= clusterMaxZoom) {
@@ -69,7 +69,6 @@ function App() {
         const lots = await fetchParkingLots({ data: { ...bounds, filters } });
         setParkingLots(lots);
       }
-      setMapCenter(center);
     } catch (err) {
       console.error("[fetchParkingLots] error:", err);
     }

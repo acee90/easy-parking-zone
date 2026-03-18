@@ -34,12 +34,9 @@ function kakaoUrl({ lat, lng, name }: NavTarget, mobile: boolean): string {
   return `https://map.kakao.com/link/to/${encoded},${lat},${lng}`
 }
 
-function tmapUrl({ lat, lng, name }: NavTarget, mobile: boolean): string {
+function tmapUrl({ lat, lng, name }: NavTarget): string {
   const encoded = encodeURIComponent(name)
-  if (mobile) {
-    return `tmap://route?goalname=${encoded}&goaly=${lat}&goalx=${lng}`
-  }
-  return `https://www.tmap.co.kr/`
+  return `tmap://route?goalname=${encoded}&goaly=${lat}&goalx=${lng}`
 }
 
 export function getNavOptions(target: NavTarget): NavOption[] {
@@ -50,7 +47,7 @@ export function getNavOptions(target: NavTarget): NavOption[] {
   ]
   // 티맵은 공식 웹 길찾기 URL이 없으므로 모바일(앱 딥링크)에서만 표시
   if (mobile) {
-    options.push({ app: 'tmap', label: '티맵', url: tmapUrl(target, mobile) })
+    options.push({ app: 'tmap', label: '티맵', url: tmapUrl(target) })
   }
   return options
 }
