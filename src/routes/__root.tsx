@@ -3,9 +3,9 @@ import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
 import appCss from '../styles.css?url'
 
 const SITE_URL = 'https://easy-parking.xyz'
-const SITE_NAME = '쉬운주차장'
-const SITE_TITLE = '쉬운주차장 - 전국 주차장 난이도 지도'
-const SITE_DESC = '전국 주차장의 주차 난이도를 한눈에! 초보운전자를 위한 주차장 찾기 서비스.'
+const SITE_NAME = '쉬운주차장 (쉽주)'
+const SITE_TITLE = '쉬운주차장 (쉽주) - 전국 주차장 난이도 지도'
+const SITE_DESC = '초보운전자를 위한 전국 주차장 난이도 정보! "쉽주"에서 주차장 찾기, 요금, 편의 시설을 한눈에 확인하세요.'
 
 export const Route = createRootRoute({
   head: () => ({
@@ -26,7 +26,7 @@ export const Route = createRootRoute({
       },
       {
         name: 'keywords',
-        content: '주차장, 주차 난이도, 주차장 지도, 쉬운 주차, 주차장 찾기, 전국 주차장, 초보운전 주차, 주차 쉬운 곳',
+        content: '쉽주, 쉬운주차장, 주차 난이도, 주차장 지도, 쉬운 주차, 주차장 찾기, 전국 주차장, 초보운전 주차, 주차 쉬운 곳',
       },
       {
         name: 'theme-color',

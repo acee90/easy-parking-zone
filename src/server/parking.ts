@@ -27,7 +27,7 @@ export const fetchSiteStats = createServerFn({ method: "GET" }).handler(
       db.select({ cnt: count() }).from(schema.parkingLots).get(),
       db.select({ cnt: count() }).from(schema.userReviews).get(),
       db.select({
-        cnt: sql<number>`(SELECT COUNT(*) FROM parking_media) + (SELECT COUNT(*) FROM web_sources)`,
+        cnt: sql<number>`(SELECT COUNT(*) FROM parking_media) + (SELECT COUNT(*) FROM web_sources WHERE is_ad = 0)`,
       }).from(schema.parkingMedia).get(),
     ]);
     const stats = {
@@ -133,6 +133,61 @@ export const searchParkingLots = createServerFn({ method: "GET" })
     return (rows as unknown as ParkingLotRow[]).map(rowToParkingLot);
   });
 
+/** 단일 주차장 상세 조회 (위키 페이지용) */
+export const fetchParkingDetail = createServerFn({ method: "GET" })
+  .inputValidator((input: { id: string }): { id: string } => {
+    if (!input.id || typeof input.id !== "string" || input.id.length > 64) throw new Error("invalid id");
+    return input;
+  })
+  .handler(async ({ data }) => {
+    const db = getDb();
+    const rows = await db.all(
+      sql`SELECT p.*,
+          s.final_score as avg_score,
+          COALESCE(s.user_review_count, 0) + COALESCE(s.community_count, 0) as review_count,
+          s.reliability
+        FROM parking_lots p
+        LEFT JOIN parking_lot_stats s ON s.parking_lot_id = p.id
+        WHERE p.id = ${data.id}`
+    );
+    if (rows.length === 0) return null;
+    return rowToParkingLot(rows[0] as unknown as ParkingLotRow);
+  });
+
+/** 근처 주차장 조회 (위키 페이지용) */
+export const fetchNearbyParkingLots = createServerFn({ method: "GET" })
+  .inputValidator(
+    (input: { lat: number; lng: number; excludeId: string; limit?: number }): { lat: number; lng: number; excludeId: string; limit?: number } => {
+      if (!isFinite(input.lat) || Math.abs(input.lat) > 90) throw new Error("invalid lat");
+      if (!isFinite(input.lng) || Math.abs(input.lng) > 180) throw new Error("invalid lng");
+      if (input.limit !== undefined && (input.limit < 1 || input.limit > 50)) throw new Error("invalid limit");
+      return input;
+    }
+  )
+  .handler(async ({ data }) => {
+    const db = getDb();
+    const lim = data.limit ?? 5;
+    const delta = 0.01; // ~1km 반경
+    const south = data.lat - delta;
+    const north = data.lat + delta;
+    const west = data.lng - delta;
+    const east = data.lng + delta;
+    const rows = await db.all(
+      sql`SELECT p.*,
+          s.final_score as avg_score,
+          COALESCE(s.user_review_count, 0) + COALESCE(s.community_count, 0) as review_count,
+          s.reliability
+        FROM parking_lots p
+        LEFT JOIN parking_lot_stats s ON s.parking_lot_id = p.id
+        WHERE p.lat BETWEEN ${south} AND ${north}
+          AND p.lng BETWEEN ${west} AND ${east}
+          AND p.id != ${data.excludeId}
+        ORDER BY ABS(p.lat - ${data.lat}) + ABS(p.lng - ${data.lng})
+        LIMIT ${lim}`
+    );
+    return (rows as unknown as ParkingLotRow[]).map(rowToParkingLot);
+  });
+
 /** 주차장 탭 카운트 (리뷰/블로그/영상) 한번에 조회 */
 export const fetchTabCounts = createServerFn({ method: "GET" })
   .inputValidator(
@@ -150,6 +205,7 @@ export const fetchTabCounts = createServerFn({ method: "GET" })
         .where(
           and(
             eq(schema.webSources.parkingLotId, data.parkingLotId),
+            eq(schema.webSources.isAd, 0),
             gte(schema.webSources.relevanceScore, 40),
             sql`${schema.webSources.sourceUrl} NOT LIKE '%youtube.com%'`,
             sql`${schema.webSources.sourceUrl} NOT LIKE '%youtu.be%'`,
@@ -170,10 +226,12 @@ export const fetchTabCounts = createServerFn({ method: "GET" })
 
 export const fetchBlogPosts = createServerFn({ method: "GET" })
   .inputValidator(
-    (input: { parkingLotId: string }): { parkingLotId: string } => input
+    (input: { parkingLotId: string; offset?: number; limit?: number }): { parkingLotId: string; offset?: number; limit?: number } => input
   )
   .handler(async ({ data }): Promise<BlogPost[]> => {
     const db = getDb();
+    const limit = data.limit ?? 10;
+    const offset = data.offset ?? 0;
 
     const rows = await db
       .select({
@@ -188,13 +246,15 @@ export const fetchBlogPosts = createServerFn({ method: "GET" })
       .where(
         and(
           eq(schema.webSources.parkingLotId, data.parkingLotId),
+          eq(schema.webSources.isAd, 0),
           gte(schema.webSources.relevanceScore, 40),
           sql`${schema.webSources.sourceUrl} NOT LIKE '%youtube.com%'`,
           sql`${schema.webSources.sourceUrl} NOT LIKE '%youtu.be%'`,
         )
       )
       .orderBy(desc(schema.webSources.relevanceScore))
-      .limit(5);
+      .limit(limit)
+      .offset(offset);
 
     return rows.map((row) => rowToBlogPost(row as BlogPostRow));
   });

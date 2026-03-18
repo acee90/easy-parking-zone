@@ -1,12 +1,17 @@
 /**
- * 헬 주차장 YouTube 영상/댓글 수집
+ * YouTube 영상/댓글 수집
  *
- * - curated 주차장(is_curated=1)에 대해 YouTube 영상 검색
+ * 모드:
+ *   기본: curated 주차장(is_curated=1)만 크롤링
+ *   --expand: 우선순위 기반 확장 크롤링 (대형/텍스트풍부 주차장)
+ *
  * - 영상 URL/썸네일 → parking_media 테이블
  * - 주차 관련 댓글 → web_sources 테이블 (source='youtube_comment')
- * - 진행상황을 scripts/youtube-progress.json에 저장 → 중단 후 재개 가능
+ * - 진행상황을 scripts/youtube-progress*.json에 저장 → 중단 후 재개 가능
  *
- * 사용법: bun run scripts/crawl-youtube.ts
+ * 사용법:
+ *   bun run scripts/crawl-youtube.ts --remote
+ *   bun run scripts/crawl-youtube.ts --remote --expand
  *
  * API 비용:
  *   search.list = 100 units, commentThreads.list = 1 unit
@@ -22,12 +27,15 @@ import { loadProgress, saveProgress } from "./lib/progress";
 import { buildInsert, flushStatements } from "./lib/sql-flush";
 
 // --- Config ---
+const EXPAND_MODE = process.argv.includes("--expand");
+
 const DELAY = 500;
 const VIDEOS_PER_LOT = 3;
 const COMMENTS_PER_VIDEO = 10;
 const DB_FLUSH_SIZE = 30;
 
-const PROGRESS_JSON = resolve(import.meta.dir, "youtube-progress.json");
+const progressFile = EXPAND_MODE ? "youtube-expand-progress.json" : "youtube-progress.json";
+const PROGRESS_JSON = resolve(import.meta.dir, progressFile);
 const TMP_SQL = resolve(import.meta.dir, "../.tmp-youtube.sql");
 
 // --- Types ---
@@ -145,11 +153,58 @@ async function main() {
   });
   const completedSet = new Set(progress.completedIds);
 
-  if (isRemote) console.log("🌐 리모트 D1 모드\n");
-  console.log("큐레이션된 주차장 조회 중...");
-  const lots: ParkingRow[] = d1Query("SELECT id, name, address, curation_tag FROM parking_lots WHERE is_curated = 1");
+  if (isRemote) console.log("🌐 리모트 D1 모드");
+  console.log(`모드: ${EXPAND_MODE ? "확장 (우선순위 기반)" : "큐레이션"}\n`);
+
+  let lots: ParkingRow[];
+  if (EXPAND_MODE) {
+    console.log("우선순위 기반 타겟 주차장 조회 중...");
+    // 우선순위: 1) 큐레이션 미완료 → 2) 리뷰 있음 → 3) 텍스트소스 풍부 → 4) 대형 주차장
+    lots = d1Query(`
+      SELECT id, name, address, COALESCE(curation_tag, '') as curation_tag FROM (
+        SELECT p.id, p.name, p.address, p.curation_tag, 1 as priority
+        FROM parking_lots p
+        WHERE p.is_curated = 1
+        AND p.id NOT IN (SELECT DISTINCT parking_lot_id FROM parking_media)
+
+        UNION ALL
+
+        SELECT p.id, p.name, p.address, p.curation_tag, 2 as priority
+        FROM parking_lots p
+        JOIN parking_lot_stats s ON s.parking_lot_id = p.id
+        WHERE (s.user_review_count > 0 OR s.community_count > 0)
+        AND p.is_curated = 0
+        AND p.id NOT IN (SELECT DISTINCT parking_lot_id FROM parking_media)
+
+        UNION ALL
+
+        SELECT p.id, p.name, p.address, p.curation_tag, 3 as priority
+        FROM parking_lots p
+        JOIN parking_lot_stats s ON s.parking_lot_id = p.id
+        WHERE s.text_source_count >= 3
+        AND p.is_curated = 0
+        AND COALESCE(s.user_review_count, 0) = 0 AND COALESCE(s.community_count, 0) = 0
+        AND p.id NOT IN (SELECT DISTINCT parking_lot_id FROM parking_media)
+
+        UNION ALL
+
+        SELECT p.id, p.name, p.address, p.curation_tag, 4 as priority
+        FROM parking_lots p
+        WHERE p.total_spaces >= 100
+        AND p.is_curated = 0
+        AND p.id NOT IN (SELECT parking_lot_id FROM parking_lot_stats WHERE text_source_count >= 3)
+        AND p.id NOT IN (SELECT DISTINCT parking_lot_id FROM parking_media)
+      )
+      GROUP BY id
+      ORDER BY MIN(priority), name
+    `);
+  } else {
+    console.log("큐레이션된 주차장 조회 중...");
+    lots = d1Query("SELECT id, name, address, curation_tag FROM parking_lots WHERE is_curated = 1");
+  }
+
   const remaining = lots.filter((l) => !completedSet.has(l.id));
-  console.log(`총 ${lots.length}개 큐레이션 주차장, ${completedSet.size}개 완료됨, ${remaining.length}개 남음`);
+  console.log(`총 ${lots.length}개 타겟, ${completedSet.size}개 완료됨, ${remaining.length}개 남음`);
 
   let pendingMedia: PendingMedia[] = [];
   let pendingComments: PendingComment[] = [];
@@ -159,7 +214,7 @@ async function main() {
     const region = extractRegion(lot.address);
     const query = `${lot.name} ${region} 주차`.trim();
 
-    console.log(`\n[${processed + 1}/${remaining.length}] ${lot.name} (${lot.curation_tag})`);
+    console.log(`\n[${processed + 1}/${remaining.length}] ${lot.name} (${lot.curation_tag || "-"})`);
     console.log(`  검색: "${query}"`);
 
     let videos: YouTubeVideo[] = [];
@@ -232,7 +287,8 @@ async function main() {
 
     if (processed % 5 === 0) {
       saveProgress(PROGRESS_JSON, progress);
-      console.log(`\n--- 중간 저장: 미디어 ${progress.savedMedia}건, 댓글 ${progress.savedComments}건, API search=${progress.totalSearchCalls} comments=${progress.totalCommentCalls} ---`);
+      const quotaUsed = progress.totalSearchCalls * 100 + progress.totalCommentCalls;
+      console.log(`\n--- 중간 저장: 미디어 ${progress.savedMedia}건, 댓글 ${progress.savedComments}건, quota ~${quotaUsed}/10,000 ---`);
     }
   }
 

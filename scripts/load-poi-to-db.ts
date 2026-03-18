@@ -380,13 +380,13 @@ async function main() {
       }
     }
 
-    // 근처 주차장 전체에도 POI 태그 부여
+    // 3. 근처 주차장 전체에 POI 태그 부여
+    const tagTargetIds = new Set(matchedDbIds);
     for (const dbLot of nearbyLots) {
-      matchedDbIds.add(dbLot.id);
+      tagTargetIds.add(dbLot.id);
     }
 
-    // 3. poi_tags UPDATE SQL 생성
-    for (const dbId of matchedDbIds) {
+    for (const dbId of tagTargetIds) {
       const lot = nearbyLots.find((l) => l.id === dbId) ?? allLots.find((l) => l.id === dbId);
       let currentTags: string[] = [];
       try {
@@ -405,12 +405,13 @@ async function main() {
       }
     }
 
-    // 4. web_sources INSERT SQL 생성 — 모든 매칭 주차장에 삽입
+    // 4. web_sources INSERT SQL 생성 — 이름 매칭된 주차장에만 삽입
     const poiContent = content.results.find((r: any) => r.name === poi.poiName);
-    if (!poiContent || nearbyLots.length === 0) continue;
+    if (!poiContent || matchedDbIds.size === 0) continue;
 
+    const matchedLots = [...matchedDbIds].map((id) => nearbyLots.find((l) => l.id === id) ?? allLots.find((l) => l.id === id)).filter(Boolean) as DbLot[];
     let inserted = 0;
-    for (const lot of nearbyLots) {
+    for (const lot of matchedLots) {
       for (const post of poiContent.posts) {
         const key = `${lot.id}|${post.link}`;
         if (existingUrlSet.has(key)) continue;
@@ -431,7 +432,7 @@ async function main() {
     }
     totalReviewsInserted += inserted;
     if (inserted > 0) {
-      console.log(`  📝 리뷰 ${inserted}건 → ${nearbyLots.map((l) => l.name).join(", ")}`);
+      console.log(`  📝 리뷰 ${inserted}건 → ${matchedLots.map((l) => l.name).join(", ")}`);
     }
   }
 

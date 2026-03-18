@@ -14,6 +14,7 @@ import {
   getDifficultyIcon,
   getDifficultyLabel,
   getDistance,
+  getReliabilityBadge,
 } from "@/lib/geo-utils";
 import { ParkingTabs } from "@/components/ParkingTabs";
 import { MapPin, Clock, CreditCard, Phone, Flame, ThumbsUp, Tag, ExternalLink, X } from "lucide-react";
@@ -99,6 +100,7 @@ export function ParkingCard({
 
   const icon = getDifficultyIcon(lot.difficulty.score);
   const label = getDifficultyLabel(lot.difficulty.score);
+  const reliabilityBadge = getReliabilityBadge(lot.difficulty.reliability);
   const distance =
     userLocated && userLat && userLng
       ? getDistance(userLat, userLng, lot.lat, lot.lng)
@@ -165,6 +167,11 @@ export function ParkingCard({
             <Badge variant="secondary" className="text-sm">
               {icon} {label}
             </Badge>
+            {reliabilityBadge && (
+              <Badge variant="outline" className={`text-xs ${reliabilityBadge.className}`}>
+                {reliabilityBadge.label}
+              </Badge>
+            )}
             <Badge variant={lot.pricing.isFree ? "default" : "outline"}>
               {lot.pricing.isFree ? "무료" : "유료"}
             </Badge>

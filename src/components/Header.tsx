@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
-import { Car, LogIn, LogOut, ChevronDown } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { Car, LogIn, LogOut, ChevronDown, Map, BookOpen } from "lucide-react";
 import { SearchBar } from "@/components/SearchBar";
 import { authClient } from "@/lib/auth-client";
 import type { ParkingLot } from "@/types/parking";
@@ -11,7 +12,8 @@ interface SiteStats {
 }
 
 interface HeaderProps {
-  onSearchSelect: (lot: ParkingLot) => void;
+  active?: "map" | "wiki";
+  onSearchSelect?: (lot: ParkingLot) => void;
   onPlaceSelect?: (coords: { lat: number; lng: number }) => void;
   siteStats?: SiteStats;
 }
@@ -109,26 +111,46 @@ function formatCount(n: number): string {
   return n.toLocaleString();
 }
 
-export function Header({ onSearchSelect, onPlaceSelect, siteStats }: HeaderProps) {
+const navItemBase = "inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-sm font-medium transition-colors";
+const navActive = `${navItemBase} bg-gray-100 text-foreground`;
+const navInactive = `${navItemBase} text-muted-foreground hover:text-foreground hover:bg-gray-50`;
+
+export function Header({ active = "map", onSearchSelect, onPlaceSelect, siteStats }: HeaderProps) {
   const { data: session } = authClient.useSession();
   const [showLogin, setShowLogin] = useState(false);
 
   return (
     <>
       <header className="shrink-0 flex items-center gap-3 border-b bg-white px-4 py-2.5 z-20">
-        <div className="flex items-center gap-2 shrink-0">
+        <Link to="/" className="flex items-center gap-2 shrink-0">
           <Car className="size-5 text-blue-500" />
-          <h1 className="font-bold text-base">쉬운주차장</h1>
-        </div>
-        <SearchBar onSelect={onSearchSelect} onPlaceSelect={onPlaceSelect} />
-        <div className="hidden lg:flex items-center gap-2 text-xs text-muted-foreground shrink-0">
-          <span>😊추천</span>
-          <span>🙂무난</span>
-          <span>😐보통</span>
-          <span>😕별로</span>
-          <span>💀비추</span>
-          <span>🔥헬</span>
-        </div>
+          <span className="font-bold text-base">쉬운주차장</span>
+        </Link>
+        <nav className="flex items-center gap-1">
+          {active === "map" ? (
+            <span className={navActive}><Map className="size-3.5" />지도</span>
+          ) : (
+            <Link to="/" className={navInactive}><Map className="size-3.5" />지도</Link>
+          )}
+          {active === "wiki" ? (
+            <span className={navActive}><BookOpen className="size-3.5" />위키</span>
+          ) : (
+            <Link to="/wiki" className={navInactive}><BookOpen className="size-3.5" />위키</Link>
+          )}
+        </nav>
+        {onSearchSelect && (
+          <SearchBar onSelect={onSearchSelect} onPlaceSelect={onPlaceSelect} />
+        )}
+        {active === "map" && (
+          <div className="hidden lg:flex items-center gap-2 text-xs text-muted-foreground shrink-0">
+            <span>😊추천</span>
+            <span>🙂무난</span>
+            <span>😐보통</span>
+            <span>😕별로</span>
+            <span>💀비추</span>
+            <span>🔥헬</span>
+          </div>
+        )}
         {siteStats && (
           <div className="hidden md:flex items-center gap-3 text-xs text-muted-foreground shrink-0">
             <span className="w-px h-4 bg-border" />
