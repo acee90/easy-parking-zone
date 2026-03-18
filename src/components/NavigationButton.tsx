@@ -20,16 +20,22 @@ export function NavigationButton({ lat, lng, name }: NavigationButtonProps) {
 
   useEffect(() => {
     if (!open) return;
-    const handler = (e: MouseEvent) => {
+    const handler = (e: MouseEvent | KeyboardEvent) => {
+      if (e instanceof KeyboardEvent) {
+        if (e.key === "Escape") setOpen(false);
+        return;
+      }
       if (ref.current && !ref.current.contains(e.target as Node)) {
         setOpen(false);
       }
     };
-    document.addEventListener("mousedown", handler);
+    document.addEventListener("mousedown", handler as EventListener);
     document.addEventListener("touchstart", handler as EventListener);
+    document.addEventListener("keydown", handler as EventListener);
     return () => {
-      document.removeEventListener("mousedown", handler);
+      document.removeEventListener("mousedown", handler as EventListener);
       document.removeEventListener("touchstart", handler as EventListener);
+      document.removeEventListener("keydown", handler as EventListener);
     };
   }, [open]);
 

@@ -39,8 +39,7 @@ function tmapUrl({ lat, lng, name }: NavTarget, mobile: boolean): string {
   if (mobile) {
     return `tmap://route?goalname=${encoded}&goaly=${lat}&goalx=${lng}`
   }
-  // 티맵은 공식 웹 길찾기 URL이 없으므로 데스크톱에서는 숨김 대신 앱 다운로드 페이지
-  return `https://tmap.life/?goalname=${encoded}&goaly=${lat}&goalx=${lng}`
+  return `https://www.tmap.co.kr/`
 }
 
 export function getNavOptions(target: NavTarget): NavOption[] {

@@ -49,8 +49,8 @@ export function ParkingSidebar({
   }, [parkingLots]);
 
   // 거리 기준점: 유저 위치 > 지도 중심
-  const refLat = userLocated && userLat ? userLat : mapCenter?.lat;
-  const refLng = userLocated && userLng ? userLng : mapCenter?.lng;
+  const refLat = userLocated && userLat != null ? userLat : mapCenter?.lat;
+  const refLng = userLocated && userLng != null ? userLng : mapCenter?.lng;
 
   const sortedLots = useMemo(() => {
     const withDistance = parkingLots.map((lot) => ({
@@ -110,6 +110,7 @@ export function ParkingSidebar({
         <div className="flex items-center gap-1 mt-2">
           <ArrowUpDown className="size-3 text-muted-foreground" />
           <button
+            type="button"
             onClick={() => setSortMode("distance")}
             className={`px-2 py-0.5 rounded text-xs cursor-pointer transition-colors ${
               sortMode === "distance"
@@ -120,6 +121,7 @@ export function ParkingSidebar({
             {userLocated ? "가까운 순" : "지도 중심 순"}
           </button>
           <button
+            type="button"
             onClick={() => setSortMode("difficulty")}
             className={`px-2 py-0.5 rounded text-xs cursor-pointer transition-colors ${
               sortMode === "difficulty"

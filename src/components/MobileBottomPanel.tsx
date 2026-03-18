@@ -42,8 +42,8 @@ export function MobileBottomPanel({
     if (dy < -40) setExpanded(false);
   }, []);
 
-  const refLat = userLocated && userLat ? userLat : mapCenter?.lat;
-  const refLng = userLocated && userLng ? userLng : mapCenter?.lng;
+  const refLat = userLocated && userLat != null ? userLat : mapCenter?.lat;
+  const refLng = userLocated && userLng != null ? userLng : mapCenter?.lng;
 
   const sortedLots = useMemo(() => {
     const withDistance = parkingLots.map((lot) => ({
@@ -117,6 +117,7 @@ export function MobileBottomPanel({
           <div className="flex items-center gap-1 px-4 py-2 border-b border-gray-100">
             <ArrowUpDown className="size-3 text-muted-foreground" />
             <button
+              type="button"
               onClick={() => setSortMode("distance")}
               className={`px-2 py-0.5 rounded text-xs cursor-pointer transition-colors ${
                 sortMode === "distance"
@@ -127,6 +128,7 @@ export function MobileBottomPanel({
               {userLocated ? "가까운 순" : "지도 중심 순"}
             </button>
             <button
+              type="button"
               onClick={() => setSortMode("difficulty")}
               className={`px-2 py-0.5 rounded text-xs cursor-pointer transition-colors ${
                 sortMode === "difficulty"
