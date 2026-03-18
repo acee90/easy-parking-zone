@@ -21,7 +21,7 @@ function isMobile(): boolean {
 function naverUrl({ lat, lng, name }: NavTarget, mobile: boolean): string {
   const encoded = encodeURIComponent(name)
   if (mobile) {
-    return `nmap://navigation?dlat=${lat}&dlng=${lng}&dname=${encoded}&appname=com.easyparkingzone`
+    return `nmap://navigation?dlat=${lat}&dlng=${lng}&dname=${encoded}`
   }
   return `https://map.naver.com/v5/directions/-/${lng},${lat},${encoded}/-/car`
 }
@@ -39,7 +39,7 @@ function tmapUrl({ lat, lng, name }: NavTarget, mobile: boolean): string {
   if (mobile) {
     return `tmap://route?goalname=${encoded}&goaly=${lat}&goalx=${lng}`
   }
-  return `https://tmap.life/navigate?goalname=${encoded}&goaly=${lat}&goalx=${lng}`
+  return `https://map.kakao.com/link/to/${encoded},${lat},${lng}`
 }
 
 export function getNavOptions(target: NavTarget): NavOption[] {

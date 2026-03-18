@@ -38,6 +38,8 @@ export function NavigationButton({ lat, lng, name }: NavigationButtonProps) {
   return (
     <div ref={ref} className="relative">
       <button
+        aria-expanded={open}
+        aria-haspopup="listbox"
         onClick={() => setOpen((v) => !v)}
         className="inline-flex items-center gap-1.5 rounded-lg bg-blue-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-600 active:bg-blue-700 transition-colors cursor-pointer"
       >

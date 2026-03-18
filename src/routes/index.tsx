@@ -43,7 +43,7 @@ function App() {
     null
   );
   const lastViewRef = useRef<{ bounds: MapBounds; zoom: number } | null>(null);
-  const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(null);
+  const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>({ lat: 37.5666, lng: 126.9784 });
 
   useEffect(() => {
     setIsClient(true);
