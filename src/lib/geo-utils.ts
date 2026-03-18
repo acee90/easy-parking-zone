@@ -54,3 +54,23 @@ export function getDifficultyLabel(score: number | null): string {
   if (score >= 1.5) return '비추'
   return '헬'
 }
+
+type Reliability = 'confirmed' | 'estimated' | 'reference' | 'structural' | 'none'
+
+/** 신뢰도 등급 → 뱃지 표시 정보 (null = 뱃지 불필요) */
+export function getReliabilityBadge(reliability: Reliability | undefined): {
+  label: string
+  className: string
+} | null {
+  switch (reliability) {
+    case 'confirmed':
+    case 'estimated':
+      return null // 충분한 데이터 — 뱃지 불필요
+    case 'reference':
+      return { label: '참고', className: 'border-amber-300 text-amber-600' }
+    case 'structural':
+    case 'none':
+    default:
+      return { label: '데이터 부족', className: 'border-gray-300 text-gray-500' }
+  }
+}

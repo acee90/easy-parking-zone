@@ -97,6 +97,7 @@ interface TextRow {
   relevance_score: number;
   source: string;
   published_at: string | null;
+  match_type: "direct" | "ai_high" | "ai_medium";
 }
 
 interface SourceScores {
@@ -155,6 +156,8 @@ function computeSourceScores(
   );
 
   // 텍스트 감성 (관련도 > 30, sentiment_score NOT NULL)
+  // match_type별 가중치 감쇠: direct=1.0, ai_high=0.8, ai_medium=0.5
+  const MATCH_TYPE_FACTOR = { direct: 1.0, ai_high: 0.8, ai_medium: 0.5 } as const;
   const relevantTexts = texts.filter(
     (t) => t.relevance_score > 30 && t.sentiment_score !== null,
   );
@@ -162,7 +165,7 @@ function computeSourceScores(
     relevantTexts.map((t) => ({
       score: t.sentiment_score,
       date: t.published_at ?? "",
-      weight: t.relevance_score / 100, // 관련도를 가중치로 사용
+      weight: (t.relevance_score / 100) * MATCH_TYPE_FACTOR[t.match_type],
     })),
   );
 
@@ -171,7 +174,7 @@ function computeSourceScores(
   const nEffective =
     userReviews.length * 1.0 +
     communityReviews.length * 0.6 +
-    highRelevanceTexts.length * 0.2;
+    highRelevanceTexts.reduce((sum, t) => sum + 0.2 * MATCH_TYPE_FACTOR[t.match_type], 0);
 
   return {
     userReviewScore: userReviewScore
@@ -290,10 +293,22 @@ async function main() {
     `[Stats] 리뷰 ${allReviews.length}건 (${reviewsByLot.size}개 주차장)`,
   );
 
-  // 전체 텍스트 감성 로드 (sentiment_score가 있는 것만)
+  // 전체 텍스트 감성 로드 (직접 매칭 + ai_matches UNION)
   console.log("[Stats] 텍스트 감성 로드 중...");
   const allTexts = d1Query<TextRow>(
-    "SELECT parking_lot_id, sentiment_score, relevance_score, source, published_at FROM web_sources WHERE sentiment_score IS NOT NULL OR relevance_score > 30",
+    `SELECT ws.parking_lot_id, ws.sentiment_score, ws.relevance_score, ws.source, ws.published_at, 'direct' as match_type
+     FROM web_sources ws
+     WHERE ws.is_ad = 0 AND ws.parking_lot_id IS NOT NULL
+       AND (ws.sentiment_score IS NOT NULL OR ws.relevance_score > 30)
+     UNION ALL
+     SELECT am.parking_lot_id, ws.sentiment_score, ws.relevance_score, ws.source, ws.published_at,
+       CASE am.confidence WHEN 'high' THEN 'ai_high' ELSE 'ai_medium' END as match_type
+     FROM web_source_ai_matches am
+     JOIN web_sources ws ON ws.id = am.web_source_id
+     WHERE ws.is_ad = 0
+       AND (ws.sentiment_score IS NOT NULL OR ws.relevance_score > 30)
+       AND am.confidence IN ('high', 'medium')
+       AND (ws.parking_lot_id IS NULL OR am.parking_lot_id != ws.parking_lot_id)`,
   );
   const textsByLot = new Map<string, TextRow[]>();
   for (const t of allTexts) {
@@ -301,8 +316,10 @@ async function main() {
       textsByLot.set(t.parking_lot_id, []);
     textsByLot.get(t.parking_lot_id)!.push(t);
   }
+  const directTexts = allTexts.filter((t) => t.match_type === "direct").length;
+  const aiTexts = allTexts.length - directTexts;
   console.log(
-    `[Stats] 텍스트 ${allTexts.length}건 (${textsByLot.size}개 주차장)`,
+    `[Stats] 텍스트 ${allTexts.length}건 (직접 ${directTexts} + AI매칭 ${aiTexts}) → ${textsByLot.size}개 주차장`,
   );
 
   // 배치 처리
