@@ -49,7 +49,7 @@ export function MobileBottomPanel({
     const withDistance = parkingLots.map((lot) => ({
       lot,
       distance:
-        refLat && refLng ? getDistance(refLat, refLng, lot.lat, lot.lng) : null,
+        refLat != null && refLng != null ? getDistance(refLat, refLng, lot.lat, lot.lng) : null,
     }));
 
     if (sortMode === "distance") {

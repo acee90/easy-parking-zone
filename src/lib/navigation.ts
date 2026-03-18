@@ -44,9 +44,13 @@ function tmapUrl({ lat, lng, name }: NavTarget, mobile: boolean): string {
 
 export function getNavOptions(target: NavTarget): NavOption[] {
   const mobile = isMobile()
-  return [
+  const options: NavOption[] = [
     { app: 'naver', label: '네이버지도', url: naverUrl(target, mobile) },
     { app: 'kakao', label: '카카오맵', url: kakaoUrl(target, mobile) },
-    { app: 'tmap', label: '티맵', url: tmapUrl(target, mobile) },
   ]
+  // 티맵은 공식 웹 길찾기 URL이 없으므로 모바일(앱 딥링크)에서만 표시
+  if (mobile) {
+    options.push({ app: 'tmap', label: '티맵', url: tmapUrl(target, mobile) })
+  }
+  return options
 }

@@ -20,7 +20,7 @@ export function NavigationButton({ lat, lng, name }: NavigationButtonProps) {
 
   useEffect(() => {
     if (!open) return;
-    const handler = (e: MouseEvent | KeyboardEvent) => {
+    const handler = (e: MouseEvent | TouchEvent | KeyboardEvent) => {
       if (e instanceof KeyboardEvent) {
         if (e.key === "Escape") setOpen(false);
         return;
