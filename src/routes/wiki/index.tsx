@@ -86,6 +86,11 @@ export const Route = createFileRoute("/wiki/")({
         content: "주차장 위키 — 전국 주차장 난이도 정보 | 쉬운주차장",
       },
       {
+        property: "og:description",
+        content:
+          "전국 주차장의 난이도, 요금, 리뷰를 한눈에. 헬 주차장 TOP, 초보 추천 주차장을 확인하세요.",
+      },
+      {
         property: "og:url",
         content: "https://easy-parking.xyz/wiki",
       },

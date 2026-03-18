@@ -5,6 +5,7 @@ import { ParkingTabs } from "@/components/ParkingTabs";
 import {
   getDifficultyIcon,
   getDifficultyLabel,
+  getDifficultyColor,
   getDistance,
   getReliabilityBadge,
 } from "@/lib/geo-utils";
@@ -18,15 +19,6 @@ interface ParkingDetailPanelProps {
   userLocated?: boolean;
 }
 
-function difficultyColor(score: number | null) {
-  if (score === null) return "bg-gray-400";
-  if (score >= 4.0) return "bg-green-500";
-  if (score >= 3.3) return "bg-green-300";
-  if (score >= 2.7) return "bg-zinc-300";
-  if (score >= 2.0) return "bg-amber-400";
-  if (score >= 1.5) return "bg-orange-500";
-  return "bg-red-500";
-}
 
 export function ParkingDetailPanel({
   lot,
@@ -50,7 +42,7 @@ export function ParkingDetailPanel({
         <div className="flex items-start justify-between gap-2 mb-3">
           <div className="flex items-center gap-2 min-w-0">
             <div
-              className={`size-3 rounded-full shrink-0 ${difficultyColor(lot.difficulty.score)}`}
+              className={`size-3 rounded-full shrink-0 ${getDifficultyColor(lot.difficulty.score)}`}
             />
             <h2 className="font-semibold text-base truncate">{lot.name}</h2>
           </div>

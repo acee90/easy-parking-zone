@@ -15,13 +15,12 @@ export function makeParkingSlug(name: string, id: string): string {
  * slug에서 ID 추출
  * ID 패턴: "000-1-000001" (공공데이터) | "KA-1000006682" (카카오) | "NV-1268422156_375622893" (네이버)
  */
-export function parseIdFromSlug(slug: string): string {
+export function parseIdFromSlug(slug: string): string | null {
   // KA-숫자 또는 NV-숫자_숫자
   const kvMatch = slug.match(/((?:KA|NV)-[\d_]+)$/)
   if (kvMatch) return kvMatch[1]
   // 공공데이터: 숫자-숫자-숫자
   const pubMatch = slug.match(/(\d{3}-\d+-\d+)$/)
   if (pubMatch) return pubMatch[1]
-  // fallback: slug 자체가 ID
-  return slug
+  return null
 }

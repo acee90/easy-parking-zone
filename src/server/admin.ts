@@ -429,6 +429,8 @@ export const fetchWebSources = createServerFn({ method: "GET" })
     const offset = (page - 1) * limit;
     const db = getDb();
 
+    const ALLOWED_SOURCES = ["naver_blog", "naver_cafe", "poi", "youtube_comment", "naver_place", "all"] as const;
+    if (!ALLOWED_SOURCES.includes(source as typeof ALLOWED_SOURCES[number])) throw new Error("invalid source");
     const cond = source === "all" ? "ws.is_ad = 0" : `ws.is_ad = 0 AND ws.source = '${source}'`;
 
     const countRows = await db.all(
@@ -532,6 +534,8 @@ export const fetchUnmatched = createServerFn({ method: "GET" })
     const offset = (page - 1) * limit;
     const db = getDb();
 
+    const ALLOWED_STATUSES = ["pending", "matched", "ignored", "all"] as const;
+    if (!ALLOWED_STATUSES.includes(status as typeof ALLOWED_STATUSES[number])) throw new Error("invalid status");
     const cond = status === "all" ? "1=1" : `u.status = '${status}'`;
 
     const countRows = await db.all(

@@ -33,6 +33,7 @@ import {
 export const Route = createFileRoute("/wiki/$slug")({
   loader: async ({ params }) => {
     const id = parseIdFromSlug(params.slug);
+    if (!id) throw notFound();
     const lot = await fetchParkingDetail({ data: { id } });
     if (!lot) throw notFound();
     const [nearby, siteStats] = await Promise.all([

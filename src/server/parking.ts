@@ -135,7 +135,10 @@ export const searchParkingLots = createServerFn({ method: "GET" })
 
 /** 단일 주차장 상세 조회 (위키 페이지용) */
 export const fetchParkingDetail = createServerFn({ method: "GET" })
-  .inputValidator((input: { id: string }): { id: string } => input)
+  .inputValidator((input: { id: string }): { id: string } => {
+    if (!input.id || typeof input.id !== "string" || input.id.length > 64) throw new Error("invalid id");
+    return input;
+  })
   .handler(async ({ data }) => {
     const db = getDb();
     const rows = await db.all(
@@ -154,7 +157,12 @@ export const fetchParkingDetail = createServerFn({ method: "GET" })
 /** 근처 주차장 조회 (위키 페이지용) */
 export const fetchNearbyParkingLots = createServerFn({ method: "GET" })
   .inputValidator(
-    (input: { lat: number; lng: number; excludeId: string; limit?: number }): { lat: number; lng: number; excludeId: string; limit?: number } => input
+    (input: { lat: number; lng: number; excludeId: string; limit?: number }): { lat: number; lng: number; excludeId: string; limit?: number } => {
+      if (!isFinite(input.lat) || Math.abs(input.lat) > 90) throw new Error("invalid lat");
+      if (!isFinite(input.lng) || Math.abs(input.lng) > 180) throw new Error("invalid lng");
+      if (input.limit !== undefined && (input.limit < 1 || input.limit > 50)) throw new Error("invalid limit");
+      return input;
+    }
   )
   .handler(async ({ data }) => {
     const db = getDb();

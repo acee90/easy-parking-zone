@@ -1,10 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { getDb } from "@/db";
 import { sql } from "drizzle-orm";
-
-function toSlug(name: string): string {
-  return name.trim().replace(/\s+/g, "-").replace(/[\/\\?#%&=+]/g, "");
-}
+import { makeParkingSlug } from "@/lib/slug";
 
 async function handleSitemap() {
   const db = getDb();
@@ -32,7 +29,7 @@ async function handleSitemap() {
 `;
 
   for (const row of rows) {
-    const slug = encodeURI(`${toSlug(row.name)}-${row.id}`);
+    const slug = encodeURI(makeParkingSlug(row.name, row.id));
     xml += `  <url>
     <loc>${base}/wiki/${slug}</loc>
     <changefreq>weekly</changefreq>

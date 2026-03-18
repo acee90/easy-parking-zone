@@ -239,6 +239,8 @@ function ReviewForm({
   );
 }
 
+const BLOG_PAGE_SIZE = 10;
+
 interface ParkingTabsProps {
   lotId: string;
 }
@@ -280,11 +282,10 @@ export function ParkingTabs({ lotId }: ParkingTabsProps) {
     fetchedTabsRef.current.add(activeTab);
     setLoadingTabs((s) => new Set(s).add(activeTab));
     if (activeTab === "blog") {
-      const PAGE_SIZE = 10;
-      fetchBlogPosts({ data: { parkingLotId: lotId, limit: PAGE_SIZE } })
+      fetchBlogPosts({ data: { parkingLotId: lotId, limit: BLOG_PAGE_SIZE } })
         .then((posts) => {
           setBlogPosts(posts);
-          setBlogHasMore(posts.length >= PAGE_SIZE);
+          setBlogHasMore(posts.length >= BLOG_PAGE_SIZE);
         })
         .catch(() => setBlogPosts([]))
         .finally(() => setLoadingTabs((s) => { const n = new Set(s); n.delete("blog"); return n; }));
@@ -297,12 +298,11 @@ export function ParkingTabs({ lotId }: ParkingTabsProps) {
   }, [activeTab, lotId]);
 
   const loadMoreBlog = () => {
-    const PAGE_SIZE = 10;
     setBlogLoadingMore(true);
-    fetchBlogPosts({ data: { parkingLotId: lotId, offset: blogPosts.length, limit: PAGE_SIZE } })
+    fetchBlogPosts({ data: { parkingLotId: lotId, offset: blogPosts.length, limit: BLOG_PAGE_SIZE } })
       .then((posts) => {
         setBlogPosts((prev) => [...prev, ...posts]);
-        setBlogHasMore(posts.length >= PAGE_SIZE);
+        setBlogHasMore(posts.length >= BLOG_PAGE_SIZE);
       })
       .catch(() => setBlogHasMore(false))
       .finally(() => setBlogLoadingMore(false));

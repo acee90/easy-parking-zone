@@ -431,8 +431,7 @@ async function main() {
         );
         console.log(`  배치 ${i / CHUNK + 1}: ${chunk.length}건 완료`);
       } finally {
-        const { unlinkSync: ul } = await import("fs");
-        ul(tmpFile);
+        unlinkSync(tmpFile);
       }
     }
     console.log("[Stats] DB 업데이트 완료");
@@ -445,7 +444,7 @@ async function main() {
   // 큐레이션 일관성 검증
   const hellLots = results.filter(
     (r) =>
-      r.structuralPrior === 1.5 &&
+      r.structuralPrior === 1.3 &&
       r.reliability !== "none" &&
       r.reliability !== "structural",
   );
