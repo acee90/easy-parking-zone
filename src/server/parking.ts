@@ -133,6 +133,53 @@ export const searchParkingLots = createServerFn({ method: "GET" })
     return (rows as unknown as ParkingLotRow[]).map(rowToParkingLot);
   });
 
+/** 단일 주차장 상세 조회 (위키 페이지용) */
+export const fetchParkingDetail = createServerFn({ method: "GET" })
+  .inputValidator((input: { id: string }): { id: string } => input)
+  .handler(async ({ data }) => {
+    const db = getDb();
+    const rows = await db.all(
+      sql`SELECT p.*,
+          s.final_score as avg_score,
+          COALESCE(s.user_review_count, 0) + COALESCE(s.community_count, 0) as review_count,
+          s.reliability
+        FROM parking_lots p
+        LEFT JOIN parking_lot_stats s ON s.parking_lot_id = p.id
+        WHERE p.id = ${data.id}`
+    );
+    if (rows.length === 0) return null;
+    return rowToParkingLot(rows[0] as unknown as ParkingLotRow);
+  });
+
+/** 근처 주차장 조회 (위키 페이지용) */
+export const fetchNearbyParkingLots = createServerFn({ method: "GET" })
+  .inputValidator(
+    (input: { lat: number; lng: number; excludeId: string; limit?: number }): { lat: number; lng: number; excludeId: string; limit?: number } => input
+  )
+  .handler(async ({ data }) => {
+    const db = getDb();
+    const lim = data.limit ?? 5;
+    const delta = 0.01; // ~1km 반경
+    const south = data.lat - delta;
+    const north = data.lat + delta;
+    const west = data.lng - delta;
+    const east = data.lng + delta;
+    const rows = await db.all(
+      sql`SELECT p.*,
+          s.final_score as avg_score,
+          COALESCE(s.user_review_count, 0) + COALESCE(s.community_count, 0) as review_count,
+          s.reliability
+        FROM parking_lots p
+        LEFT JOIN parking_lot_stats s ON s.parking_lot_id = p.id
+        WHERE p.lat BETWEEN ${south} AND ${north}
+          AND p.lng BETWEEN ${west} AND ${east}
+          AND p.id != ${data.excludeId}
+        ORDER BY ABS(p.lat - ${data.lat}) + ABS(p.lng - ${data.lng})
+        LIMIT ${lim}`
+    );
+    return (rows as unknown as ParkingLotRow[]).map(rowToParkingLot);
+  });
+
 /** 주차장 탭 카운트 (리뷰/블로그/영상) 한번에 조회 */
 export const fetchTabCounts = createServerFn({ method: "GET" })
   .inputValidator(

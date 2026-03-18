@@ -11,7 +11,9 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as WikiIndexRouteImport } from './routes/wiki/index'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
+import { Route as WikiSlugRouteImport } from './routes/wiki/$slug'
 import { Route as AdminWebSourcesRouteImport } from './routes/admin/web-sources'
 import { Route as AdminReviewsRouteImport } from './routes/admin/reviews'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
@@ -26,10 +28,20 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const WikiIndexRoute = WikiIndexRouteImport.update({
+  id: '/wiki/',
+  path: '/wiki/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminIndexRoute = AdminIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AdminRoute,
+} as any)
+const WikiSlugRoute = WikiSlugRouteImport.update({
+  id: '/wiki/$slug',
+  path: '/wiki/$slug',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AdminWebSourcesRoute = AdminWebSourcesRouteImport.update({
   id: '/web-sources',
@@ -52,14 +64,18 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRouteWithChildren
   '/admin/reviews': typeof AdminReviewsRoute
   '/admin/web-sources': typeof AdminWebSourcesRoute
+  '/wiki/$slug': typeof WikiSlugRoute
   '/admin/': typeof AdminIndexRoute
+  '/wiki/': typeof WikiIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin/reviews': typeof AdminReviewsRoute
   '/admin/web-sources': typeof AdminWebSourcesRoute
+  '/wiki/$slug': typeof WikiSlugRoute
   '/admin': typeof AdminIndexRoute
+  '/wiki': typeof WikiIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesById {
@@ -68,7 +84,9 @@ export interface FileRoutesById {
   '/admin': typeof AdminRouteWithChildren
   '/admin/reviews': typeof AdminReviewsRoute
   '/admin/web-sources': typeof AdminWebSourcesRoute
+  '/wiki/$slug': typeof WikiSlugRoute
   '/admin/': typeof AdminIndexRoute
+  '/wiki/': typeof WikiIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRouteTypes {
@@ -78,23 +96,36 @@ export interface FileRouteTypes {
     | '/admin'
     | '/admin/reviews'
     | '/admin/web-sources'
+    | '/wiki/$slug'
     | '/admin/'
+    | '/wiki/'
     | '/api/auth/$'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/admin/reviews' | '/admin/web-sources' | '/admin' | '/api/auth/$'
+  to:
+    | '/'
+    | '/admin/reviews'
+    | '/admin/web-sources'
+    | '/wiki/$slug'
+    | '/admin'
+    | '/wiki'
+    | '/api/auth/$'
   id:
     | '__root__'
     | '/'
     | '/admin'
     | '/admin/reviews'
     | '/admin/web-sources'
+    | '/wiki/$slug'
     | '/admin/'
+    | '/wiki/'
     | '/api/auth/$'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRouteWithChildren
+  WikiSlugRoute: typeof WikiSlugRoute
+  WikiIndexRoute: typeof WikiIndexRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
 }
 
@@ -114,12 +145,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/wiki/': {
+      id: '/wiki/'
+      path: '/wiki'
+      fullPath: '/wiki/'
+      preLoaderRoute: typeof WikiIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/': {
       id: '/admin/'
       path: '/'
       fullPath: '/admin/'
       preLoaderRoute: typeof AdminIndexRouteImport
       parentRoute: typeof AdminRoute
+    }
+    '/wiki/$slug': {
+      id: '/wiki/$slug'
+      path: '/wiki/$slug'
+      fullPath: '/wiki/$slug'
+      preLoaderRoute: typeof WikiSlugRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/admin/web-sources': {
       id: '/admin/web-sources'
@@ -162,6 +207,8 @@ const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRouteWithChildren,
+  WikiSlugRoute: WikiSlugRoute,
+  WikiIndexRoute: WikiIndexRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
 }
 export const routeTree = rootRouteImport
