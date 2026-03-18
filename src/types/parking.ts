@@ -114,6 +114,8 @@ export const DEFAULT_FILTERS: ParkingFilters = {
   difficulty: { ...DEFAULT_DIFFICULTY },
 }
 
+export type SortMode = "distance" | "difficulty"
+
 export interface UserReview {
   id: number
   author: {

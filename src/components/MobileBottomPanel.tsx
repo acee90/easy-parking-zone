@@ -7,7 +7,7 @@ import {
   getDistance,
 } from "@/lib/geo-utils";
 import { ChevronUp, ArrowUpDown } from "lucide-react";
-import type { SortMode } from "@/components/ParkingSidebar";
+import type { SortMode } from "@/types/parking";
 
 interface MobileBottomPanelProps {
   parkingLots: ParkingLot[];

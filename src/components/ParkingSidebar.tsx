@@ -1,13 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { ParkingLot } from "@/types/parking";
+import type { ParkingLot, SortMode } from "@/types/parking";
 import {
   getDifficultyIcon,
   getDifficultyLabel,
   getDistance,
 } from "@/lib/geo-utils";
 import { MapPin, ParkingSquare, ArrowUpDown } from "lucide-react";
-
-export type SortMode = "distance" | "difficulty";
 
 const PAGE_SIZE = 20;
 

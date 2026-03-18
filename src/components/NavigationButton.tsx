@@ -26,7 +26,11 @@ export function NavigationButton({ lat, lng, name }: NavigationButtonProps) {
       }
     };
     document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
+    document.addEventListener("touchstart", handler as EventListener);
+    return () => {
+      document.removeEventListener("mousedown", handler);
+      document.removeEventListener("touchstart", handler as EventListener);
+    };
   }, [open]);
 
   const options = getNavOptions({ lat, lng, name });
