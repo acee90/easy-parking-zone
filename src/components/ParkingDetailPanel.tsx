@@ -9,6 +9,7 @@ import {
   getDistance,
   getReliabilityBadge,
 } from "@/lib/geo-utils";
+import { NavigationButton } from "@/components/NavigationButton";
 import { MapPin, Clock, CreditCard, Phone, ParkingSquare, X, Flame, ThumbsUp, Navigation } from "lucide-react";
 
 interface ParkingDetailPanelProps {
@@ -90,7 +91,8 @@ export function ParkingDetailPanel({
             </span>
           )}
         </div>
-        <div className="mt-2.5">
+        <div className="mt-2.5 flex items-center gap-2">
+          <NavigationButton lat={lot.lat} lng={lot.lng} name={lot.name} />
           <VoteBookmarkBar lotId={lot.id} />
         </div>
       </div>

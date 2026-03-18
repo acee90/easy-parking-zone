@@ -17,7 +17,8 @@ import {
   getReliabilityBadge,
 } from "@/lib/geo-utils";
 import { ParkingTabs } from "@/components/ParkingTabs";
-import { MapPin, Clock, CreditCard, Phone, Flame, ThumbsUp, Tag, ExternalLink, X } from "lucide-react";
+import { NavigationButton } from "@/components/NavigationButton";
+import { MapPin, Clock, CreditCard, Phone, Flame, ThumbsUp, Tag, X } from "lucide-react";
 
 interface ParkingCardProps {
   lot: ParkingLot | null;
@@ -191,15 +192,7 @@ export function ParkingCard({
 
           {/* 길찾기 + 투표 */}
           <div className="flex items-center gap-2">
-            <a
-              href={`https://map.naver.com/v5/directions/-/${lot.lng},${lot.lat},${encodeURIComponent(lot.name)}/-/transit?c=${lot.lng},${lot.lat},15,0,0,0,dh`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 rounded-lg bg-green-500 px-3 py-1.5 text-xs font-medium text-white active:bg-green-600 transition-colors"
-            >
-              <ExternalLink className="size-3" />
-              길찾기
-            </a>
+            <NavigationButton lat={lot.lat} lng={lot.lng} name={lot.name} />
             <VoteBookmarkBar lotId={lot.id} />
           </div>
 
