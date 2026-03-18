@@ -429,7 +429,7 @@ export const fetchWebSources = createServerFn({ method: "GET" })
     const offset = (page - 1) * limit;
     const db = getDb();
 
-    const cond = source === "all" ? "1=1" : `ws.source = '${source}'`;
+    const cond = source === "all" ? "ws.is_ad = 0" : `ws.is_ad = 0 AND ws.source = '${source}'`;
 
     const countRows = await db.all(
       sql.raw(`SELECT COUNT(*) as total FROM web_sources ws WHERE ${cond}`)
@@ -476,7 +476,7 @@ export const fetchWebSourceStats = createServerFn({ method: "GET" }).handler(
 
     const db = getDb();
     const rows = await db.all(
-      sql`SELECT source, COUNT(*) as cnt FROM web_sources GROUP BY source`
+      sql`SELECT source, COUNT(*) as cnt FROM web_sources WHERE is_ad = 0 GROUP BY source`
     );
 
     const counts: Record<string, number> = {};

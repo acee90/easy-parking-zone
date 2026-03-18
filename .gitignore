@@ -17,10 +17,12 @@ scripts/*-progress.md
 .gemini/
 .playwright-mcp/
 
-# 10시10분 채널 수집 캐시
+# 유튜브 채널 수집 캐시
 scripts/1010-videos.json
 scripts/1010-parking-result.json
 scripts/1010-still-unmatched.json
+scripts/lsb9199-videos.json
+scripts/lsb9199-parking-result.json
 
 # 파이프라인 중간산출물
 scripts/poi-analysis-*.json

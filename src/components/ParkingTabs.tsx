@@ -245,6 +245,8 @@ interface ParkingTabsProps {
 
 export function ParkingTabs({ lotId }: ParkingTabsProps) {
   const [blogPosts, setBlogPosts] = useState<BlogPost[]>([]);
+  const [blogHasMore, setBlogHasMore] = useState(false);
+  const [blogLoadingMore, setBlogLoadingMore] = useState(false);
   const [userReviews, setUserReviews] = useState<UserReview[]>([]);
   const [media, setMedia] = useState<ParkingMedia[]>([]);
   const [showReviewForm, setShowReviewForm] = useState(false);
@@ -257,6 +259,7 @@ export function ParkingTabs({ lotId }: ParkingTabsProps) {
   // lotId 변경 시 상태 초기화 + 카운트 즉시 조회 + 기본 탭(reviews) fetch
   useEffect(() => {
     setBlogPosts([]);
+    setBlogHasMore(false);
     setMedia([]);
     setUserReviews([]);
     setShowReviewForm(false);
@@ -277,8 +280,12 @@ export function ParkingTabs({ lotId }: ParkingTabsProps) {
     fetchedTabsRef.current.add(activeTab);
     setLoadingTabs((s) => new Set(s).add(activeTab));
     if (activeTab === "blog") {
-      fetchBlogPosts({ data: { parkingLotId: lotId } })
-        .then(setBlogPosts)
+      const PAGE_SIZE = 10;
+      fetchBlogPosts({ data: { parkingLotId: lotId, limit: PAGE_SIZE } })
+        .then((posts) => {
+          setBlogPosts(posts);
+          setBlogHasMore(posts.length >= PAGE_SIZE);
+        })
         .catch(() => setBlogPosts([]))
         .finally(() => setLoadingTabs((s) => { const n = new Set(s); n.delete("blog"); return n; }));
     } else if (activeTab === "media") {
@@ -288,6 +295,18 @@ export function ParkingTabs({ lotId }: ParkingTabsProps) {
         .finally(() => setLoadingTabs((s) => { const n = new Set(s); n.delete("media"); return n; }));
     }
   }, [activeTab, lotId]);
+
+  const loadMoreBlog = () => {
+    const PAGE_SIZE = 10;
+    setBlogLoadingMore(true);
+    fetchBlogPosts({ data: { parkingLotId: lotId, offset: blogPosts.length, limit: PAGE_SIZE } })
+      .then((posts) => {
+        setBlogPosts((prev) => [...prev, ...posts]);
+        setBlogHasMore(posts.length >= PAGE_SIZE);
+      })
+      .catch(() => setBlogHasMore(false))
+      .finally(() => setBlogLoadingMore(false));
+  };
 
   const refreshReviews = () => {
     fetchUserReviews({ data: { parkingLotId: lotId } })
@@ -443,6 +462,19 @@ export function ParkingTabs({ lotId }: ParkingTabsProps) {
                 {blogPosts.map((post) => (
                   <BlogPostCard key={post.sourceUrl} post={post} />
                 ))}
+                {blogHasMore && (
+                  <button
+                    onClick={loadMoreBlog}
+                    disabled={blogLoadingMore}
+                    className="w-full py-2 text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center justify-center gap-1.5"
+                  >
+                    {blogLoadingMore ? (
+                      <><Loader2 className="size-3 animate-spin" /> 불러오는 중...</>
+                    ) : (
+                      <>더보기 ({blogPosts.length}/{tabCounts.blog})</>
+                    )}
+                  </button>
+                )}
               </div>
             ) : loadingTabs.has("blog") ? (
               <div className="flex items-center justify-center gap-1.5 py-6">

@@ -7,9 +7,11 @@
  * - 엔진별 진행상황 저장 → 중단 후 재개 가능
  *
  * 사용법:
- *   bun scripts/crawl-blogs.ts                  # 기본: naver
- *   bun scripts/crawl-blogs.ts --engine=kakao   # 카카오(다음) 블로그
- *   bun scripts/crawl-blogs.ts --engine=naver   # 네이버 블로그+카페
+ *   bun scripts/crawl-blogs.ts                          # 기본: naver
+ *   bun scripts/crawl-blogs.ts --engine=kakao           # 카카오(다음) 블로그
+ *   bun scripts/crawl-blogs.ts --engine=naver           # 네이버 블로그+카페
+ *   bun scripts/crawl-blogs.ts --uncovered-only         # 데이터 없는 주차장만
+ *   bun scripts/crawl-blogs.ts --uncovered-only --remote
  */
 import { existsSync, unlinkSync } from "fs";
 import { resolve } from "path";
@@ -35,9 +37,11 @@ const engineName = (() => {
   const flag = process.argv.find((a) => a.startsWith("--engine="));
   return flag ? flag.split("=")[1] : "naver";
 })();
+const UNCOVERED_ONLY = process.argv.includes("--uncovered-only");
 
-const PROGRESS_JSON = resolve(import.meta.dir, `${engineName}-progress.json`);
-const TMP_SQL = resolve(import.meta.dir, `../.tmp-${engineName}.sql`);
+const progressSuffix = UNCOVERED_ONLY ? `${engineName}-uncovered` : engineName;
+const PROGRESS_JSON = resolve(import.meta.dir, `${progressSuffix}-progress.json`);
+const TMP_SQL = resolve(import.meta.dir, `../.tmp-${progressSuffix}.sql`);
 
 // --- Types ---
 interface ParkingRow {
@@ -85,19 +89,46 @@ function scoreRelevance(
   const desc = stripHtml(item.description).toLowerCase();
   const nameLower = name.toLowerCase();
 
+  // 이름에서 일반 접미사 제거 후 의미 있는 키워드 추출
   const nameKeywords = nameLower
-    .replace(/주차장|공영|노외|노상|부설/g, "")
+    .replace(/주차장|공영|노외|노상|부설|제\d+/g, "")
     .split(/\s+/)
     .filter((w) => w.length >= 2);
 
-  if (nameKeywords.some((kw) => title.includes(kw))) score += 40;
-  if (nameKeywords.some((kw) => desc.includes(kw))) score += 20;
+  // 너무 흔한 단어는 단독 매칭에서 제외 (다른 키워드와 함께일 때만 유효)
+  const COMMON_WORDS = new Set(["시장", "공원", "아파트", "역사", "학교", "병원", "마을", "센터", "회관"]);
+  const specificKeywords = nameKeywords.filter((kw) => !COMMON_WORDS.has(kw));
+  const hasSpecificMatch = specificKeywords.length > 0;
 
+  // 키워드 매칭 점수: 여러 키워드가 맞을수록 높은 점수
+  const titleMatches = nameKeywords.filter((kw) => title.includes(kw));
+  const descMatches = nameKeywords.filter((kw) => desc.includes(kw));
+  const titleSpecificMatches = specificKeywords.filter((kw) => title.includes(kw));
+
+  if (titleMatches.length >= 2) score += 50;       // 키워드 2개 이상 제목 매칭 → 강한 신호
+  else if (titleSpecificMatches.length >= 1) score += 40;  // 고유 키워드 1개 제목 매칭
+  else if (titleMatches.length === 1) score += 25;  // 흔한 키워드 1개만 → 약한 신호
+
+  if (descMatches.length >= 2) score += 20;
+  else if (descMatches.some((kw) => !COMMON_WORDS.has(kw))) score += 15;
+  else if (descMatches.length === 1) score += 5;
+
+  // 지역 매칭
   const region = extractRegion(address).toLowerCase();
   const regionWords = region.split(/\s+/).filter((w) => w.length >= 2);
   if (regionWords.some((rw) => title.includes(rw) || desc.includes(rw))) score += 20;
 
-  if (title.includes("주차") || desc.includes("주차")) score += 20;
+  // 주차 키워드
+  if (title.includes("주차") || desc.includes("주차")) score += 10;
+
+  // 이름 키워드가 제목/본문 어디에도 없으면 오매칭 → 30점 상한
+  if (titleMatches.length === 0 && descMatches.length === 0) score = Math.min(score, 30);
+
+  // 고유 키워드 없이 흔한 단어만 매칭된 경우 → 45점 상한
+  if (hasSpecificMatch && titleSpecificMatches.length === 0 &&
+      !specificKeywords.some((kw) => desc.includes(kw))) {
+    score = Math.min(score, 45);
+  }
 
   return score;
 }
@@ -136,10 +167,20 @@ async function main() {
   });
   const completedSet = new Set(progress.completedIds);
 
-  if (isRemote) console.log("🌐 리모트 D1 모드\n");
+  if (isRemote) console.log("🌐 리모트 D1 모드");
+  if (UNCOVERED_ONLY) console.log("🎯 미커버 주차장만 대상");
+  console.log();
+
   console.log("주차장 목록 조회 중...");
-  const lots: ParkingRow[] = d1Query("SELECT id, name, address FROM parking_lots");
-  console.log(`총 ${lots.length}개 주차장, ${completedSet.size}개 완료됨\n`);
+  let lots: ParkingRow[];
+  if (UNCOVERED_ONLY) {
+    lots = d1Query(
+      "SELECT id, name, address FROM parking_lots WHERE id NOT IN (SELECT DISTINCT parking_lot_id FROM web_sources)"
+    );
+  } else {
+    lots = d1Query("SELECT id, name, address FROM parking_lots");
+  }
+  console.log(`대상 ${lots.length}개 주차장, ${completedSet.size}개 완료됨\n`);
 
   let pending: PendingReview[] = [];
   let processed = 0;

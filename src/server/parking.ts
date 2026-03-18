@@ -27,7 +27,7 @@ export const fetchSiteStats = createServerFn({ method: "GET" }).handler(
       db.select({ cnt: count() }).from(schema.parkingLots).get(),
       db.select({ cnt: count() }).from(schema.userReviews).get(),
       db.select({
-        cnt: sql<number>`(SELECT COUNT(*) FROM parking_media) + (SELECT COUNT(*) FROM web_sources)`,
+        cnt: sql<number>`(SELECT COUNT(*) FROM parking_media) + (SELECT COUNT(*) FROM web_sources WHERE is_ad = 0)`,
       }).from(schema.parkingMedia).get(),
     ]);
     const stats = {
@@ -150,6 +150,7 @@ export const fetchTabCounts = createServerFn({ method: "GET" })
         .where(
           and(
             eq(schema.webSources.parkingLotId, data.parkingLotId),
+            eq(schema.webSources.isAd, 0),
             gte(schema.webSources.relevanceScore, 40),
             sql`${schema.webSources.sourceUrl} NOT LIKE '%youtube.com%'`,
             sql`${schema.webSources.sourceUrl} NOT LIKE '%youtu.be%'`,
@@ -170,10 +171,12 @@ export const fetchTabCounts = createServerFn({ method: "GET" })
 
 export const fetchBlogPosts = createServerFn({ method: "GET" })
   .inputValidator(
-    (input: { parkingLotId: string }): { parkingLotId: string } => input
+    (input: { parkingLotId: string; offset?: number; limit?: number }): { parkingLotId: string; offset?: number; limit?: number } => input
   )
   .handler(async ({ data }): Promise<BlogPost[]> => {
     const db = getDb();
+    const limit = data.limit ?? 10;
+    const offset = data.offset ?? 0;
 
     const rows = await db
       .select({
@@ -188,13 +191,15 @@ export const fetchBlogPosts = createServerFn({ method: "GET" })
       .where(
         and(
           eq(schema.webSources.parkingLotId, data.parkingLotId),
+          eq(schema.webSources.isAd, 0),
           gte(schema.webSources.relevanceScore, 40),
           sql`${schema.webSources.sourceUrl} NOT LIKE '%youtube.com%'`,
           sql`${schema.webSources.sourceUrl} NOT LIKE '%youtu.be%'`,
         )
       )
       .orderBy(desc(schema.webSources.relevanceScore))
-      .limit(5);
+      .limit(limit)
+      .offset(offset);
 
     return rows.map((row) => rowToBlogPost(row as BlogPostRow));
   });
