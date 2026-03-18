@@ -5,7 +5,9 @@ import {
   getDifficultyLabel,
   getDistance,
 } from "@/lib/geo-utils";
-import { MapPin, ParkingSquare } from "lucide-react";
+import { MapPin, ParkingSquare, ArrowUpDown } from "lucide-react";
+
+export type SortMode = "distance" | "difficulty";
 
 const PAGE_SIZE = 20;
 
@@ -18,6 +20,7 @@ interface ParkingSidebarProps {
   userLat?: number;
   userLng?: number;
   userLocated?: boolean;
+  mapCenter?: { lat: number; lng: number } | null;
 }
 
 function difficultyColor(score: number | null) {
@@ -37,34 +40,42 @@ export function ParkingSidebar({
   userLat,
   userLng,
   userLocated,
+  mapCenter,
 }: ParkingSidebarProps) {
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const [sortMode, setSortMode] = useState<SortMode>("distance");
 
   // parkingLots 변경 시 표시 개수 초기화
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
   }, [parkingLots]);
 
+  // 거리 기준점: 유저 위치 > 지도 중심
+  const refLat = userLocated && userLat ? userLat : mapCenter?.lat;
+  const refLng = userLocated && userLng ? userLng : mapCenter?.lng;
+
   const sortedLots = useMemo(() => {
     const withDistance = parkingLots.map((lot) => ({
       lot,
       distance:
-        userLocated && userLat && userLng
-          ? getDistance(userLat, userLng, lot.lat, lot.lng)
-          : null,
+        refLat && refLng ? getDistance(refLat, refLng, lot.lat, lot.lng) : null,
     }));
 
-    withDistance.sort((a, b) => {
-      if (a.distance !== null && b.distance !== null) {
-        return a.distance - b.distance;
-      }
-      const scoreA = a.lot.difficulty.score ?? -1;
-      const scoreB = b.lot.difficulty.score ?? -1;
-      return scoreB - scoreA;
-    });
+    if (sortMode === "distance") {
+      withDistance.sort((a, b) => {
+        if (a.distance !== null && b.distance !== null) {
+          return a.distance - b.distance;
+        }
+        return (b.lot.difficulty.score ?? -1) - (a.lot.difficulty.score ?? -1);
+      });
+    } else {
+      withDistance.sort(
+        (a, b) => (b.lot.difficulty.score ?? -1) - (a.lot.difficulty.score ?? -1)
+      );
+    }
 
     return withDistance;
-  }, [parkingLots, userLat, userLng, userLocated]);
+  }, [parkingLots, refLat, refLng, sortMode]);
 
   // 선택된 주차장이 visibleCount 밖이면 확장
   const selectedIdx = selectedLotId
@@ -88,14 +99,39 @@ export function ParkingSidebar({
 
   return (
     <aside className="hidden md:flex w-[280px] shrink-0 flex-col border-r bg-white">
-      <div className="shrink-0 flex items-center justify-between px-4 py-3 border-b">
-        <div className="flex items-center gap-2">
-          <ParkingSquare className="size-4 text-blue-500" />
-          <span className="font-semibold text-sm">주차장 목록</span>
+      <div className="shrink-0 px-4 py-3 border-b">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <ParkingSquare className="size-4 text-blue-500" />
+            <span className="font-semibold text-sm">주차장 목록</span>
+          </div>
+          <span className="text-xs text-muted-foreground">
+            {parkingLots.length}개
+          </span>
         </div>
-        <span className="text-xs text-muted-foreground">
-          {parkingLots.length}개
-        </span>
+        <div className="flex items-center gap-1 mt-2">
+          <ArrowUpDown className="size-3 text-muted-foreground" />
+          <button
+            onClick={() => setSortMode("distance")}
+            className={`px-2 py-0.5 rounded text-xs cursor-pointer transition-colors ${
+              sortMode === "distance"
+                ? "bg-blue-100 text-blue-700 font-medium"
+                : "text-muted-foreground hover:bg-gray-100"
+            }`}
+          >
+            {userLocated ? "가까운 순" : "지도 중심 순"}
+          </button>
+          <button
+            onClick={() => setSortMode("difficulty")}
+            className={`px-2 py-0.5 rounded text-xs cursor-pointer transition-colors ${
+              sortMode === "difficulty"
+                ? "bg-blue-100 text-blue-700 font-medium"
+                : "text-muted-foreground hover:bg-gray-100"
+            }`}
+          >
+            쉬운 순
+          </button>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto">

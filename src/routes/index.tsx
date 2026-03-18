@@ -43,6 +43,7 @@ function App() {
     null
   );
   const lastViewRef = useRef<{ bounds: MapBounds; zoom: number } | null>(null);
+  const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(null);
 
   useEffect(() => {
     setIsClient(true);
@@ -50,6 +51,10 @@ function App() {
 
   const handleBoundsChanged = useCallback(async (bounds: MapBounds, zoom: number) => {
     lastViewRef.current = { bounds, zoom };
+    setMapCenter({
+      lat: (bounds.south + bounds.north) / 2,
+      lng: (bounds.west + bounds.east) / 2,
+    });
     try {
       const clusterMaxZoom = Number(import.meta.env.VITE_CLUSTER_MAX_ZOOM) || 9;
       if (zoom <= clusterMaxZoom) {
@@ -120,6 +125,7 @@ function App() {
           userLat={userLat}
           userLng={userLng}
           userLocated={userLocated}
+          mapCenter={mapCenter}
         />
 
         {/* 상세 패널 — 선택 시에만 표시 (데스크톱) */}
@@ -186,6 +192,7 @@ function App() {
         userLat={userLat}
         userLng={userLng}
         userLocated={userLocated}
+        mapCenter={mapCenter}
       />
 
       {/* 하단 시트 — 모바일 전용 */}
