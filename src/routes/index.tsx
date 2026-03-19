@@ -10,18 +10,18 @@ import { ParkingDetailPanel } from "@/components/ParkingDetailPanel";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { useParkingFilters } from "@/hooks/useParkingFilters";
 import { FloatingFilters } from "@/components/FloatingFilters";
-import { fetchParkingLots, fetchParkingClusters, fetchSiteStats } from "@/server/parking";
+import { fetchParkingLots, fetchParkingClusters } from "@/server/parking";
+import { Route as RootRoute } from "@/routes/__root";
 import type { ParkingLot, MapBounds, MarkerCluster } from "@/types/parking";
 import { Car } from "lucide-react";
 import { MapErrorBoundary } from "@/components/MapErrorBoundary";
 
 export const Route = createFileRoute("/")({
-  loader: () => fetchSiteStats(),
   component: App,
 });
 
 function App() {
-  const siteStats = Route.useLoaderData();
+  const siteStats = RootRoute.useLoaderData();
   const {
     lat: userLat,
     lng: userLng,

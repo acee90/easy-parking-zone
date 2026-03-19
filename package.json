@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite dev",
+    "dev:remote": "vite build && wrangler dev --remote",
     "build": "vite build",
     "preview": "vite preview",
     "deploy": "bun run build && wrangler deploy",

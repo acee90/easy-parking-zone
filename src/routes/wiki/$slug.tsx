@@ -3,7 +3,6 @@ import { Badge } from "@/components/ui/badge";
 import {
   fetchParkingDetail,
   fetchNearbyParkingLots,
-  fetchSiteStats,
 } from "@/server/parking";
 import {
   getDifficultyIcon,
@@ -15,7 +14,7 @@ import { parseIdFromSlug, makeParkingSlug } from "@/lib/slug";
 import { ParkingTabs } from "@/components/ParkingTabs";
 import { VoteBookmarkBar } from "@/components/VoteBookmarkBar";
 import type { ParkingLot } from "@/types/parking";
-import { Header } from "@/components/Header";
+
 import {
   MapPin,
   Clock,
@@ -36,13 +35,10 @@ export const Route = createFileRoute("/wiki/$slug")({
     if (!id) throw notFound();
     const lot = await fetchParkingDetail({ data: { id } });
     if (!lot) throw notFound();
-    const [nearby, siteStats] = await Promise.all([
-      fetchNearbyParkingLots({
-        data: { lat: lot.lat, lng: lot.lng, excludeId: lot.id },
-      }),
-      fetchSiteStats(),
-    ]);
-    return { lot, nearby, siteStats };
+    const nearby = await fetchNearbyParkingLots({
+      data: { lat: lot.lat, lng: lot.lng, excludeId: lot.id },
+    });
+    return { lot, nearby };
   },
   head: ({ loaderData }) => {
     const lot = loaderData?.lot;
@@ -76,7 +72,7 @@ export const Route = createFileRoute("/wiki/$slug")({
 });
 
 function WikiDetailPage() {
-  const { lot, nearby, siteStats } = Route.useLoaderData();
+  const { lot, nearby } = Route.useLoaderData();
 
   const icon = getDifficultyIcon(lot.difficulty.score);
   const label = getDifficultyLabel(lot.difficulty.score);
@@ -84,7 +80,6 @@ function WikiDetailPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header active="wiki" siteStats={siteStats} />
 
       {/* 브레드크럼 */}
       <div className="bg-white border-b">
