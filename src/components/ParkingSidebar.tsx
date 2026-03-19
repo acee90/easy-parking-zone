@@ -96,7 +96,7 @@ export function ParkingSidebar({
   }, [selectedLotId]);
 
   return (
-    <aside className="hidden md:flex w-[280px] shrink-0 flex-col border-r bg-white">
+    <aside className="w-[280px] shrink-0 flex-col bg-white/95 backdrop-blur-sm rounded-xl shadow-lg border pointer-events-auto flex overflow-hidden">
       <div className="shrink-0 px-4 py-3 border-b">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">

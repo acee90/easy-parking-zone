@@ -60,6 +60,12 @@ export interface MarkerCluster {
   lng: number;
   count: number;
   avgScore: number | null;
+  bounds: {
+    south: number;
+    north: number;
+    west: number;
+    east: number;
+  };
 }
 
 export interface BlogPost {

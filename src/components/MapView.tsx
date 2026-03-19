@@ -168,8 +168,16 @@ export function MapView({
   useEffect(() => {
     if (mapRef.current && moveTo) {
       animatingRef.current = true;
-      mapRef.current.panTo(new navermaps.LatLng(moveTo.lat, moveTo.lng));
       mapRef.current.setZoom(16);
+      // 패널 보정 후 panTo
+      const proj = mapRef.current.getProjection();
+      const coord = new navermaps.LatLng(moveTo.lat, moveTo.lng);
+      const pixel = proj.fromCoordToOffset(coord);
+      const panelOffset = window.innerWidth >= 768 ? (280 + 360) / 2 : 0;
+      const adjusted = proj.fromOffsetToCoord(
+        new navermaps.Point(pixel.x - panelOffset, pixel.y)
+      );
+      mapRef.current.panTo(adjusted);
       setTimeout(() => { animatingRef.current = false; }, 800);
     }
   }, [navermaps, moveTo]);
@@ -235,9 +243,11 @@ export function MapView({
                   onClick={() => {
                     if (!mapRef.current) return;
                     animatingRef.current = true;
+                    // 현재 줌 + 3 (클러스터가 풀릴만큼 확대), 최대 18
+                    const targetZoom = Math.min(mapRef.current.getZoom() + 3, 18);
                     mapRef.current.morph(
                       new navermaps.LatLng(c.lat, c.lng),
-                      16,
+                      targetZoom,
                     );
                     setTimeout(() => { animatingRef.current = false; }, 800);
                   }}
@@ -257,7 +267,15 @@ export function MapView({
                   onMarkerClick(lot);
                   if (mapRef.current) {
                     animatingRef.current = true;
-                    mapRef.current.panTo(new navermaps.LatLng(lot.lat, lot.lng));
+                    // 상세패널(360px)+사이드바(280px) 고려: 가용영역 중심으로 보정
+                    const proj = mapRef.current.getProjection();
+                    const coord = new navermaps.LatLng(lot.lat, lot.lng);
+                    const pixel = proj.fromCoordToOffset(coord);
+                    const panelOffset = window.innerWidth >= 768 ? (280 + 360) / 2 : 0;
+                    const adjusted = proj.fromOffsetToCoord(
+                      new navermaps.Point(pixel.x - panelOffset, pixel.y)
+                    );
+                    mapRef.current.panTo(adjusted);
                     setTimeout(() => { animatingRef.current = false; }, 800);
                   }
                 }}

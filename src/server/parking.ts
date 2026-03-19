@@ -84,7 +84,8 @@ export const fetchParkingClusters = createServerFn({ method: "GET" })
   )
   .handler(async ({ data }): Promise<MarkerCluster[]> => {
     const db = getDb();
-    const cellSize = 360 / Math.pow(2, data.zoom);
+    // 클러스터 셀 크기: 기존 대비 3배 (화면상 ~80px 단위에 근사)
+    const cellSize = (360 / Math.pow(2, data.zoom)) * 3;
     const { where } = buildFilterClauses(data.filters);
 
     const rows = await db.all(
@@ -94,7 +95,11 @@ export const fetchParkingClusters = createServerFn({ method: "GET" })
           AVG(p.lat) as lat,
           AVG(p.lng) as lng,
           COUNT(*) as count,
-          AVG(s.final_score) as avg_score
+          AVG(s.final_score) as avg_score,
+          MIN(p.lat) as min_lat,
+          MAX(p.lat) as max_lat,
+          MIN(p.lng) as min_lng,
+          MAX(p.lng) as max_lng
         FROM parking_lots p
         LEFT JOIN parking_lot_stats s ON s.parking_lot_id = p.id
         WHERE p.lat BETWEEN ${data.south} AND ${data.north}
@@ -103,12 +108,18 @@ export const fetchParkingClusters = createServerFn({ method: "GET" })
       )
     );
 
-    return (rows as unknown as { cell_key: string; lat: number; lng: number; count: number; avg_score: number | null }[]).map((row) => ({
+    return (rows as unknown as { cell_key: string; lat: number; lng: number; count: number; avg_score: number | null; min_lat: number; max_lat: number; min_lng: number; max_lng: number }[]).map((row) => ({
       key: row.cell_key,
       lat: row.lat,
       lng: row.lng,
       count: row.count,
       avgScore: row.avg_score,
+      bounds: {
+        south: row.min_lat,
+        north: row.max_lat,
+        west: row.min_lng,
+        east: row.max_lng,
+      },
     }));
   });
 
