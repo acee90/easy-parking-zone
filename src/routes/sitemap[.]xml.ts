@@ -1,8 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { getDb } from "@/db";
 import { sql } from "drizzle-orm";
-
-const URLS_PER_SITEMAP = 10000;
+import { URLS_PER_SITEMAP } from "@/lib/sitemap";
 
 async function handleSitemapIndex() {
   const db = getDb();

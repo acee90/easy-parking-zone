@@ -2,8 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { getDb } from "@/db";
 import { sql } from "drizzle-orm";
 import { makeParkingSlug } from "@/lib/slug";
-
-const URLS_PER_SITEMAP = 10000;
+import { URLS_PER_SITEMAP } from "@/lib/sitemap";
 
 async function handleSitemapPage(id: number) {
   const db = getDb();
@@ -48,7 +47,7 @@ export const Route = createFileRoute("/sitemap-$id.xml")({
     handlers: {
       GET: ({ params }) => {
         const id = parseInt(params.id, 10);
-        if (isNaN(id) || id < 0) {
+        if (isNaN(id) || id < 0 || id > 999) {
           return new Response("Not Found", { status: 404 });
         }
         return handleSitemapPage(id);
