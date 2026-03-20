@@ -24,7 +24,7 @@ async function handleSitemapIndex() {
   for (let i = 0; i < totalPages; i++) {
     xml += `
   <sitemap>
-    <loc>${base}/sitemap-${i}.xml</loc>
+    <loc>${base}/sitemap/${i}</loc>
     <lastmod>${now}</lastmod>
   </sitemap>`;
   }

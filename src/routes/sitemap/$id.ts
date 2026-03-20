@@ -42,7 +42,7 @@ async function handleSitemapPage(id: number) {
   });
 }
 
-export const Route = createFileRoute("/sitemap-$id.xml")({
+export const Route = createFileRoute("/sitemap/$id")({
   server: {
     handlers: {
       GET: ({ params }) => {
