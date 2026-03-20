@@ -20,6 +20,14 @@ const RELEVANCE_THRESHOLD = 60;
 const RECRAWL_DAYS = 30;
 
 const BRAVE_URL = "https://api.search.brave.com/res/v1/web/search";
+const DELAY = 200;
+
+class QuotaExhaustedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "QuotaExhaustedError";
+  }
+}
 
 interface BraveSearchResult {
   title: string;
@@ -58,20 +66,13 @@ async function searchBrave(
   return res.json() as Promise<BraveSearchResponse>;
 }
 
-class QuotaExhaustedError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "QuotaExhaustedError";
-  }
-}
-
 /**
  * reliability 기반 우선순위 큐로 주차장을 선택한다.
  *
  * 1순위: reliability=none (데이터 전무)
  * 2순위: reliability=structural (물리 정보만)
  * 3순위: reliability=reference (데이터 희박)
- * 4순위: 마지막 크롤링 90일+ 경과
+ * 4순위: 마지막 크롤링 30일+ 경과
  */
 async function selectPriorityLots(
   db: D1Database,
@@ -137,6 +138,7 @@ export async function runBraveSearchBatch(
 
     try {
       const result = await searchBrave(query, env.BRAVE_SEARCH_API_KEY);
+      await new Promise((r) => setTimeout(r, DELAY));
       queriesUsed++;
 
       const items = result.web?.results ?? [];

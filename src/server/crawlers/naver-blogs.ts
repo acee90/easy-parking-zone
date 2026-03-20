@@ -24,7 +24,7 @@ import {
 } from "./lib/scoring";
 
 /** POI 있는 주차장은 쿼리 2배(A+B)이므로 30초 타임아웃 내 안전한 수 */
-const BATCH_SIZE = 20;
+const BATCH_SIZE = 15;
 const DELAY = 300;
 const RELEVANCE_THRESHOLD = 60;
 const RESULTS_PER_QUERY = 5;
@@ -284,7 +284,9 @@ export async function runNaverBlogsBatch(
         allMatches.push(...result.matchBatch);
         lotSaved += result.saved;
         matched += result.matchBatch.length;
-      } catch { /* skip on error */ }
+      } catch (err) {
+        console.warn(`[naver-blogs] blog error (${lot.name}, ${cq.strategy}): ${(err as Error).message}`);
+      }
 
       await new Promise((r) => setTimeout(r, DELAY));
 
@@ -299,7 +301,9 @@ export async function runNaverBlogsBatch(
         allMatches.push(...result.matchBatch);
         lotSaved += result.saved;
         matched += result.matchBatch.length;
-      } catch { /* skip on error */ }
+      } catch (err) {
+        console.warn(`[naver-blogs] cafe error (${lot.name}, ${cq.strategy}): ${(err as Error).message}`);
+      }
 
       await new Promise((r) => setTimeout(r, DELAY));
     }
