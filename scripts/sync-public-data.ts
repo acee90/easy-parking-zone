@@ -216,7 +216,8 @@ function hasChanged(apiRow: DbRow, dbRow: DbRow): boolean {
   for (const field of COMPARE_FIELDS) {
     const a = apiRow[field];
     const b = dbRow[field];
-    if ((a ?? 0) !== (b ?? 0)) return true;
+    // 숫자는 문자열 변환 후 비교 (DB float 소수점 차이 방지)
+    if (String(a ?? "") !== String(b ?? "")) return true;
   }
   return false;
 }
@@ -234,9 +235,9 @@ function buildUpsert(row: DbRow): string {
   const vals = [
     `'${esc(row.id)}'`, `'${esc(row.name)}'`, `'${esc(row.type)}'`,
     `'${esc(row.address)}'`, row.lat, row.lng, row.total_spaces,
-    `'${row.weekday_start}'`, `'${row.weekday_end}'`,
-    `'${row.saturday_start}'`, `'${row.saturday_end}'`,
-    `'${row.holiday_start}'`, `'${row.holiday_end}'`,
+    `'${esc(row.weekday_start)}'`, `'${esc(row.weekday_end)}'`,
+    `'${esc(row.saturday_start)}'`, `'${esc(row.saturday_end)}'`,
+    `'${esc(row.holiday_start)}'`, `'${esc(row.holiday_end)}'`,
     row.is_free, row.base_time, row.base_fee,
     row.extra_time, row.extra_fee,
     row.daily_max ?? "NULL", row.monthly_pass ?? "NULL",
