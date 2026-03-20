@@ -10,9 +10,9 @@
 		"VITE_NAVER_MAP_CLIENT_ID": "uw8likbp4e",
 		"BETTER_AUTH_URL": "https://easy-parking.xyz"
 	},
-	// "triggers": {
-	// 	"crons": ["0 3 * * *"]
-	// },
+	"triggers": {
+		"crons": ["0 */1 * * *"]
+	},
 	"d1_databases": [
 		{
 			"binding": "DB",

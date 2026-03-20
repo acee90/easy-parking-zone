@@ -59,6 +59,29 @@ export async function hashUrl(url: string): Promise<string> {
     .slice(0, 16);
 }
 
+/**
+ * 부동산/광고/무관 콘텐츠 노이즈 패턴
+ * (validate-ad-filter.ts AD_PATTERNS 기반 + 추가 확장)
+ */
+const NOISE_PATTERNS = [
+  // 부동산/분양
+  /모델하우스/, /분양가/, /분양정보/, /분양조건/, /잔여세대/,
+  /견본주택/, /입주자모집/, /입주예정/, /공급조건/,
+  /시행사/, /시공사/, /투자수익/, /프리미엄분양/,
+  /빌라\s*매매/, /아파트\s*매매/, /매물/, /전세\s*모/, /월세\s*모/,
+  /원룸\s*\d/, /투룸/, /쓰리룸/, /임대\s*안/,
+  /신축빌라/, /신축원룸/, /경매물건/,
+  /임장\s*(기록|후기|보고)/, /지구\s*임장/,
+  /청약/, /재개발/, /재건축/,
+  // 광고/홍보
+  /체험단.*모집/, /업체\s*추천\s*(깔끔|꼼꼼)/, /메디컬빌딩/,
+  // 무관 콘텐츠
+  /살인사건/, /뮤지컬\s*(렌트|위키드|캣츠)/, /커튼콜/,
+  /추경예산/, /예산\s*편성/,
+  /청소.*업체/, /이사.*업체/, /인테리어.*업체/,
+  /다이어트/, /성형/, /피부과/, /치과/,
+];
+
 /** 네이버 블로그 검색 결과 관련도 점수 (0-100) */
 export function scoreBlogRelevance(
   title: string,
@@ -66,9 +89,21 @@ export function scoreBlogRelevance(
   parkingName: string,
   address: string
 ): number {
-  let score = 0;
   const titleLower = stripHtml(title).toLowerCase();
   const descLower = stripHtml(description).toLowerCase();
+  const combined = titleLower + " " + descLower;
+
+  // 주차 관련 키워드가 없으면 0점 (게이트)
+  if (!combined.includes("주차") && !combined.includes("parking")) {
+    return 0;
+  }
+
+  // 노이즈 필터링
+  if (NOISE_PATTERNS.some((p) => p.test(combined))) {
+    return 0;
+  }
+
+  let score = 0;
   const nameLower = parkingName.toLowerCase();
 
   const nameKeywords = nameLower
