@@ -24,11 +24,15 @@ import {
 } from "./lib/scoring";
 
 /**
- * Workers Cron 제한: CPU 30초 (네트워크 대기 미포함), wall-clock 15분.
- * fetch() 대기는 CPU에 안 잡히므로 wall-clock 기준으로 여유 있게 설정.
- * 200개 × ~1.5초/lot = ~5분 (15분의 1/3, 여유 충분)
+ * Workers Cron 제한:
+ * - CPU 30초 (fetch 대기 미포함), wall-clock 15분
+ * - subrequest 1,000개/invocation (fetch + D1 쿼리 모두 포함)
+ *
+ * subrequest 1,000개 제한: 네이버 fetch + D1 쿼리 + YouTube 등 합산.
+ * 실측 기준 ~25개에서 한도 도달 → 여유 두고 25개.
+ * wall-clock: 25 × ~1.5초 = ~38초 (15분 대비 충분)
  */
-const BATCH_SIZE = 200;
+const BATCH_SIZE = 25;
 const DELAY = 300;
 const RELEVANCE_THRESHOLD = 60;
 const RESULTS_PER_QUERY = 5;
@@ -105,7 +109,10 @@ function buildQueries(lot: LotRow): CrawlQuery[] {
   }
 
   // B: POI 태그가 있으면 추가
-  const poiTags: string[] = lot.poi_tags ? JSON.parse(lot.poi_tags) : [];
+  let poiTags: string[] = [];
+  if (lot.poi_tags) {
+    try { poiTags = JSON.parse(lot.poi_tags); } catch { /* malformed JSON → skip */ }
+  }
   if (poiTags.length > 0) {
     queries.push({ strategy: "poi", query: `${poiTags[0]} 주차장` });
   }
@@ -144,7 +151,7 @@ function scanMultiMatches(
       .toLowerCase()
       .replace(/주차장|공영|노외|노상|부설/g, "")
       .split(/\s+/)
-      .filter((w) => w.length >= 2);
+      .filter((w) => w.length >= 3);
 
     if (keywords.length > 0 && keywords.some((kw) => combined.includes(kw))) {
       matched.push(lot.id);
@@ -325,11 +332,13 @@ export async function runNaverBlogsBatch(
   }
 
   // 배치 실행: INSERT → MATCH 순서 (INSERT 먼저 해야 서브쿼리 가능)
-  if (allInserts.length > 0) {
-    await db.batch(allInserts);
+  // D1 batch 한도: 최대 1,000 statements/batch
+  const D1_BATCH_LIMIT = 500;
+  for (let i = 0; i < allInserts.length; i += D1_BATCH_LIMIT) {
+    await db.batch(allInserts.slice(i, i + D1_BATCH_LIMIT));
   }
-  if (allMatches.length > 0) {
-    await db.batch(allMatches);
+  for (let i = 0; i < allMatches.length; i += D1_BATCH_LIMIT) {
+    await db.batch(allMatches.slice(i, i + D1_BATCH_LIMIT));
   }
   if (progressBatch.length > 0) {
     await db.batch(progressBatch);

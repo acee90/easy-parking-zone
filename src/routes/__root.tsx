@@ -151,7 +151,7 @@ function RootComponent() {
   const lastMatch = matches[matches.length - 1];
   const active = lastMatch?.fullPath?.startsWith('/wiki') ? 'wiki' as const : 'map' as const;
   // 지도 페이지가 아니면 검색바/필터 없음 — 각 페이지에서 별도 처리
-  const isMap = active === 'map';
+  const isMap = lastMatch?.fullPath === '/';
 
   return (
     <>

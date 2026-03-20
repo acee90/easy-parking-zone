@@ -19,9 +19,19 @@ function getPanToAdjusted(
   const proj = map.getProjection();
   const latLng = new navermaps.LatLng(coord.lat, coord.lng);
   const pixel = proj.fromCoordToOffset(latLng);
-  // 사이드바 280px 항상 + 상세패널 360px은 열려있을 때만
+
+  const isMobile = window.innerWidth < 768;
+  if (isMobile) {
+    // 모바일: 하단 시트(320px)가 마커를 가리므로 위쪽으로 보정
+    const bottomSheetOffset = hasDetailPanel ? 320 / 2 : 0;
+    return proj.fromOffsetToCoord(
+      new navermaps.Point(pixel.x, pixel.y + bottomSheetOffset)
+    );
+  }
+
+  // 데스크톱: 사이드바 280px 항상 + 상세패널 360px은 열려있을 때만
   const panelWidth = hasDetailPanel ? 280 + 360 : 280;
-  const panelOffset = window.innerWidth >= 768 ? panelWidth / 2 : 0;
+  const panelOffset = panelWidth / 2;
   return proj.fromOffsetToCoord(
     new navermaps.Point(pixel.x - panelOffset, pixel.y)
   );
@@ -187,7 +197,7 @@ export function MapView({
     if (mapRef.current && moveTo) {
       animatingRef.current = true;
       mapRef.current.setZoom(16);
-      const adjusted = getPanToAdjusted(mapRef.current, navermaps, moveTo, true);
+      const adjusted = getPanToAdjusted(mapRef.current, navermaps, moveTo, !!selectedLotId);
       mapRef.current.panTo(adjusted);
       setTimeout(() => { animatingRef.current = false; }, 800);
     }

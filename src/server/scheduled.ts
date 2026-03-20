@@ -19,7 +19,7 @@ interface Env {
 export async function handleScheduled(env: Env): Promise<void> {
   const results: string[] = [];
 
-  // 네이버 블로그/카페 크롤링 (25,000/일, BATCH_SIZE=200)
+  // 네이버 블로그/카페 크롤링 (25,000/일, BATCH_SIZE=25)
   if (env.NAVER_CLIENT_ID && env.NAVER_CLIENT_SECRET) {
     try {
       const r = await runNaverBlogsBatch(env.DB, {

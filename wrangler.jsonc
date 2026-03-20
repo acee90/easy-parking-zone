@@ -11,7 +11,7 @@
 		"BETTER_AUTH_URL": "https://easy-parking.xyz"
 	},
 	"triggers": {
-		"crons": ["0 3 * * *"]
+		"crons": ["0 */1 * * *"]
 	},
 	"d1_databases": [
 		{
