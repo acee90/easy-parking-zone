@@ -1,10 +1,16 @@
 import { useState, useEffect } from "react";
-import { Flag, X, Loader2 } from "lucide-react";
+import { Flag, Loader2 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { createContentReport, getReportReasons, type ReportTargetType } from "@/server/reports";
 
 interface ReportDialogProps {
   open: boolean;
-  onClose: () => void;
+  onOpenChange: (open: boolean) => void;
   targetType: ReportTargetType;
   targetId: number;
   parkingLotId: string;
@@ -12,7 +18,7 @@ interface ReportDialogProps {
 
 export function ReportDialog({
   open,
-  onClose,
+  onOpenChange,
   targetType,
   targetId,
   parkingLotId,
@@ -33,8 +39,6 @@ export function ReportDialog({
         .catch(() => setReasons([]));
     }
   }, [open, targetType]);
-
-  if (!open) return null;
 
   const handleSubmit = async () => {
     if (!selected) return;
@@ -65,21 +69,14 @@ export function ReportDialog({
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center">
-      <div className="fixed inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative w-full max-w-sm bg-white rounded-t-2xl sm:rounded-2xl p-5 pb-8 sm:pb-5 animate-in slide-in-from-bottom-4 sm:slide-in-from-bottom-0 duration-200">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-sm">
             <Flag className="size-4 text-red-500" />
-            <h3 className="text-sm font-semibold">신고하기</h3>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-1 rounded-full hover:bg-gray-100 cursor-pointer"
-          >
-            <X className="size-4" />
-          </button>
-        </div>
+            신고하기
+          </DialogTitle>
+        </DialogHeader>
 
         {result ? (
           <div className="text-center py-4">
@@ -87,7 +84,7 @@ export function ReportDialog({
               {resultMessages[result]}
             </p>
             <button
-              onClick={onClose}
+              onClick={() => onOpenChange(false)}
               className="mt-4 px-4 py-2 text-xs font-medium rounded-md bg-gray-100 hover:bg-gray-200 cursor-pointer"
             >
               닫기
@@ -95,7 +92,7 @@ export function ReportDialog({
           </div>
         ) : (
           <>
-            <div className="space-y-1.5 mb-4">
+            <div className="space-y-1.5">
               {reasons.map(({ code, label }) => (
                 <label
                   key={code}
@@ -125,7 +122,7 @@ export function ReportDialog({
                 maxLength={200}
                 rows={2}
                 placeholder="신고 사유를 입력해주세요"
-                className="w-full rounded-md border px-2.5 py-1.5 text-xs resize-none mb-4"
+                className="w-full rounded-md border px-2.5 py-1.5 text-xs resize-none"
               />
             )}
 
@@ -142,8 +139,8 @@ export function ReportDialog({
             </button>
           </>
         )}
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -174,7 +171,7 @@ export function ReportButton({
       </button>
       <ReportDialog
         open={open}
-        onClose={() => setOpen(false)}
+        onOpenChange={setOpen}
         targetType={targetType}
         targetId={targetId}
         parkingLotId={parkingLotId}
