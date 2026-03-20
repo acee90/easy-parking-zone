@@ -95,8 +95,8 @@ function displayName(name: string): string {
 
 function markerHtml(lot: ParkingLot, selected: boolean, hovered: boolean): string {
   const color = markerColor(lot.difficulty.score);
-  const isHell = lot.curationTag === "hell";
-  const isEasy = lot.curationTag === "easy";
+  const isHell = lot.difficulty.score !== null && lot.difficulty.score < 2.0;
+  const isEasy = lot.difficulty.score !== null && lot.difficulty.score >= 4.0;
 
   const pillBase = "display:inline-flex;align-items:center;white-space:nowrap;cursor:pointer;user-select:none;-webkit-user-select:none;";
   const nameStyle = "max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";

@@ -55,13 +55,13 @@ export function ParkingDetailPanel({
           </button>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          {lot.curationTag === 'hell' && (
+          {lot.difficulty.score !== null && lot.difficulty.score < 2.0 && (
             <Badge variant="destructive" className="text-xs gap-1">
               <Flame className="size-3" />
               초보 주의
             </Badge>
           )}
-          {lot.curationTag === 'easy' && (
+          {lot.difficulty.score !== null && lot.difficulty.score >= 4.0 && (
             <Badge className="text-xs gap-1 bg-green-500 hover:bg-green-600">
               <ThumbsUp className="size-3" />
               초보 추천
@@ -183,11 +183,11 @@ export function ParkingDetailPanel({
         {/* 큐레이션 사유 */}
         {lot.curationReason && (
           <div className={`text-xs rounded-lg px-3 py-2 ${
-            lot.curationTag === 'hell'
+            lot.difficulty.score !== null && lot.difficulty.score < 2.0
               ? 'bg-red-50 text-red-700'
               : 'bg-green-50 text-green-700'
           }`}>
-            {lot.curationTag === 'hell' ? '⚠️' : '✅'}{' '}
+            {lot.difficulty.score !== null && lot.difficulty.score < 2.0 ? '⚠️' : '✅'}{' '}
             {lot.curationReason}
             {lot.featuredSource === '1010' && (
               <span className="block mt-1 text-muted-foreground">

@@ -153,13 +153,13 @@ export function ParkingCard({
           <div className="px-4 pb-4 space-y-3">
           {/* 난이도 배지 */}
           <div className="flex items-center gap-2 flex-wrap">
-            {lot.curationTag === 'hell' && (
+            {lot.difficulty.score !== null && lot.difficulty.score < 2.0 && (
               <Badge variant="destructive" className="text-xs gap-1">
                 <Flame className="size-3" />
                 초보 주의
               </Badge>
             )}
-            {lot.curationTag === 'easy' && (
+            {lot.difficulty.score !== null && lot.difficulty.score >= 4.0 && (
               <Badge className="text-xs gap-1 bg-green-500 hover:bg-green-600">
                 <ThumbsUp className="size-3" />
                 초보 추천

@@ -156,12 +156,12 @@ export function MobileBottomPanel({
                   <span className="text-sm font-medium truncate">
                     {lot.name}
                   </span>
-                  {lot.curationTag === "hell" && (
+                  {lot.difficulty.score !== null && lot.difficulty.score < 2.0 && (
                     <span className="text-[10px] text-red-500 font-medium shrink-0">
                       주의
                     </span>
                   )}
-                  {lot.curationTag === "easy" && (
+                  {lot.difficulty.score !== null && lot.difficulty.score >= 4.0 && (
                     <span className="text-[10px] text-green-600 font-medium shrink-0">
                       추천
                     </span>
