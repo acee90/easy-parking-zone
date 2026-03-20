@@ -187,7 +187,7 @@ export function MapView({
     if (mapRef.current && moveTo) {
       animatingRef.current = true;
       mapRef.current.setZoom(16);
-      const adjusted = getPanToAdjusted(mapRef.current, navermaps, moveTo, true);
+      const adjusted = getPanToAdjusted(mapRef.current, navermaps, moveTo, !!selectedLotId);
       mapRef.current.panTo(adjusted);
       setTimeout(() => { animatingRef.current = false; }, 800);
     }
