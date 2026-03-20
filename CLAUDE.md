@@ -37,6 +37,14 @@ Add shadcn components with: `npx shadcn@latest add <component>`
   - 한국교통안전공단 주차정보 API (실시간 잔여면수, v2)
   - 카카오 Local API PK6 카테고리 (보완 데이터)
   - 자체 크라우드소싱 리뷰 (난이도 평가 — 핵심 차별화)
+- **Crawling**: Workers Cron 일일 자동 크롤링 (네이버 블로그/카페/YouTube)
+  - 3가지 검색 전략: 이름 기반(A) + POI 기반(B) + 지역 폴백(C)
+  - reliability 기반 우선순위 큐, 노이즈 필터(AD_PATTERNS), 다중 매칭
+  - `src/server/crawlers/` — 크롤러 코드, `src/server/scheduled.ts` — cron 핸들러
+- **Scoring**: Bayesian 통합 스코어링 (유저리뷰 + 커뮤니티 + 텍스트 감성분석)
+  - `scripts/compute-parking-stats.ts` — 배치 재계산
+  - `src/server/crawlers/lib/sentiment.ts` — 감성 분석 모듈
+  - `src/server/crawlers/lib/scoring.ts` — 관련도 채점 + 노이즈 필터
 
 ### Routing
 
@@ -54,6 +62,11 @@ File-based routing — routes live in `src/routes/`. TanStack Router auto-genera
 - `src/lib/geo-utils.ts` — 거리 계산, 난이도 해골 수/라벨 매핑
 - `src/hooks/useGeolocation.ts` — 브라우저 위치 감지 훅
 - `src/types/parking.ts` — ParkingLot 타입 정의 (주차장 데이터 스키마)
+- `src/server/crawlers/` — 크롤러 (naver-blogs, brave-search, youtube)
+- `src/server/crawlers/lib/` — 공통 유틸 (scoring, sentiment)
+- `src/server/scheduled.ts` — Workers Cron 핸들러
+- `scripts/` — 배치 스크립트 (import, compute, crawl dry-run 등)
+- `migrations/` — D1 마이그레이션 SQL (0001~0024)
 
 ### Difficulty Rating System
 
