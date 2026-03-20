@@ -473,7 +473,7 @@ async function main() {
     }
   }
   if (easyLots.length > 0) {
-    const easyAbove35 = easyLots.filter((l) => l.finalScore > 3.5).length;
+    const easyAbove35 = easyLots.filter((l) => l.finalScore >= 3.5).length;
     const easyBelow20 = easyLots.filter((l) => l.finalScore <= 2.0).length;
     console.log(
       `[검증] Easy 태그(데이터 있음): ${easyLots.length}개 → 3.5 이상: ${easyAbove35}개, 2.0 이하: ${easyBelow20}개`,
