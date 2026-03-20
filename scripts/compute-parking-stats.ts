@@ -15,8 +15,8 @@ import { timeDecay } from "../src/server/crawlers/lib/sentiment";
 const isDryRun = process.argv.includes("--dry-run");
 const BATCH_SIZE = 1000;
 
-/** 베이지안 신뢰 임계치 — 유효 5건 이상이면 실제 데이터가 지배 */
-const C = 5;
+/** 베이지안 신뢰 임계치 — prior의 가상 리뷰 수. 낮을수록 실제 데이터 반영이 빠름 */
+const C = 1.5;
 
 /** 소스별 기본 가중치 */
 const WEIGHTS = {
@@ -40,11 +40,11 @@ interface ParkingLot {
   curation_tag: string | null;
 }
 
+/**
+ * 구조적 사전 점수 계산 — §4.1
+ * curation_tag는 크롤링 가이드 용도로만 사용하며 점수에는 관여하지 않음.
+ */
 function computeStructuralPrior(lot: ParkingLot): number {
-  // 큐레이션 태그가 있으면 앵커 값 직접 사용
-  if (lot.curation_tag === "hell") return 1.3;  // 헬 임계값(1.5) 아래
-  if (lot.curation_tag === "easy") return 4.0;
-
   // 리뷰 없는 주차장은 "보통"(2.7-3.2) 범위에 모이도록 조정폭 축소
   let score = 3.0; // 중립 기본값 (보통 중앙)
 
@@ -197,6 +197,8 @@ function computeSourceScores(
 
 interface StatsRow {
   parkingLotId: string;
+  parkingLotName: string;
+  curationTag: string | null;
   structuralPrior: number;
   userReviewScore: number | null;
   userReviewCount: number;
@@ -342,6 +344,8 @@ async function main() {
 
       results.push({
         parkingLotId: lot.id,
+        parkingLotName: lot.name,
+        curationTag: lot.curation_tag,
         structuralPrior: prior,
         userReviewScore: sources.userReviewScore,
         userReviewCount: sources.userReviewCount,
@@ -441,31 +445,45 @@ async function main() {
     console.log(`\n[Stats] 결과 저장: ${outPath}`);
   }
 
-  // 큐레이션 일관성 검증
+  // 큐레이션 태그별 점수 분포 검증 (태그는 크롤링 가이드 전용, 점수 무관)
   const hellLots = results.filter(
     (r) =>
-      r.structuralPrior === 1.3 &&
+      r.curationTag === "hell" &&
       r.reliability !== "none" &&
       r.reliability !== "structural",
   );
   const easyLots = results.filter(
     (r) =>
-      r.structuralPrior === 4.0 &&
+      r.curationTag === "easy" &&
       r.reliability !== "none" &&
       r.reliability !== "structural",
   );
 
   if (hellLots.length > 0) {
     const hellBelow25 = hellLots.filter((l) => l.finalScore < 2.5).length;
+    const hellAbove35 = hellLots.filter((l) => l.finalScore >= 3.5).length;
     console.log(
-      `\n[검증] Hell 큐레이션(데이터 있음): ${hellLots.length}개 → 2.5 미만: ${hellBelow25}개 (${((hellBelow25 / hellLots.length) * 100).toFixed(0)}%)`,
+      `\n[검증] Hell 태그(데이터 있음): ${hellLots.length}개 → 2.5 미만: ${hellBelow25}개, 3.5 이상: ${hellAbove35}개`,
     );
+    if (hellAbove35 > 0) {
+      console.log(`  ⚠️ Hell 태그이나 긍정 점수:`);
+      for (const l of hellLots.filter((l) => l.finalScore >= 3.5)) {
+        console.log(`    ${l.parkingLotName} (${l.parkingLotId}) — score=${l.finalScore}`);
+      }
+    }
   }
   if (easyLots.length > 0) {
     const easyAbove35 = easyLots.filter((l) => l.finalScore > 3.5).length;
+    const easyBelow20 = easyLots.filter((l) => l.finalScore <= 2.0).length;
     console.log(
-      `[검증] Easy 큐레이션(데이터 있음): ${easyLots.length}개 → 3.5 이상: ${easyAbove35}개 (${((easyAbove35 / easyLots.length) * 100).toFixed(0)}%)`,
+      `[검증] Easy 태그(데이터 있음): ${easyLots.length}개 → 3.5 이상: ${easyAbove35}개, 2.0 이하: ${easyBelow20}개`,
     );
+    if (easyBelow20 > 0) {
+      console.log(`  ⚠️ Easy 태그이나 부정 점수:`);
+      for (const l of easyLots.filter((l) => l.finalScore <= 2.0)) {
+        console.log(`    ${l.parkingLotName} (${l.parkingLotId}) — score=${l.finalScore}`);
+      }
+    }
   }
 
   // 커버리지 비교
