@@ -20,7 +20,8 @@
     "curate-hell": "bun run scripts/curate-hell-parking.ts",
     "crawl-youtube": "bun run scripts/crawl-youtube.ts",
     "seed-reviews": "bun run scripts/seed-reviews.ts",
-    "collect-1010": "bun run scripts/collect-1010-channel.ts"
+    "collect-1010": "bun run scripts/collect-1010-channel.ts",
+    "sync-public-data": "bun run scripts/sync-public-data.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",
