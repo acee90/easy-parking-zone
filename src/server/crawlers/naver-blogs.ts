@@ -23,8 +23,12 @@ import {
   scoreBlogRelevance,
 } from "./lib/scoring";
 
-/** POI 있는 주차장은 쿼리 2배(A+B)이므로 30초 타임아웃 내 안전한 수 */
-const BATCH_SIZE = 15;
+/**
+ * Workers Cron 제한: CPU 30초 (네트워크 대기 미포함), wall-clock 15분.
+ * fetch() 대기는 CPU에 안 잡히므로 wall-clock 기준으로 여유 있게 설정.
+ * 200개 × ~1.5초/lot = ~5분 (15분의 1/3, 여유 충분)
+ */
+const BATCH_SIZE = 200;
 const DELAY = 300;
 const RELEVANCE_THRESHOLD = 60;
 const RESULTS_PER_QUERY = 5;
