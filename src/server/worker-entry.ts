@@ -12,6 +12,7 @@ interface Env {
   NAVER_CLIENT_ID: string;
   NAVER_CLIENT_SECRET: string;
   YOUTUBE_API_KEY: string;
+  BRAVE_SEARCH_API_KEY: string;
 }
 
 const startHandler = createStartHandler(defaultStreamHandler);
