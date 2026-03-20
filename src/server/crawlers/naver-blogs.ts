@@ -24,11 +24,15 @@ import {
 } from "./lib/scoring";
 
 /**
- * Workers Cron 제한: CPU 30초 (네트워크 대기 미포함), wall-clock 15분.
- * fetch() 대기는 CPU에 안 잡히므로 wall-clock 기준으로 여유 있게 설정.
- * 200개 × ~1.5초/lot = ~5분 (15분의 1/3, 여유 충분)
+ * Workers Cron 제한:
+ * - CPU 30초 (fetch 대기 미포함), wall-clock 15분
+ * - subrequest 1,000개/invocation (fetch + D1 쿼리 모두 포함)
+ *
+ * subrequest 1,000개 제한: 네이버 fetch + D1 쿼리 + YouTube 등 합산.
+ * 실측 기준 ~25개에서 한도 도달 → 여유 두고 25개.
+ * wall-clock: 25 × ~1.5초 = ~38초 (15분 대비 충분)
  */
-const BATCH_SIZE = 200;
+const BATCH_SIZE = 25;
 const DELAY = 300;
 const RELEVANCE_THRESHOLD = 60;
 const RESULTS_PER_QUERY = 5;
