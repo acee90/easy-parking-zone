@@ -2,8 +2,6 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { getDb } from "@/db";
 import { sql } from "drizzle-orm";
-import { fetchSiteStats } from "@/server/parking";
-import { Header } from "@/components/Header";
 import {
   getDifficultyIcon,
   getDifficultyColor,
@@ -69,10 +67,7 @@ const fetchWikiHome = createServerFn({ method: "GET" }).handler(async () => {
 });
 
 export const Route = createFileRoute("/wiki/")({
-  loader: async () => {
-    const [data, siteStats] = await Promise.all([fetchWikiHome(), fetchSiteStats()]);
-    return { ...data, siteStats };
-  },
+  loader: () => fetchWikiHome(),
   head: () => ({
     meta: [
       { title: "주차장 위키 — 전국 주차장 난이도 정보 | 쉬운주차장" },
@@ -100,11 +95,10 @@ export const Route = createFileRoute("/wiki/")({
 });
 
 function WikiHomePage() {
-  const { hell, easy, popular, siteStats } = Route.useLoaderData();
+  const { hell, easy, popular } = Route.useLoaderData();
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header active="wiki" siteStats={siteStats} />
 
       {/* 2열 그리드 */}
       <div className="max-w-6xl mx-auto px-4 py-6">

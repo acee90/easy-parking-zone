@@ -9,6 +9,24 @@ import { DEFAULT_CENTER, DEFAULT_ZOOM } from "@/lib/geo-utils";
 import { Locate, Loader2 } from "lucide-react";
 import type { ParkingLot, MapBounds, MarkerCluster } from "@/types/parking";
 
+/** 사이드바/상세패널 너비를 고려하여 panTo 좌표를 보정 */
+function getPanToAdjusted(
+  map: naver.maps.Map,
+  navermaps: typeof naver.maps,
+  coord: { lat: number; lng: number },
+  hasDetailPanel: boolean,
+): naver.maps.LatLng {
+  const proj = map.getProjection();
+  const latLng = new navermaps.LatLng(coord.lat, coord.lng);
+  const pixel = proj.fromCoordToOffset(latLng);
+  // 사이드바 280px 항상 + 상세패널 360px은 열려있을 때만
+  const panelWidth = hasDetailPanel ? 280 + 360 : 280;
+  const panelOffset = window.innerWidth >= 768 ? panelWidth / 2 : 0;
+  return proj.fromOffsetToCoord(
+    new navermaps.Point(pixel.x - panelOffset, pixel.y)
+  );
+}
+
 interface MapViewProps {
   userLat: number;
   userLng: number;
@@ -168,8 +186,9 @@ export function MapView({
   useEffect(() => {
     if (mapRef.current && moveTo) {
       animatingRef.current = true;
-      mapRef.current.panTo(new navermaps.LatLng(moveTo.lat, moveTo.lng));
       mapRef.current.setZoom(16);
+      const adjusted = getPanToAdjusted(mapRef.current, navermaps, moveTo, true);
+      mapRef.current.panTo(adjusted);
       setTimeout(() => { animatingRef.current = false; }, 800);
     }
   }, [navermaps, moveTo]);
@@ -235,9 +254,11 @@ export function MapView({
                   onClick={() => {
                     if (!mapRef.current) return;
                     animatingRef.current = true;
+                    // 현재 줌 + 3 (클러스터가 풀릴만큼 확대), 최대 18
+                    const targetZoom = Math.min(mapRef.current.getZoom() + 3, 18);
                     mapRef.current.morph(
                       new navermaps.LatLng(c.lat, c.lng),
-                      16,
+                      targetZoom,
                     );
                     setTimeout(() => { animatingRef.current = false; }, 800);
                   }}
@@ -257,7 +278,9 @@ export function MapView({
                   onMarkerClick(lot);
                   if (mapRef.current) {
                     animatingRef.current = true;
-                    mapRef.current.panTo(new navermaps.LatLng(lot.lat, lot.lng));
+                    // 클릭 후 상세패널이 열리므로 true로 보정
+                    const adjusted = getPanToAdjusted(mapRef.current, navermaps, lot, true);
+                    mapRef.current.panTo(adjusted);
                     setTimeout(() => { animatingRef.current = false; }, 800);
                   }
                 }}

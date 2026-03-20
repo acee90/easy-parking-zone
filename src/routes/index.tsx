@@ -10,18 +10,18 @@ import { ParkingDetailPanel } from "@/components/ParkingDetailPanel";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { useParkingFilters } from "@/hooks/useParkingFilters";
 import { FloatingFilters } from "@/components/FloatingFilters";
-import { fetchParkingLots, fetchParkingClusters, fetchSiteStats } from "@/server/parking";
+import { fetchParkingLots, fetchParkingClusters } from "@/server/parking";
+import { Route as RootRoute } from "@/routes/__root";
 import type { ParkingLot, MapBounds, MarkerCluster } from "@/types/parking";
 import { Car } from "lucide-react";
 import { MapErrorBoundary } from "@/components/MapErrorBoundary";
 
 export const Route = createFileRoute("/")({
-  loader: () => fetchSiteStats(),
   component: App,
 });
 
 function App() {
-  const siteStats = Route.useLoaderData();
+  const siteStats = RootRoute.useLoaderData();
   const {
     lat: userLat,
     lng: userLng,
@@ -56,7 +56,7 @@ function App() {
       lng: (bounds.west + bounds.east) / 2,
     });
     try {
-      const clusterMaxZoom = Number(import.meta.env.VITE_CLUSTER_MAX_ZOOM) || 9;
+      const clusterMaxZoom = Number(import.meta.env.VITE_CLUSTER_MAX_ZOOM) || 14;
       if (zoom <= clusterMaxZoom) {
         const [clusterData, lots] = await Promise.all([
           fetchParkingClusters({ data: { ...bounds, zoom, filters } }),
@@ -114,33 +114,9 @@ function App() {
     <div className="flex h-dvh flex-col">
       <Header onSearchSelect={handleSearchSelect} onPlaceSelect={handlePlaceSelect} siteStats={siteStats} />
 
-      <div className="flex flex-1 overflow-hidden">
-        {/* 리스트 사이드바 — 항상 표시 (데스크톱) */}
-        <ParkingSidebar
-          parkingLots={displayedLots}
-          selectedLotId={selectedLot?.id ?? null}
-          hoveredLotId={hoveredLotId}
-          onSelect={handleSidebarSelect}
-          onHover={setHoveredLotId}
-          userLat={userLat}
-          userLng={userLng}
-          userLocated={userLocated}
-          mapCenter={mapCenter}
-        />
-
-        {/* 상세 패널 — 선택 시에만 표시 (데스크톱) */}
-        {selectedLot && (
-          <ParkingDetailPanel
-            lot={selectedLot}
-            onClose={() => setSelectedLot(null)}
-            userLat={userLat}
-            userLng={userLng}
-            userLocated={userLocated}
-          />
-        )}
-
-        {/* 지도 */}
-        <div className="flex-1 relative">
+      <div className="relative flex-1 overflow-hidden">
+        {/* 지도 — full width */}
+        <div className="absolute inset-0">
           <FloatingFilters
             filters={filters}
             onToggle={toggle}
@@ -180,6 +156,30 @@ function App() {
                 />
               </NavermapsProvider>
             </MapErrorBoundary>
+          )}
+        </div>
+
+        {/* 아일랜드 패널 — 지도 위에 float */}
+        <div className="hidden md:flex absolute top-3 left-3 bottom-3 z-10 gap-2 pointer-events-none">
+          <ParkingSidebar
+            parkingLots={displayedLots}
+            selectedLotId={selectedLot?.id ?? null}
+            hoveredLotId={hoveredLotId}
+            onSelect={handleSidebarSelect}
+            onHover={setHoveredLotId}
+            userLat={userLat}
+            userLng={userLng}
+            userLocated={userLocated}
+            mapCenter={mapCenter}
+          />
+          {selectedLot && (
+            <ParkingDetailPanel
+              lot={selectedLot}
+              onClose={() => setSelectedLot(null)}
+              userLat={userLat}
+              userLng={userLng}
+              userLocated={userLocated}
+            />
           )}
         </div>
       </div>

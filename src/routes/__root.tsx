@@ -1,4 +1,6 @@
-import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
+import { HeadContent, Outlet, Scripts, createRootRoute, useMatches } from '@tanstack/react-router'
+import { Header } from '@/components/Header'
+import { fetchSiteStats } from '@/server/parking'
 
 import appCss from '../styles.css?url'
 
@@ -8,6 +10,8 @@ const SITE_TITLE = '쉬운주차장 (쉽주) - 전국 주차장 난이도 지도
 const SITE_DESC = '초보운전자를 위한 전국 주차장 난이도 정보! "쉽주"에서 주차장 찾기, 요금, 편의 시설을 한눈에 확인하세요.'
 
 export const Route = createRootRoute({
+  loader: () => fetchSiteStats(),
+  component: RootComponent,
   head: () => ({
     meta: [
       {
@@ -139,6 +143,23 @@ export const Route = createRootRoute({
 
   shellComponent: RootDocument,
 })
+
+function RootComponent() {
+  const siteStats = Route.useLoaderData();
+  // 현재 라우트 경로로 active 탭 결정
+  const matches = useMatches();
+  const lastMatch = matches[matches.length - 1];
+  const active = lastMatch?.fullPath?.startsWith('/wiki') ? 'wiki' as const : 'map' as const;
+  // 지도 페이지가 아니면 검색바/필터 없음 — 각 페이지에서 별도 처리
+  const isMap = active === 'map';
+
+  return (
+    <>
+      {!isMap && <Header active={active} siteStats={siteStats} />}
+      <Outlet />
+    </>
+  );
+}
 
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (
