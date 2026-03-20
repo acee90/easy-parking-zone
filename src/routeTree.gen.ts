@@ -10,6 +10,8 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as SitemapStaticDotxmlRouteImport } from './routes/sitemap-static[.]xml'
+import { Route as SitemapIdDotxmlRouteImport } from './routes/sitemap-$id[.]xml'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as WikiIndexRouteImport } from './routes/wiki/index'
@@ -22,6 +24,16 @@ import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
   path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SitemapStaticDotxmlRoute = SitemapStaticDotxmlRouteImport.update({
+  id: '/sitemap-static.xml',
+  path: '/sitemap-static.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SitemapIdDotxmlRoute = SitemapIdDotxmlRouteImport.update({
+  id: '/sitemap-$id.xml',
+  path: '/sitemap-$id.xml',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminRoute = AdminRouteImport.update({
@@ -68,6 +80,8 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
+  '/sitemap-$id.xml': typeof SitemapIdDotxmlRoute
+  '/sitemap-static.xml': typeof SitemapStaticDotxmlRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/admin/reviews': typeof AdminReviewsRoute
   '/admin/web-sources': typeof AdminWebSourcesRoute
@@ -78,6 +92,8 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/sitemap-$id.xml': typeof SitemapIdDotxmlRoute
+  '/sitemap-static.xml': typeof SitemapStaticDotxmlRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/admin/reviews': typeof AdminReviewsRoute
   '/admin/web-sources': typeof AdminWebSourcesRoute
@@ -90,6 +106,8 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
+  '/sitemap-$id.xml': typeof SitemapIdDotxmlRoute
+  '/sitemap-static.xml': typeof SitemapStaticDotxmlRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/admin/reviews': typeof AdminReviewsRoute
   '/admin/web-sources': typeof AdminWebSourcesRoute
@@ -103,6 +121,8 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/admin'
+    | '/sitemap-$id.xml'
+    | '/sitemap-static.xml'
     | '/sitemap.xml'
     | '/admin/reviews'
     | '/admin/web-sources'
@@ -113,6 +133,8 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/sitemap-$id.xml'
+    | '/sitemap-static.xml'
     | '/sitemap.xml'
     | '/admin/reviews'
     | '/admin/web-sources'
@@ -124,6 +146,8 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/admin'
+    | '/sitemap-$id.xml'
+    | '/sitemap-static.xml'
     | '/sitemap.xml'
     | '/admin/reviews'
     | '/admin/web-sources'
@@ -136,6 +160,8 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRouteWithChildren
+  SitemapIdDotxmlRoute: typeof SitemapIdDotxmlRoute
+  SitemapStaticDotxmlRoute: typeof SitemapStaticDotxmlRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   WikiSlugRoute: typeof WikiSlugRoute
   WikiIndexRoute: typeof WikiIndexRoute
@@ -149,6 +175,20 @@ declare module '@tanstack/react-router' {
       path: '/sitemap.xml'
       fullPath: '/sitemap.xml'
       preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sitemap-static.xml': {
+      id: '/sitemap-static.xml'
+      path: '/sitemap-static.xml'
+      fullPath: '/sitemap-static.xml'
+      preLoaderRoute: typeof SitemapStaticDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sitemap-$id.xml': {
+      id: '/sitemap-$id.xml'
+      path: '/sitemap-$id.xml'
+      fullPath: '/sitemap-$id.xml'
+      preLoaderRoute: typeof SitemapIdDotxmlRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin': {
@@ -227,6 +267,8 @@ const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRouteWithChildren,
+  SitemapIdDotxmlRoute: SitemapIdDotxmlRoute,
+  SitemapStaticDotxmlRoute: SitemapStaticDotxmlRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   WikiSlugRoute: WikiSlugRoute,
   WikiIndexRoute: WikiIndexRoute,
