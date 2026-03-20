@@ -2,6 +2,7 @@ import { createFileRoute, Outlet, Link, useMatches } from "@tanstack/react-route
 import { useState, useEffect } from "react";
 import { authClient } from "@/lib/auth-client";
 import { checkAdminAccess } from "@/server/admin";
+import { fetchReportStats } from "@/server/admin-reports";
 
 export const Route = createFileRoute("/admin")({
   component: AdminLayout,
@@ -10,17 +11,25 @@ export const Route = createFileRoute("/admin")({
 const NAV_ITEMS = [
   { to: "/admin/web-sources", label: "웹 소스 관리" },
   { to: "/admin/reviews", label: "유저 리뷰 관리" },
+  { to: "/admin/reports", label: "신고 관리" },
 ] as const;
 
 function AdminLayout() {
   const { data: session } = authClient.useSession();
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+  const [pendingReports, setPendingReports] = useState(0);
   const matches = useMatches();
   const currentPath = matches[matches.length - 1]?.fullPath;
 
   useEffect(() => {
     checkAdminAccess().then((r) => setIsAdmin(r.isAdmin));
   }, [session]);
+
+  useEffect(() => {
+    if (isAdmin) {
+      fetchReportStats().then((s) => setPendingReports(s.counts.pending ?? 0)).catch(() => {});
+    }
+  }, [isAdmin]);
 
   if (isAdmin === null) {
     return (
@@ -52,13 +61,18 @@ function AdminLayout() {
                 <Link
                   key={to}
                   to={to}
-                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors relative ${
                     currentPath === to
                       ? "bg-gray-900 text-white"
                       : "text-gray-500 hover:text-gray-900 hover:bg-gray-100"
                   }`}
                 >
                   {label}
+                  {to === "/admin/reports" && pendingReports > 0 && (
+                    <span className="ml-1.5 inline-flex items-center justify-center min-w-[18px] h-[18px] text-[10px] font-bold bg-red-500 text-white rounded-full px-1">
+                      {pendingReports}
+                    </span>
+                  )}
                 </Link>
               ))}
             </nav>

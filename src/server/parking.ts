@@ -246,6 +246,7 @@ export const fetchBlogPosts = createServerFn({ method: "GET" })
 
     const rows = await db
       .select({
+        id: schema.webSources.id,
         title: schema.webSources.title,
         content: schema.webSources.content,
         source_url: schema.webSources.sourceUrl,

@@ -69,6 +69,7 @@ export interface MarkerCluster {
 }
 
 export interface BlogPost {
+  id: number
   title: string
   snippet: string            // 네이버 검색 스니펫 (원문 일부)
   sourceUrl: string
