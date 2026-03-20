@@ -1,44 +1,36 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { getDb } from "@/db";
 import { sql } from "drizzle-orm";
-import { makeParkingSlug } from "@/lib/slug";
+import { URLS_PER_SITEMAP } from "@/lib/sitemap";
 
-async function handleSitemap() {
+async function handleSitemapIndex() {
   const db = getDb();
 
-  const rows = (await db.all(
-    sql`SELECT id, name FROM parking_lots ORDER BY id`
-  )) as { id: string; name: string }[];
+  const result = (await db.get(
+    sql`SELECT COUNT(*) as count FROM parking_lots`
+  )) as { count: number };
 
+  const totalPages = Math.ceil(result.count / URLS_PER_SITEMAP);
   const base = "https://easy-parking.xyz";
   const now = new Date().toISOString().split("T")[0];
 
   let xml = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url>
-    <loc>${base}/</loc>
-    <changefreq>daily</changefreq>
-    <priority>1.0</priority>
-  </url>
-  <url>
-    <loc>${base}/wiki</loc>
+<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <sitemap>
+    <loc>${base}/sitemap-static.xml</loc>
     <lastmod>${now}</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.9</priority>
-  </url>
-`;
+  </sitemap>`;
 
-  for (const row of rows) {
-    const slug = encodeURI(makeParkingSlug(row.name, row.id));
-    xml += `  <url>
-    <loc>${base}/wiki/${slug}</loc>
-    <changefreq>weekly</changefreq>
-    <priority>0.6</priority>
-  </url>
-`;
+  for (let i = 0; i < totalPages; i++) {
+    xml += `
+  <sitemap>
+    <loc>${base}/sitemap-${i}.xml</loc>
+    <lastmod>${now}</lastmod>
+  </sitemap>`;
   }
 
-  xml += `</urlset>`;
+  xml += `
+</sitemapindex>`;
 
   return new Response(xml, {
     headers: {
@@ -51,7 +43,7 @@ async function handleSitemap() {
 export const Route = createFileRoute("/sitemap.xml")({
   server: {
     handlers: {
-      GET: () => handleSitemap(),
+      GET: () => handleSitemapIndex(),
     },
   },
 });
