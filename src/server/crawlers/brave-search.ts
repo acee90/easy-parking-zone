@@ -109,7 +109,19 @@ async function selectPriorityLots(
 export async function runBraveSearchBatch(
   db: D1Database,
   env: { BRAVE_SEARCH_API_KEY: string },
-): Promise<{ processed: number; saved: number; queriesUsed: number; done: boolean }> {
+): Promise<{ processed: number; saved: number; queriesUsed: number; done: boolean; skipped?: boolean }> {
+  // 하루 1회만 실행 (무료 2,000쿼리/월 = ~66/일)
+  const lastRun = await db
+    .prepare("SELECT last_run_at FROM crawl_progress WHERE crawler_id = 'brave_search'")
+    .first<{ last_run_at: string }>();
+  if (lastRun?.last_run_at) {
+    const lastDate = lastRun.last_run_at.slice(0, 10);
+    const today = new Date().toISOString().slice(0, 10);
+    if (lastDate === today) {
+      return { processed: 0, saved: 0, queriesUsed: 0, done: false, skipped: true };
+    }
+  }
+
   const lots = await selectPriorityLots(db, BATCH_SIZE);
 
   if (lots.length === 0) {
@@ -181,8 +193,9 @@ export async function runBraveSearchBatch(
   }
 
   const allStatements = [...insertBatch, ...progressBatch];
-  if (allStatements.length > 0) {
-    await db.batch(allStatements);
+  const D1_BATCH_LIMIT = 500;
+  for (let i = 0; i < allStatements.length; i += D1_BATCH_LIMIT) {
+    await db.batch(allStatements.slice(i, i + D1_BATCH_LIMIT));
   }
 
   await db

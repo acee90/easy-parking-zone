@@ -109,7 +109,10 @@ function buildQueries(lot: LotRow): CrawlQuery[] {
   }
 
   // B: POI 태그가 있으면 추가
-  const poiTags: string[] = lot.poi_tags ? JSON.parse(lot.poi_tags) : [];
+  let poiTags: string[] = [];
+  if (lot.poi_tags) {
+    try { poiTags = JSON.parse(lot.poi_tags); } catch { /* malformed JSON → skip */ }
+  }
   if (poiTags.length > 0) {
     queries.push({ strategy: "poi", query: `${poiTags[0]} 주차장` });
   }
@@ -148,7 +151,7 @@ function scanMultiMatches(
       .toLowerCase()
       .replace(/주차장|공영|노외|노상|부설/g, "")
       .split(/\s+/)
-      .filter((w) => w.length >= 2);
+      .filter((w) => w.length >= 3);
 
     if (keywords.length > 0 && keywords.some((kw) => combined.includes(kw))) {
       matched.push(lot.id);
@@ -329,11 +332,13 @@ export async function runNaverBlogsBatch(
   }
 
   // 배치 실행: INSERT → MATCH 순서 (INSERT 먼저 해야 서브쿼리 가능)
-  if (allInserts.length > 0) {
-    await db.batch(allInserts);
+  // D1 batch 한도: 최대 1,000 statements/batch
+  const D1_BATCH_LIMIT = 500;
+  for (let i = 0; i < allInserts.length; i += D1_BATCH_LIMIT) {
+    await db.batch(allInserts.slice(i, i + D1_BATCH_LIMIT));
   }
-  if (allMatches.length > 0) {
-    await db.batch(allMatches);
+  for (let i = 0; i < allMatches.length; i += D1_BATCH_LIMIT) {
+    await db.batch(allMatches.slice(i, i + D1_BATCH_LIMIT));
   }
   if (progressBatch.length > 0) {
     await db.batch(progressBatch);
