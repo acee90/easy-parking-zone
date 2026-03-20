@@ -266,15 +266,16 @@ async function processSearchResults(
 export async function runNaverBlogsBatch(
   db: D1Database,
   env: { NAVER_CLIENT_ID: string; NAVER_CLIENT_SECRET: string },
-): Promise<{ processed: number; saved: number; matched: number; done: boolean }> {
+): Promise<{ processed: number; saved: number; matched: number; done: boolean; changedLotIds: string[] }> {
   const lots = await selectPriorityLots(db, BATCH_SIZE);
 
   if (lots.length === 0) {
-    return { processed: 0, saved: 0, matched: 0, done: true };
+    return { processed: 0, saved: 0, matched: 0, done: true, changedLotIds: [] };
   }
 
   let saved = 0;
   let matched = 0;
+  const changedLotIds = new Set<string>();
   const allInserts: D1PreparedStatement[] = [];
   const allMatches: D1PreparedStatement[] = [];
   const progressBatch: D1PreparedStatement[] = [];
@@ -320,6 +321,7 @@ export async function runNaverBlogsBatch(
     }
 
     saved += lotSaved;
+    if (lotSaved > 0) changedLotIds.add(lot.id);
 
     progressBatch.push(
       db.prepare(
@@ -355,5 +357,5 @@ export async function runNaverBlogsBatch(
     .bind(lots.length)
     .run();
 
-  return { processed: lots.length, saved, matched, done: lots.length < BATCH_SIZE };
+  return { processed: lots.length, saved, matched, done: lots.length < BATCH_SIZE, changedLotIds: [...changedLotIds] };
 }
