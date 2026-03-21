@@ -25,6 +25,7 @@ import {
   Tag,
   ExternalLink,
   Map,
+  ChevronRight,
 } from "lucide-react";
 
 export const Route = createFileRoute("/wiki/$slug")({
