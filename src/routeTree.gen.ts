@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as SitemapTestDotxmlRouteImport } from './routes/sitemap-test[.]xml'
 import { Route as SitemapStaticDotxmlRouteImport } from './routes/sitemap-static[.]xml'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
@@ -25,6 +26,11 @@ import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
   path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SitemapTestDotxmlRoute = SitemapTestDotxmlRouteImport.update({
+  id: '/sitemap-test.xml',
+  path: '/sitemap-test.xml',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SitemapStaticDotxmlRoute = SitemapStaticDotxmlRouteImport.update({
@@ -87,6 +93,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
   '/sitemap-static.xml': typeof SitemapStaticDotxmlRoute
+  '/sitemap-test.xml': typeof SitemapTestDotxmlRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/admin/reports': typeof AdminReportsRoute
   '/admin/reviews': typeof AdminReviewsRoute
@@ -100,6 +107,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/sitemap-static.xml': typeof SitemapStaticDotxmlRoute
+  '/sitemap-test.xml': typeof SitemapTestDotxmlRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/admin/reports': typeof AdminReportsRoute
   '/admin/reviews': typeof AdminReviewsRoute
@@ -115,6 +123,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
   '/sitemap-static.xml': typeof SitemapStaticDotxmlRoute
+  '/sitemap-test.xml': typeof SitemapTestDotxmlRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/admin/reports': typeof AdminReportsRoute
   '/admin/reviews': typeof AdminReviewsRoute
@@ -131,6 +140,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/sitemap-static.xml'
+    | '/sitemap-test.xml'
     | '/sitemap.xml'
     | '/admin/reports'
     | '/admin/reviews'
@@ -144,6 +154,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/sitemap-static.xml'
+    | '/sitemap-test.xml'
     | '/sitemap.xml'
     | '/admin/reports'
     | '/admin/reviews'
@@ -158,6 +169,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/sitemap-static.xml'
+    | '/sitemap-test.xml'
     | '/sitemap.xml'
     | '/admin/reports'
     | '/admin/reviews'
@@ -173,6 +185,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRouteWithChildren
   SitemapStaticDotxmlRoute: typeof SitemapStaticDotxmlRoute
+  SitemapTestDotxmlRoute: typeof SitemapTestDotxmlRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   SitemapIdRoute: typeof SitemapIdRoute
   WikiSlugRoute: typeof WikiSlugRoute
@@ -187,6 +200,13 @@ declare module '@tanstack/react-router' {
       path: '/sitemap.xml'
       fullPath: '/sitemap.xml'
       preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sitemap-test.xml': {
+      id: '/sitemap-test.xml'
+      path: '/sitemap-test.xml'
+      fullPath: '/sitemap-test.xml'
+      preLoaderRoute: typeof SitemapTestDotxmlRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sitemap-static.xml': {
@@ -289,6 +309,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRouteWithChildren,
   SitemapStaticDotxmlRoute: SitemapStaticDotxmlRoute,
+  SitemapTestDotxmlRoute: SitemapTestDotxmlRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   SitemapIdRoute: SitemapIdRoute,
   WikiSlugRoute: WikiSlugRoute,
