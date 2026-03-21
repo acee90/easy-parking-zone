@@ -2,7 +2,6 @@ import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { Badge } from "@/components/ui/badge";
 import {
   fetchParkingDetail,
-  fetchNearbyParkingLots,
 } from "@/server/parking";
 import {
   getDifficultyIcon,
@@ -13,7 +12,7 @@ import {
 import { parseIdFromSlug, makeParkingSlug } from "@/lib/slug";
 import { ParkingTabs } from "@/components/ParkingTabs";
 import { VoteBookmarkBar } from "@/components/VoteBookmarkBar";
-import type { ParkingLot } from "@/types/parking";
+import { WikiMiniMap } from "@/components/WikiMiniMap";
 
 import {
   MapPin,
@@ -35,10 +34,7 @@ export const Route = createFileRoute("/wiki/$slug")({
     if (!id) throw notFound();
     const lot = await fetchParkingDetail({ data: { id } });
     if (!lot) throw notFound();
-    const nearby = await fetchNearbyParkingLots({
-      data: { lat: lot.lat, lng: lot.lng, excludeId: lot.id },
-    });
-    return { lot, nearby };
+    return { lot };
   },
   head: ({ loaderData }) => {
     const lot = loaderData?.lot;
@@ -72,7 +68,7 @@ export const Route = createFileRoute("/wiki/$slug")({
 });
 
 function WikiDetailPage() {
-  const { lot, nearby } = Route.useLoaderData();
+  const { lot } = Route.useLoaderData();
 
   const icon = getDifficultyIcon(lot.difficulty.score);
   const label = getDifficultyLabel(lot.difficulty.score);
@@ -274,52 +270,15 @@ function WikiDetailPage() {
           </div>
         </section>
 
+        {/* 미니 지도 */}
+        <WikiMiniMap lat={lot.lat} lng={lot.lng} name={lot.name} />
+
         {/* 리뷰/블로그/영상 탭 */}
         <section className="bg-white rounded-xl border p-5">
           <ParkingTabs lotId={lot.id} expanded />
         </section>
-
-        {/* 근처 주차장 */}
-        {nearby.length > 0 && (
-          <section className="bg-white rounded-xl border p-5 space-y-3">
-            <h2 className="font-semibold text-base">근처 주차장</h2>
-            <div className="grid gap-2">
-              {nearby.map((n) => (
-                <NearbyCard key={n.id} lot={n} />
-              ))}
-            </div>
-          </section>
-        )}
       </div>
     </div>
   );
 }
 
-function NearbyCard({ lot }: { lot: ParkingLot }) {
-  const icon = getDifficultyIcon(lot.difficulty.score);
-  return (
-    <Link
-      to="/wiki/$slug"
-      params={{ slug: makeParkingSlug(lot.name, lot.id) }}
-      className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-50 transition-colors"
-    >
-      <div
-        className={`size-3 rounded-full shrink-0 ${getDifficultyColor(lot.difficulty.score)}`}
-      />
-      <div className="min-w-0 flex-1">
-        <div className="text-sm font-medium truncate">{lot.name}</div>
-        <div className="text-xs text-muted-foreground truncate">
-          {lot.address}
-        </div>
-      </div>
-      <div className="shrink-0 text-sm">{icon}</div>
-      <Badge
-        variant={lot.pricing.isFree ? "default" : "outline"}
-        className="shrink-0 text-xs"
-      >
-        {lot.pricing.isFree ? "무료" : "유료"}
-      </Badge>
-      <ChevronRight className="size-4 text-muted-foreground shrink-0" />
-    </Link>
-  );
-}
