@@ -29,7 +29,7 @@ export default {
 
     // Sitemap: TanStack Start 서버 핸들러가 Content-Type을 text/html로 덮어쓰거나
     // 동적 라우트($id)가 404를 반환하는 문제 우회 — worker-entry에서 직접 처리
-    if (url.pathname === "/sitemap.xml" || url.pathname === "/sitemap-static.xml" || url.pathname === "/sitemap-test.xml" || url.pathname.startsWith("/sitemap/")) {
+    if (url.pathname.match(/^\/sitemap(-\w+)?\.xml$/) || url.pathname.startsWith("/sitemap/")) {
       const { handleSitemap } = await import("./sitemap-handler");
       return handleSitemap(url.pathname, env.DB);
     }

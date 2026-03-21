@@ -41,7 +41,7 @@ async function sitemapIndex(db: D1Database): Promise<Response> {
   for (let i = 0; i < totalPages; i++) {
     xml += `
   <sitemap>
-    <loc>${BASE}/sitemap/${i}</loc>
+    <loc>${BASE}/sitemap-${i}.xml</loc>
     <lastmod>${now}</lastmod>
   </sitemap>`;
   }
@@ -134,8 +134,8 @@ export async function handleSitemap(pathname: string, db: D1Database): Promise<R
   if (pathname === "/sitemap-static.xml") return sitemapStatic();
   if (pathname === "/sitemap-test.xml") return sitemapTest(db);
 
-  // /sitemap/0, /sitemap/1, ...
-  const match = pathname.match(/^\/sitemap\/(\d+)$/);
+  // /sitemap-0.xml, /sitemap-1.xml, ...
+  const match = pathname.match(/^\/sitemap-(\d+)\.xml$/);
   if (match) {
     const id = parseInt(match[1], 10);
     if (id >= 0 && id <= 999) return sitemapPage(db, id);
