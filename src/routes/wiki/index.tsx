@@ -1,5 +1,6 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
+import { useState } from "react";
 import { getDb } from "@/db";
 import { sql } from "drizzle-orm";
 import {
@@ -8,8 +9,9 @@ import {
 } from "@/lib/geo-utils";
 import { makeParkingSlug } from "@/lib/slug";
 import { rowToParkingLot, type ParkingLotRow } from "@/server/transforms";
+import { searchParkingLots } from "@/server/parking";
 import type { ParkingLot } from "@/types/parking";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Search, X, Loader2 } from "lucide-react";
 
 const fetchWikiHome = createServerFn({ method: "GET" }).handler(async () => {
   const db = getDb();
@@ -94,11 +96,101 @@ export const Route = createFileRoute("/wiki/")({
   component: WikiHomePage,
 });
 
+function WikiSearchBar() {
+  const navigate = useNavigate();
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<ParkingLot[] | null>(null);
+  const [searching, setSearching] = useState(false);
+
+  const handleSearch = async () => {
+    const q = query.trim();
+    if (q.length < 2) return;
+    setSearching(true);
+    try {
+      const lots = await searchParkingLots({ data: { query: q } });
+      setResults(lots);
+    } catch {
+      setResults([]);
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") handleSearch();
+  };
+
+  const clear = () => {
+    setQuery("");
+    setResults(null);
+  };
+
+  return (
+    <div className="max-w-2xl mx-auto px-4 pt-6 pb-2">
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="주차장 이름 또는 주소로 검색"
+          className="w-full pl-9 pr-16 py-2.5 text-sm rounded-lg border bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+        />
+        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+          {query && (
+            <button onClick={clear} className="p-1 hover:bg-gray-100 rounded-full cursor-pointer">
+              <X className="size-3.5 text-muted-foreground" />
+            </button>
+          )}
+          <button
+            onClick={handleSearch}
+            disabled={query.trim().length < 2 || searching}
+            className="px-2.5 py-1 text-xs font-medium bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+          >
+            {searching ? <Loader2 className="size-3 animate-spin" /> : "검색"}
+          </button>
+        </div>
+      </div>
+
+      {results !== null && (
+        <div className="mt-3 bg-white rounded-lg border overflow-hidden">
+          {results.length === 0 ? (
+            <p className="text-xs text-muted-foreground text-center py-6">
+              검색 결과가 없습니다
+            </p>
+          ) : (
+            <div className="divide-y max-h-80 overflow-y-auto">
+              {results.map((lot) => (
+                <Link
+                  key={lot.id}
+                  to="/wiki/$slug"
+                  params={{ slug: makeParkingSlug(lot.name, lot.id) }}
+                  className="flex items-center gap-2.5 px-4 py-2.5 hover:bg-gray-50 transition-colors"
+                >
+                  <div className={`size-2.5 rounded-full shrink-0 ${getDifficultyColor(lot.difficulty.score)}`} />
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-medium truncate">{lot.name}</div>
+                    <div className="text-xs text-muted-foreground truncate">{lot.address}</div>
+                  </div>
+                  <span className="shrink-0 text-sm">{getDifficultyIcon(lot.difficulty.score)}</span>
+                  <ChevronRight className="size-3.5 text-muted-foreground shrink-0" />
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function WikiHomePage() {
   const { hell, easy, popular } = Route.useLoaderData();
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <WikiSearchBar />
 
       {/* 2열 그리드 */}
       <div className="max-w-6xl mx-auto px-4 py-6">
