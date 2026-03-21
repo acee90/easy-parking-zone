@@ -128,7 +128,15 @@ export const searchParkingLots = createServerFn({ method: "GET" })
   .inputValidator((input: { query: string }): { query: string } => input)
   .handler(async ({ data }) => {
     const db = getDb();
-    const q = `%${data.query}%`;
+
+    // 단어 분리: "스타필드 위례" → 각 단어가 모두 포함되어야 매칭
+    const words = data.query.trim().split(/\s+/).filter((w) => w.length >= 1);
+    if (words.length === 0) return [];
+
+    const conditions = words.map((w) => {
+      const like = `%${w}%`;
+      return sql`(p.name LIKE ${like} OR p.address LIKE ${like} OR p.poi_tags LIKE ${like})`;
+    });
 
     const rows = await db.all(
       sql`SELECT p.*,
@@ -137,7 +145,7 @@ export const searchParkingLots = createServerFn({ method: "GET" })
           s.reliability
         FROM parking_lots p
         LEFT JOIN parking_lot_stats s ON s.parking_lot_id = p.id
-        WHERE p.name LIKE ${q} OR p.address LIKE ${q} OR p.poi_tags LIKE ${q}
+        WHERE ${sql.join(conditions, sql` AND `)}
         LIMIT 20`
     );
 
