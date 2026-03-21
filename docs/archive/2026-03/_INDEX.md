@@ -13,3 +13,16 @@
 - `crawlers/parking-scoring-algorithm.md` — 스코어링 알고리즘 설계
 - `crawlers/crawlers.analysis.md` — Gap 분석 (93%)
 - `crawlers/crawlers.report.md` — 완료 리포트
+
+## wiki-map
+
+| Item | Value |
+|------|-------|
+| Feature | wiki-map (위키 상세 미니 지도) |
+| Match Rate | 93% |
+| PR | #54 |
+| Archived | 2026-03-22 |
+
+### Documents
+- `wiki-map/wiki-map.plan.md` — Plan Plus 문서
+- `wiki-map/wiki-map.report.md` — 완료 리포트
