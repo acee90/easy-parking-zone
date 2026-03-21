@@ -62,8 +62,15 @@ export const fetchContentReports = createServerFn({ method: "GET" })
     if (!request) throw new Error("서버 요청 필요");
     await requireAdmin(request);
 
-    const { status = "pending", targetType = "all", page = 1, limit = 30 } = data;
+    const ALLOWED_STATUSES = ["pending", "resolved", "dismissed", "all"] as const;
+    const ALLOWED_TYPES = ["web_source", "media", "review", "all"] as const;
+    const { status = "pending", targetType = "all", page = 1 } = data;
+    const limit = Math.min(data.limit ?? 30, 100);
     const offset = (page - 1) * limit;
+
+    if (!ALLOWED_STATUSES.includes(status as typeof ALLOWED_STATUSES[number])) throw new Error("잘못된 status");
+    if (!ALLOWED_TYPES.includes(targetType as typeof ALLOWED_TYPES[number])) throw new Error("잘못된 targetType");
+
     const db = getDb();
 
     const conditions: string[] = [];
@@ -77,29 +84,27 @@ export const fetchContentReports = createServerFn({ method: "GET" })
     const total = (countRows[0] as { total: number } | undefined)?.total ?? 0;
 
     const rows = await db.all(
-      sql.raw(
-        `SELECT cr.id, cr.target_type, cr.target_id, cr.parking_lot_id,
-                p.name as lot_name, cr.reason, cr.detail, cr.status,
-                cr.created_at, cr.resolved_at,
-                CASE
-                  WHEN cr.target_type = 'web_source' THEN ws.title
-                  WHEN cr.target_type = 'media' THEN pm.title
-                  WHEN cr.target_type = 'review' THEN ur.comment
-                END as target_title,
-                CASE
-                  WHEN cr.target_type = 'web_source' THEN ws.source_url
-                  WHEN cr.target_type = 'media' THEN pm.url
-                  WHEN cr.target_type = 'review' THEN ur.source_url
-                END as target_url
-         FROM content_reports cr
-         LEFT JOIN parking_lots p ON p.id = cr.parking_lot_id
-         LEFT JOIN web_sources ws ON cr.target_type = 'web_source' AND ws.id = cr.target_id
-         LEFT JOIN parking_media pm ON cr.target_type = 'media' AND pm.id = cr.target_id
-         LEFT JOIN user_reviews ur ON cr.target_type = 'review' AND ur.id = cr.target_id
-         ${where}
-         ORDER BY cr.created_at DESC
-         LIMIT ${limit} OFFSET ${offset}`
-      )
+      sql`SELECT cr.id, cr.target_type, cr.target_id, cr.parking_lot_id,
+              p.name as lot_name, cr.reason, cr.detail, cr.status,
+              cr.created_at, cr.resolved_at,
+              CASE
+                WHEN cr.target_type = 'web_source' THEN ws.title
+                WHEN cr.target_type = 'media' THEN pm.title
+                WHEN cr.target_type = 'review' THEN ur.comment
+              END as target_title,
+              CASE
+                WHEN cr.target_type = 'web_source' THEN ws.source_url
+                WHEN cr.target_type = 'media' THEN pm.url
+                WHEN cr.target_type = 'review' THEN ur.source_url
+              END as target_url
+       FROM content_reports cr
+       LEFT JOIN parking_lots p ON p.id = cr.parking_lot_id
+       LEFT JOIN web_sources ws ON cr.target_type = 'web_source' AND ws.id = cr.target_id
+       LEFT JOIN parking_media pm ON cr.target_type = 'media' AND pm.id = cr.target_id
+       LEFT JOIN user_reviews ur ON cr.target_type = 'review' AND ur.id = cr.target_id
+       ${sql.raw(where)}
+       ORDER BY cr.created_at DESC
+       LIMIT ${limit} OFFSET ${offset}`
     );
 
     const items: AdminReportItem[] = (rows as unknown as {

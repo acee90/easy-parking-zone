@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getDb } from "@/db";
 import { schema } from "@/db";
-import { eq, and, count } from "drizzle-orm";
+import "drizzle-orm";
 
 // --- IP hashing (reuse pattern from reviews.ts) ---
 
@@ -87,30 +87,23 @@ export const createContentReport = createServerFn({ method: "POST" })
     const db = getDb();
     const ipHash = await hashIP(getClientIP(request));
 
-    // 같은 IP + 같은 대상에 대한 중복 신고 방지
-    const [existing] = await db
-      .select({ cnt: count() })
-      .from(schema.contentReports)
-      .where(
-        and(
-          eq(schema.contentReports.targetType, data.targetType),
-          eq(schema.contentReports.targetId, data.targetId),
-          eq(schema.contentReports.ipHash, ipHash),
-        )
-      );
-
-    if (existing && existing.cnt > 0) {
-      throw new Error("이미 신고한 콘텐츠입니다");
+    // UNIQUE(target_type, target_id, ip_hash) 제약으로 중복 방지 (TOCTOU 안전)
+    try {
+      await db.insert(schema.contentReports).values({
+        targetType: data.targetType,
+        targetId: data.targetId,
+        parkingLotId: data.parkingLotId,
+        reason: data.reason,
+        detail: data.detail?.trim() || null,
+        ipHash,
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "";
+      if (msg.includes("UNIQUE constraint failed")) {
+        throw Object.assign(new Error("이미 신고한 콘텐츠입니다"), { code: "DUPLICATE_REPORT" });
+      }
+      throw e;
     }
-
-    await db.insert(schema.contentReports).values({
-      targetType: data.targetType,
-      targetId: data.targetId,
-      parkingLotId: data.parkingLotId,
-      reason: data.reason,
-      detail: data.detail?.trim() || null,
-      ipHash,
-    });
 
     return { ok: true };
   });

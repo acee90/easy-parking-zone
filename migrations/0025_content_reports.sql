@@ -20,3 +20,5 @@ CREATE INDEX IF NOT EXISTS idx_content_reports_target
   ON content_reports(target_type, target_id);
 CREATE INDEX IF NOT EXISTS idx_content_reports_lot
   ON content_reports(parking_lot_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_content_reports_ip_target
+  ON content_reports(target_type, target_id, ip_hash);

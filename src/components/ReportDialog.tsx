@@ -55,8 +55,9 @@ export function ReportDialog({
       });
       setResult("success");
     } catch (e) {
+      const code = (e as { code?: string }).code;
       const msg = e instanceof Error ? e.message : "";
-      setResult(msg.includes("이미 신고") ? "duplicate" : "error");
+      setResult(code === "DUPLICATE_REPORT" || msg.includes("UNIQUE constraint") ? "duplicate" : "error");
     } finally {
       setSubmitting(false);
     }

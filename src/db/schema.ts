@@ -244,6 +244,8 @@ export const contentReports = sqliteTable("content_reports", {
 }, (table) => [
   index("idx_content_reports_status").on(table.status),
   index("idx_content_reports_target").on(table.targetType, table.targetId),
+  index("idx_content_reports_lot").on(table.parkingLotId),
+  uniqueIndex("uq_content_reports_ip_target").on(table.targetType, table.targetId, table.ipHash),
 ]);
 
 // ============================================================

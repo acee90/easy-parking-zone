@@ -72,6 +72,7 @@ function AdminReportsPage() {
   const [targetType, setTargetType] = useState<ReportTargetFilter>("all");
   const [stats, setStats] = useState(initialStats);
   const [processing, setProcessing] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const reload = async (p = page, s = status, t = targetType) => {
     const [data, newStats] = await Promise.all([
@@ -96,9 +97,12 @@ function AdminReportsPage() {
 
   const handleResolve = async (reportId: number, action: "resolve" | "dismiss") => {
     setProcessing(reportId);
+    setError(null);
     try {
       await resolveReport({ data: { reportId, action } });
       await reload();
+    } catch {
+      setError("처리 중 오류가 발생했습니다. 다시 시도해주세요.");
     } finally {
       setProcessing(null);
     }
@@ -163,6 +167,13 @@ function AdminReportsPage() {
           ))}
         </div>
       </div>
+
+      {/* Error */}
+      {error && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
 
       {/* Table */}
       <div className="bg-white rounded-lg border">
