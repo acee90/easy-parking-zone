@@ -106,6 +106,7 @@ export function buildFilterClauses(filters?: ParkingFilters): { where: string; p
 // ============================================================
 
 export interface BlogPostRow {
+  id: number;
   title: string;
   content: string;
   source_url: string;
@@ -116,6 +117,7 @@ export interface BlogPostRow {
 
 export function rowToBlogPost(row: BlogPostRow): BlogPost {
   return {
+    id: row.id,
     title: row.title,
     snippet: row.content,
     sourceUrl: row.source_url,

@@ -213,7 +213,7 @@ export const parkingBookmarks = sqliteTable("parking_bookmarks", {
 ]);
 
 // ============================================================
-// 리뷰 신고
+// 리뷰 신고 (레거시)
 // ============================================================
 
 export const reviewReports = sqliteTable("review_reports", {
@@ -223,6 +223,30 @@ export const reviewReports = sqliteTable("review_reports", {
   reason: text("reason").notNull(),
   createdAt: text("created_at").notNull().default(now),
 });
+
+// ============================================================
+// 콘텐츠 신고 (웹소스/미디어/리뷰 통합)
+// ============================================================
+
+export const contentReports = sqliteTable("content_reports", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  targetType: text("target_type").notNull(), // web_source | media | review
+  targetId: integer("target_id").notNull(),
+  parkingLotId: text("parking_lot_id").notNull(),
+  reason: text("reason").notNull(),
+  detail: text("detail"),
+  ipHash: text("ip_hash"),
+  status: text("status").notNull().default("pending"), // pending | resolved | dismissed
+  adminNote: text("admin_note"),
+  resolvedBy: text("resolved_by"),
+  resolvedAt: text("resolved_at"),
+  createdAt: text("created_at").notNull().default(now),
+}, (table) => [
+  index("idx_content_reports_status").on(table.status),
+  index("idx_content_reports_target").on(table.targetType, table.targetId),
+  index("idx_content_reports_lot").on(table.parkingLotId),
+  uniqueIndex("uq_content_reports_ip_target").on(table.targetType, table.targetId, table.ipHash),
+]);
 
 // ============================================================
 // 카페 시그널 (크롤링 검수)

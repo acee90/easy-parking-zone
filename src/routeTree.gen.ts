@@ -19,6 +19,7 @@ import { Route as WikiSlugRouteImport } from './routes/wiki/$slug'
 import { Route as SitemapIdRouteImport } from './routes/sitemap/$id'
 import { Route as AdminWebSourcesRouteImport } from './routes/admin/web-sources'
 import { Route as AdminReviewsRouteImport } from './routes/admin/reviews'
+import { Route as AdminReportsRouteImport } from './routes/admin/reports'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
@@ -71,6 +72,11 @@ const AdminReviewsRoute = AdminReviewsRouteImport.update({
   path: '/reviews',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminReportsRoute = AdminReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
+  getParentRoute: () => AdminRoute,
+} as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
@@ -82,6 +88,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRouteWithChildren
   '/sitemap-static.xml': typeof SitemapStaticDotxmlRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/admin/reports': typeof AdminReportsRoute
   '/admin/reviews': typeof AdminReviewsRoute
   '/admin/web-sources': typeof AdminWebSourcesRoute
   '/sitemap/$id': typeof SitemapIdRoute
@@ -94,6 +101,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/sitemap-static.xml': typeof SitemapStaticDotxmlRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/admin/reports': typeof AdminReportsRoute
   '/admin/reviews': typeof AdminReviewsRoute
   '/admin/web-sources': typeof AdminWebSourcesRoute
   '/sitemap/$id': typeof SitemapIdRoute
@@ -108,6 +116,7 @@ export interface FileRoutesById {
   '/admin': typeof AdminRouteWithChildren
   '/sitemap-static.xml': typeof SitemapStaticDotxmlRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/admin/reports': typeof AdminReportsRoute
   '/admin/reviews': typeof AdminReviewsRoute
   '/admin/web-sources': typeof AdminWebSourcesRoute
   '/sitemap/$id': typeof SitemapIdRoute
@@ -123,6 +132,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/sitemap-static.xml'
     | '/sitemap.xml'
+    | '/admin/reports'
     | '/admin/reviews'
     | '/admin/web-sources'
     | '/sitemap/$id'
@@ -135,6 +145,7 @@ export interface FileRouteTypes {
     | '/'
     | '/sitemap-static.xml'
     | '/sitemap.xml'
+    | '/admin/reports'
     | '/admin/reviews'
     | '/admin/web-sources'
     | '/sitemap/$id'
@@ -148,6 +159,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/sitemap-static.xml'
     | '/sitemap.xml'
+    | '/admin/reports'
     | '/admin/reviews'
     | '/admin/web-sources'
     | '/sitemap/$id'
@@ -240,6 +252,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminReviewsRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/reports': {
+      id: '/admin/reports'
+      path: '/reports'
+      fullPath: '/admin/reports'
+      preLoaderRoute: typeof AdminReportsRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
@@ -251,12 +270,14 @@ declare module '@tanstack/react-router' {
 }
 
 interface AdminRouteChildren {
+  AdminReportsRoute: typeof AdminReportsRoute
   AdminReviewsRoute: typeof AdminReviewsRoute
   AdminWebSourcesRoute: typeof AdminWebSourcesRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
+  AdminReportsRoute: AdminReportsRoute,
   AdminReviewsRoute: AdminReviewsRoute,
   AdminWebSourcesRoute: AdminWebSourcesRoute,
   AdminIndexRoute: AdminIndexRoute,

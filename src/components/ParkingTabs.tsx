@@ -13,6 +13,7 @@ import {
   ExternalLink,
   Loader2,
 } from "lucide-react";
+import { ReportButton } from "@/components/ReportDialog";
 
 function decodeHtmlEntities(text: string): string {
   const entities: Record<string, string> = {
@@ -30,26 +31,31 @@ const SOURCE_LABELS: Record<string, string> = {
   naver_place: "플레이스",
 };
 
-function BlogPostCard({ post }: { post: BlogPost }) {
+function BlogPostCard({ post, lotId }: { post: BlogPost; lotId: string }) {
   const sourceLabel = SOURCE_LABELS[post.source] ?? post.source;
   return (
-    <a
-      href={post.sourceUrl}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="block rounded-lg border px-3 py-2.5 hover:bg-gray-50 transition-colors"
-    >
-      <p className="text-xs font-medium text-gray-900 line-clamp-1 mb-1">
-        {post.title}
-      </p>
-      <p className="text-xs text-gray-600 line-clamp-2 leading-relaxed mb-1.5">
-        {post.snippet}
-      </p>
-      <p className="text-[11px] text-muted-foreground">
-        {sourceLabel} · {post.author}
-        {post.publishedAt && ` · ${post.publishedAt.slice(0, 10)}`}
-      </p>
-    </a>
+    <div className="relative rounded-lg border px-3 py-2.5 hover:bg-gray-50 transition-colors">
+      <a
+        href={post.sourceUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="block"
+      >
+        <p className="text-xs font-medium text-gray-900 line-clamp-1 mb-1 pr-6">
+          {post.title}
+        </p>
+        <p className="text-xs text-gray-600 line-clamp-2 leading-relaxed mb-1.5">
+          {post.snippet}
+        </p>
+        <p className="text-[11px] text-muted-foreground">
+          {sourceLabel} · {post.author}
+          {post.publishedAt && ` · ${post.publishedAt.slice(0, 10)}`}
+        </p>
+      </a>
+      <div className="absolute top-2 right-2">
+        <ReportButton targetType="web_source" targetId={post.id} parkingLotId={lotId} />
+      </div>
+    </div>
   );
 }
 
@@ -84,9 +90,11 @@ const REVIEW_SOURCE_LABELS: Record<string, string> = {
 
 function UserReviewCard({
   review,
+  lotId,
   onDelete,
 }: {
   review: UserReview;
+  lotId: string;
   onDelete?: () => void;
 }) {
   return (
@@ -140,16 +148,19 @@ function UserReviewCard({
           {review.comment}
         </p>
       )}
-      {review.isMine && onDelete && (
-        <div className="flex justify-end mt-1">
+      <div className="flex items-center justify-end gap-2 mt-1">
+        {!review.isMine && (
+          <ReportButton targetType="review" targetId={review.id} parkingLotId={lotId} />
+        )}
+        {review.isMine && onDelete && (
           <button
             onClick={onDelete}
             className="text-[11px] text-red-400 hover:text-red-600 cursor-pointer"
           >
             삭제
           </button>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
@@ -388,6 +399,7 @@ export function ParkingTabs({ lotId }: ParkingTabsProps) {
                   <UserReviewCard
                     key={review.id}
                     review={review}
+                    lotId={lotId}
                     onDelete={
                       review.isMine
                         ? () => {
@@ -415,31 +427,35 @@ export function ParkingTabs({ lotId }: ParkingTabsProps) {
             {media.length > 0 ? (
               <div className="space-y-2.5">
                 {media.map((m) => (
-                  <a
-                    key={m.id}
-                    href={m.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex gap-2.5 rounded-lg border px-2 py-2 hover:bg-gray-50 transition-colors"
-                  >
-                    {m.thumbnailUrl && (
-                      <img
-                        src={m.thumbnailUrl}
-                        alt=""
-                        className="w-24 h-16 rounded object-cover shrink-0"
-                      />
-                    )}
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs font-medium text-gray-900 line-clamp-2 mb-1">
-                        {m.title ? decodeHtmlEntities(m.title) : ""}
-                      </p>
-                      {m.description && (
-                        <p className="text-[11px] text-muted-foreground line-clamp-2">
-                          {decodeHtmlEntities(m.description)}
-                        </p>
+                  <div key={m.id} className="relative flex gap-2.5 rounded-lg border px-2 py-2 hover:bg-gray-50 transition-colors">
+                    <a
+                      href={m.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex gap-2.5 min-w-0 flex-1"
+                    >
+                      {m.thumbnailUrl && (
+                        <img
+                          src={m.thumbnailUrl}
+                          alt=""
+                          className="w-24 h-16 rounded object-cover shrink-0"
+                        />
                       )}
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-medium text-gray-900 line-clamp-2 mb-1 pr-5">
+                          {m.title ? decodeHtmlEntities(m.title) : ""}
+                        </p>
+                        {m.description && (
+                          <p className="text-[11px] text-muted-foreground line-clamp-2">
+                            {decodeHtmlEntities(m.description)}
+                          </p>
+                        )}
+                      </div>
+                    </a>
+                    <div className="absolute top-1.5 right-1.5">
+                      <ReportButton targetType="media" targetId={m.id} parkingLotId={lotId} />
                     </div>
-                  </a>
+                  </div>
                 ))}
               </div>
             ) : loadingTabs.has("media") ? (
@@ -460,7 +476,7 @@ export function ParkingTabs({ lotId }: ParkingTabsProps) {
             {blogPosts.length > 0 ? (
               <div className="space-y-2.5">
                 {blogPosts.map((post) => (
-                  <BlogPostCard key={post.sourceUrl} post={post} />
+                  <BlogPostCard key={post.sourceUrl} post={post} lotId={lotId} />
                 ))}
                 {blogHasMore && (
                   <button
