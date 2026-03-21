@@ -108,13 +108,13 @@ function WikiDetailPage() {
 
           {/* 배지 */}
           <div className="flex items-center gap-2 flex-wrap">
-            {lot.curationTag === "hell" && (
+            {lot.difficulty.score !== null && lot.difficulty.score < 2.0 && (
               <Badge variant="destructive" className="text-xs gap-1">
                 <Flame className="size-3" />
                 초보 주의
               </Badge>
             )}
-            {lot.curationTag === "easy" && (
+            {lot.difficulty.score !== null && lot.difficulty.score >= 4.0 && (
               <Badge className="text-xs gap-1 bg-green-500 hover:bg-green-600">
                 <ThumbsUp className="size-3" />
                 초보 추천
@@ -168,12 +168,12 @@ function WikiDetailPage() {
         {lot.curationReason && (
           <div
             className={`text-sm rounded-lg px-4 py-3 ${
-              lot.curationTag === "hell"
+              lot.difficulty.score !== null && lot.difficulty.score < 2.0
                 ? "bg-red-50 text-red-700"
                 : "bg-green-50 text-green-700"
             }`}
           >
-            {lot.curationTag === "hell" ? "⚠️" : "✅"} {lot.curationReason}
+            {lot.difficulty.score !== null && lot.difficulty.score < 2.0 ? "⚠️" : "✅"} {lot.curationReason}
             {lot.featuredSource === "1010" && (
               <span className="block mt-1 text-xs opacity-75">
                 📺 10시10분 유튜브에 소개된 주차장
@@ -276,7 +276,7 @@ function WikiDetailPage() {
 
         {/* 리뷰/블로그/영상 탭 */}
         <section className="bg-white rounded-xl border p-5">
-          <ParkingTabs lotId={lot.id} />
+          <ParkingTabs lotId={lot.id} expanded />
         </section>
 
         {/* 근처 주차장 */}

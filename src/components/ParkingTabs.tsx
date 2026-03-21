@@ -254,9 +254,11 @@ const BLOG_PAGE_SIZE = 10;
 
 interface ParkingTabsProps {
   lotId: string;
+  /** 데스크톱에서 탭 대신 모든 섹션을 펼쳐서 표시 (위키 페이지용) */
+  expanded?: boolean;
 }
 
-export function ParkingTabs({ lotId }: ParkingTabsProps) {
+export function ParkingTabs({ lotId, expanded }: ParkingTabsProps) {
   const [blogPosts, setBlogPosts] = useState<BlogPost[]>([]);
   const [blogHasMore, setBlogHasMore] = useState(false);
   const [blogLoadingMore, setBlogLoadingMore] = useState(false);
@@ -285,7 +287,21 @@ export function ParkingTabs({ lotId }: ParkingTabsProps) {
     fetchUserReviews({ data: { parkingLotId: lotId } })
       .then(setUserReviews)
       .catch(() => setUserReviews([]));
-  }, [lotId]);
+
+    // expanded 모드: 모든 탭 데이터 즉시 fetch
+    if (expanded) {
+      fetchedTabsRef.current = new Set(["reviews", "media", "blog"]);
+      fetchParkingMedia({ data: { parkingLotId: lotId } })
+        .then(setMedia)
+        .catch(() => setMedia([]));
+      fetchBlogPosts({ data: { parkingLotId: lotId, limit: BLOG_PAGE_SIZE } })
+        .then((posts) => {
+          setBlogPosts(posts);
+          setBlogHasMore(posts.length >= BLOG_PAGE_SIZE);
+        })
+        .catch(() => setBlogPosts([]));
+    }
+  }, [lotId, expanded]);
 
   // 탭 전환 시 아직 fetch하지 않은 탭만 lazy fetch
   useEffect(() => {
@@ -336,6 +352,79 @@ export function ParkingTabs({ lotId }: ParkingTabsProps) {
     { key: "blog" as const, icon: <FileText className="size-3.5" />, label: "웹사이트", count: tabCounts.blog },
   ];
 
+  // expanded 모드: 데스크톱에서 모든 섹션 펼쳐서 표시
+  if (expanded) {
+    return (
+      <div>
+        {/* 모바일: 탭 UI */}
+        <div className="md:hidden border-t">
+          <div className="flex">
+            {tabs.map(({ key, icon, label, count }) => (
+              <button
+                key={key}
+                onClick={() => setActiveTab(key)}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium border-b-2 transition-colors cursor-pointer ${
+                  activeTab === key
+                    ? "border-blue-500 text-blue-600"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {icon}
+                {label}
+                {count > 0 && (
+                  <span className={`text-[10px] rounded-full px-1.5 py-0.5 ${
+                    activeTab === key ? "bg-blue-50 text-blue-600" : "bg-zinc-100 text-zinc-500"
+                  }`}>
+                    {count}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+          <div className="px-0 py-3">
+            {activeTab === "reviews" && renderReviews()}
+            {activeTab === "media" && renderMedia()}
+            {activeTab === "blog" && renderBlog()}
+          </div>
+        </div>
+
+        {/* 데스크톱: 모든 섹션 펼침 */}
+        <div className="hidden md:block space-y-6">
+          <section>
+            <h3 className="flex items-center gap-1.5 font-semibold text-sm mb-3">
+              <MessageSquare className="size-4" />
+              리뷰
+              {tabCounts.reviews > 0 && (
+                <span className="text-xs text-muted-foreground font-normal">({tabCounts.reviews})</span>
+              )}
+            </h3>
+            {renderReviews()}
+          </section>
+          <section>
+            <h3 className="flex items-center gap-1.5 font-semibold text-sm mb-3">
+              <Play className="size-4" />
+              영상
+              {tabCounts.media > 0 && (
+                <span className="text-xs text-muted-foreground font-normal">({tabCounts.media})</span>
+              )}
+            </h3>
+            {renderMedia()}
+          </section>
+          <section>
+            <h3 className="flex items-center gap-1.5 font-semibold text-sm mb-3">
+              <FileText className="size-4" />
+              웹사이트
+              {tabCounts.blog > 0 && (
+                <span className="text-xs text-muted-foreground font-normal">({tabCounts.blog})</span>
+              )}
+            </h3>
+            {renderBlog()}
+          </section>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="border-t">
       <div className="flex">
@@ -363,148 +452,158 @@ export function ParkingTabs({ lotId }: ParkingTabsProps) {
       </div>
 
       <div className="px-0 py-3">
-        {activeTab === "reviews" && (
-          <div>
-            {!showReviewForm && (
-              <div className="flex justify-end mb-2.5">
-                <button
-                  onClick={() => setShowReviewForm(true)}
-                  className="flex items-center gap-1 text-xs text-blue-500 hover:text-blue-600 cursor-pointer"
-                >
-                  <Pen className="size-3" />
-                  리뷰 쓰기
-                </button>
-              </div>
-            )}
-
-            {showReviewForm && (
-              <div className="mb-3">
-                <ReviewForm
-                  key={reviewKey}
-                  parkingLotId={lotId}
-                  onSubmitted={refreshReviews}
-                />
-                <button
-                  onClick={() => setShowReviewForm(false)}
-                  className="mt-2 w-full text-xs text-muted-foreground hover:text-foreground cursor-pointer"
-                >
-                  취소
-                </button>
-              </div>
-            )}
-
-            {userReviews.length > 0 ? (
-              <div className="space-y-2.5">
-                {userReviews.map((review) => (
-                  <UserReviewCard
-                    key={review.id}
-                    review={review}
-                    lotId={lotId}
-                    onDelete={
-                      review.isMine
-                        ? () => {
-                            deleteReview({ data: { reviewId: review.id } })
-                              .then(refreshReviews)
-                              .catch(() => {});
-                          }
-                        : undefined
-                    }
-                  />
-                ))}
-              </div>
-            ) : (
-              !showReviewForm && (
-                <p className="text-xs text-muted-foreground text-center py-6">
-                  아직 리뷰가 없습니다. 첫 리뷰를 남겨보세요!
-                </p>
-              )
-            )}
-          </div>
-        )}
-
-        {activeTab === "media" && (
-          <div>
-            {media.length > 0 ? (
-              <div className="space-y-2.5">
-                {media.map((m) => (
-                  <div key={m.id} className="relative flex gap-2.5 rounded-lg border px-2 py-2 hover:bg-gray-50 transition-colors">
-                    <a
-                      href={m.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex gap-2.5 min-w-0 flex-1"
-                    >
-                      {m.thumbnailUrl && (
-                        <img
-                          src={m.thumbnailUrl}
-                          alt=""
-                          className="w-24 h-16 rounded object-cover shrink-0"
-                        />
-                      )}
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs font-medium text-gray-900 line-clamp-2 mb-1 pr-5">
-                          {m.title ? decodeHtmlEntities(m.title) : ""}
-                        </p>
-                        {m.description && (
-                          <p className="text-[11px] text-muted-foreground line-clamp-2">
-                            {decodeHtmlEntities(m.description)}
-                          </p>
-                        )}
-                      </div>
-                    </a>
-                    <div className="absolute top-1.5 right-1.5">
-                      <ReportButton targetType="media" targetId={m.id} parkingLotId={lotId} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : loadingTabs.has("media") ? (
-              <div className="flex items-center justify-center gap-1.5 py-6">
-                <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
-                <span className="text-xs text-muted-foreground">불러오는 중...</span>
-              </div>
-            ) : (
-              <p className="text-xs text-muted-foreground text-center py-6">
-                관련 영상이 없습니다
-              </p>
-            )}
-          </div>
-        )}
-
-        {activeTab === "blog" && (
-          <div>
-            {blogPosts.length > 0 ? (
-              <div className="space-y-2.5">
-                {blogPosts.map((post) => (
-                  <BlogPostCard key={post.sourceUrl} post={post} lotId={lotId} />
-                ))}
-                {blogHasMore && (
-                  <button
-                    onClick={loadMoreBlog}
-                    disabled={blogLoadingMore}
-                    className="w-full py-2 text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center justify-center gap-1.5"
-                  >
-                    {blogLoadingMore ? (
-                      <><Loader2 className="size-3 animate-spin" /> 불러오는 중...</>
-                    ) : (
-                      <>더보기 ({blogPosts.length}/{tabCounts.blog})</>
-                    )}
-                  </button>
-                )}
-              </div>
-            ) : loadingTabs.has("blog") ? (
-              <div className="flex items-center justify-center gap-1.5 py-6">
-                <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
-                <span className="text-xs text-muted-foreground">불러오는 중...</span>
-              </div>
-            ) : (
-              <p className="text-xs text-muted-foreground text-center py-6">
-                관련 웹사이트 글이 없습니다
-              </p>
-            )}
-          </div>
-        )}
+        {activeTab === "reviews" && renderReviews()}
+        {activeTab === "media" && renderMedia()}
+        {activeTab === "blog" && renderBlog()}
       </div>
     </div>
   );
+
+  function renderReviews() {
+    return (
+      <div>
+        {!showReviewForm && (
+          <div className="flex justify-end mb-2.5">
+            <button
+              onClick={() => setShowReviewForm(true)}
+              className="flex items-center gap-1 text-xs text-blue-500 hover:text-blue-600 cursor-pointer"
+            >
+              <Pen className="size-3" />
+              리뷰 쓰기
+            </button>
+          </div>
+        )}
+
+        {showReviewForm && (
+          <div className="mb-3">
+            <ReviewForm
+              key={reviewKey}
+              parkingLotId={lotId}
+              onSubmitted={refreshReviews}
+            />
+            <button
+              onClick={() => setShowReviewForm(false)}
+              className="mt-2 w-full text-xs text-muted-foreground hover:text-foreground cursor-pointer"
+            >
+              취소
+            </button>
+          </div>
+        )}
+
+        {userReviews.length > 0 ? (
+          <div className="space-y-2.5">
+            {userReviews.map((review) => (
+              <UserReviewCard
+                key={review.id}
+                review={review}
+                lotId={lotId}
+                onDelete={
+                  review.isMine
+                    ? () => {
+                        deleteReview({ data: { reviewId: review.id } })
+                          .then(refreshReviews)
+                          .catch(() => {});
+                      }
+                    : undefined
+                }
+              />
+            ))}
+          </div>
+        ) : (
+          !showReviewForm && (
+            <p className="text-xs text-muted-foreground text-center py-6">
+              아직 리뷰가 없습니다. 첫 리뷰를 남겨보세요!
+            </p>
+          )
+        )}
+      </div>
+    );
+  }
+
+  function renderMedia() {
+    return (
+      <div>
+        {media.length > 0 ? (
+          <div className="space-y-2.5">
+            {media.map((m) => (
+              <div key={m.id} className="relative flex gap-2.5 rounded-lg border px-2 py-2 hover:bg-gray-50 transition-colors">
+                <a
+                  href={m.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex gap-2.5 min-w-0 flex-1"
+                >
+                  {m.thumbnailUrl && (
+                    <img
+                      src={m.thumbnailUrl}
+                      alt=""
+                      className="w-24 h-16 rounded object-cover shrink-0"
+                    />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-medium text-gray-900 line-clamp-2 mb-1 pr-5">
+                      {m.title ? decodeHtmlEntities(m.title) : ""}
+                    </p>
+                    {m.description && (
+                      <p className="text-[11px] text-muted-foreground line-clamp-2">
+                        {decodeHtmlEntities(m.description)}
+                      </p>
+                    )}
+                  </div>
+                </a>
+                <div className="absolute top-1.5 right-1.5">
+                  <ReportButton targetType="media" targetId={m.id} parkingLotId={lotId} />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : loadingTabs.has("media") ? (
+          <div className="flex items-center justify-center gap-1.5 py-6">
+            <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
+            <span className="text-xs text-muted-foreground">불러오는 중...</span>
+          </div>
+        ) : (
+          <p className="text-xs text-muted-foreground text-center py-6">
+            관련 영상이 없습니다
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  function renderBlog() {
+    return (
+      <div>
+        {blogPosts.length > 0 ? (
+          <div className="space-y-2.5">
+            {blogPosts.map((post) => (
+              <BlogPostCard key={post.sourceUrl} post={post} lotId={lotId} />
+            ))}
+            {blogHasMore && (
+              <button
+                onClick={loadMoreBlog}
+                disabled={blogLoadingMore}
+                className="w-full py-2 text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center justify-center gap-1.5"
+              >
+                {blogLoadingMore ? (
+                  <><Loader2 className="size-3 animate-spin" /> 불러오는 중...</>
+                ) : (
+                  <>더보기 ({blogPosts.length}/{tabCounts.blog})</>
+                )}
+              </button>
+            )}
+          </div>
+        ) : loadingTabs.has("blog") ? (
+          <div className="flex items-center justify-center gap-1.5 py-6">
+            <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
+            <span className="text-xs text-muted-foreground">불러오는 중...</span>
+          </div>
+        ) : (
+          <p className="text-xs text-muted-foreground text-center py-6">
+            관련 웹사이트 글이 없습니다
+          </p>
+        )}
+      </div>
+    );
+  }
 }
