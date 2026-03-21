@@ -27,21 +27,11 @@ export default {
       return new Response("OK", { status: 200 });
     }
 
-    // Sitemap: TanStack Start가 Content-Type을 text/html로 덮어쓰는 문제 우회
-    // 서버 핸들러 응답을 프록시하여 올바른 Content-Type 보장
-    if (url.pathname === "/sitemap.xml" || url.pathname === "/sitemap-static.xml" || url.pathname.startsWith("/sitemap/")) {
-      const response = await startHandler(request, env);
-      const body = await response.text();
-      if (body.startsWith("<?xml")) {
-        return new Response(body, {
-          status: response.status,
-          headers: {
-            "Content-Type": "application/xml; charset=utf-8",
-            "Cache-Control": "public, max-age=86400",
-          },
-        });
-      }
-      return response;
+    // Sitemap: TanStack Start 서버 핸들러가 Content-Type을 text/html로 덮어쓰거나
+    // 동적 라우트($id)가 404를 반환하는 문제 우회 — worker-entry에서 직접 처리
+    if (url.pathname === "/sitemap.xml" || url.pathname === "/sitemap-static.xml" || url.pathname === "/sitemap-test.xml" || url.pathname.startsWith("/sitemap/")) {
+      const { handleSitemap } = await import("./sitemap-handler");
+      return handleSitemap(url.pathname, env.DB);
     }
 
     return startHandler(request, env);
