@@ -3,7 +3,7 @@
  * TanStack Start의 서버 핸들러 문제(Content-Type 덮어쓰기, 동적 라우트 404) 우회
  */
 
-const URLS_PER_SITEMAP = 10000;
+const URLS_PER_SITEMAP = 5000;
 const BASE = "https://easy-parking.xyz";
 
 function toSlug(name: string): string {
