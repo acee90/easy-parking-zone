@@ -14,6 +14,7 @@ interface Env {
   YOUTUBE_API_KEY: string;
   BRAVE_SEARCH_API_KEY: string;
   CRAWL4AI_URL: string;
+  ANTHROPIC_API_KEY: string;
 }
 
 const startHandler = createStartHandler(defaultStreamHandler);
