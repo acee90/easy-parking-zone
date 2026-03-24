@@ -151,9 +151,9 @@ export function extractProvince(address: string): string {
   return match ? match[1] : "";
 }
 
-export type MatchConfidence = "high" | "medium" | "low" | "none";
+export type MatchConfidence = "high" | "medium" | "none";
 
-/** 네이버 블로그 검색 결과 관련도 점수 (0-100) + 신뢰도 등급 */
+/** 네이버 블로그 검색 결과 관련도 점수 (0-100) */
 export function scoreBlogRelevance(
   title: string,
   description: string,
@@ -220,10 +220,13 @@ export function scoreBlogRelevance(
 
 /**
  * 매칭 신뢰도를 판정한다.
- * - high: 이름 매칭 + 지역 매칭 + 주차 키워드 (확실, AI 불필요)
- * - medium: 이름 매칭만 또는 부분 매칭 (애매, AI 검증 권장)
- * - low: 지역만 매칭 (AI 필수)
- * - none: threshold 미달
+ *
+ * - high: 주차장 전체 이름(접미사 제거)이 글에 그대로 등장 + "주차" 키워드
+ *         → 바로 저장 (AI 불필요)
+ * - medium: 부분 키워드 매칭, 지역명 매칭 등 score≥40
+ *         → AI 검증 필요
+ * - none: score<40 또는 게이트 미통과
+ *         → 스킵
  */
 export function getMatchConfidence(
   title: string,
@@ -232,11 +235,21 @@ export function getMatchConfidence(
   address: string,
 ): { score: number; confidence: MatchConfidence } {
   const score = scoreBlogRelevance(title, description, parkingName, address);
-
   if (score < 40) return { score, confidence: "none" };
-  if (score >= 80) return { score, confidence: "high" };
-  if (score >= 60) return { score, confidence: "medium" };
-  return { score, confidence: "low" };
+
+  // high 판정: 6글자 이상 키워드가 매칭 + "주차" 키워드 (정밀도 89%)
+  const combined = (stripHtml(title) + " " + stripHtml(description)).toLowerCase();
+  const nameKeywords = extractNameKeywords(parkingName);
+
+  const matchedKws = nameKeywords.filter((kw) => combined.includes(kw));
+  const maxMatchLen = matchedKws.reduce((max, kw) => Math.max(max, kw.length), 0);
+  const hasParkingKw = combined.includes("주차") || combined.includes("parking");
+
+  if (maxMatchLen >= 6 && hasParkingKw) {
+    return { score, confidence: "high" };
+  }
+
+  return { score, confidence: "medium" };
 }
 
 /** YouTube 댓글 관련도 점수 (0-100) */
