@@ -9,6 +9,7 @@
 	"vars": {
 		"VITE_NAVER_MAP_CLIENT_ID": "uw8likbp4e",
 		"BETTER_AUTH_URL": "https://easy-parking.xyz"
+		// CRAWL4AI_URL: Cloudflare Secrets로 관리 (wrangler secret put CRAWL4AI_URL)
 	},
 	"triggers": {
 		"crons": ["0 */1 * * *"]
