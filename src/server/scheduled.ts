@@ -12,6 +12,7 @@ import { runNaverBlogsBatch } from "./crawlers/naver-blogs";
 import { runYoutubeBatch } from "./crawlers/youtube";
 import { runBraveSearchBatch } from "./crawlers/brave-search";
 import { runDuckDuckGoBatch } from "./crawlers/duckduckgo-search";
+import { runAiFilterBatch } from "./crawlers/ai-filter-batch";
 import { recomputeStats } from "./crawlers/lib/scoring-engine";
 
 interface Env {
@@ -21,6 +22,7 @@ interface Env {
   YOUTUBE_API_KEY: string;
   BRAVE_SEARCH_API_KEY: string;
   CRAWL4AI_URL: string;
+  ANTHROPIC_API_KEY: string;
 }
 
 export async function handleScheduled(env: Env): Promise<void> {
@@ -89,7 +91,22 @@ export async function handleScheduled(env: Env): Promise<void> {
     }
   }
 
-  // ── 2. Incremental 스코어링 재계산 ──
+  // ── 2. AI 필터링 (미분류 web_sources → Haiku 분류) ──
+
+  if (env.ANTHROPIC_API_KEY) {
+    try {
+      const r = await runAiFilterBatch(env.DB, {
+        ANTHROPIC_API_KEY: env.ANTHROPIC_API_KEY,
+      });
+      if (r.filtered > 0) {
+        results.push(`ai-filter: ${r.filtered} processed, ${r.passed} passed, ${r.removed} removed`);
+      }
+    } catch (err) {
+      results.push(`ai-filter: error - ${(err as Error).message}`);
+    }
+  }
+
+  // ── 3. Incremental 스코어링 재계산 ──
 
   if (changedLotIds.size > 0) {
     try {
