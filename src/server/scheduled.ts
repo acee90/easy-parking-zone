@@ -101,9 +101,9 @@ export async function handleScheduled(env: Env): Promise<void> {
   // ── 3. 주차장 매칭 (filter_passed=1 & 미매칭 → web_sources) ──
 
   try {
-    const r = await runMatchBatch(env.DB);
+    const r = await runMatchBatch(env.DB, { ANTHROPIC_API_KEY: env.ANTHROPIC_API_KEY });
     if (r.matched > 0) {
-      results.push(`match: ${r.matched} sources → ${r.lotLinks} lot links`);
+      results.push(`match: ${r.matched} sources → ${r.lotLinks} lot links (${r.aiVerified} AI verified)`);
     }
   } catch (err) {
     results.push(`match: error - ${(err as Error).message}`);

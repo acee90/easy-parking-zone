@@ -94,27 +94,48 @@ export function extractNameKeywords(parkingName: string): string[] {
   const nameLower = parkingName.toLowerCase();
   const keywords: string[] = [];
 
-  // 1. 전체 이름 (접미사 제거) — "스타필드 안성 본관지하주차장" → "스타필드 안성 본관지하"
+  // 1. 전체 이름 (접미사 제거)
   const fullName = nameLower.replace(NAME_SUFFIX, "").trim();
   if (fullName.length >= 2) keywords.push(fullName);
 
-  // 2. 단어 분리
+  // 2. 단어 분리 (띄어쓰기 기준)
   const words = nameLower
     .replace(NAME_SUFFIX, "")
     .split(/\s+/)
     .filter((w) => w.length >= 2);
   keywords.push(...words);
 
-  // 3. 원본 이름도 포함 (정확 매칭용)
+  // 3. 원본 이름 (정확 매칭용)
   if (nameLower.length >= 3) keywords.push(nameLower);
 
-  // 4. 붙어있는 이름에서 동/읍/면/리 기준으로 앞부분 추출
-  //    "하대원동임시공영주차장" → "하대원동"
-  //    "약령시회관유료주차장" → "약령시회관"
+  // 4. 붙어있는 이름에서 동/읍/면/리/구 기준 앞부분 추출
   const locMatch = fullName.match(/^(.+?[동읍면리구])/);
   if (locMatch && locMatch[1].length >= 2) keywords.push(locMatch[1]);
 
-  // 5. 중복 제거
+  // 5. 붙어있는 복합 이름 분리 (띄어쓰기 없는 한글+한글 경계)
+  //    "마장축산물시장서문" → "마장축산물시장", "서문"
+  //    "고운들공영" → "고운들"
+  //    "KTX환승" → "ktx", "환승"
+  const withoutSuffix = fullName.replace(/\s/g, "");
+  if (withoutSuffix.length >= 4) {
+    // 공영/민영/유료/무료 등 접두사도 분리
+    const prefixMatch = withoutSuffix.match(/^(.+?)(공영|민영|유료|무료|노상|노외)$/);
+    if (prefixMatch && prefixMatch[1].length >= 2) {
+      keywords.push(prefixMatch[1]);
+    }
+    // 시장/역/대학/병원 등 시설명 경계로 분리
+    const facilityMatch = withoutSuffix.match(/^(.+?(?:시장|역|대학|병원|공원|센터|회관|마을|아파트))(.*)/);
+    if (facilityMatch && facilityMatch[1].length >= 2) {
+      keywords.push(facilityMatch[1]);
+    }
+    // 영문+한글 경계 분리: "KTX환승" → "ktx"
+    const engMatch = withoutSuffix.match(/^([a-z]+)/i);
+    if (engMatch && engMatch[1].length >= 2) {
+      keywords.push(engMatch[1].toLowerCase());
+    }
+  }
+
+  // 6. 중복 제거
   return [...new Set(keywords)];
 }
 
@@ -130,7 +151,9 @@ export function extractProvince(address: string): string {
   return match ? match[1] : "";
 }
 
-/** 네이버 블로그 검색 결과 관련도 점수 (0-100) */
+export type MatchConfidence = "high" | "medium" | "low" | "none";
+
+/** 네이버 블로그 검색 결과 관련도 점수 (0-100) + 신뢰도 등급 */
 export function scoreBlogRelevance(
   title: string,
   description: string,
@@ -193,6 +216,27 @@ export function scoreBlogRelevance(
   }
 
   return Math.min(100, score);
+}
+
+/**
+ * 매칭 신뢰도를 판정한다.
+ * - high: 이름 매칭 + 지역 매칭 + 주차 키워드 (확실, AI 불필요)
+ * - medium: 이름 매칭만 또는 부분 매칭 (애매, AI 검증 권장)
+ * - low: 지역만 매칭 (AI 필수)
+ * - none: threshold 미달
+ */
+export function getMatchConfidence(
+  title: string,
+  description: string,
+  parkingName: string,
+  address: string,
+): { score: number; confidence: MatchConfidence } {
+  const score = scoreBlogRelevance(title, description, parkingName, address);
+
+  if (score < 40) return { score, confidence: "none" };
+  if (score >= 80) return { score, confidence: "high" };
+  if (score >= 60) return { score, confidence: "medium" };
+  return { score, confidence: "low" };
 }
 
 /** YouTube 댓글 관련도 점수 (0-100) */
