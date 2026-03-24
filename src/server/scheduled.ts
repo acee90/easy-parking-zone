@@ -109,7 +109,7 @@ export async function handleScheduled(env: Env): Promise<void> {
     results.push(`match: error - ${(err as Error).message}`);
   }
 
-  // ── 4. 스코어링 재계산 (최근 1시간 내 매칭된 주차장) ──
+  // ── 4. 스코어링 재계산 (최근 2시간 내 매칭된 주차장, cron 지연 버퍼 포함) ──
   const changedRows = await env.DB
     .prepare(
       `SELECT DISTINCT ws.parking_lot_id

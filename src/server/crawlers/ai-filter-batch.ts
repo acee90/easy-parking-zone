@@ -26,7 +26,7 @@ export async function runAiFilterBatch(
       `SELECT id, title, content
        FROM web_sources_raw
        WHERE ai_filtered_at IS NULL
-       ORDER BY id DESC
+       ORDER BY id ASC
        LIMIT ?1`,
     )
     .bind(MAX_PER_RUN)
@@ -90,7 +90,7 @@ export async function runAiFilterBatch(
       }
     } catch (err) {
       console.error(`[ai-filter] batch error: ${(err as Error).message}`);
-      break;
+      continue; // 해당 배치만 스킵, 나머지 계속 처리
     }
   }
 

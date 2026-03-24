@@ -182,9 +182,12 @@ export async function runMatchBatch(
       }
     }
 
-    // matched_at: 매칭이 있을 때만 설정
-    if (highMatches.length > 0 || (mediumMatches.length > 0 && env?.ANTHROPIC_API_KEY)) {
-      matched++;
+    // matched_at: 매칭 시도 완료 표시 (재처리 방지)
+    // 후보가 없거나 임계값 미달이어도 시도 완료로 기록.
+    // 새 주차장 추가 등으로 재매칭이 필요하면 matched_at을 NULL로 리셋.
+    const attempted = candidates.length > 0 || keywords.length > 0;
+    if (attempted) {
+      if (highMatches.length > 0 || aiVerified > 0) matched++;
       updateBatch.push(
         db
           .prepare("UPDATE web_sources_raw SET matched_at = datetime('now') WHERE id = ?1")
