@@ -1,7 +1,7 @@
 /**
  * AI 필터링 배치 처리 (Workers Cron용)
  *
- * 미분류 web_sources를 Haiku로 10건씩 배치 분류.
+ * 미분류 web_sources_raw를 Haiku로 10건씩 배치 분류.
  * filter_passed / sentiment_score / ai_difficulty_keywords 등 업데이트.
  */
 import { classifyBatch, type AiFilterInput } from "./lib/ai-filter";
@@ -12,25 +12,21 @@ const BATCH_SIZE = 10;
 
 interface UnfilteredRow {
   id: number;
-  parking_lot_id: string;
   title: string;
   content: string;
-  parking_name: string;
 }
 
 export async function runAiFilterBatch(
   db: D1Database,
   env: { ANTHROPIC_API_KEY: string },
 ): Promise<{ filtered: number; passed: number; removed: number }> {
-  // 미분류 소스 조회
+  // 미분류 raw 소스 조회
   const rows = await db
     .prepare(
-      `SELECT ws.id, ws.parking_lot_id, ws.title, ws.content,
-              p.name as parking_name
-       FROM web_sources ws
-       JOIN parking_lots p ON p.id = ws.parking_lot_id
-       WHERE ws.ai_filtered_at IS NULL
-       ORDER BY ws.id DESC
+      `SELECT id, title, content
+       FROM web_sources_raw
+       WHERE ai_filtered_at IS NULL
+       ORDER BY id DESC
        LIMIT ?1`,
     )
     .bind(MAX_PER_RUN)
@@ -43,12 +39,11 @@ export async function runAiFilterBatch(
   let passed = 0;
   let removed = 0;
 
-  // BATCH_SIZE씩 묶어서 Haiku 호출
   for (let i = 0; i < sources.length; i += BATCH_SIZE) {
     const chunk = sources.slice(i, i + BATCH_SIZE);
 
     const inputs: AiFilterInput[] = chunk.map((s) => ({
-      parkingName: s.parking_name,
+      parkingName: "", // raw 단계에서는 주차장 미정
       title: s.title,
       description: s.content,
     }));
@@ -66,7 +61,7 @@ export async function runAiFilterBatch(
         updateBatch.push(
           db
             .prepare(
-              `UPDATE web_sources SET
+              `UPDATE web_sources_raw SET
                 filter_passed = ?1,
                 filter_removed_by = ?2,
                 sentiment_score = ?3,
@@ -95,7 +90,7 @@ export async function runAiFilterBatch(
       }
     } catch (err) {
       console.error(`[ai-filter] batch error: ${(err as Error).message}`);
-      break; // API 에러 시 나머지 스킵
+      break;
     }
   }
 

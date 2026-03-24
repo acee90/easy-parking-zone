@@ -10,12 +10,10 @@ import {
   isGenericName,
   stripHtml,
   hashUrl,
-  scoreBlogRelevance,
 } from "./lib/scoring";
 
 /** 일일 배치 크기 (~66/일 = 2,000/월) */
 const BATCH_SIZE = 66;
-const RELEVANCE_THRESHOLD = 60;
 /** 결과 없는 주차장 재크롤링 주기 (일) */
 const RECRAWL_DAYS = 30;
 
@@ -155,21 +153,18 @@ export async function runBraveSearchBatch(
 
       const items = result.web?.results ?? [];
       for (const item of items) {
-        const score = scoreBlogRelevance(item.title, item.description, lot.name, lot.address);
-        if (score < RELEVANCE_THRESHOLD) continue;
-
         const sourceId = await hashUrl(item.url);
         const publishedAt = item.page_age?.slice(0, 10) ?? null;
 
         insertBatch.push(
           db.prepare(
-            `INSERT OR IGNORE INTO web_sources
-             (parking_lot_id, source, source_id, title, content, source_url, published_at, relevance_score)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)`,
+            `INSERT OR IGNORE INTO web_sources_raw
+             (source, source_id, source_url, title, content, published_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)`,
           ).bind(
-            lot.id, "brave_search", sourceId,
-            stripHtml(item.title), stripHtml(item.description),
-            item.url, publishedAt, score,
+            "brave_search", sourceId,
+            item.url, stripHtml(item.title), stripHtml(item.description),
+            publishedAt,
           ),
         );
         saved++;

@@ -69,7 +69,7 @@ const NOISE_PATTERNS = [
   /견본주택/, /입주자모집/, /입주예정/, /공급조건/,
   /시행사/, /시공사/, /투자수익/, /프리미엄분양/,
   /빌라\s*매매/, /아파트\s*매매/, /매물/, /전세\s*모/, /월세\s*모/,
-  /원룸\s*\d/, /투룸/, /쓰리룸/, /임대\s*안/,
+  /원룸\s*\d/, /투룸/, /쓰리룸/, /상가\s*임대/, /사무실\s*임대/, /오피스텔\s*임대/,
   /신축빌라/, /신축원룸/, /경매물건/,
   /임장\s*(기록|후기|보고)/, /지구\s*임장/,
   /청약/, /재개발/, /재건축/,
@@ -81,6 +81,54 @@ const NOISE_PATTERNS = [
   /청소.*업체/, /이사.*업체/, /인테리어.*업체/,
   /다이어트/, /성형/, /피부과/, /치과/,
 ];
+
+/**
+ * 주차장명에서 매칭용 키워드를 추출한다.
+ * 기존: "주차장|공영|노외|노상|부설" 제거 → 2글자 미만 필터
+ * 개선: 제거 패턴 최소화, 전체 이름도 키워드로 포함
+ */
+/** 주차장명 접미사 패턴 */
+const NAME_SUFFIX = /(?:공영|민영|노외|노상|부설|유료|무료|임시|기계식)?주차장\d*$/;
+
+export function extractNameKeywords(parkingName: string): string[] {
+  const nameLower = parkingName.toLowerCase();
+  const keywords: string[] = [];
+
+  // 1. 전체 이름 (접미사 제거) — "스타필드 안성 본관지하주차장" → "스타필드 안성 본관지하"
+  const fullName = nameLower.replace(NAME_SUFFIX, "").trim();
+  if (fullName.length >= 2) keywords.push(fullName);
+
+  // 2. 단어 분리
+  const words = nameLower
+    .replace(NAME_SUFFIX, "")
+    .split(/\s+/)
+    .filter((w) => w.length >= 2);
+  keywords.push(...words);
+
+  // 3. 원본 이름도 포함 (정확 매칭용)
+  if (nameLower.length >= 3) keywords.push(nameLower);
+
+  // 4. 붙어있는 이름에서 동/읍/면/리 기준으로 앞부분 추출
+  //    "하대원동임시공영주차장" → "하대원동"
+  //    "약령시회관유료주차장" → "약령시회관"
+  const locMatch = fullName.match(/^(.+?[동읍면리구])/);
+  if (locMatch && locMatch[1].length >= 2) keywords.push(locMatch[1]);
+
+  // 5. 중복 제거
+  return [...new Set(keywords)];
+}
+
+/**
+ * 주소에서 시/도 레벨을 추출한다 (광역 지역 검증용).
+ * "서울특별시 강남구 ..." → "서울"
+ * "경기도 수원시 ..." → "경기"
+ */
+export function extractProvince(address: string): string {
+  const match = address.match(
+    /^(서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주)/,
+  );
+  return match ? match[1] : "";
+}
 
 /** 네이버 블로그 검색 결과 관련도 점수 (0-100) */
 export function scoreBlogRelevance(
@@ -104,23 +152,47 @@ export function scoreBlogRelevance(
   }
 
   let score = 0;
-  const nameLower = parkingName.toLowerCase();
+  let nameMatched = false;
 
-  const nameKeywords = nameLower
-    .replace(/주차장|공영|노외|노상|부설/g, "")
-    .split(/\s+/)
-    .filter((w) => w.length >= 2);
+  const nameKeywords = extractNameKeywords(parkingName);
 
-  if (nameKeywords.some((kw) => titleLower.includes(kw))) score += 40;
-  if (nameKeywords.some((kw) => descLower.includes(kw))) score += 20;
+  // 이름 매칭 (전체 이름 또는 핵심 키워드)
+  if (nameKeywords.some((kw) => titleLower.includes(kw))) {
+    score += 40;
+    nameMatched = true;
+  }
+  if (nameKeywords.some((kw) => descLower.includes(kw))) {
+    score += 20;
+    nameMatched = true;
+  }
 
+  // 지역 매칭
   const region = extractRegion(address).toLowerCase();
   const regionWords = region.split(/\s+/).filter((w) => w.length >= 2);
-  if (regionWords.some((rw) => titleLower.includes(rw) || descLower.includes(rw))) score += 20;
+  const regionMatched = regionWords.some(
+    (rw) => titleLower.includes(rw) || descLower.includes(rw),
+  );
+  if (regionMatched) score += 20;
 
+  // 주차 키워드 보너스
   if (titleLower.includes("주차") || descLower.includes("주차")) score += 20;
 
-  return score;
+  // ── 보정 규칙 ──
+
+  // 이름 매칭 없이는 최대 40점 (지역+주차만으로는 threshold 못 넘김)
+  if (!nameMatched) {
+    score = Math.min(score, 40);
+  }
+
+  // 이름 매칭됐지만 광역 지역 불일치 → 동명이인 감점
+  if (nameMatched && regionMatched === false) {
+    const province = extractProvince(address);
+    if (province && !combined.includes(province)) {
+      score = Math.max(0, score - 30);
+    }
+  }
+
+  return Math.min(100, score);
 }
 
 /** YouTube 댓글 관련도 점수 (0-100) */

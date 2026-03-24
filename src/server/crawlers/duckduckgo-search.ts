@@ -2,25 +2,21 @@
  * DuckDuckGo Search 크롤러 (crawl4ai 온프레미스 경유)
  *
  * API 키 불필요. crawl4ai로 DuckDuckGo HTML 검색결과를 크롤링하여
- * 제목/URL/설명을 파싱 후 web_sources에 저장.
- * Brave Search/Google CSE 대체용.
+ * 제목/URL/설명을 파싱 후 web_sources_raw에 URL 단위로 저장.
+ * 매칭/필터링은 별도 단계에서 처리.
  */
 import {
   extractRegion,
   isGenericName,
   stripHtml,
   hashUrl,
-  scoreBlogRelevance,
 } from "./lib/scoring";
 
 /** 일일 배치 크기 (subrequest 한도 고려하여 25로 제한) */
 const BATCH_SIZE = 25;
-const RELEVANCE_THRESHOLD = 60;
 const RECRAWL_DAYS = 30;
 const DELAY = 1500; // DuckDuckGo rate limit 방지
-/** crawl4ai 개별 요청 타임아웃 (ms) */
 const FETCH_TIMEOUT = 15_000;
-/** 연속 실패 시 조기 중단 임계값 */
 const MAX_CONSECUTIVE_FAILURES = 3;
 
 const DDG_URL = "https://html.duckduckgo.com/html/";
@@ -31,9 +27,6 @@ interface DdgResult {
   description: string;
 }
 
-/**
- * crawl4ai를 통해 DuckDuckGo HTML 검색결과를 크롤링하고 파싱
- */
 async function searchDuckDuckGo(
   query: string,
   crawl4aiUrl: string,
@@ -73,11 +66,6 @@ async function searchDuckDuckGo(
   return parseDdgHtml(html);
 }
 
-/**
- * DuckDuckGo HTML에서 검색 결과 파싱
- *
- * result 블록 단위로 title + snippet을 함께 추출하여 인덱스 불일치 방지.
- */
 function parseDdgHtml(html: string): DdgResult[] {
   const results: DdgResult[] = [];
 
@@ -88,62 +76,45 @@ function parseDdgHtml(html: string): DdgResult[] {
     return null;
   };
 
-  // result 블록 단위로 추출 (class="result results_links" 또는 유사 블록)
-  const resultBlockRegex =
+  const blockRe =
     /<div[^>]+class="[^"]*result[^"]*results_links[^"]*"[^>]*>([\s\S]*?)<\/div>\s*(?=<div[^>]+class="[^"]*result|$)/gi;
-
-  // 개별 블록 내에서 title과 snippet 추출 (class/href 순서 무관)
-  const titleRegex =
+  const titleRe =
     /<a[^>]*(?:class="result__a"[^>]*href="([^"]+)"|href="([^"]+)"[^>]*class="result__a")[^>]*>([\s\S]*?)<\/a>/i;
-  const snippetRegex =
+  const snippetRe =
     /<a[^>]+class="result__snippet"[^>]*>([\s\S]*?)<\/a>/i;
 
-  let blockMatch: RegExpExecArray | null;
-  while ((blockMatch = resultBlockRegex.exec(html)) !== null) {
-    const block = blockMatch[1];
-    const tMatch = titleRegex.exec(block);
-    if (!tMatch) continue;
-
-    const rawUrl = tMatch[1] || tMatch[2];
-    const realUrl = extractRealUrl(rawUrl);
+  let m: RegExpExecArray | null;
+  while ((m = blockRe.exec(html)) !== null) {
+    const block = m[1];
+    const t = titleRe.exec(block);
+    if (!t) continue;
+    const realUrl = extractRealUrl(t[1] || t[2]);
     if (!realUrl) continue;
-
-    const sMatch = snippetRegex.exec(block);
-
+    const s = snippetRe.exec(block);
     results.push({
-      title: stripHtml(tMatch[3]),
+      title: stripHtml(t[3]),
       url: realUrl,
-      description: sMatch ? stripHtml(sMatch[1]) : "",
+      description: s ? stripHtml(s[1]) : "",
     });
   }
 
-  // 폴백: 블록 매칭 실패 시 기존 방식 (독립 매칭)
+  // 폴백
   if (results.length === 0) {
-    const titleFallback =
+    const titleFb =
       /<a[^>]*(?:class="result__a"[^>]*href="([^"]+)"|href="([^"]+)"[^>]*class="result__a")[^>]*>([\s\S]*?)<\/a>/gi;
-    const snippetFallback =
+    const snippetFb =
       /<a[^>]+class="result__snippet"[^>]*>([\s\S]*?)<\/a>/gi;
 
     const titles: Array<{ url: string; title: string }> = [];
-    let match: RegExpExecArray | null;
-    while ((match = titleFallback.exec(html)) !== null) {
-      const rawUrl = match[1] || match[2];
-      const realUrl = extractRealUrl(rawUrl);
-      if (!realUrl) continue;
-      titles.push({ url: realUrl, title: stripHtml(match[3]) });
+    while ((m = titleFb.exec(html)) !== null) {
+      const url = extractRealUrl(m[1] || m[2]);
+      if (url) titles.push({ url, title: stripHtml(m[3]) });
     }
-
     const snippets: string[] = [];
-    while ((match = snippetFallback.exec(html)) !== null) {
-      snippets.push(stripHtml(match[1]));
-    }
+    while ((m = snippetFb.exec(html)) !== null) snippets.push(stripHtml(m[1]));
 
     for (let i = 0; i < titles.length; i++) {
-      results.push({
-        title: titles[i].title,
-        url: titles[i].url,
-        description: snippets[i] ?? "",
-      });
+      results.push({ ...titles[i], description: snippets[i] ?? "" });
     }
   }
 
@@ -191,7 +162,6 @@ export async function runDuckDuckGoBatch(
   queriesUsed: number;
   done: boolean;
   skipped?: boolean;
-  changedLotIds: string[];
 }> {
   // 하루 1회만 실행
   const lastRun = await db
@@ -203,20 +173,19 @@ export async function runDuckDuckGoBatch(
     const lastDate = lastRun.last_run_at.slice(0, 10);
     const today = new Date().toISOString().slice(0, 10);
     if (lastDate === today) {
-      return { processed: 0, saved: 0, queriesUsed: 0, done: false, skipped: true, changedLotIds: [] };
+      return { processed: 0, saved: 0, queriesUsed: 0, done: false, skipped: true };
     }
   }
 
   const lots = await selectPriorityLots(db, BATCH_SIZE);
 
   if (lots.length === 0) {
-    return { processed: 0, saved: 0, queriesUsed: 0, done: true, changedLotIds: [] };
+    return { processed: 0, saved: 0, queriesUsed: 0, done: true };
   }
 
   let saved = 0;
   let queriesUsed = 0;
   let consecutiveFailures = 0;
-  const changedLotIds: string[] = [];
   const insertBatch: D1PreparedStatement[] = [];
   const progressBatch: D1PreparedStatement[] = [];
 
@@ -241,43 +210,27 @@ export async function runDuckDuckGoBatch(
       const items = await searchDuckDuckGo(query, env.CRAWL4AI_URL);
       await new Promise((r) => setTimeout(r, DELAY));
       queriesUsed++;
-      consecutiveFailures = 0; // 성공 시 리셋
+      consecutiveFailures = 0;
 
-      let lotSaved = 0;
       for (const item of items) {
-        const score = scoreBlogRelevance(
-          item.title,
-          item.description,
-          lot.name,
-          lot.address,
-        );
-        if (score < RELEVANCE_THRESHOLD) continue;
-
         const sourceId = await hashUrl(item.url);
 
         insertBatch.push(
           db
             .prepare(
-              `INSERT OR IGNORE INTO web_sources
-             (parking_lot_id, source, source_id, title, content, source_url, relevance_score)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)`,
+              `INSERT OR IGNORE INTO web_sources_raw
+             (source, source_id, source_url, title, content)
+             VALUES (?1, ?2, ?3, ?4, ?5)`,
             )
             .bind(
-              lot.id,
               "ddg_search",
               sourceId,
+              item.url,
               item.title,
               item.description,
-              item.url,
-              score,
             ),
         );
-        lotSaved++;
-      }
-
-      if (lotSaved > 0) {
-        changedLotIds.push(lot.id);
-        saved += lotSaved;
+        saved++;
       }
 
       progressBatch.push(
@@ -323,6 +276,5 @@ export async function runDuckDuckGoBatch(
     saved,
     queriesUsed,
     done: lots.length < BATCH_SIZE,
-    changedLotIds,
   };
 }

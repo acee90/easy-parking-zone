@@ -1,18 +1,18 @@
 /**
  * Cloudflare Workers Scheduled (Cron) 핸들러
  *
- * 매시간 실행. 파이프라인: 크롤링 → 스코어링 재계산
- *
- * 1. 네이버 블로그/카페 크롤링 (BATCH_SIZE=25)
- * 2. YouTube 크롤링
- * 3. Brave Search 크롤링 (하루 1회)
- * 4. 변경된 주차장 incremental 스코어링 재계산
+ * 매시간 실행. 파이프라인:
+ *   1. 크롤링 → web_sources_raw (URL 단위)
+ *   2. AI 필터 → filter_passed 업데이트
+ *   3. 주차장 매칭 → filter_passed=1 → web_sources (parking_lot_id 연결)
+ *   4. 스코어링 재계산
  */
 import { runNaverBlogsBatch } from "./crawlers/naver-blogs";
 import { runYoutubeBatch } from "./crawlers/youtube";
 import { runBraveSearchBatch } from "./crawlers/brave-search";
 import { runDuckDuckGoBatch } from "./crawlers/duckduckgo-search";
 import { runAiFilterBatch } from "./crawlers/ai-filter-batch";
+import { runMatchBatch } from "./crawlers/match-to-lots";
 import { recomputeStats } from "./crawlers/lib/scoring-engine";
 
 interface Env {
@@ -27,38 +27,32 @@ interface Env {
 
 export async function handleScheduled(env: Env): Promise<void> {
   const results: string[] = [];
-  const changedLotIds = new Set<string>();
 
-  // ── 1. 크롤링 ──
+  // ── 1. 크롤링 → web_sources_raw ──
 
-  // 네이버 블로그/카페 (25,000/일, BATCH_SIZE=25)
   if (env.NAVER_CLIENT_ID && env.NAVER_CLIENT_SECRET) {
     try {
       const r = await runNaverBlogsBatch(env.DB, {
         NAVER_CLIENT_ID: env.NAVER_CLIENT_ID,
         NAVER_CLIENT_SECRET: env.NAVER_CLIENT_SECRET,
       });
-      results.push(`naver: ${r.processed} lots, ${r.saved} saved, ${r.matched} multi-matched`);
-      for (const id of r.changedLotIds) changedLotIds.add(id);
+      results.push(`naver: ${r.processed} lots, ${r.saved} saved`);
     } catch (err) {
       results.push(`naver: error - ${(err as Error).message}`);
     }
   }
 
-  // YouTube
   if (env.YOUTUBE_API_KEY) {
     try {
       const r = await runYoutubeBatch(env.DB, {
         YOUTUBE_API_KEY: env.YOUTUBE_API_KEY,
       });
       results.push(`youtube: ${r.processed} lots, ${r.savedMedia} media, ${r.savedComments} comments`);
-      // YouTube 크롤러는 changedLotIds 미지원 → 별도 처리 불필요 (빈도 낮음)
     } catch (err) {
       results.push(`youtube: error - ${(err as Error).message}`);
     }
   }
 
-  // Brave Search (하루 1회, 2,000/월)
   if (env.BRAVE_SEARCH_API_KEY) {
     try {
       const r = await runBraveSearchBatch(env.DB, {
@@ -74,7 +68,6 @@ export async function handleScheduled(env: Env): Promise<void> {
     }
   }
 
-  // DuckDuckGo Search via crawl4ai (API 키 불필요)
   if (env.CRAWL4AI_URL) {
     try {
       const r = await runDuckDuckGoBatch(env.DB, {
@@ -84,14 +77,13 @@ export async function handleScheduled(env: Env): Promise<void> {
         results.push("ddg: skipped (already ran today)");
       } else {
         results.push(`ddg: ${r.queriesUsed} queries, ${r.saved} saved`);
-        for (const id of r.changedLotIds) changedLotIds.add(id);
       }
     } catch (err) {
       results.push(`ddg: error - ${(err as Error).message}`);
     }
   }
 
-  // ── 2. AI 필터링 (미분류 web_sources → Haiku 분류) ──
+  // ── 2. AI 필터 (미분류 raw → Haiku 분류) ──
 
   if (env.ANTHROPIC_API_KEY) {
     try {
@@ -106,11 +98,31 @@ export async function handleScheduled(env: Env): Promise<void> {
     }
   }
 
-  // ── 3. Incremental 스코어링 재계산 ──
+  // ── 3. 주차장 매칭 (filter_passed=1 & 미매칭 → web_sources) ──
 
-  if (changedLotIds.size > 0) {
+  try {
+    const r = await runMatchBatch(env.DB);
+    if (r.matched > 0) {
+      results.push(`match: ${r.matched} sources → ${r.lotLinks} lot links`);
+    }
+  } catch (err) {
+    results.push(`match: error - ${(err as Error).message}`);
+  }
+
+  // ── 4. 스코어링 재계산 (최근 1시간 내 매칭된 주차장) ──
+  const changedRows = await env.DB
+    .prepare(
+      `SELECT DISTINCT ws.parking_lot_id
+       FROM web_sources ws
+       JOIN web_sources_raw r ON r.id = ws.raw_source_id
+       WHERE r.matched_at > datetime('now', '-1 hour')`,
+    )
+    .all<{ parking_lot_id: string }>();
+
+  const changedLotIds = (changedRows.results ?? []).map((r) => r.parking_lot_id);
+  if (changedLotIds.length > 0) {
     try {
-      const r = await recomputeStats(env.DB, [...changedLotIds]);
+      const r = await recomputeStats(env.DB, changedLotIds);
       results.push(`scoring: ${r.updated} lots recomputed`);
     } catch (err) {
       results.push(`scoring: error - ${(err as Error).message}`);

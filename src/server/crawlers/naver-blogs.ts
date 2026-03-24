@@ -20,7 +20,6 @@ import {
   stripHtml,
   parsePostdate,
   hashUrl,
-  scoreBlogRelevance,
 } from "./lib/scoring";
 
 /**
@@ -199,7 +198,6 @@ async function selectPriorityLots(
 
 interface SearchResult {
   insertBatch: D1PreparedStatement[];
-  matchBatch: D1PreparedStatement[];
   saved: number;
 }
 
@@ -212,53 +210,28 @@ async function processSearchResults(
   allLots: LotRow[],
 ): Promise<SearchResult> {
   const insertBatch: D1PreparedStatement[] = [];
-  const matchBatch: D1PreparedStatement[] = [];
   let saved = 0;
 
   for (const item of items) {
-    const score = scoreBlogRelevance(
-      item.title, item.description, lot.name, lot.address,
-    );
-    if (score < RELEVANCE_THRESHOLD) continue;
-
     const sourceId = await hashUrl(item.link);
     const author = source === "naver_blog" ? (item.bloggername ?? "") : (item.cafename ?? "");
 
-    // 1. web_sources에 저장 (앵커 lot에 직접 매칭)
+    // web_sources_raw에 URL 단위 저장 (매칭은 별도 단계)
     insertBatch.push(
       db.prepare(
-        `INSERT OR IGNORE INTO web_sources
-         (parking_lot_id, source, source_id, title, content, source_url, author, published_at, relevance_score)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)`,
+        `INSERT OR IGNORE INTO web_sources_raw
+         (source, source_id, source_url, title, content, author, published_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)`,
       ).bind(
-        lot.id, source, sourceId,
-        stripHtml(item.title), stripHtml(item.description),
-        item.link, author,
-        parsePostdate(item.postdate), score,
+        source, sourceId,
+        item.link, stripHtml(item.title), stripHtml(item.description),
+        author, parsePostdate(item.postdate),
       ),
     );
     saved++;
-
-    // 2. POI/지역 전략: 다중 매칭 스캔
-    if (crawlQuery.strategy !== "name") {
-      const extraLotIds = scanMultiMatches(
-        item.title, item.description, lot.id, allLots,
-      );
-      for (const lotId of extraLotIds) {
-        matchBatch.push(
-          db.prepare(
-            `INSERT OR IGNORE INTO web_source_ai_matches
-             (web_source_id, parking_lot_id, confidence, reason)
-             SELECT id, ?1, 'medium', 'keyword_scan'
-             FROM web_sources WHERE source_id = ?2
-             LIMIT 1`,
-          ).bind(lotId, sourceId),
-        );
-      }
-    }
   }
 
-  return { insertBatch, matchBatch, saved };
+  return { insertBatch, saved };
 }
 
 // ── 메인 배치 실행 ──
@@ -266,18 +239,15 @@ async function processSearchResults(
 export async function runNaverBlogsBatch(
   db: D1Database,
   env: { NAVER_CLIENT_ID: string; NAVER_CLIENT_SECRET: string },
-): Promise<{ processed: number; saved: number; matched: number; done: boolean; changedLotIds: string[] }> {
+): Promise<{ processed: number; saved: number; done: boolean }> {
   const lots = await selectPriorityLots(db, BATCH_SIZE);
 
   if (lots.length === 0) {
-    return { processed: 0, saved: 0, matched: 0, done: true, changedLotIds: [] };
+    return { processed: 0, saved: 0, done: true };
   }
 
   let saved = 0;
-  let matched = 0;
-  const changedLotIds = new Set<string>();
   const allInserts: D1PreparedStatement[] = [];
-  const allMatches: D1PreparedStatement[] = [];
   const progressBatch: D1PreparedStatement[] = [];
 
   for (const lot of lots) {
@@ -293,9 +263,7 @@ export async function runNaverBlogsBatch(
         );
         const result = await processSearchResults(db, blogRes.items, "naver_blog", lot, cq, lots);
         allInserts.push(...result.insertBatch);
-        allMatches.push(...result.matchBatch);
         lotSaved += result.saved;
-        matched += result.matchBatch.length;
       } catch (err) {
         console.warn(`[naver-blogs] blog error (${lot.name}, ${cq.strategy}): ${(err as Error).message}`);
       }
@@ -310,9 +278,7 @@ export async function runNaverBlogsBatch(
         );
         const result = await processSearchResults(db, cafeRes.items, "naver_cafe", lot, cq, lots);
         allInserts.push(...result.insertBatch);
-        allMatches.push(...result.matchBatch);
         lotSaved += result.saved;
-        matched += result.matchBatch.length;
       } catch (err) {
         console.warn(`[naver-blogs] cafe error (${lot.name}, ${cq.strategy}): ${(err as Error).message}`);
       }
@@ -321,7 +287,6 @@ export async function runNaverBlogsBatch(
     }
 
     saved += lotSaved;
-    if (lotSaved > 0) changedLotIds.add(lot.id);
 
     progressBatch.push(
       db.prepare(
@@ -339,9 +304,6 @@ export async function runNaverBlogsBatch(
   for (let i = 0; i < allInserts.length; i += D1_BATCH_LIMIT) {
     await db.batch(allInserts.slice(i, i + D1_BATCH_LIMIT));
   }
-  for (let i = 0; i < allMatches.length; i += D1_BATCH_LIMIT) {
-    await db.batch(allMatches.slice(i, i + D1_BATCH_LIMIT));
-  }
   if (progressBatch.length > 0) {
     await db.batch(progressBatch);
   }
@@ -357,5 +319,5 @@ export async function runNaverBlogsBatch(
     .bind(lots.length)
     .run();
 
-  return { processed: lots.length, saved, matched, done: lots.length < BATCH_SIZE, changedLotIds: [...changedLotIds] };
+  return { processed: lots.length, saved, done: lots.length < BATCH_SIZE };
 }
