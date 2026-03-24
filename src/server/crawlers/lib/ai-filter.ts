@@ -37,17 +37,26 @@ const SYSTEM_PROMPT = `주차장 검색 결과를 분류하는 JSON 분류기입
 출력 형식 (JSON 객체만, 설명 없이):
 {
   "filter_passed": true/false,
-  "removed_by": null 또는 "ad"/"realestate"/"irrelevant",
+  "removed_by": null 또는 "ad"/"realestate"/"irrelevant"/"news",
   "difficulty_keywords": ["좁다", "기계식"],
   "sentiment_score": 3.0,
   "summary": "주차면 좁고 기둥 많음"
 }
 
 판단 기준:
-- filter_passed: 실제 주차 경험/정보 글이면 true. 광고("ad"), 부동산 분양("realestate"), 주차 무관("irrelevant")이면 false.
+- filter_passed: 주차장에 대한 유용한 정보가 있으면 true. 아래 경우만 false:
+  - "ad": 제품/서비스 홍보, 마케팅 글
+  - "realestate": 부동산 분양/매매/임대 글
+  - "irrelevant": 주차와 완전히 무관한 글
+  - "news": 사건/사고 뉴스
+  - "monthly": 월주차/월정액/정기주차 요금/계약 정보
+  - "wedding": 결혼식장/웨딩홀 주차 안내
+- 주차장 요금, 위치, 운영시간, 혼잡도 등 정보 정리 글은 true (경험 후기가 아니어도 통과).
+- "Top5 주차장", "저렴한 주차장 정보" 같은 정보 정리/비교 글은 true.
+- 단, 월주차/정기주차 요금만 다루는 글, 결혼식장 주차 안내 글은 false (난이도 정보 없음).
 - difficulty_keywords: 주차 난이도 관련 표현만 추출 (좁다, 넓다, 기계식, 경사, 회전, 기둥, 복잡, 편하다, 여유, 만차, 헬, 초보추천 등). 없으면 빈 배열.
 - sentiment_score: 초보 운전자 관점 주차 용이성. 1.0=매우어려움, 3.0=보통, 5.0=매우쉬움. 판단 불가 시 3.0.
-- summary: 주차 관련 핵심 한줄 (20자 이내). 필터 미통과 시 "광고"/"무관" 등.`;
+- summary: 주차 관련 핵심 한줄 (20자 이내). 필터 미통과 시 사유.`;
 
 /**
  * 여러 검색 결과를 한번에 분류 (배치 프롬프트, 최대 10건)
