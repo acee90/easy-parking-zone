@@ -17,7 +17,7 @@ import { resolve } from "path";
 import { d1Query, d1Execute, isRemote } from "./lib/d1";
 import { extractRegion, isGenericName } from "./lib/geo";
 import { loadProgress, saveProgress } from "./lib/progress";
-import { hashUrl, stripHtml, scoreBlogRelevance } from "../src/server/crawlers/lib/scoring";
+import { hashUrl, stripHtml } from "../src/server/crawlers/lib/scoring";
 import { buildInsert, flushStatements } from "./lib/sql-flush";
 
 // ── CLI 옵션 ──
@@ -27,7 +27,6 @@ const limitIdx = args.indexOf("--limit");
 const LIMIT = limitIdx >= 0 ? parseInt(args[limitIdx + 1], 10) : 25;
 
 const CRAWL4AI_URL = process.env.CRAWL4AI_URL ?? "https://crawl.arttoken.biz";
-const RELEVANCE_THRESHOLD = 60;
 const DELAY = 1500;
 const FETCH_TIMEOUT = 15_000;
 const MAX_CONSECUTIVE_FAILURES = 3;
@@ -164,28 +163,23 @@ function selectPriorityLots(limit: number): LotRow[] {
   );
 }
 
-// ── DB 저장 (crawl_progress도 업데이트하여 cron과 큐 공유) ──
-const WEB_SOURCE_COLS = [
-  "parking_lot_id", "source", "source_id", "title", "content",
-  "source_url", "relevance_score",
-];
+// ── DB 저장 (web_sources_raw + crawl_progress) ──
+const RAW_COLS = ["source", "source_id", "source_url", "title", "content"];
 
 function flushResults(
-  pending: Array<{ lotId: string; sourceId: string; title: string; desc: string; url: string; score: number }>,
+  pending: Array<{ sourceId: string; title: string; desc: string; url: string }>,
   completedLotIds: string[],
 ): void {
   if (pending.length === 0 && completedLotIds.length === 0) return;
 
   const stmts: string[] = [];
 
-  // web_sources INSERT
   for (const r of pending) {
-    stmts.push(buildInsert("web_sources", WEB_SOURCE_COLS, [
-      r.lotId, "ddg_search", r.sourceId, r.title, r.desc, r.url, r.score,
+    stmts.push(buildInsert("web_sources_raw", RAW_COLS, [
+      "ddg_search", r.sourceId, r.url, r.title, r.desc,
     ]));
   }
 
-  // crawl_progress UPDATE (cron과 큐 공유)
   for (const lotId of completedLotIds) {
     stmts.push(
       `INSERT INTO crawl_progress (crawler_id, last_parking_lot_id, completed_count, last_run_at)
@@ -231,7 +225,7 @@ async function main() {
   }
 
   let consecutiveFailures = 0;
-  let pending: Array<{ lotId: string; sourceId: string; title: string; desc: string; url: string; score: number }> = [];
+  let pending: Array<{ sourceId: string; title: string; desc: string; url: string }> = [];
   const completedBatch: string[] = [];
 
   for (let i = 0; i < lots.length; i++) {
@@ -253,42 +247,25 @@ async function main() {
       consecutiveFailures = 0;
       progress.totalQueries++;
 
-      let lotSaved = 0;
       for (const item of items) {
-        const score = scoreBlogRelevance(item.title, item.description, lot.name, lot.address);
-        if (score < RELEVANCE_THRESHOLD) {
-          progress.skippedLowRelevance++;
-          continue;
-        }
-
         const sourceId = await hashUrl(item.url);
-        lotSaved++;
 
         if (isDryRun) {
-          console.log(`\n      ✅ [${score}점] ${item.title.slice(0, 60)}`);
+          console.log(`\n      ${item.title.slice(0, 60)}`);
           console.log(`         ${item.url.slice(0, 80)}`);
         } else {
           pending.push({
-            lotId: lot.id,
             sourceId,
             title: item.title,
             desc: item.description,
             url: item.url,
-            score,
           });
         }
       }
 
-      progress.savedSources += lotSaved;
+      progress.savedSources += items.length;
       completedBatch.push(lot.id);
-
-      if (!isDryRun) {
-        process.stdout.write(`→ ${items.length}건 중 ${lotSaved}건 저장\n`);
-      } else if (lotSaved === 0) {
-        process.stdout.write(`→ ${items.length}건, 관련도 미달\n`);
-      } else {
-        process.stdout.write(`→ ${lotSaved}건 매칭\n`);
-      }
+      process.stdout.write(`→ ${items.length}건 저장\n`);
     } catch (err) {
       consecutiveFailures++;
       console.log(`❌ ${(err as Error).message} (${consecutiveFailures}/${MAX_CONSECUTIVE_FAILURES})`);
@@ -323,8 +300,8 @@ async function main() {
   console.log(`\n📊 결과 요약`);
   console.log(`  처리: ${lots.length}개 주차장`);
   console.log(`  검색: ${progress.totalQueries}회`);
-  console.log(`  저장: ${progress.savedSources}건 (threshold ≥ ${RELEVANCE_THRESHOLD})`);
-  console.log(`  스킵: 제네릭=${progress.skippedGeneric} 저관련도=${progress.skippedLowRelevance}`);
+  console.log(`  저장: ${progress.savedSources}건 (web_sources_raw)`);
+  console.log(`  스킵: 제네릭=${progress.skippedGeneric}`);
   if (isDryRun) console.log(`  ⚠️  dry-run 모드 — DB 저장하지 않았습니다.`);
   console.log();
 }
