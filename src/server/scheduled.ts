@@ -115,7 +115,7 @@ export async function handleScheduled(env: Env): Promise<void> {
       `SELECT DISTINCT ws.parking_lot_id
        FROM web_sources ws
        JOIN web_sources_raw r ON r.id = ws.raw_source_id
-       WHERE r.matched_at > datetime('now', '-1 hour')`,
+       WHERE r.matched_at > datetime('now', '-2 hours')`,
     )
     .all<{ parking_lot_id: string }>();
 

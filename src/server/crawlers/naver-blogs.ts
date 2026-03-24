@@ -33,7 +33,6 @@ import {
  */
 const BATCH_SIZE = 25;
 const DELAY = 300;
-const RELEVANCE_THRESHOLD = 60;
 const RESULTS_PER_QUERY = 5;
 const RECRAWL_DAYS = 30;
 
@@ -126,40 +125,6 @@ function buildQueries(lot: LotRow): CrawlQuery[] {
 
 // ── 다중 매칭 ──
 
-/**
- * 검색 결과 텍스트에서 배치 내 다른 주차장 이름이 언급되는지 스캔.
- * B/C 전략 결과에서 한 포스트가 여러 주차장을 언급하는 경우를 포착.
- *
- * @returns 앵커 lot 외에 추가 매칭된 lot ID 배열
- */
-function scanMultiMatches(
-  title: string,
-  description: string,
-  anchorLotId: string,
-  allLots: LotRow[],
-): string[] {
-  const combined = (stripHtml(title) + " " + stripHtml(description)).toLowerCase();
-  const matched: string[] = [];
-
-  for (const lot of allLots) {
-    if (lot.id === anchorLotId) continue;
-    if (isGenericName(lot.name)) continue;
-
-    // 이름에서 핵심 키워드 추출
-    const keywords = lot.name
-      .toLowerCase()
-      .replace(/주차장|공영|노외|노상|부설/g, "")
-      .split(/\s+/)
-      .filter((w) => w.length >= 3);
-
-    if (keywords.length > 0 && keywords.some((kw) => combined.includes(kw))) {
-      matched.push(lot.id);
-    }
-  }
-
-  return matched;
-}
-
 // ── 우선순위 큐 ──
 
 async function selectPriorityLots(
@@ -205,9 +170,6 @@ async function processSearchResults(
   db: D1Database,
   items: NaverSearchItem[],
   source: "naver_blog" | "naver_cafe",
-  lot: LotRow,
-  crawlQuery: CrawlQuery,
-  allLots: LotRow[],
 ): Promise<SearchResult> {
   const insertBatch: D1PreparedStatement[] = [];
   let saved = 0;
@@ -261,7 +223,7 @@ export async function runNaverBlogsBatch(
           BLOG_URL, cq.query, RESULTS_PER_QUERY,
           env.NAVER_CLIENT_ID, env.NAVER_CLIENT_SECRET,
         );
-        const result = await processSearchResults(db, blogRes.items, "naver_blog", lot, cq, lots);
+        const result = await processSearchResults(db, blogRes.items, "naver_blog");
         allInserts.push(...result.insertBatch);
         lotSaved += result.saved;
       } catch (err) {
@@ -276,7 +238,7 @@ export async function runNaverBlogsBatch(
           CAFE_URL, cq.query, RESULTS_PER_QUERY,
           env.NAVER_CLIENT_ID, env.NAVER_CLIENT_SECRET,
         );
-        const result = await processSearchResults(db, cafeRes.items, "naver_cafe", lot, cq, lots);
+        const result = await processSearchResults(db, cafeRes.items, "naver_cafe");
         allInserts.push(...result.insertBatch);
         lotSaved += result.saved;
       } catch (err) {
