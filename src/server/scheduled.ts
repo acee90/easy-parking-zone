@@ -82,6 +82,7 @@ export async function handleScheduled(env: Env): Promise<void> {
         results.push("ddg: skipped (already ran today)");
       } else {
         results.push(`ddg: ${r.queriesUsed} queries, ${r.saved} saved`);
+        for (const id of r.changedLotIds) changedLotIds.add(id);
       }
     } catch (err) {
       results.push(`ddg: error - ${(err as Error).message}`);

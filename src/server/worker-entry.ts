@@ -13,6 +13,7 @@ interface Env {
   NAVER_CLIENT_SECRET: string;
   YOUTUBE_API_KEY: string;
   BRAVE_SEARCH_API_KEY: string;
+  CRAWL4AI_URL: string;
 }
 
 const startHandler = createStartHandler(defaultStreamHandler);
