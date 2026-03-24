@@ -119,14 +119,13 @@ export async function runYoutubeBatch(
           const sourceId = await hashUrl(`yt-${c.id}`);
           batch.push(
             db.prepare(
-              "INSERT OR IGNORE INTO web_sources (parking_lot_id, source, source_id, title, content, source_url, author, published_at, relevance_score) VALUES (?1, 'youtube_comment', ?2, ?3, ?4, ?5, ?6, ?7, ?8)"
+              "INSERT OR IGNORE INTO web_sources_raw (source, source_id, source_url, title, content, author, published_at) VALUES ('youtube_comment', ?1, ?2, ?3, ?4, ?5, ?6)"
             ).bind(
-              lot.id, sourceId,
+              sourceId, videoUrl,
               `[YouTube] ${video.snippet.title}`.slice(0, 200),
-              text.slice(0, 1000), videoUrl,
+              text.slice(0, 1000),
               c.snippet.topLevelComment.snippet.authorDisplayName,
-              c.snippet.topLevelComment.snippet.publishedAt?.slice(0, 10) ?? null,
-              score
+              c.snippet.topLevelComment.snippet.publishedAt?.slice(0, 10) ?? null
             )
           );
           savedComments++;

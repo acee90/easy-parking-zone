@@ -41,22 +41,18 @@ const TMP_SQL = resolve(import.meta.dir, "../.tmp-ai-filter.sql");
 // ── Types ──
 interface SourceRow {
   id: number;
-  parking_lot_id: string;
   title: string;
   content: string;
   source_url: string;
-  parking_name: string;
 }
 
-// ── 미분류 소스 조회 ──
+// ── 미분류 소스 조회 (web_sources_raw) ──
 function selectUnfiltered(limit: number): SourceRow[] {
   return d1Query<SourceRow>(
-    `SELECT ws.id, ws.parking_lot_id, ws.title, ws.content, ws.source_url,
-            p.name as parking_name
-     FROM web_sources ws
-     JOIN parking_lots p ON p.id = ws.parking_lot_id
-     WHERE ws.ai_filtered_at IS NULL
-     ORDER BY ws.id DESC
+    `SELECT id, title, content, source_url
+     FROM web_sources_raw
+     WHERE ai_filtered_at IS NULL
+     ORDER BY id DESC
      LIMIT ${limit}`,
   );
 }
@@ -69,7 +65,7 @@ function buildUpdateSql(id: number, result: AiFilterResult): string {
     ? `'${esc(result.filterRemovedBy)}'`
     : "NULL";
 
-  return `UPDATE web_sources SET filter_passed = ${result.filterPassed ? 1 : 0}, filter_removed_by = ${removedBy}, sentiment_score = ${result.sentimentScore}, ai_difficulty_keywords = '${keywords}', ai_summary = '${summary}', ai_filtered_at = datetime('now') WHERE id = ${id};`;
+  return `UPDATE web_sources_raw SET filter_passed = ${result.filterPassed ? 1 : 0}, filter_removed_by = ${removedBy}, sentiment_score = ${result.sentimentScore}, ai_difficulty_keywords = '${keywords}', ai_summary = '${summary}', ai_filtered_at = datetime('now') WHERE id = ${id};`;
 }
 
 // ── URL 중복 제거: 고유 URL만 추출 + 나머지는 결과 복사 ──
@@ -120,7 +116,7 @@ async function main() {
     const chunk = unique.slice(i, i + BATCH_SIZE);
 
     const inputs: AiFilterInput[] = chunk.map((s) => ({
-      parkingName: s.parking_name,
+      parkingName: "",  // raw 단계에서는 주차장 미정
       title: s.title,
       description: s.content,
     }));

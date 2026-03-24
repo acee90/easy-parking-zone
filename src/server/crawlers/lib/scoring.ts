@@ -69,7 +69,7 @@ const NOISE_PATTERNS = [
   /견본주택/, /입주자모집/, /입주예정/, /공급조건/,
   /시행사/, /시공사/, /투자수익/, /프리미엄분양/,
   /빌라\s*매매/, /아파트\s*매매/, /매물/, /전세\s*모/, /월세\s*모/,
-  /원룸\s*\d/, /투룸/, /쓰리룸/, /임대\s*안/,
+  /원룸\s*\d/, /투룸/, /쓰리룸/, /상가\s*임대/, /사무실\s*임대/, /오피스텔\s*임대/,
   /신축빌라/, /신축원룸/, /경매물건/,
   /임장\s*(기록|후기|보고)/, /지구\s*임장/,
   /청약/, /재개발/, /재건축/,
@@ -81,6 +81,77 @@ const NOISE_PATTERNS = [
   /청소.*업체/, /이사.*업체/, /인테리어.*업체/,
   /다이어트/, /성형/, /피부과/, /치과/,
 ];
+
+/**
+ * 주차장명에서 매칭용 키워드를 추출한다.
+ * 기존: "주차장|공영|노외|노상|부설" 제거 → 2글자 미만 필터
+ * 개선: 제거 패턴 최소화, 전체 이름도 키워드로 포함
+ */
+/** 주차장명 접미사 패턴 */
+const NAME_SUFFIX = /(?:공영|민영|노외|노상|부설|유료|무료|임시|기계식)?주차장\d*$/;
+
+export function extractNameKeywords(parkingName: string): string[] {
+  const nameLower = parkingName.toLowerCase();
+  const keywords: string[] = [];
+
+  // 1. 전체 이름 (접미사 제거)
+  const fullName = nameLower.replace(NAME_SUFFIX, "").trim();
+  if (fullName.length >= 2) keywords.push(fullName);
+
+  // 2. 단어 분리 (띄어쓰기 기준)
+  const words = nameLower
+    .replace(NAME_SUFFIX, "")
+    .split(/\s+/)
+    .filter((w) => w.length >= 2);
+  keywords.push(...words);
+
+  // 3. 원본 이름 (정확 매칭용)
+  if (nameLower.length >= 3) keywords.push(nameLower);
+
+  // 4. 붙어있는 이름에서 동/읍/면/리/구 기준 앞부분 추출
+  const locMatch = fullName.match(/^(.+?[동읍면리구])/);
+  if (locMatch && locMatch[1].length >= 2) keywords.push(locMatch[1]);
+
+  // 5. 붙어있는 복합 이름 분리 (띄어쓰기 없는 한글+한글 경계)
+  //    "마장축산물시장서문" → "마장축산물시장", "서문"
+  //    "고운들공영" → "고운들"
+  //    "KTX환승" → "ktx", "환승"
+  const withoutSuffix = fullName.replace(/\s/g, "");
+  if (withoutSuffix.length >= 4) {
+    // 공영/민영/유료/무료 등 접두사도 분리
+    const prefixMatch = withoutSuffix.match(/^(.+?)(공영|민영|유료|무료|노상|노외)$/);
+    if (prefixMatch && prefixMatch[1].length >= 2) {
+      keywords.push(prefixMatch[1]);
+    }
+    // 시장/역/대학/병원 등 시설명 경계로 분리
+    const facilityMatch = withoutSuffix.match(/^(.+?(?:시장|역|대학|병원|공원|센터|회관|마을|아파트))(.*)/);
+    if (facilityMatch && facilityMatch[1].length >= 2) {
+      keywords.push(facilityMatch[1]);
+    }
+    // 영문+한글 경계 분리: "KTX환승" → "ktx"
+    const engMatch = withoutSuffix.match(/^([a-z]+)/i);
+    if (engMatch && engMatch[1].length >= 2) {
+      keywords.push(engMatch[1].toLowerCase());
+    }
+  }
+
+  // 6. 중복 제거
+  return [...new Set(keywords)];
+}
+
+/**
+ * 주소에서 시/도 레벨을 추출한다 (광역 지역 검증용).
+ * "서울특별시 강남구 ..." → "서울"
+ * "경기도 수원시 ..." → "경기"
+ */
+export function extractProvince(address: string): string {
+  const match = address.match(
+    /^(서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주)/,
+  );
+  return match ? match[1] : "";
+}
+
+export type MatchConfidence = "high" | "medium" | "none";
 
 /** 네이버 블로그 검색 결과 관련도 점수 (0-100) */
 export function scoreBlogRelevance(
@@ -104,23 +175,99 @@ export function scoreBlogRelevance(
   }
 
   let score = 0;
-  const nameLower = parkingName.toLowerCase();
+  let nameMatched = false;
 
-  const nameKeywords = nameLower
-    .replace(/주차장|공영|노외|노상|부설/g, "")
-    .split(/\s+/)
-    .filter((w) => w.length >= 2);
+  const nameKeywords = extractNameKeywords(parkingName);
 
-  if (nameKeywords.some((kw) => titleLower.includes(kw))) score += 40;
-  if (nameKeywords.some((kw) => descLower.includes(kw))) score += 20;
+  // 이름 매칭 (전체 이름 또는 핵심 키워드)
+  if (nameKeywords.some((kw) => titleLower.includes(kw))) {
+    score += 40;
+    nameMatched = true;
+  }
+  if (nameKeywords.some((kw) => descLower.includes(kw))) {
+    score += 20;
+    nameMatched = true;
+  }
 
+  // 지역 매칭
   const region = extractRegion(address).toLowerCase();
   const regionWords = region.split(/\s+/).filter((w) => w.length >= 2);
-  if (regionWords.some((rw) => titleLower.includes(rw) || descLower.includes(rw))) score += 20;
+  const regionMatched = regionWords.some(
+    (rw) => titleLower.includes(rw) || descLower.includes(rw),
+  );
+  if (regionMatched) score += 20;
 
+  // 주차 키워드 보너스
   if (titleLower.includes("주차") || descLower.includes("주차")) score += 20;
 
-  return score;
+  // ── 보정 규칙 ──
+
+  // 이름 매칭 없이는 최대 40점 (지역+주차만으로는 threshold 못 넘김)
+  if (!nameMatched) {
+    score = Math.min(score, 40);
+  }
+
+  // 이름 매칭됐지만 광역 지역 불일치 → 동명이인 감점
+  if (nameMatched && regionMatched === false) {
+    const province = extractProvince(address);
+    if (province && !combined.includes(province)) {
+      score = Math.max(0, score - 30);
+    }
+  }
+
+  return Math.min(100, score);
+}
+
+/**
+ * 매칭 신뢰도를 판정한다.
+ *
+ * - high: 주차장 전체 이름(접미사 제거)이 글에 그대로 등장 + "주차" 키워드
+ *         → 바로 저장 (AI 불필요)
+ * - medium: 부분 키워드 매칭, 지역명 매칭 등 score≥40
+ *         → AI 검증 필요
+ * - none: score<40 또는 게이트 미통과
+ *         → 스킵
+ */
+export function getMatchConfidence(
+  title: string,
+  description: string,
+  parkingName: string,
+  address: string,
+): { score: number; confidence: MatchConfidence } {
+  const score = scoreBlogRelevance(title, description, parkingName, address);
+  if (score < 40) return { score, confidence: "none" };
+
+  const combined = (stripHtml(title) + " " + stripHtml(description)).toLowerCase();
+  const nameKeywords = extractNameKeywords(parkingName);
+
+  const matchedKws = nameKeywords.filter((kw) => combined.includes(kw));
+  const maxMatchLen = matchedKws.reduce((max, kw) => Math.max(max, kw.length), 0);
+  const hasParkingKw = combined.includes("주차") || combined.includes("parking");
+
+  if (maxMatchLen >= 6 && hasParkingKw) {
+    const bestKw = matchedKws.reduce((best, kw) =>
+      kw.length > best.length ? kw : best, "");
+
+    // 도로명(~로, ~길, ~번길)만 매칭된 경우 → medium (주소에 흔히 포함)
+    if (/^.+(로|길|번길)$/.test(bestKw) && !/주차/.test(bestKw)) {
+      return { score, confidence: "medium" };
+    }
+
+    // 일반 시설명(행정복지센터, 어린이공원 등)만 매칭된 경우 → medium (동명이인)
+    const genericFacility = /^(행정복지센터|어린이공원|종합시장|전통시장|버스터미널|시외버스터미널|체육관|문화센터|보건소|주민센터|파출소|우체국)$/;
+    if (genericFacility.test(bestKw)) {
+      return { score, confidence: "medium" };
+    }
+
+    // 주차장명에 "주변/옆/앞/인근"이 포함 → 시설명만 매칭은 medium
+    if (/[주변옆앞인근]/.test(parkingName) && !combined.includes(parkingName.toLowerCase().replace(NAME_SUFFIX, "").trim())) {
+      return { score, confidence: "medium" };
+    }
+
+    return { score, confidence: "high" };
+  }
+
+  return { score, confidence: "medium" };
 }
 
 /** YouTube 댓글 관련도 점수 (0-100) */
