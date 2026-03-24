@@ -132,6 +132,7 @@ export async function runMatchBatch(
   for (const raw of sources) {
     const title = stripHtml(raw.title);
     const content = stripHtml(raw.content);
+    let thisItemLinked = 0;
 
     // 1. FTS로 후보 검색
     const keywords = extractSearchKeywords(title, content);
@@ -148,13 +149,13 @@ export async function runMatchBatch(
       } else if (confidence === "medium") {
         mediumMatches.push({ lot, score });
       }
-      // low, none → 스킵
     }
 
     // 3. high → 바로 저장
     for (const { lot, score } of highMatches) {
       insertBatch.push(buildInsert(db, raw, lot, score));
       lotLinks++;
+      thisItemLinked++;
     }
 
     // 4. medium → AI 검증 (API 키가 있을 때만)
@@ -173,12 +174,12 @@ export async function runMatchBatch(
           if (aiResult?.filterPassed) {
             insertBatch.push(buildInsert(db, raw, lot, score));
             lotLinks++;
+            thisItemLinked++;
             aiVerified++;
           }
         }
       } catch (err) {
         console.log(`[match] AI verify error: ${(err as Error).message}`);
-        // AI 실패 시 medium은 스킵
       }
     }
 
@@ -187,7 +188,7 @@ export async function runMatchBatch(
     // 새 주차장 추가 등으로 재매칭이 필요하면 matched_at을 NULL로 리셋.
     const attempted = candidates.length > 0 || keywords.length > 0;
     if (attempted) {
-      if (highMatches.length > 0 || aiVerified > 0) matched++;
+      if (thisItemLinked > 0) matched++;
       updateBatch.push(
         db
           .prepare("UPDATE web_sources_raw SET matched_at = datetime('now') WHERE id = ?1")
