@@ -237,7 +237,6 @@ export function getMatchConfidence(
   const score = scoreBlogRelevance(title, description, parkingName, address);
   if (score < 40) return { score, confidence: "none" };
 
-  // high 판정: 6글자 이상 키워드가 매칭 + "주차" 키워드 (정밀도 89%)
   const combined = (stripHtml(title) + " " + stripHtml(description)).toLowerCase();
   const nameKeywords = extractNameKeywords(parkingName);
 
@@ -246,6 +245,25 @@ export function getMatchConfidence(
   const hasParkingKw = combined.includes("주차") || combined.includes("parking");
 
   if (maxMatchLen >= 6 && hasParkingKw) {
+    const bestKw = matchedKws.reduce((best, kw) =>
+      kw.length > best.length ? kw : best, "");
+
+    // 도로명(~로, ~길, ~번길)만 매칭된 경우 → medium (주소에 흔히 포함)
+    if (/^.+(로|길|번길)$/.test(bestKw) && !/주차/.test(bestKw)) {
+      return { score, confidence: "medium" };
+    }
+
+    // 일반 시설명(행정복지센터, 어린이공원 등)만 매칭된 경우 → medium (동명이인)
+    const genericFacility = /^(행정복지센터|어린이공원|종합시장|전통시장|버스터미널|시외버스터미널|체육관|문화센터|보건소|주민센터|파출소|우체국)$/;
+    if (genericFacility.test(bestKw)) {
+      return { score, confidence: "medium" };
+    }
+
+    // 주차장명에 "주변/옆/앞/인근"이 포함 → 시설명만 매칭은 medium
+    if (/[주변옆앞인근]/.test(parkingName) && !combined.includes(parkingName.toLowerCase().replace(NAME_SUFFIX, "").trim())) {
+      return { score, confidence: "medium" };
+    }
+
     return { score, confidence: "high" };
   }
 
