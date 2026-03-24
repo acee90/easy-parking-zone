@@ -8,7 +8,8 @@
 	],
 	"vars": {
 		"VITE_NAVER_MAP_CLIENT_ID": "uw8likbp4e",
-		"BETTER_AUTH_URL": "https://easy-parking.xyz"
+		"BETTER_AUTH_URL": "https://easy-parking.xyz",
+		"CRAWL4AI_URL": "https://crawl.arttoken.biz"
 	},
 	"triggers": {
 		"crons": ["0 */1 * * *"]

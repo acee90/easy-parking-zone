@@ -11,6 +11,7 @@
 import { runNaverBlogsBatch } from "./crawlers/naver-blogs";
 import { runYoutubeBatch } from "./crawlers/youtube";
 import { runBraveSearchBatch } from "./crawlers/brave-search";
+import { runDuckDuckGoBatch } from "./crawlers/duckduckgo-search";
 import { recomputeStats } from "./crawlers/lib/scoring-engine";
 
 interface Env {
@@ -19,6 +20,7 @@ interface Env {
   NAVER_CLIENT_SECRET: string;
   YOUTUBE_API_KEY: string;
   BRAVE_SEARCH_API_KEY: string;
+  CRAWL4AI_URL: string;
 }
 
 export async function handleScheduled(env: Env): Promise<void> {
@@ -67,6 +69,22 @@ export async function handleScheduled(env: Env): Promise<void> {
       }
     } catch (err) {
       results.push(`brave: error - ${(err as Error).message}`);
+    }
+  }
+
+  // DuckDuckGo Search via crawl4ai (API 키 불필요)
+  if (env.CRAWL4AI_URL) {
+    try {
+      const r = await runDuckDuckGoBatch(env.DB, {
+        CRAWL4AI_URL: env.CRAWL4AI_URL,
+      });
+      if (r.skipped) {
+        results.push("ddg: skipped (already ran today)");
+      } else {
+        results.push(`ddg: ${r.queriesUsed} queries, ${r.saved} saved`);
+      }
+    } catch (err) {
+      results.push(`ddg: error - ${(err as Error).message}`);
     }
   }
 
