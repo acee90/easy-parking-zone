@@ -32,7 +32,13 @@ export function buildInsert(
 /** SQL 문 배열을 tmp 파일로 flush 후 D1 실행 + 삭제 */
 export function flushStatements(tmpPath: string, statements: string[]): void {
   if (statements.length === 0) return;
-  writeFileSync(tmpPath, statements.join("\n"));
-  d1ExecFile(tmpPath);
-  unlinkSync(tmpPath);
+  // 트랜잭션으로 감싸서 lock 최소화 + 성능 향상
+  const CHUNK = 100;
+  for (let i = 0; i < statements.length; i += CHUNK) {
+    const chunk = statements.slice(i, i + CHUNK);
+    const sql = "BEGIN;\n" + chunk.join("\n") + "\nCOMMIT;";
+    writeFileSync(tmpPath, sql);
+    d1ExecFile(tmpPath);
+    unlinkSync(tmpPath);
+  }
 }
