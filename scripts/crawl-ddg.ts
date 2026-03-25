@@ -44,6 +44,32 @@ interface LotRow {
   name: string;
   address: string;
   reliability: string | null;
+  poi_tags: string | null;
+}
+
+type QueryStrategy = "name" | "poi" | "region";
+
+function buildQueries(lot: LotRow): Array<{ strategy: QueryStrategy; query: string }> {
+  const region = extractRegion(lot.address);
+  const queries: Array<{ strategy: QueryStrategy; query: string }> = [];
+
+  if (!isGenericName(lot.name)) {
+    queries.push({ strategy: "name", query: `${lot.name} 주차장 ${region}`.trim() });
+  }
+
+  let poiTags: string[] = [];
+  if (lot.poi_tags) {
+    try { poiTags = JSON.parse(lot.poi_tags); } catch {}
+  }
+  if (poiTags.length > 0) {
+    queries.push({ strategy: "poi", query: `${poiTags[0]} 주차장` });
+  }
+
+  if (queries.length === 0) {
+    queries.push({ strategy: "region", query: `${region} 주차장 추천` });
+  }
+
+  return queries;
 }
 
 interface DdgResult {
@@ -147,7 +173,7 @@ function parseDdgHtml(html: string): DdgResult[] {
 // ── 우선순위 큐 (cron과 동일한 crawl_progress 참조) ──
 function selectPriorityLots(limit: number): LotRow[] {
   return d1Query<LotRow>(
-    `SELECT p.id, p.name, p.address, s.reliability
+    `SELECT p.id, p.name, p.address, s.reliability, p.poi_tags
      FROM parking_lots p
      LEFT JOIN parking_lot_stats s ON p.id = s.parking_lot_id
      LEFT JOIN crawl_progress cp ON cp.crawler_id = 'ddg_lot:' || p.id
@@ -230,50 +256,47 @@ async function main() {
 
   for (let i = 0; i < lots.length; i++) {
     const lot = lots[i];
-
-    if (isGenericName(lot.name)) {
-      progress.skippedGeneric++;
-      completedBatch.push(lot.id);
-      continue;
-    }
-
-    const region = extractRegion(lot.address);
-    const query = `"${lot.name}" ${region} 주차 후기`.trim();
+    const queries = buildQueries(lot);
 
     process.stdout.write(`  [${i + 1}/${lots.length}] ${lot.name} (${lot.reliability ?? "none"}) `);
 
-    try {
-      const items = await searchDuckDuckGo(query);
-      consecutiveFailures = 0;
-      progress.totalQueries++;
+    let lotSaved = 0;
+    for (const cq of queries) {
+      try {
+        const items = await searchDuckDuckGo(cq.query);
+        consecutiveFailures = 0;
+        progress.totalQueries++;
 
-      for (const item of items) {
-        const sourceId = await hashUrl(item.url);
+        for (const item of items) {
+          const sourceId = await hashUrl(item.url);
 
-        if (isDryRun) {
-          console.log(`\n      ${item.title.slice(0, 60)}`);
-          console.log(`         ${item.url.slice(0, 80)}`);
-        } else {
-          pending.push({
-            sourceId,
-            title: item.title,
-            desc: item.description,
-            url: item.url,
-          });
+          if (isDryRun) {
+            console.log(`\n      [${cq.strategy}] ${item.title.slice(0, 55)}`);
+          } else {
+            pending.push({
+              sourceId,
+              title: item.title,
+              desc: item.description,
+              url: item.url,
+            });
+          }
+          lotSaved++;
         }
-      }
-
-      progress.savedSources += items.length;
-      completedBatch.push(lot.id);
-      process.stdout.write(`→ ${items.length}건 저장\n`);
-    } catch (err) {
-      consecutiveFailures++;
-      console.log(`❌ ${(err as Error).message} (${consecutiveFailures}/${MAX_CONSECUTIVE_FAILURES})`);
-      if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
-        console.error(`\n  ⛔ 연속 ${MAX_CONSECUTIVE_FAILURES}회 실패, 중단합니다.`);
-        break;
+      } catch (err) {
+        consecutiveFailures++;
+        console.log(`❌ ${cq.strategy}: ${(err as Error).message}`);
+        if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) break;
       }
     }
+
+    if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+      console.error(`\n  ⛔ 연속 ${MAX_CONSECUTIVE_FAILURES}회 실패, 중단합니다.`);
+      break;
+    }
+
+    progress.savedSources += lotSaved;
+    completedBatch.push(lot.id);
+    if (!isDryRun) process.stdout.write(`→ ${lotSaved}건 (${queries.map(q => q.strategy).join("+")})\n`);
 
     // DB flush
     if (!isDryRun && (pending.length >= DB_FLUSH_SIZE || i === lots.length - 1)) {

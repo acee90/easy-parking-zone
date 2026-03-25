@@ -1,9 +1,12 @@
 /**
  * DuckDuckGo Search 크롤러 (crawl4ai 온프레미스 경유)
  *
- * API 키 불필요. crawl4ai로 DuckDuckGo HTML 검색결과를 크롤링하여
- * 제목/URL/설명을 파싱 후 web_sources_raw에 URL 단위로 저장.
- * 매칭/필터링은 별도 단계에서 처리.
+ * 네이버 크롤러와 동일한 3가지 쿼리 전략 사용:
+ *   A. 이름 기반: "{주차장명} 주차장 {지역}"
+ *   B. POI 기반:  "{POI} 주차장"
+ *   C. 지역 폴백: "{지역} 주차장 추천"
+ *
+ * 검색 결과를 web_sources_raw에 URL 단위로 저장.
  */
 import {
   extractRegion,
@@ -12,20 +15,65 @@ import {
   hashUrl,
 } from "./lib/scoring";
 
-/** 일일 배치 크기 (subrequest 한도 고려하여 25로 제한) */
 const BATCH_SIZE = 25;
 const RECRAWL_DAYS = 30;
-const DELAY = 1500; // DuckDuckGo rate limit 방지
+const DELAY = 1500;
 const FETCH_TIMEOUT = 15_000;
 const MAX_CONSECUTIVE_FAILURES = 3;
 
 const DDG_URL = "https://html.duckduckgo.com/html/";
+
+// ── 타입 ──
 
 interface DdgResult {
   title: string;
   url: string;
   description: string;
 }
+
+interface LotRow {
+  id: string;
+  name: string;
+  address: string;
+  poi_tags: string | null;
+}
+
+type QueryStrategy = "name" | "poi" | "region";
+
+interface CrawlQuery {
+  strategy: QueryStrategy;
+  query: string;
+}
+
+// ── 쿼리 전략 (네이버와 동일) ──
+
+function buildQueries(lot: LotRow): CrawlQuery[] {
+  const region = extractRegion(lot.address);
+  const queries: CrawlQuery[] = [];
+
+  // A: 이름이 고유하면 항상 포함
+  if (!isGenericName(lot.name)) {
+    queries.push({ strategy: "name", query: `${lot.name} 주차장 ${region}`.trim() });
+  }
+
+  // B: POI 태그가 있으면 추가
+  let poiTags: string[] = [];
+  if (lot.poi_tags) {
+    try { poiTags = JSON.parse(lot.poi_tags); } catch { /* skip */ }
+  }
+  if (poiTags.length > 0) {
+    queries.push({ strategy: "poi", query: `${poiTags[0]} 주차장` });
+  }
+
+  // C: A도 B도 없으면 지역 폴백
+  if (queries.length === 0) {
+    queries.push({ strategy: "region", query: `${region} 주차장 추천` });
+  }
+
+  return queries;
+}
+
+// ── DuckDuckGo 검색 ──
 
 async function searchDuckDuckGo(
   query: string,
@@ -121,13 +169,15 @@ function parseDdgHtml(html: string): DdgResult[] {
   return results;
 }
 
+// ── 우선순위 큐 ──
+
 async function selectPriorityLots(
   db: D1Database,
   limit: number,
-): Promise<Array<{ id: string; name: string; address: string }>> {
+): Promise<LotRow[]> {
   const rows = await db
     .prepare(
-      `SELECT p.id, p.name, p.address
+      `SELECT p.id, p.name, p.address, p.poi_tags
        FROM parking_lots p
        LEFT JOIN parking_lot_stats s ON p.id = s.parking_lot_id
        LEFT JOIN crawl_progress cp
@@ -148,10 +198,12 @@ async function selectPriorityLots(
        LIMIT ?2`,
     )
     .bind(RECRAWL_DAYS, limit)
-    .all<{ id: string; name: string; address: string }>();
+    .all<LotRow>();
 
   return rows.results ?? [];
 }
+
+// ── 메인 배치 ──
 
 export async function runDuckDuckGoBatch(
   db: D1Database,
@@ -190,69 +242,59 @@ export async function runDuckDuckGoBatch(
   const progressBatch: D1PreparedStatement[] = [];
 
   for (const lot of lots) {
-    if (isGenericName(lot.name)) {
-      progressBatch.push(
-        db
-          .prepare(
-            `INSERT INTO crawl_progress (crawler_id, last_parking_lot_id, completed_count, last_run_at)
-           VALUES (?1, ?2, 0, datetime('now'))
-           ON CONFLICT(crawler_id) DO UPDATE SET last_run_at = datetime('now')`,
-          )
-          .bind(`ddg_lot:${lot.id}`, lot.id),
-      );
-      continue;
-    }
+    const queries = buildQueries(lot);
 
-    const region = extractRegion(lot.address);
-    const query = `"${lot.name}" ${region} 주차 후기`.trim();
+    for (const cq of queries) {
+      try {
+        const items = await searchDuckDuckGo(cq.query, env.CRAWL4AI_URL);
+        await new Promise((r) => setTimeout(r, DELAY));
+        queriesUsed++;
+        consecutiveFailures = 0;
 
-    try {
-      const items = await searchDuckDuckGo(query, env.CRAWL4AI_URL);
-      await new Promise((r) => setTimeout(r, DELAY));
-      queriesUsed++;
-      consecutiveFailures = 0;
+        for (const item of items) {
+          const sourceId = await hashUrl(item.url);
 
-      for (const item of items) {
-        const sourceId = await hashUrl(item.url);
-
-        insertBatch.push(
-          db
-            .prepare(
-              `INSERT OR IGNORE INTO web_sources_raw
-             (source, source_id, source_url, title, content)
-             VALUES (?1, ?2, ?3, ?4, ?5)`,
-            )
-            .bind(
-              "ddg_search",
-              sourceId,
-              item.url,
-              item.title,
-              item.description,
-            ),
+          insertBatch.push(
+            db
+              .prepare(
+                `INSERT OR IGNORE INTO web_sources_raw
+               (source, source_id, source_url, title, content)
+               VALUES (?1, ?2, ?3, ?4, ?5)`,
+              )
+              .bind(
+                "ddg_search",
+                sourceId,
+                item.url,
+                item.title,
+                item.description,
+              ),
+          );
+          saved++;
+        }
+      } catch (err) {
+        consecutiveFailures++;
+        console.log(
+          `[ddg-search] Error for ${lot.name} (${cq.strategy}): ${(err as Error).message}`,
         );
-        saved++;
-      }
-
-      progressBatch.push(
-        db
-          .prepare(
-            `INSERT INTO crawl_progress (crawler_id, last_parking_lot_id, completed_count, last_run_at)
-           VALUES (?1, ?2, ?3, datetime('now'))
-           ON CONFLICT(crawler_id) DO UPDATE SET
-             completed_count = completed_count + ?3, last_run_at = datetime('now')`,
-          )
-          .bind(`ddg_lot:${lot.id}`, lot.id, items.length),
-      );
-    } catch (err) {
-      consecutiveFailures++;
-      console.log(
-        `[ddg-search] Error for ${lot.name} (${consecutiveFailures}/${MAX_CONSECUTIVE_FAILURES}): ${(err as Error).message}`,
-      );
-      if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
-        console.log(`[ddg-search] ${MAX_CONSECUTIVE_FAILURES} consecutive failures, stopping batch`);
-        break;
+        if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+          console.log(`[ddg-search] ${MAX_CONSECUTIVE_FAILURES} consecutive failures, stopping batch`);
+          break;
+        }
       }
     }
+
+    if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) break;
+
+    progressBatch.push(
+      db
+        .prepare(
+          `INSERT INTO crawl_progress (crawler_id, last_parking_lot_id, completed_count, last_run_at)
+         VALUES (?1, ?2, ?3, datetime('now'))
+         ON CONFLICT(crawler_id) DO UPDATE SET
+           completed_count = completed_count + ?3, last_run_at = datetime('now')`,
+        )
+        .bind(`ddg_lot:${lot.id}`, lot.id, queriesUsed),
+    );
   }
 
   const allStatements = [...insertBatch, ...progressBatch];
