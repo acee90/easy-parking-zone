@@ -201,9 +201,10 @@ async function main() {
       }
     }
 
-    // matched_at
+    // matched_at: --no-ai 모드에서 medium 후보가 남아있으면 설정 안 함 (나중에 AI로 재처리)
     const attempted = candidates.length > 0 || keywords.length > 0;
-    if (attempted && !isDryRun) {
+    const hasPendingMedium = noAi && mediumMatches.length > 0;
+    if (attempted && !isDryRun && !hasPendingMedium) {
       matchedAtSql.push(
         `UPDATE web_sources_raw SET matched_at = datetime('now') WHERE id = ${raw.id};`,
       );
