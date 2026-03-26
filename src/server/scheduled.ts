@@ -68,16 +68,7 @@ export async function handleScheduled(env: Env): Promise<void> {
     }
   }
 
-  if (env.CRAWL4AI_URL) {
-    try {
-      const r = await runDuckDuckGoBatch(env.DB, {
-        CRAWL4AI_URL: env.CRAWL4AI_URL,
-      });
-      results.push(`ddg: ${r.queriesUsed} queries, ${r.saved} saved`);
-    } catch (err) {
-      results.push(`ddg: error - ${(err as Error).message}`);
-    }
-  }
+  // DDG는 별도 cron (매시 30분) — subrequest 한도 분리
 
   // ── 2. AI 필터 (미분류 raw → Haiku 분류) ──
 
@@ -126,4 +117,25 @@ export async function handleScheduled(env: Env): Promise<void> {
   }
 
   console.log(`[scheduled] ${new Date().toISOString()} | ${results.join(" | ")}`);
+}
+
+/**
+ * DDG 전용 cron (매시 30분)
+ * subrequest 한도를 메인 파이프라인과 분리.
+ */
+export async function handleDdgScheduled(env: Env): Promise<void> {
+  const results: string[] = [];
+
+  if (env.CRAWL4AI_URL) {
+    try {
+      const r = await runDuckDuckGoBatch(env.DB, {
+        CRAWL4AI_URL: env.CRAWL4AI_URL,
+      });
+      results.push(`ddg: ${r.queriesUsed} queries, ${r.saved} saved`);
+    } catch (err) {
+      results.push(`ddg: error - ${(err as Error).message}`);
+    }
+  }
+
+  console.log(`[scheduled-ddg] ${new Date().toISOString()} | ${results.join(" | ")}`);
 }

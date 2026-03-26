@@ -5,7 +5,7 @@
  * Cloudflare Workers Cron용 scheduled 핸들러를 추가.
  */
 import { createStartHandler, defaultStreamHandler } from "@tanstack/react-start/server";
-import { handleScheduled } from "./scheduled";
+import { handleScheduled, handleDdgScheduled } from "./scheduled";
 
 interface Env {
   DB: D1Database;
@@ -24,12 +24,14 @@ export default {
     const url = new URL(request.url);
 
     // /__scheduled 경로로 수동 트리거 (dev/testing용)
-    if (url.pathname === "/__scheduled") {
+    if (url.pathname === "/__scheduled" || url.pathname === "/__scheduled/ddg") {
+      const isDdg = url.pathname.includes("ddg");
       const logs: string[] = [];
       const origLog = console.log;
       console.log = (...args: unknown[]) => { logs.push(args.map(String).join(" ")); origLog(...args); };
       try {
-        await handleScheduled(env);
+        if (isDdg) await handleDdgScheduled(env);
+        else await handleScheduled(env);
       } catch (err) {
         logs.push(`FATAL: ${(err as Error).message}`);
       }
@@ -49,6 +51,12 @@ export default {
     return startHandler(request, env);
   },
   async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext) {
-    ctx.waitUntil(handleScheduled(env));
+    // 매시 0분: 메인 파이프라인 (naver, youtube, brave, AI필터, 매칭, 스코어링)
+    // 매시 30분: DDG 크롤링 (별도 subrequest 한도)
+    if (controller.cron === "30 */1 * * *") {
+      ctx.waitUntil(handleDdgScheduled(env));
+    } else {
+      ctx.waitUntil(handleScheduled(env));
+    }
   },
 };
