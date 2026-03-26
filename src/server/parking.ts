@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getDb } from "@/db";
 import { schema } from "@/db";
-import { eq, and, sql, gte, count, desc } from "drizzle-orm";
+import { eq, and, sql, count, desc } from "drizzle-orm";
 import { env } from "cloudflare:workers";
 import type { MapBounds, MarkerCluster, BlogPost, ParkingFilters, Place } from "@/types/parking";
 import {
@@ -225,9 +225,6 @@ export const fetchTabCounts = createServerFn({ method: "GET" })
           and(
             eq(schema.webSources.parkingLotId, data.parkingLotId),
             eq(schema.webSources.isAd, 0),
-            gte(schema.webSources.relevanceScore, 40),
-            sql`${schema.webSources.sourceUrl} NOT LIKE '%youtube.com%'`,
-            sql`${schema.webSources.sourceUrl} NOT LIKE '%youtu.be%'`,
           )
         )
         .get(),
@@ -267,9 +264,6 @@ export const fetchBlogPosts = createServerFn({ method: "GET" })
         and(
           eq(schema.webSources.parkingLotId, data.parkingLotId),
           eq(schema.webSources.isAd, 0),
-          gte(schema.webSources.relevanceScore, 40),
-          sql`${schema.webSources.sourceUrl} NOT LIKE '%youtube.com%'`,
-          sql`${schema.webSources.sourceUrl} NOT LIKE '%youtu.be%'`,
         )
       )
       .orderBy(desc(schema.webSources.relevanceScore))
