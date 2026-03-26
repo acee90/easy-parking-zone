@@ -403,7 +403,7 @@ export const adminDeleteReview = createServerFn({ method: "POST" })
 
 // --- 웹 소스 관리 ---
 
-export type WebSourceType = "naver_blog" | "naver_cafe" | "poi" | "youtube_comment" | "naver_place" | "all";
+export type WebSourceType = "naver_blog" | "naver_cafe" | "poi" | "youtube_comment" | "naver_place" | "brave_search" | "ddg_search" | "tistory_blog" | "all";
 
 export interface WebSourceItem {
   id: number;
@@ -429,7 +429,7 @@ export const fetchWebSources = createServerFn({ method: "GET" })
     const offset = (page - 1) * limit;
     const db = getDb();
 
-    const ALLOWED_SOURCES = ["naver_blog", "naver_cafe", "poi", "youtube_comment", "naver_place", "all"] as const;
+    const ALLOWED_SOURCES = ["naver_blog", "naver_cafe", "poi", "youtube_comment", "naver_place", "brave_search", "ddg_search", "tistory_blog", "all"] as const;
     if (!ALLOWED_SOURCES.includes(source as typeof ALLOWED_SOURCES[number])) throw new Error("invalid source");
     const cond = source === "all" ? "ws.is_ad = 0" : `ws.is_ad = 0 AND ws.source = '${source}'`;
 

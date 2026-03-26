@@ -191,18 +191,9 @@ export async function recomputeStats(
       `SELECT ws.parking_lot_id, ws.sentiment_score, ws.relevance_score, ws.published_at, 'direct' as match_type
        FROM web_sources ws
        WHERE ws.is_ad = 0 AND ws.parking_lot_id IN (${placeholders})
-         AND ws.sentiment_score IS NOT NULL AND ws.relevance_score > 30
-       UNION ALL
-       SELECT am.parking_lot_id, ws.sentiment_score, ws.relevance_score, ws.published_at,
-         CASE am.confidence WHEN 'high' THEN 'ai_high' ELSE 'ai_medium' END as match_type
-       FROM web_source_ai_matches am
-       JOIN web_sources ws ON ws.id = am.web_source_id
-       WHERE ws.is_ad = 0 AND am.parking_lot_id IN (${placeholders})
-         AND ws.sentiment_score IS NOT NULL AND ws.relevance_score > 30
-         AND am.confidence IN ('high', 'medium')
-         AND (ws.parking_lot_id IS NULL OR am.parking_lot_id != ws.parking_lot_id)`,
+         AND ws.sentiment_score IS NOT NULL AND ws.relevance_score > 30`,
     )
-    .bind(...lotIds, ...lotIds)
+    .bind(...lotIds)
     .all<TextRow & { parking_lot_id: string }>();
 
   const textsByLot = new Map<string, TextRow[]>();

@@ -2,7 +2,7 @@
  * Brave Search 배치 크롤러 (Workers Cron용)
  *
  * 무료 2,000쿼리/월 한도 내에서 reliability가 낮은 주차장부터
- * 우선 크롤링하여 web_sources에 저장.
+ * 우선 크롤링하여 web_sources_raw에 저장.
  * 네이버 검색에 없는 구글 인덱스 콘텐츠 보완용.
  */
 import {

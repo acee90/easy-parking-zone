@@ -159,7 +159,7 @@ export const userReviews = sqliteTable("user_reviews", {
 export const webSources = sqliteTable("web_sources", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   parkingLotId: text("parking_lot_id").notNull().references(() => parkingLots.id),
-  source: text("source").notNull(), // naver_blog, naver_cafe, poi, youtube_comment, naver_place
+  source: text("source").notNull(), // naver_blog, naver_cafe, poi, youtube_comment, naver_place, brave_search, ddg_search, tistory_blog
   sourceId: text("source_id").notNull(),
   title: text("title").notNull(),
   content: text("content").notNull(),
