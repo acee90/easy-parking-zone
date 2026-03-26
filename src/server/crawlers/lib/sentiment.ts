@@ -390,7 +390,12 @@ export function analyzeSentiment(
   // 1-5 스케일 변환 + 부정성 편향 보정 (중립점 = +0.1)
   // S_text→5 = (S_text - 0.1) × 2.0 + 3.0
   const scaled = (sentimentRaw - 0.1) * 2.0 + 3.0;
-  const sentimentScore = Math.max(1.0, Math.min(5.0, scaled));
+
+  // 키워드 수 기반 감쇠: 키워드가 적으면 중립(3.0) 방향으로 당김
+  const DAMPING: Record<number, number> = { 1: 0.5, 2: 0.7 };
+  const damping = DAMPING[matches.length] ?? 1.0;
+  const damped = 3.0 + (scaled - 3.0) * damping;
+  const sentimentScore = Math.max(1.0, Math.min(5.0, damped));
 
   return {
     relevance,
