@@ -10,7 +10,9 @@ import {
   getReliabilityBadge,
 } from "@/lib/geo-utils";
 import { NavigationButton } from "@/components/NavigationButton";
-import { MapPin, Clock, CreditCard, Phone, ParkingSquare, X, Flame, ThumbsUp, Navigation } from "lucide-react";
+import { MapPin, Clock, CreditCard, Phone, ParkingSquare, X, Flame, ThumbsUp, Navigation, ExternalLink } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { makeParkingSlug } from "@/lib/slug";
 
 interface ParkingDetailPanelProps {
   lot: ParkingLot;
@@ -94,6 +96,14 @@ export function ParkingDetailPanel({
         <div className="mt-2.5 flex items-center gap-2">
           <NavigationButton lat={lot.lat} lng={lot.lng} name={lot.name} />
           <VoteBookmarkBar lotId={lot.id} />
+          <Link
+            to="/wiki/$slug"
+            params={{ slug: makeParkingSlug(lot.name, lot.id) }}
+            className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-md border hover:bg-gray-50 transition-colors"
+          >
+            <ExternalLink className="size-3" />
+            상세
+          </Link>
         </div>
       </div>
 
