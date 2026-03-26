@@ -213,21 +213,7 @@ export async function runDuckDuckGoBatch(
   saved: number;
   queriesUsed: number;
   done: boolean;
-  skipped?: boolean;
 }> {
-  // 하루 1회만 실행
-  const lastRun = await db
-    .prepare(
-      "SELECT last_run_at FROM crawl_progress WHERE crawler_id = 'ddg_search'",
-    )
-    .first<{ last_run_at: string }>();
-  if (lastRun?.last_run_at) {
-    const lastDate = lastRun.last_run_at.slice(0, 10);
-    const today = new Date().toISOString().slice(0, 10);
-    if (lastDate === today) {
-      return { processed: 0, saved: 0, queriesUsed: 0, done: false, skipped: true };
-    }
-  }
 
   const lots = await selectPriorityLots(db, BATCH_SIZE);
 

@@ -73,11 +73,7 @@ export async function handleScheduled(env: Env): Promise<void> {
       const r = await runDuckDuckGoBatch(env.DB, {
         CRAWL4AI_URL: env.CRAWL4AI_URL,
       });
-      if (r.skipped) {
-        results.push("ddg: skipped (already ran today)");
-      } else {
-        results.push(`ddg: ${r.queriesUsed} queries, ${r.saved} saved`);
-      }
+      results.push(`ddg: ${r.queriesUsed} queries, ${r.saved} saved`);
     } catch (err) {
       results.push(`ddg: error - ${(err as Error).message}`);
     }
