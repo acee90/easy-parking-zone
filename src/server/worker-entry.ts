@@ -25,8 +25,18 @@ export default {
 
     // /__scheduled 경로로 수동 트리거 (dev/testing용)
     if (url.pathname === "/__scheduled") {
-      await handleScheduled(env);
-      return new Response("OK", { status: 200 });
+      const logs: string[] = [];
+      const origLog = console.log;
+      console.log = (...args: unknown[]) => { logs.push(args.map(String).join(" ")); origLog(...args); };
+      try {
+        await handleScheduled(env);
+      } catch (err) {
+        logs.push(`FATAL: ${(err as Error).message}`);
+      }
+      console.log = origLog;
+      return new Response(JSON.stringify({ ok: true, logs }, null, 2), {
+        headers: { "Content-Type": "application/json" },
+      });
     }
 
     // Sitemap: TanStack Start 서버 핸들러가 Content-Type을 text/html로 덮어쓰거나
