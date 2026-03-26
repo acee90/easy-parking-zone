@@ -46,17 +46,19 @@ const fetchWikiHome = createServerFn({ method: "GET" }).handler(async () => {
     )
   );
 
-  // 리뷰 많은 주차장
+  // 웹에서 많이 언급된 주차장 (광고 제외)
   const popularRows = await db.all(
     sql.raw(
       `SELECT p.*,
         s.final_score as avg_score,
-        COALESCE(s.user_review_count, 0) + COALESCE(s.community_count, 0) as review_count,
+        (SELECT COUNT(*) FROM web_sources ws
+         WHERE ws.parking_lot_id = p.id AND ws.is_ad = 0) as review_count,
         s.reliability
       FROM parking_lots p
       JOIN parking_lot_stats s ON s.parking_lot_id = p.id
-      WHERE s.reliability IN ('confirmed', 'estimated')
-      ORDER BY (s.user_review_count + s.community_count) DESC
+      WHERE (SELECT COUNT(*) FROM web_sources ws
+             WHERE ws.parking_lot_id = p.id AND ws.is_ad = 0) > 0
+      ORDER BY review_count DESC
       LIMIT 10`
     )
   );
@@ -237,8 +239,8 @@ function WikiHomePage() {
             variant="easy"
           />
           <RankingSection
-            title="🗣️ 리뷰가 많은 주차장"
-            description="실제 이용자 리뷰로 검증된 주차장"
+            title="🔥 웹에서 많이 언급된 주차장"
+            description="블로그/커뮤니티에서 자주 언급되는 주차장"
             lots={popular}
             variant="popular"
             className="md:col-span-2"
