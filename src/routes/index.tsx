@@ -54,7 +54,9 @@ function App() {
 
   // 전체 경량 데이터 1회 로드
   useEffect(() => {
-    fetchAllParkingPoints().then(setAllPoints).catch(console.error);
+    fetchAllParkingPoints().then(setAllPoints).catch((err) => {
+      console.error("[fetchAllParkingPoints] error:", err);
+    });
   }, []);
 
   // 난이도 필터를 경량 포인트에 적용 (클러스터링에 반영)

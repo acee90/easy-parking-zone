@@ -8,7 +8,7 @@ import {
 import { DEFAULT_CENTER, DEFAULT_ZOOM } from "@/lib/geo-utils";
 import { Locate, Loader2 } from "lucide-react";
 import type { ParkingLot, MapBounds } from "@/types/parking";
-import type { MapFeature, ClusterProperties } from "@/hooks/useSuperCluster";
+import type { MapFeature, ClusterFeature } from "@/hooks/useSuperCluster";
 
 /** 사이드바/상세패널 너비를 고려하여 panTo 좌표를 보정 */
 function getPanToAdjusted(
@@ -284,25 +284,24 @@ export function MapView({
 
           // 클러스터
           if (f.properties.cluster) {
-            const props = f.properties as ClusterProperties;
-            const count = props.point_count;
-            const avgScore = props.count_score > 0 ? props.sum_score / props.count_score : null;
-            const hasRing = props.easy > 0 || props.hard > 0;
-            const size = clusterSize(count) + (hasRing ? 8 : 0);
+            const { cluster_id, point_count, ...agg } = f.properties as ClusterFeature["properties"];
+            const avgScore = agg.count_score > 0 ? agg.sum_score / agg.count_score : null;
+            const hasRing = agg.easy > 0 || agg.hard > 0;
+            const size = clusterSize(point_count) + (hasRing ? 8 : 0);
             const half = size / 2;
             return (
               <Marker
-                key={`c-${props.cluster_id}`}
+                key={`c-${cluster_id}`}
                 position={new navermaps.LatLng(lat, lng)}
                 icon={{
-                  content: clusterMarkerHtml(count, avgScore, props.easy, props.hard),
+                  content: clusterMarkerHtml(point_count, avgScore, agg.easy, agg.hard),
                   anchor: new navermaps.Point(half, half),
                 }}
-                zIndex={count}
+                zIndex={point_count}
                 onClick={() => {
                   if (!mapRef.current) return;
                   animatingRef.current = true;
-                  const targetZoom = Math.min(getExpansionZoom(props.cluster_id), 18);
+                  const targetZoom = Math.min(getExpansionZoom(cluster_id), 18);
                   mapRef.current.morph(
                     new navermaps.LatLng(lat, lng),
                     targetZoom,

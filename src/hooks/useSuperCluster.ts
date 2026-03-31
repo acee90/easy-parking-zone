@@ -1,13 +1,10 @@
-import { useRef, useMemo, useCallback } from "react";
+import { useMemo, useCallback } from "react";
 import Supercluster from "supercluster";
 import type { MapBounds } from "@/types/parking";
 import type { ParkingPoint } from "@/server/parking";
 
-/** SuperCluster 클러스터의 집계 속성 */
+/** SuperCluster 클러스터의 커스텀 집계 속성 */
 export interface ClusterProperties {
-  cluster: true;
-  cluster_id: number;
-  point_count: number;
   sum_score: number;
   count_score: number;
   easy: number;
@@ -34,9 +31,6 @@ const SUPERCLUSTER_OPTIONS: Supercluster.Options<
   maxZoom: 15,
   minZoom: 0,
   map: (props) => ({
-    cluster: true as const,
-    cluster_id: 0,
-    point_count: 1,
     sum_score: props.score ?? 0,
     count_score: props.score !== null ? 1 : 0,
     easy: props.score !== null && props.score >= 3.5 ? 1 : 0,
@@ -91,5 +85,5 @@ export function useSuperCluster(points: ParkingPoint[] | null) {
     [index],
   );
 
-  return { index, getClusters, getExpansionZoom, loaded: !!index };
+  return { getClusters, getExpansionZoom, loaded: !!index };
 }
