@@ -7,7 +7,8 @@ import {
 } from "react-naver-maps";
 import { DEFAULT_CENTER, DEFAULT_ZOOM } from "@/lib/geo-utils";
 import { Locate, Loader2 } from "lucide-react";
-import type { ParkingLot, MapBounds, MarkerCluster } from "@/types/parking";
+import type { ParkingLot, MapBounds } from "@/types/parking";
+import type { MapFeature, ClusterProperties } from "@/hooks/useSuperCluster";
 
 /** 사이드바/상세패널 너비를 고려하여 panTo 좌표를 보정 */
 function getPanToAdjusted(
@@ -48,7 +49,8 @@ interface MapViewProps {
   onBoundsChanged: (bounds: MapBounds, zoom: number) => void;
   onMarkerClick: (lot: ParkingLot) => void;
   onMarkerHover: (lotId: string | null) => void;
-  clusters: MarkerCluster[] | null;
+  features: MapFeature[];
+  getExpansionZoom: (clusterId: number) => number;
   selectedLotId?: string | null;
   hoveredLotId?: string | null;
   moveTo?: { lat: number; lng: number } | null;
@@ -73,20 +75,54 @@ function clusterSize(count: number): number {
   return Math.round(CLUSTER_MIN_SIZE + t * (CLUSTER_MAX_SIZE - CLUSTER_MIN_SIZE));
 }
 
-function clusterMarkerHtml(count: number, score: number | null): string {
-  const color = markerColor(score);
-  const size = clusterSize(count);
-  const fontSize = Math.round(11 + (size - CLUSTER_MIN_SIZE) / (CLUSTER_MAX_SIZE - CLUSTER_MIN_SIZE) * 5);
+function clusterMarkerHtml(count: number, score: number | null, easyCount: number, hardCount: number): string {
+  const innerSize = clusterSize(count);
+  const fontSize = Math.round(11 + (innerSize - CLUSTER_MIN_SIZE) / (CLUSTER_MAX_SIZE - CLUSTER_MIN_SIZE) * 5);
+  const hasRing = easyCount > 0 || hardCount > 0;
+
+  if (!hasRing) {
+    // 데이터 없음 — 단순 회색 원
+    return `<div style="
+      width:${innerSize}px;height:${innerSize}px;
+      background:${markerColor(score)};
+      border:2px solid white;
+      border-radius:50%;
+      display:flex;align-items:center;justify-content:center;
+      font-size:${fontSize}px;font-weight:700;color:white;
+      box-shadow:0 2px 6px rgba(0,0,0,0.3);
+      cursor:pointer;
+    ">${count}</div>`;
+  }
+
+  // 도넛 링: 쉬운(초록) / 보통(회색) / 어려운(빨강) 비율
+  const normalCount = count - easyCount - hardCount;
+  const easyDeg = Math.round((easyCount / count) * 360);
+  const hardDeg = Math.round((hardCount / count) * 360);
+  const normalDeg = 360 - easyDeg - hardDeg;
+
+  // conic-gradient: 초록 → 회색 → 빨강 순서
+  const d1 = easyDeg;
+  const d2 = d1 + normalDeg;
+  const ringSize = innerSize + 8;
+
   return `<div style="
-    width:${size}px;height:${size}px;
-    background:${color};
-    border:2px solid white;
+    width:${ringSize}px;height:${ringSize}px;
+    background:conic-gradient(
+      #22c55e 0deg ${d1}deg,
+      #d4d4d8 ${d1}deg ${d2}deg,
+      #ef4444 ${d2}deg 360deg
+    );
+    border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:0 2px 6px rgba(0,0,0,0.3);
+    cursor:pointer;
+  "><div style="
+    width:${innerSize}px;height:${innerSize}px;
+    background:${markerColor(score)};
     border-radius:50%;
     display:flex;align-items:center;justify-content:center;
     font-size:${fontSize}px;font-weight:700;color:white;
-    box-shadow:0 2px 6px rgba(0,0,0,0.3);
-    cursor:pointer;
-  ">${count}</div>`;
+  ">${count}</div></div>`;
 }
 
 function displayName(name: string): string {
@@ -150,7 +186,8 @@ export function MapView({
   onBoundsChanged,
   onMarkerClick,
   onMarkerHover,
-  clusters,
+  features,
+  getExpansionZoom,
   selectedLotId,
   hoveredLotId,
   moveTo,
@@ -162,30 +199,15 @@ export function MapView({
   const animatingRef = useRef(false);
   const [currentZoom, setCurrentZoom] = useState<number>(DEFAULT_ZOOM);
 
-  const markerData = useMemo(() => {
+  // 마커 HTML 캐시 정리: 뷰포트에서 벗어난 마커 제거
+  useMemo(() => {
     const cache = markerHtmlCacheRef.current;
     const currentIds = new Set(parkingLots.map((l) => l.id));
     for (const key of cache.keys()) {
       const id = key.split(":")[0];
       if (!currentIds.has(id)) cache.delete(key);
     }
-
-    return parkingLots.map((lot) => {
-      const selected = lot.id === selectedLotId;
-      const hovered = lot.id === hoveredLotId;
-      const cacheKey = `${lot.id}:${selected}:${hovered}`;
-
-      let html = cache.get(cacheKey);
-      if (!html) {
-        html = markerHtml(lot, selected, hovered);
-        cache.set(cacheKey, html);
-      }
-
-      const h = selected ? 28 : hovered ? 28 : 25;
-      const anchorY = h / 2;
-      return { lot, html, anchorY, selected };
-    });
-  }, [parkingLots, selectedLotId, hoveredLotId]);
+  }, [parkingLots]);
 
   useEffect(() => {
     if (mapRef.current && userLocated) {
@@ -249,55 +271,97 @@ export function MapView({
           />
         )}
 
-        {clusters
-          ? clusters.map((c) => {
-              const size = clusterSize(c.count);
-              const half = size / 2;
-              return (
-                <Marker
-                  key={c.key}
-                  position={new navermaps.LatLng(c.lat, c.lng)}
-                  icon={{
-                    content: clusterMarkerHtml(c.count, c.avgScore),
-                    anchor: new navermaps.Point(half, half),
-                  }}
-                  onClick={() => {
-                    if (!mapRef.current) return;
-                    animatingRef.current = true;
-                    // 현재 줌 + 3 (클러스터가 풀릴만큼 확대), 최대 18
-                    const targetZoom = Math.min(mapRef.current.getZoom() + 3, 18);
-                    mapRef.current.morph(
-                      new navermaps.LatLng(c.lat, c.lng),
-                      targetZoom,
-                    );
-                    setTimeout(() => { animatingRef.current = false; }, 800);
-                  }}
-                />
-              );
-            })
-          : markerData.map(({ lot, html, anchorY, selected }) => (
+        {features.map((f) => {
+          const [lng, lat] = f.geometry.coordinates;
+
+          // 클러스터
+          if (f.properties.cluster) {
+            const props = f.properties as ClusterProperties;
+            const count = props.point_count;
+            const avgScore = props.count_score > 0 ? props.sum_score / props.count_score : null;
+            const hasRing = props.easy > 0 || props.hard > 0;
+            const size = clusterSize(count) + (hasRing ? 8 : 0);
+            const half = size / 2;
+            return (
               <Marker
-                key={lot.id}
-                position={new navermaps.LatLng(lot.lat, lot.lng)}
+                key={`c-${props.cluster_id}`}
+                position={new navermaps.LatLng(lat, lng)}
                 icon={{
-                  content: `<div style="transform:translateX(-50%);display:inline-block;">${html}</div>`,
-                  anchor: new navermaps.Point(0, anchorY),
+                  content: clusterMarkerHtml(count, avgScore, props.easy, props.hard),
+                  anchor: new navermaps.Point(half, half),
                 }}
-                zIndex={selected ? 200 : lot.id === hoveredLotId ? 100 : 0}
+                zIndex={count}
                 onClick={() => {
-                  onMarkerClick(lot);
-                  if (mapRef.current) {
-                    animatingRef.current = true;
-                    // 클릭 후 상세패널이 열리므로 true로 보정
-                    const adjusted = getPanToAdjusted(mapRef.current, navermaps, lot, true);
-                    mapRef.current.panTo(adjusted);
-                    setTimeout(() => { animatingRef.current = false; }, 800);
-                  }
+                  if (!mapRef.current) return;
+                  animatingRef.current = true;
+                  const targetZoom = Math.min(getExpansionZoom(props.cluster_id), 18);
+                  mapRef.current.morph(
+                    new navermaps.LatLng(lat, lng),
+                    targetZoom,
+                  );
+                  setTimeout(() => { animatingRef.current = false; }, 800);
                 }}
-                onMouseover={() => onMarkerHover(lot.id)}
-                onMouseout={() => onMarkerHover(null)}
               />
-            ))}
+            );
+          }
+
+          // 개별 포인트 — parkingLots에서 상세 데이터 매칭
+          const pointId = f.properties.id;
+          const lot = parkingLots.find((l) => l.id === pointId);
+          if (!lot) {
+            // 상세 데이터 아직 미로드 — 경량 마커로 표시
+            const color = markerColor(f.properties.score);
+            return (
+              <Marker
+                key={pointId}
+                position={new navermaps.LatLng(lat, lng)}
+                icon={{
+                  content: `<div style="transform:translateX(-50%);display:inline-block;"><div style="
+                    display:inline-flex;align-items:center;white-space:nowrap;cursor:pointer;
+                    padding:4px 10px;background:${color};border:1.5px solid rgba(255,255,255,0.9);
+                    border-radius:14px;font-size:13px;font-weight:600;color:white;
+                    box-shadow:0 1px 4px rgba(0,0,0,0.2);text-shadow:0 1px 2px rgba(0,0,0,0.25);
+                    letter-spacing:-0.2px;max-width:140px;overflow:hidden;text-overflow:ellipsis;
+                  ">${displayName(f.properties.name)}</div></div>`,
+                  anchor: new navermaps.Point(0, 12),
+                }}
+                zIndex={0}
+              />
+            );
+          }
+
+          const selected = lot.id === selectedLotId;
+          const hovered = lot.id === hoveredLotId;
+          const cacheKey = `${lot.id}:${selected}:${hovered}`;
+          let html = markerHtmlCacheRef.current.get(cacheKey);
+          if (!html) {
+            html = markerHtml(lot, selected, hovered);
+            markerHtmlCacheRef.current.set(cacheKey, html);
+          }
+          const h = selected ? 28 : hovered ? 28 : 25;
+          return (
+            <Marker
+              key={lot.id}
+              position={new navermaps.LatLng(lot.lat, lot.lng)}
+              icon={{
+                content: `<div style="transform:translateX(-50%);display:inline-block;">${html}</div>`,
+                anchor: new navermaps.Point(0, h / 2),
+              }}
+              zIndex={selected ? 200 : hovered ? 100 : 0}
+              onClick={() => {
+                onMarkerClick(lot);
+                if (mapRef.current) {
+                  animatingRef.current = true;
+                  const adjusted = getPanToAdjusted(mapRef.current, navermaps, lot, true);
+                  mapRef.current.panTo(adjusted);
+                  setTimeout(() => { animatingRef.current = false; }, 800);
+                }
+              }}
+              onMouseover={() => onMarkerHover(lot.id)}
+              onMouseout={() => onMarkerHover(null)}
+            />
+          );
+        })}
       </NaverMap>
 
       {import.meta.env.DEV && (

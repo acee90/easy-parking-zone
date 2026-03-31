@@ -22,7 +22,6 @@ const DIFFICULTY_OPTIONS: { key: keyof DifficultyFilter; icon: string; label: st
   { key: "bad", icon: "😕", label: "별로", desc: "2.0~2.6점" },
   { key: "hard", icon: "💀", label: "비추", desc: "1.5~1.9점" },
   { key: "hell", icon: "🔥", label: "헬", desc: "1.0~1.4점" },
-  { key: "noReview", icon: "🅿️", label: "리뷰 없음", desc: "평가 전" },
 ];
 
 export function FloatingFilters({ filters, onToggle, onToggleDifficulty, activeCount }: FloatingFiltersProps) {
@@ -42,7 +41,7 @@ export function FloatingFilters({ filters, onToggle, onToggleDifficulty, activeC
   }, [diffOpen]);
 
   return (
-    <div className="absolute top-3 left-3 z-10 flex items-center gap-1.5">
+    <div className="flex items-center gap-1.5">
       <div className="flex size-8 items-center justify-center rounded-full bg-white shadow-md border border-border relative">
         <SlidersHorizontal className="size-4 text-zinc-600" />
         {activeCount > 0 && (

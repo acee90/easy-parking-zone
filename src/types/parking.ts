@@ -60,6 +60,8 @@ export interface MarkerCluster {
   lng: number;
   count: number;
   avgScore: number | null;
+  easyCount: number;
+  hardCount: number;
   bounds: {
     south: number;
     north: number;
@@ -94,7 +96,6 @@ export interface DifficultyFilter {
   bad: boolean        // 😕 별로 (2.0-2.6)
   hard: boolean       // 💀 비추 (1.5-1.9)
   hell: boolean       // 🔥 헬 (1.0-1.4)
-  noReview: boolean   // 🅿️ 데이터 없음
 }
 
 export interface ParkingFilters {
@@ -111,7 +112,6 @@ export const DEFAULT_DIFFICULTY: DifficultyFilter = {
   bad: true,
   hard: true,
   hell: true,
-  noReview: true,
 }
 
 export const DEFAULT_FILTERS: ParkingFilters = {

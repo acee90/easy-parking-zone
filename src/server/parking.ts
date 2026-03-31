@@ -77,6 +77,50 @@ export const fetchParkingLots = createServerFn({ method: "GET" })
     return (rows as unknown as ParkingLotRow[]).map(rowToParkingLot);
   });
 
+/** 전체 주차장 경량 데이터 (SuperCluster용, CDN 캐시) */
+export interface ParkingPoint {
+  id: string;
+  lat: number;
+  lng: number;
+  score: number | null;
+  name: string;
+}
+
+export const fetchAllParkingPoints = createServerFn({ method: "GET" })
+  .handler(async (): Promise<ParkingPoint[]> => {
+    const db = getDb();
+
+    const CACHE_KEY = "https://easy-parking.xyz/__internal/parking-points";
+    const CACHE_TTL = 3600; // 1시간
+
+    const cache = typeof caches !== "undefined" ? await caches.open("parking-points") : null;
+    if (cache) {
+      const cached = await cache.match(CACHE_KEY);
+      if (cached) return cached.json();
+    }
+
+    const rows = await db.all(
+      sql.raw(
+        `SELECT p.id, p.lat, p.lng, p.name, s.final_score as score
+         FROM parking_lots p
+         LEFT JOIN parking_lot_stats s ON s.parking_lot_id = p.id`
+      )
+    );
+
+    const result = (rows as unknown as ParkingPoint[]);
+
+    if (cache) {
+      await cache.put(
+        CACHE_KEY,
+        new Response(JSON.stringify(result), {
+          headers: { "Content-Type": "application/json", "Cache-Control": `public, max-age=${CACHE_TTL}` },
+        }),
+      );
+    }
+
+    return result;
+  });
+
 /** bounds 내 주차장을 그리드 셀로 클러스터링 (zoom ≤ 12) — raw SQL */
 export const fetchParkingClusters = createServerFn({ method: "GET" })
   .inputValidator(
@@ -96,6 +140,8 @@ export const fetchParkingClusters = createServerFn({ method: "GET" })
           AVG(p.lng) as lng,
           COUNT(*) as count,
           AVG(s.final_score) as avg_score,
+          SUM(CASE WHEN s.final_score >= 3.5 THEN 1 ELSE 0 END) as easy_count,
+          SUM(CASE WHEN s.final_score < 2.5 THEN 1 ELSE 0 END) as hard_count,
           MIN(p.lat) as min_lat,
           MAX(p.lat) as max_lat,
           MIN(p.lng) as min_lng,
@@ -108,12 +154,15 @@ export const fetchParkingClusters = createServerFn({ method: "GET" })
       )
     );
 
-    return (rows as unknown as { cell_key: string; lat: number; lng: number; count: number; avg_score: number | null; min_lat: number; max_lat: number; min_lng: number; max_lng: number }[]).map((row) => ({
+    type ClusterRow = { cell_key: string; lat: number; lng: number; count: number; avg_score: number | null; easy_count: number; hard_count: number; min_lat: number; max_lat: number; min_lng: number; max_lng: number };
+    return (rows as unknown as ClusterRow[]).map((row) => ({
       key: row.cell_key,
       lat: row.lat,
       lng: row.lng,
       count: row.count,
       avgScore: row.avg_score,
+      easyCount: row.easy_count,
+      hardCount: row.hard_count,
       bounds: {
         south: row.min_lat,
         north: row.max_lat,
