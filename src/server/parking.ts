@@ -3,7 +3,7 @@ import { getDb } from "@/db";
 import { schema } from "@/db";
 import { eq, and, sql, count, desc } from "drizzle-orm";
 import { env } from "cloudflare:workers";
-import type { MapBounds, MarkerCluster, BlogPost, ParkingFilters, Place } from "@/types/parking";
+import type { MapBounds, BlogPost, ParkingFilters, Place } from "@/types/parking";
 import {
   rowToParkingLot, rowToBlogPost, rowToMedia,
   buildFilterClauses,
@@ -119,57 +119,6 @@ export const fetchAllParkingPoints = createServerFn({ method: "GET" })
     }
 
     return result;
-  });
-
-/** bounds 내 주차장을 그리드 셀로 클러스터링 (zoom ≤ 12) — raw SQL */
-export const fetchParkingClusters = createServerFn({ method: "GET" })
-  .inputValidator(
-    (input: MapBounds & { zoom: number; filters?: ParkingFilters }): MapBounds & { zoom: number; filters?: ParkingFilters } => input
-  )
-  .handler(async ({ data }): Promise<MarkerCluster[]> => {
-    const db = getDb();
-    // 클러스터 셀 크기: 기존 대비 3배 (화면상 ~80px 단위에 근사)
-    const cellSize = (360 / Math.pow(2, data.zoom)) * 3;
-    const { where } = buildFilterClauses(data.filters);
-
-    const rows = await db.all(
-      sql.raw(
-        `SELECT
-          CAST(p.lat / ${cellSize} AS INTEGER) || '_' || CAST(p.lng / ${cellSize} AS INTEGER) as cell_key,
-          AVG(p.lat) as lat,
-          AVG(p.lng) as lng,
-          COUNT(*) as count,
-          AVG(s.final_score) as avg_score,
-          SUM(CASE WHEN s.final_score >= 3.5 THEN 1 ELSE 0 END) as easy_count,
-          SUM(CASE WHEN s.final_score < 2.5 THEN 1 ELSE 0 END) as hard_count,
-          MIN(p.lat) as min_lat,
-          MAX(p.lat) as max_lat,
-          MIN(p.lng) as min_lng,
-          MAX(p.lng) as max_lng
-        FROM parking_lots p
-        LEFT JOIN parking_lot_stats s ON s.parking_lot_id = p.id
-        WHERE p.lat BETWEEN ${data.south} AND ${data.north}
-          AND p.lng BETWEEN ${data.west} AND ${data.east}${where}
-        GROUP BY CAST(p.lat / ${cellSize} AS INTEGER), CAST(p.lng / ${cellSize} AS INTEGER)`
-      )
-    );
-
-    type ClusterRow = { cell_key: string; lat: number; lng: number; count: number; avg_score: number | null; easy_count: number; hard_count: number; min_lat: number; max_lat: number; min_lng: number; max_lng: number };
-    return (rows as unknown as ClusterRow[]).map((row) => ({
-      key: row.cell_key,
-      lat: row.lat,
-      lng: row.lng,
-      count: row.count,
-      avgScore: row.avg_score,
-      easyCount: row.easy_count,
-      hardCount: row.hard_count,
-      bounds: {
-        south: row.min_lat,
-        north: row.max_lat,
-        west: row.min_lng,
-        east: row.max_lng,
-      },
-    }));
   });
 
 /** 이름/주소 LIKE 검색 — raw SQL (동적 WHERE + JOIN) */

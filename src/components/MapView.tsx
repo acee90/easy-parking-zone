@@ -95,7 +95,6 @@ function clusterMarkerHtml(count: number, score: number | null, easyCount: numbe
   }
 
   // 도넛 링: 쉬운(초록) / 보통(회색) / 어려운(빨강) 비율
-  const normalCount = count - easyCount - hardCount;
   const easyDeg = Math.round((easyCount / count) * 360);
   const hardDeg = Math.round((hardCount / count) * 360);
   const normalDeg = 360 - easyDeg - hardDeg;
@@ -125,8 +124,12 @@ function clusterMarkerHtml(count: number, score: number | null, easyCount: numbe
   ">${count}</div></div>`;
 }
 
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
 function displayName(name: string): string {
-  return name.replace(/\s*(공영|노외|노상|부설)?\s*주차장$/, "").trim();
+  return escapeHtml(name.replace(/\s*(공영|노외|노상|부설)?\s*주차장$/, "").trim());
 }
 
 function markerHtml(lot: ParkingLot, selected: boolean, hovered: boolean): string {
@@ -199,15 +202,20 @@ export function MapView({
   const animatingRef = useRef(false);
   const [currentZoom, setCurrentZoom] = useState<number>(DEFAULT_ZOOM);
 
+  // parkingLots → Map (O(1) lookup for features rendering)
+  const lotsMap = useMemo(
+    () => new Map(parkingLots.map((l) => [l.id, l])),
+    [parkingLots],
+  );
+
   // 마커 HTML 캐시 정리: 뷰포트에서 벗어난 마커 제거
-  useMemo(() => {
+  useEffect(() => {
     const cache = markerHtmlCacheRef.current;
-    const currentIds = new Set(parkingLots.map((l) => l.id));
     for (const key of cache.keys()) {
       const id = key.split(":")[0];
-      if (!currentIds.has(id)) cache.delete(key);
+      if (!lotsMap.has(id)) cache.delete(key);
     }
-  }, [parkingLots]);
+  }, [lotsMap]);
 
   useEffect(() => {
     if (mapRef.current && userLocated) {
@@ -307,7 +315,7 @@ export function MapView({
 
           // 개별 포인트 — parkingLots에서 상세 데이터 매칭
           const pointId = f.properties.id;
-          const lot = parkingLots.find((l) => l.id === pointId);
+          const lot = lotsMap.get(pointId);
           if (!lot) {
             // 상세 데이터 아직 미로드 — 경량 마커로 표시
             const color = markerColor(f.properties.score);
