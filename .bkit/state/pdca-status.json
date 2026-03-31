@@ -1,6 +1,6 @@
 {
   "version": "2.0",
-  "lastUpdated": "2026-03-24T14:21:45.402Z",
+  "lastUpdated": "2026-03-26T09:16:00.558Z",
   "activeFeatures": [
     "crawlers",
     "server",
@@ -11,7 +11,8 @@
     "routes",
     "main",
     "wiki",
-    "wiki-map"
+    "wiki-map",
+    "oneshot"
   ],
   "primaryFeature": "crawlers",
   "features": {
@@ -24,9 +25,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-03-20T05:24:59.394Z",
-        "lastUpdated": "2026-03-24T09:13:25.996Z"
+        "lastUpdated": "2026-03-26T06:58:19.229Z"
       },
-      "lastFile": "/Users/junhee/Documents/projects/parking-map/main/src/server/crawlers/ai-filter-batch.ts"
+      "lastFile": "/Users/junhee/Documents/projects/parking-map/main/src/server/crawlers/lib/sentiment.ts"
     },
     "server": {
       "phase": "do",
@@ -37,9 +38,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-03-20T05:25:04.988Z",
-        "lastUpdated": "2026-03-24T09:12:47.163Z"
+        "lastUpdated": "2026-03-26T07:23:55.059Z"
       },
-      "lastFile": "/Users/junhee/Documents/projects/parking-map/main/src/server/scheduled.ts"
+      "lastFile": "/Users/junhee/Documents/projects/parking-map/filter-wiki-popularity/src/server/parking.ts"
     },
     "scripts": {
       "phase": "do",
@@ -50,9 +51,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-03-20T06:37:51.559Z",
-        "lastUpdated": "2026-03-24T14:21:45.402Z"
+        "lastUpdated": "2026-03-26T08:02:44.542Z"
       },
-      "lastFile": "/Users/junhee/Documents/projects/parking-map/main/scripts/ai-filter-sources.ts"
+      "lastFile": "/Users/junhee/Documents/projects/parking-map/main/scripts/lib/sql-flush.ts"
     },
     "db": {
       "phase": "do",
@@ -128,9 +129,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-03-21T16:24:42.927Z",
-        "lastUpdated": "2026-03-21T17:01:03.655Z"
+        "lastUpdated": "2026-03-26T07:23:26.302Z"
       },
-      "lastFile": "/Users/junhee/Documents/projects/parking-map/feature/wiki-map/src/routes/wiki/$slug.tsx"
+      "lastFile": "/Users/junhee/Documents/projects/parking-map/filter-wiki-popularity/src/routes/wiki/index.tsx"
     },
     "wiki-map": {
       "phase": "do",
@@ -144,6 +145,19 @@
         "lastUpdated": "2026-03-21T17:05:11.957Z"
       },
       "lastFile": "/Users/junhee/Documents/projects/parking-map/feature/wiki-map/src/components/WikiMiniMap.tsx"
+    },
+    "oneshot": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-03-26T07:58:18.583Z",
+        "lastUpdated": "2026-03-26T09:16:00.558Z"
+      },
+      "lastFile": "/Users/junhee/Documents/projects/parking-map/main/scripts/oneshot/reclassify-legacy-sources.ts"
     }
   },
   "pipeline": {
@@ -154,7 +168,7 @@
   "session": {
     "startedAt": "2026-03-20T05:24:59.394Z",
     "onboardingCompleted": false,
-    "lastActivity": "2026-03-24T14:21:45.402Z"
+    "lastActivity": "2026-03-26T09:16:00.558Z"
   },
   "history": [
     {
@@ -1342,6 +1356,246 @@
     {
       "timestamp": "2026-03-24T14:21:45.402Z",
       "feature": "scripts",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-26T06:32:40.410Z",
+      "feature": "crawlers",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-26T06:33:05.296Z",
+      "feature": "scripts",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-26T06:33:18.758Z",
+      "feature": "crawlers",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-26T06:47:07.052Z",
+      "feature": "scripts",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-26T06:47:10.934Z",
+      "feature": "scripts",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-26T06:47:16.048Z",
+      "feature": "scripts",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-26T06:50:25.165Z",
+      "feature": "crawlers",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-26T06:58:00.955Z",
+      "feature": "scripts",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-26T06:58:08.236Z",
+      "feature": "scripts",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-26T06:58:13.186Z",
+      "feature": "scripts",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-26T06:58:19.229Z",
+      "feature": "crawlers",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-26T06:58:28.480Z",
+      "feature": "scripts",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-26T06:58:34.443Z",
+      "feature": "scripts",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-26T06:58:45.010Z",
+      "feature": "scripts",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-26T06:58:53.781Z",
+      "feature": "scripts",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-26T07:08:02.976Z",
+      "feature": "scripts",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-26T07:08:08.386Z",
+      "feature": "scripts",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-26T07:08:14.424Z",
+      "feature": "scripts",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-26T07:08:20.200Z",
+      "feature": "scripts",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-26T07:08:27.201Z",
+      "feature": "scripts",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-26T07:08:35.265Z",
+      "feature": "scripts",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-26T07:08:40.030Z",
+      "feature": "scripts",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-26T07:12:58.841Z",
+      "feature": "wiki",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-26T07:13:04.017Z",
+      "feature": "wiki",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-26T07:13:12.055Z",
+      "feature": "wiki",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-26T07:22:51.357Z",
+      "feature": "wiki",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-26T07:23:26.302Z",
+      "feature": "wiki",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-26T07:23:37.047Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-26T07:23:42.965Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-26T07:23:55.059Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-26T07:37:26.412Z",
+      "feature": "scripts",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-26T07:48:10.876Z",
+      "feature": "scripts",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-26T07:58:18.583Z",
+      "feature": "oneshot",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-26T08:02:37.713Z",
+      "feature": "scripts",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-26T08:02:44.542Z",
+      "feature": "scripts",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-26T09:02:23.481Z",
+      "feature": "oneshot",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-26T09:02:38.130Z",
+      "feature": "oneshot",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-26T09:15:39.173Z",
+      "feature": "oneshot",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-26T09:15:55.653Z",
+      "feature": "oneshot",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-26T09:16:00.558Z",
+      "feature": "oneshot",
       "phase": "do",
       "action": "updated"
     }
