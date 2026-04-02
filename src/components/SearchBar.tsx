@@ -1,82 +1,95 @@
-import { useState, useRef, useEffect, useCallback } from "react";
-import { Search, X, MapPin, Navigation } from "lucide-react";
-import { Input } from "@/components/ui/input";
-import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { searchParkingLots, searchPlaces } from "@/server/parking";
-import type { ParkingLot } from "@/types/parking";
-import type { Place } from "@/types/parking";
-import { getDifficultyIcon } from "@/lib/geo-utils";
+import { MapPin, Navigation, Search, X } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { getDifficultyIcon } from '@/lib/geo-utils'
+import { searchParkingLots, searchPlaces } from '@/server/parking'
+import type { ParkingLot, Place } from '@/types/parking'
 
 interface SearchBarProps {
-  onSelect: (lot: ParkingLot) => void;
-  onPlaceSelect?: (coords: { lat: number; lng: number }) => void;
+  onSelect: (lot: ParkingLot) => void
+  onPlaceSelect?: (coords: { lat: number; lng: number }) => void
 }
 
-function useSearch(onSelect: (lot: ParkingLot) => void, onPlaceSelect?: (coords: { lat: number; lng: number }) => void) {
-  const [query, setQuery] = useState("");
-  const [lotResults, setLotResults] = useState<ParkingLot[]>([]);
-  const [placeResults, setPlaceResults] = useState<Place[]>([]);
-  const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+function useSearch(
+  onSelect: (lot: ParkingLot) => void,
+  onPlaceSelect?: (coords: { lat: number; lng: number }) => void,
+) {
+  const [query, setQuery] = useState('')
+  const [lotResults, setLotResults] = useState<ParkingLot[]>([])
+  const [placeResults, setPlaceResults] = useState<Place[]>([])
+  const [open, setOpen] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const timerRef = useRef<ReturnType<typeof setTimeout>>()
 
   const doSearch = useCallback(async (q: string) => {
-    const trimmed = q.trim();
+    const trimmed = q.trim()
     if (trimmed.length < 1) {
-      setLotResults([]);
-      setPlaceResults([]);
-      setOpen(false);
-      return;
+      setLotResults([])
+      setPlaceResults([])
+      setOpen(false)
+      return
     }
-    setLoading(true);
+    setLoading(true)
     try {
       const [lots, places] = await Promise.all([
         searchParkingLots({ data: { query: trimmed } }),
-        trimmed.length >= 2
-          ? searchPlaces({ data: { query: trimmed } })
-          : Promise.resolve([]),
-      ]);
-      setLotResults(lots);
-      setPlaceResults(places);
-      setOpen(lots.length > 0 || places.length > 0);
+        trimmed.length >= 2 ? searchPlaces({ data: { query: trimmed } }) : Promise.resolve([]),
+      ])
+      setLotResults(lots)
+      setPlaceResults(places)
+      setOpen(lots.length > 0 || places.length > 0)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  }, []);
+  }, [])
 
-  const handleChange = useCallback((value: string) => {
-    setQuery(value);
-    clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => doSearch(value), 300);
-  }, [doSearch]);
+  const handleChange = useCallback(
+    (value: string) => {
+      setQuery(value)
+      clearTimeout(timerRef.current)
+      timerRef.current = setTimeout(() => doSearch(value), 300)
+    },
+    [doSearch],
+  )
 
-  const handleSelectLot = useCallback((lot: ParkingLot) => {
-    setQuery(lot.name);
-    setOpen(false);
-    onSelect(lot);
-  }, [onSelect]);
+  const handleSelectLot = useCallback(
+    (lot: ParkingLot) => {
+      setQuery(lot.name)
+      setOpen(false)
+      onSelect(lot)
+    },
+    [onSelect],
+  )
 
-  const handleSelectPlace = useCallback((place: Place) => {
-    setQuery(place.name);
-    setOpen(false);
-    onPlaceSelect?.({ lat: place.lat, lng: place.lng });
-  }, [onPlaceSelect]);
+  const handleSelectPlace = useCallback(
+    (place: Place) => {
+      setQuery(place.name)
+      setOpen(false)
+      onPlaceSelect?.({ lat: place.lat, lng: place.lng })
+    },
+    [onPlaceSelect],
+  )
 
   const handleClear = useCallback(() => {
-    setQuery("");
-    setLotResults([]);
-    setPlaceResults([]);
-    setOpen(false);
-  }, []);
+    setQuery('')
+    setLotResults([])
+    setPlaceResults([])
+    setOpen(false)
+  }, [])
 
   return {
-    query, lotResults, placeResults, open, loading,
-    setOpen, handleChange, handleSelectLot, handleSelectPlace, handleClear,
-  };
+    query,
+    lotResults,
+    placeResults,
+    open,
+    loading,
+    setOpen,
+    handleChange,
+    handleSelectLot,
+    handleSelectPlace,
+    handleClear,
+  }
 }
 
 /** 검색 결과 리스트 (inline dropdown / dialog 공용) */
@@ -88,28 +101,27 @@ function SearchResults({
   onSelectPlace,
   maxHeight,
 }: {
-  loading: boolean;
-  lotResults: ParkingLot[];
-  placeResults: Place[];
-  onSelectLot: (lot: ParkingLot) => void;
-  onSelectPlace: (place: Place) => void;
-  maxHeight?: string;
+  loading: boolean
+  lotResults: ParkingLot[]
+  placeResults: Place[]
+  onSelectLot: (lot: ParkingLot) => void
+  onSelectPlace: (place: Place) => void
+  maxHeight?: string
 }) {
   if (loading) {
-    return (
-      <div className="px-3 py-4 text-sm text-muted-foreground text-center">
-        검색 중...
-      </div>
-    );
+    return <div className="px-3 py-4 text-sm text-muted-foreground text-center">검색 중...</div>
   }
 
   if (lotResults.length === 0 && placeResults.length === 0) {
-    return null;
+    return null
   }
 
   return (
     <>
-      <div className="search-dropdown-scroll overscroll-contain flex-1" style={maxHeight ? { maxHeight } : undefined}>
+      <div
+        className="search-dropdown-scroll overscroll-contain flex-1"
+        style={maxHeight ? { maxHeight } : undefined}
+      >
         {placeResults.length > 0 && (
           <>
             <div className="px-3 py-1.5 text-[11px] font-medium text-muted-foreground bg-gray-50 sticky top-0">
@@ -123,18 +135,14 @@ function SearchResults({
               >
                 <div className="flex items-center gap-2">
                   <Navigation className="size-3.5 text-orange-500 shrink-0" />
-                  <span className="text-sm font-medium truncate">
-                    {place.name}
-                  </span>
+                  <span className="text-sm font-medium truncate">{place.name}</span>
                   {place.category && (
                     <span className="shrink-0 text-[10px] text-muted-foreground">
                       {place.category}
                     </span>
                   )}
                 </div>
-                <p className="text-xs text-muted-foreground truncate pl-5.5">
-                  {place.address}
-                </p>
+                <p className="text-xs text-muted-foreground truncate pl-5.5">{place.address}</p>
               </button>
             ))}
           </>
@@ -152,16 +160,12 @@ function SearchResults({
               >
                 <div className="flex items-center gap-2">
                   <MapPin className="size-3.5 text-blue-500 shrink-0" />
-                  <span className="text-sm font-medium truncate">
-                    {lot.name}
-                  </span>
+                  <span className="text-sm font-medium truncate">{lot.name}</span>
                   <span className="shrink-0 text-xs">
                     {getDifficultyIcon(lot.difficulty.score)}
                   </span>
                 </div>
-                <p className="text-xs text-muted-foreground truncate pl-5.5">
-                  {lot.address}
-                </p>
+                <p className="text-xs text-muted-foreground truncate pl-5.5">{lot.address}</p>
               </button>
             ))}
           </>
@@ -175,47 +179,44 @@ function SearchResults({
             : `주차장 ${lotResults.length}건`}
       </div>
     </>
-  );
+  )
 }
 
 export function SearchBar({ onSelect, onPlaceSelect }: SearchBarProps) {
-  const search = useSearch(onSelect, onPlaceSelect);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const dialogInputRef = useRef<HTMLInputElement>(null);
+  const search = useSearch(onSelect, onPlaceSelect)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const dialogInputRef = useRef<HTMLInputElement>(null)
 
   // Close inline dropdown on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(e.target as Node)
-      ) {
-        search.setOpen(false);
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        search.setOpen(false)
       }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [search]);
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [search])
 
   // Dialog 열릴 때 input에 포커스
   useEffect(() => {
     if (dialogOpen) {
-      setTimeout(() => dialogInputRef.current?.focus(), 100);
+      setTimeout(() => dialogInputRef.current?.focus(), 100)
     } else {
-      search.handleClear();
+      search.handleClear()
     }
-  }, [dialogOpen]);
+  }, [dialogOpen, search.handleClear])
 
   const handleDialogSelectLot = (lot: ParkingLot) => {
-    search.handleSelectLot(lot);
-    setDialogOpen(false);
-  };
+    search.handleSelectLot(lot)
+    setDialogOpen(false)
+  }
 
   const handleDialogSelectPlace = (place: Place) => {
-    search.handleSelectPlace(place);
-    setDialogOpen(false);
-  };
+    search.handleSelectPlace(place)
+    setDialogOpen(false)
+  }
 
   return (
     <>
@@ -235,7 +236,8 @@ export function SearchBar({ onSelect, onPlaceSelect }: SearchBarProps) {
             value={search.query}
             onChange={(e) => search.handleChange(e.target.value)}
             onFocus={() =>
-              (search.lotResults.length > 0 || search.placeResults.length > 0) && search.setOpen(true)
+              (search.lotResults.length > 0 || search.placeResults.length > 0) &&
+              search.setOpen(true)
             }
             placeholder="장소 또는 주차장 검색..."
             className="pl-8 pr-8 h-8 text-sm"
@@ -307,5 +309,5 @@ export function SearchBar({ onSelect, onPlaceSelect }: SearchBarProps) {
         </DialogContent>
       </Dialog>
     </>
-  );
+  )
 }

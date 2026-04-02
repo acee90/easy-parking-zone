@@ -1,29 +1,29 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { NavermapsProvider } from "react-naver-maps";
-import { MapView } from "@/components/MapView";
-import { Header } from "@/components/Header";
-import { ParkingCard } from "@/components/ParkingCard";
-import { ParkingSidebar } from "@/components/ParkingSidebar";
-import { MobileBottomPanel } from "@/components/MobileBottomPanel";
-import { ParkingDetailPanel } from "@/components/ParkingDetailPanel";
-import { useGeolocation } from "@/hooks/useGeolocation";
-import { useParkingFilters } from "@/hooks/useParkingFilters";
-import { FloatingFilters } from "@/components/FloatingFilters";
-import { fetchParkingLots, fetchAllParkingPoints } from "@/server/parking";
-import type { ParkingPoint } from "@/server/parking";
-import { useSuperCluster, type MapFeature } from "@/hooks/useSuperCluster";
-import { Route as RootRoute } from "@/routes/__root";
-import type { ParkingLot, MapBounds } from "@/types/parking";
-import { Car } from "lucide-react";
-import { MapErrorBoundary } from "@/components/MapErrorBoundary";
+import { createFileRoute } from '@tanstack/react-router'
+import { Car } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { NavermapsProvider } from 'react-naver-maps'
+import { FloatingFilters } from '@/components/FloatingFilters'
+import { Header } from '@/components/Header'
+import { MapErrorBoundary } from '@/components/MapErrorBoundary'
+import { MapView } from '@/components/MapView'
+import { MobileBottomPanel } from '@/components/MobileBottomPanel'
+import { ParkingCard } from '@/components/ParkingCard'
+import { ParkingDetailPanel } from '@/components/ParkingDetailPanel'
+import { ParkingSidebar } from '@/components/ParkingSidebar'
+import { useGeolocation } from '@/hooks/useGeolocation'
+import { useParkingFilters } from '@/hooks/useParkingFilters'
+import { type MapFeature, useSuperCluster } from '@/hooks/useSuperCluster'
+import { Route as RootRoute } from '@/routes/__root'
+import type { ParkingPoint } from '@/server/parking'
+import { fetchAllParkingPoints, fetchParkingLots } from '@/server/parking'
+import type { MapBounds, ParkingLot } from '@/types/parking'
 
-export const Route = createFileRoute("/")({
+export const Route = createFileRoute('/')({
   component: App,
-});
+})
 
 function App() {
-  const siteStats = RootRoute.useLoaderData();
+  const siteStats = RootRoute.useLoaderData()
   const {
     lat: userLat,
     lng: userLng,
@@ -31,123 +31,133 @@ function App() {
     located: userLocated,
     initializing,
     requestLocation,
-  } = useGeolocation();
+  } = useGeolocation()
 
-  const { filters, toggle, toggleDifficulty, activeCount } = useParkingFilters();
+  const { filters, toggle, toggleDifficulty, activeCount } = useParkingFilters()
 
-  const [isClient, setIsClient] = useState(false);
-  const [mapReady, setMapReady] = useState(false);
-  const [allPoints, setAllPoints] = useState<ParkingPoint[] | null>(null);
-  const [parkingLots, setParkingLots] = useState<ParkingLot[]>([]);
-  const [features, setFeatures] = useState<MapFeature[]>([]);
-  const [selectedLot, setSelectedLot] = useState<ParkingLot | null>(null);
-  const [hoveredLotId, setHoveredLotId] = useState<string | null>(null);
-  const [moveTo, setMoveTo] = useState<{ lat: number; lng: number } | null>(
-    null
-  );
-  const lastViewRef = useRef<{ bounds: MapBounds; zoom: number } | null>(null);
-  const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>({ lat: 37.5666, lng: 126.9784 });
+  const [isClient, setIsClient] = useState(false)
+  const [mapReady, setMapReady] = useState(false)
+  const [allPoints, setAllPoints] = useState<ParkingPoint[] | null>(null)
+  const [parkingLots, setParkingLots] = useState<ParkingLot[]>([])
+  const [features, setFeatures] = useState<MapFeature[]>([])
+  const [selectedLot, setSelectedLot] = useState<ParkingLot | null>(null)
+  const [hoveredLotId, setHoveredLotId] = useState<string | null>(null)
+  const [moveTo, setMoveTo] = useState<{ lat: number; lng: number } | null>(null)
+  const lastViewRef = useRef<{ bounds: MapBounds; zoom: number } | null>(null)
+  const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>({
+    lat: 37.5666,
+    lng: 126.9784,
+  })
 
   useEffect(() => {
-    setIsClient(true);
-  }, []);
+    setIsClient(true)
+  }, [])
 
   // 전체 경량 데이터 1회 로드
   useEffect(() => {
-    fetchAllParkingPoints().then(setAllPoints).catch((err) => {
-      console.error("[fetchAllParkingPoints] error:", err);
-    });
-  }, []);
+    fetchAllParkingPoints()
+      .then(setAllPoints)
+      .catch((err) => {
+        console.error('[fetchAllParkingPoints] error:', err)
+      })
+  }, [])
 
   // 난이도 필터를 경량 포인트에 적용 (클러스터링에 반영)
   const filteredPoints = useMemo(() => {
-    if (!allPoints) return null;
-    const d = filters.difficulty;
-    const allOn = Object.values(d).every(Boolean);
-    if (allOn) return allPoints;
+    if (!allPoints) return null
+    const d = filters.difficulty
+    const allOn = Object.values(d).every(Boolean)
+    if (allOn) return allPoints
 
     return allPoints.filter((p) => {
-      const s = p.score;
-      if (s === null) return true;
-      if (s >= 4.0) return d.easy;
-      if (s >= 3.3) return d.decent;
-      if (s >= 2.7) return d.normal;
-      if (s >= 2.0) return d.bad;
-      if (s >= 1.5) return d.hard;
-      return d.hell;
-    });
-  }, [allPoints, filters.difficulty]);
+      const s = p.score
+      if (s === null) return true
+      if (s >= 4.0) return d.easy
+      if (s >= 3.3) return d.decent
+      if (s >= 2.7) return d.normal
+      if (s >= 2.0) return d.bad
+      if (s >= 1.5) return d.hard
+      return d.hell
+    })
+  }, [allPoints, filters.difficulty])
 
-  const { getClusters, getExpansionZoom, loaded: clusterReady } = useSuperCluster(filteredPoints);
+  const { getClusters, getExpansionZoom, loaded: clusterReady } = useSuperCluster(filteredPoints)
 
-  const handleBoundsChanged = useCallback(async (bounds: MapBounds, zoom: number) => {
-    lastViewRef.current = { bounds, zoom };
-    setMapCenter({
-      lat: (bounds.south + bounds.north) / 2,
-      lng: (bounds.west + bounds.east) / 2,
-    });
+  const handleBoundsChanged = useCallback(
+    async (bounds: MapBounds, zoom: number) => {
+      lastViewRef.current = { bounds, zoom }
+      setMapCenter({
+        lat: (bounds.south + bounds.north) / 2,
+        lng: (bounds.west + bounds.east) / 2,
+      })
 
-    // SuperCluster로 클러스터/개별 포인트 계산 (서버 호출 없음)
-    if (clusterReady) {
-      setFeatures(getClusters(bounds, zoom));
-    }
+      // SuperCluster로 클러스터/개별 포인트 계산 (서버 호출 없음)
+      if (clusterReady) {
+        setFeatures(getClusters(bounds, zoom))
+      }
 
-    // 개별 마커 상세 데이터 (사이드바/상세패널용)
-    try {
-      const lots = await fetchParkingLots({ data: { ...bounds, filters } });
-      setParkingLots(lots);
-    } catch (err) {
-      console.error("[fetchParkingLots] error:", err);
-    }
-  }, [filters, clusterReady, getClusters]);
+      // 개별 마커 상세 데이터 (사이드바/상세패널용)
+      try {
+        const lots = await fetchParkingLots({ data: { ...bounds, filters } })
+        setParkingLots(lots)
+      } catch (err) {
+        console.error('[fetchParkingLots] error:', err)
+      }
+    },
+    [filters, clusterReady, getClusters],
+  )
 
   // SuperCluster 준비 후 현재 뷰 재계산
   useEffect(() => {
     if (clusterReady && lastViewRef.current) {
-      const { bounds, zoom } = lastViewRef.current;
-      setFeatures(getClusters(bounds, zoom));
+      const { bounds, zoom } = lastViewRef.current
+      setFeatures(getClusters(bounds, zoom))
     }
-  }, [clusterReady, getClusters]);
+  }, [clusterReady, getClusters])
 
   // 검색으로 선택된 주차장이 필터에 의해 빠져있으면 렌더 시점에 삽입
   const displayedLots = useMemo(() => {
-    if (!selectedLot) return parkingLots;
-    if (parkingLots.some((l) => l.id === selectedLot.id)) return parkingLots;
-    return [selectedLot, ...parkingLots];
-  }, [parkingLots, selectedLot]);
+    if (!selectedLot) return parkingLots
+    if (parkingLots.some((l) => l.id === selectedLot.id)) return parkingLots
+    return [selectedLot, ...parkingLots]
+  }, [parkingLots, selectedLot])
 
   // Re-fetch when filters change
   useEffect(() => {
     if (lastViewRef.current) {
-      const { bounds, zoom } = lastViewRef.current;
-      handleBoundsChanged(bounds, zoom);
+      const { bounds, zoom } = lastViewRef.current
+      handleBoundsChanged(bounds, zoom)
     }
-  }, [filters, handleBoundsChanged]);
+  }, [handleBoundsChanged])
 
   const handleMarkerClick = useCallback((lot: ParkingLot) => {
-    setSelectedLot(lot);
-  }, []);
+    setSelectedLot(lot)
+  }, [])
 
   const handleSearchSelect = useCallback((lot: ParkingLot) => {
-    setMoveTo({ lat: lot.lat, lng: lot.lng });
-    setSelectedLot(lot);
-  }, []);
+    setMoveTo({ lat: lot.lat, lng: lot.lng })
+    setSelectedLot(lot)
+  }, [])
 
   const handlePlaceSelect = useCallback((coords: { lat: number; lng: number }) => {
-    setSelectedLot(null);
-    setMoveTo(coords);
-  }, []);
+    setSelectedLot(null)
+    setMoveTo(coords)
+  }, [])
 
   const handleSidebarSelect = useCallback((lot: ParkingLot) => {
-    setMoveTo({ lat: lot.lat, lng: lot.lng });
-    setSelectedLot(lot);
-  }, []);
+    setMoveTo({ lat: lot.lat, lng: lot.lng })
+    setSelectedLot(lot)
+  }, [])
 
-  const mapLoading = !isClient || initializing || !mapReady;
+  const mapLoading = !isClient || initializing || !mapReady
 
   return (
     <div className="flex h-dvh flex-col">
-      <Header onSearchSelect={handleSearchSelect} onPlaceSelect={handlePlaceSelect} siteStats={siteStats} />
+      <Header
+        onSearchSelect={handleSearchSelect}
+        onPlaceSelect={handlePlaceSelect}
+        siteStats={siteStats}
+      />
 
       <div className="relative flex-1 overflow-hidden">
         {/* 지도 — full width */}
@@ -156,17 +166,13 @@ function App() {
             <div className="absolute inset-0 z-10 flex items-center justify-center bg-background">
               <div className="flex flex-col items-center gap-3">
                 <Car className="size-8 text-blue-500 animate-pulse" />
-                <p className="text-sm text-muted-foreground">
-                  지도를 불러오는 중...
-                </p>
+                <p className="text-sm text-muted-foreground">지도를 불러오는 중...</p>
               </div>
             </div>
           )}
           {isClient && !initializing && (
             <MapErrorBoundary>
-              <NavermapsProvider
-                ncpKeyId={import.meta.env.VITE_NAVER_MAP_CLIENT_ID}
-              >
+              <NavermapsProvider ncpKeyId={import.meta.env.VITE_NAVER_MAP_CLIENT_ID}>
                 <MapView
                   userLat={userLat}
                   userLng={userLng}
@@ -216,7 +222,7 @@ function App() {
         {/* 필터 — 사이드바 오른쪽, 상세패널 열리면 더 오른쪽 */}
         <div
           className="hidden md:block absolute top-3 z-20 pointer-events-auto transition-[left] duration-200"
-          style={{ left: selectedLot ? "660px" : "296px" }}
+          style={{ left: selectedLot ? '660px' : '296px' }}
         >
           <FloatingFilters
             filters={filters}
@@ -257,5 +263,5 @@ function App() {
         userLocated={userLocated}
       />
     </div>
-  );
+  )
 }

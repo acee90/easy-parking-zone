@@ -1,60 +1,57 @@
-import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { Badge } from "@/components/ui/badge";
+import { createFileRoute, Link, notFound } from '@tanstack/react-router'
 import {
-  fetchParkingDetail,
-} from "@/server/parking";
-import {
-  getDifficultyIcon,
-  getDifficultyLabel,
-  getDifficultyColor,
-  getReliabilityBadge,
-} from "@/lib/geo-utils";
-import { parseIdFromSlug, makeParkingSlug } from "@/lib/slug";
-import { ParkingTabs } from "@/components/ParkingTabs";
-import { VoteBookmarkBar } from "@/components/VoteBookmarkBar";
-import { WikiMiniMap } from "@/components/WikiMiniMap";
-
-import {
-  MapPin,
+  ChevronRight,
   Clock,
   CreditCard,
-  Phone,
-  ParkingSquare,
-  Flame,
-  ThumbsUp,
-  Tag,
   ExternalLink,
-  Map,
-  ChevronRight,
-} from "lucide-react";
+  Flame,
+  Map as MapIcon,
+  MapPin,
+  ParkingSquare,
+  Phone,
+  Tag,
+  ThumbsUp,
+} from 'lucide-react'
+import { ParkingTabs } from '@/components/ParkingTabs'
+import { Badge } from '@/components/ui/badge'
+import { VoteBookmarkBar } from '@/components/VoteBookmarkBar'
+import { WikiMiniMap } from '@/components/WikiMiniMap'
+import {
+  getDifficultyColor,
+  getDifficultyIcon,
+  getDifficultyLabel,
+  getReliabilityBadge,
+} from '@/lib/geo-utils'
+import { makeParkingSlug, parseIdFromSlug } from '@/lib/slug'
+import { fetchParkingDetail } from '@/server/parking'
 
-export const Route = createFileRoute("/wiki/$slug")({
+export const Route = createFileRoute('/wiki/$slug')({
   loader: async ({ params }) => {
-    const id = parseIdFromSlug(params.slug);
-    if (!id) throw notFound();
-    const lot = await fetchParkingDetail({ data: { id } });
-    if (!lot) throw notFound();
-    return { lot };
+    const id = parseIdFromSlug(params.slug)
+    if (!id) throw notFound()
+    const lot = await fetchParkingDetail({ data: { id } })
+    if (!lot) throw notFound()
+    return { lot }
   },
   head: ({ loaderData }) => {
-    const lot = loaderData?.lot;
-    if (!lot) return {};
-    const slug = makeParkingSlug(lot.name, lot.id);
-    const title = `${lot.name} - 주차 난이도/요금/정보 | 쉬운주차장`;
-    const desc = `${lot.name} (${lot.address}) 주차 난이도 ${getDifficultyLabel(lot.difficulty.score)}, ${lot.pricing.isFree ? "무료" : `기본 ${lot.pricing.baseTime}분 ${lot.pricing.baseFee.toLocaleString()}원`}. 리뷰 ${lot.difficulty.reviewCount}개.`;
+    const lot = loaderData?.lot
+    if (!lot) return {}
+    const slug = makeParkingSlug(lot.name, lot.id)
+    const title = `${lot.name} - 주차 난이도/요금/정보 | 쉬운주차장`
+    const desc = `${lot.name} (${lot.address}) 주차 난이도 ${getDifficultyLabel(lot.difficulty.score)}, ${lot.pricing.isFree ? '무료' : `기본 ${lot.pricing.baseTime}분 ${lot.pricing.baseFee.toLocaleString()}원`}. 리뷰 ${lot.difficulty.reviewCount}개.`
     return {
       meta: [
         { title },
-        { name: "description", content: desc },
-        { property: "og:title", content: title },
-        { property: "og:description", content: desc },
-        { property: "og:type", content: "article" },
+        { name: 'description', content: desc },
+        { property: 'og:title', content: title },
+        { property: 'og:description', content: desc },
+        { property: 'og:type', content: 'article' },
         {
-          property: "og:url",
+          property: 'og:url',
           content: `https://easy-parking.xyz/wiki/${slug}`,
         },
       ],
-    };
+    }
   },
   notFoundComponent: () => (
     <div className="min-h-screen flex flex-col items-center justify-center gap-4">
@@ -65,18 +62,17 @@ export const Route = createFileRoute("/wiki/$slug")({
     </div>
   ),
   component: WikiDetailPage,
-});
+})
 
 function WikiDetailPage() {
-  const { lot } = Route.useLoaderData();
+  const { lot } = Route.useLoaderData()
 
-  const icon = getDifficultyIcon(lot.difficulty.score);
-  const label = getDifficultyLabel(lot.difficulty.score);
-  const reliabilityBadge = getReliabilityBadge(lot.difficulty.reliability);
+  const icon = getDifficultyIcon(lot.difficulty.score)
+  const label = getDifficultyLabel(lot.difficulty.score)
+  const reliabilityBadge = getReliabilityBadge(lot.difficulty.reliability)
 
   return (
     <div className="min-h-screen bg-gray-50">
-
       {/* 브레드크럼 */}
       <div className="bg-white border-b">
         <div className="max-w-3xl mx-auto px-4 py-2 text-xs text-muted-foreground flex items-center gap-1">
@@ -120,15 +116,12 @@ function WikiDetailPage() {
               {icon} {label}
             </Badge>
             {reliabilityBadge && (
-              <Badge
-                variant="outline"
-                className={`text-xs ${reliabilityBadge.className}`}
-              >
+              <Badge variant="outline" className={`text-xs ${reliabilityBadge.className}`}>
                 {reliabilityBadge.label}
               </Badge>
             )}
-            <Badge variant={lot.pricing.isFree ? "default" : "outline"}>
-              {lot.pricing.isFree ? "무료" : "유료"}
+            <Badge variant={lot.pricing.isFree ? 'default' : 'outline'}>
+              {lot.pricing.isFree ? '무료' : '유료'}
             </Badge>
             {lot.type && (
               <Badge variant="outline" className="text-xs">
@@ -153,7 +146,7 @@ function WikiDetailPage() {
               search={{ lotId: lot.id }}
               className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium hover:bg-gray-100 transition-colors"
             >
-              <Map className="size-3" />
+              <MapIcon className="size-3" />
               지도에서 보기
             </Link>
             <VoteBookmarkBar lotId={lot.id} />
@@ -165,12 +158,13 @@ function WikiDetailPage() {
           <div
             className={`text-sm rounded-lg px-4 py-3 ${
               lot.difficulty.score !== null && lot.difficulty.score < 2.0
-                ? "bg-red-50 text-red-700"
-                : "bg-green-50 text-green-700"
+                ? 'bg-red-50 text-red-700'
+                : 'bg-green-50 text-green-700'
             }`}
           >
-            {lot.difficulty.score !== null && lot.difficulty.score < 2.0 ? "⚠️" : "✅"} {lot.curationReason}
-            {lot.featuredSource === "1010" && (
+            {lot.difficulty.score !== null && lot.difficulty.score < 2.0 ? '⚠️' : '✅'}{' '}
+            {lot.curationReason}
+            {lot.featuredSource === '1010' && (
               <span className="block mt-1 text-xs opacity-75">
                 📺 10시10분 유튜브에 소개된 주차장
               </span>
@@ -192,14 +186,11 @@ function WikiDetailPage() {
               <Clock className="size-4 shrink-0 mt-0.5 text-muted-foreground" />
               <div>
                 <div>
-                  평일 {lot.operatingHours.weekday.start}-
-                  {lot.operatingHours.weekday.end}
+                  평일 {lot.operatingHours.weekday.start}-{lot.operatingHours.weekday.end}
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  토 {lot.operatingHours.saturday.start}-
-                  {lot.operatingHours.saturday.end} · 공휴일{" "}
-                  {lot.operatingHours.holiday.start}-
-                  {lot.operatingHours.holiday.end}
+                  토 {lot.operatingHours.saturday.start}-{lot.operatingHours.saturday.end} · 공휴일{' '}
+                  {lot.operatingHours.holiday.start}-{lot.operatingHours.holiday.end}
                 </div>
               </div>
             </div>
@@ -209,12 +200,10 @@ function WikiDetailPage() {
                 <CreditCard className="size-4 shrink-0 mt-0.5 text-muted-foreground" />
                 <div>
                   <div>
-                    기본 {lot.pricing.baseTime}분{" "}
-                    {lot.pricing.baseFee.toLocaleString()}원
+                    기본 {lot.pricing.baseTime}분 {lot.pricing.baseFee.toLocaleString()}원
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    추가 {lot.pricing.extraTime}분당{" "}
-                    {lot.pricing.extraFee.toLocaleString()}원
+                    추가 {lot.pricing.extraTime}분당 {lot.pricing.extraFee.toLocaleString()}원
                     {lot.pricing.dailyMax &&
                       ` · 1일 최대 ${lot.pricing.dailyMax.toLocaleString()}원`}
                     {lot.pricing.monthlyPass &&
@@ -240,10 +229,7 @@ function WikiDetailPage() {
             {lot.phone && (
               <div className="flex items-center gap-2.5 text-sm">
                 <Phone className="size-4 shrink-0 text-muted-foreground" />
-                <a
-                  href={`tel:${lot.phone}`}
-                  className="text-blue-500 underline"
-                >
+                <a href={`tel:${lot.phone}`} className="text-blue-500 underline">
                   {lot.phone}
                 </a>
               </div>
@@ -279,6 +265,5 @@ function WikiDetailPage() {
         </section>
       </div>
     </div>
-  );
+  )
 }
-

@@ -2,8 +2,8 @@
 function toSlug(name: string): string {
   return name
     .trim()
-    .replace(/\s+/g, "-")
-    .replace(/[\/\\?#%&=+]/g, "")  // URL 예약 문자 제거
+    .replace(/\s+/g, '-')
+    .replace(/[/\\?#%&=+]/g, '') // URL 예약 문자 제거
 }
 
 /** 이름+ID를 합쳐 slug 생성: "서울역-공영주차장-118-2-000081" */

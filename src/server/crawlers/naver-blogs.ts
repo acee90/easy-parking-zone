@@ -14,13 +14,7 @@
  * 네이버 검색 API 쿼타: 25,000/일
  * Workers Cron 타임아웃: 30초
  */
-import {
-  extractRegion,
-  isGenericName,
-  stripHtml,
-  parsePostdate,
-  hashUrl,
-} from "./lib/scoring";
+import { extractRegion, hashUrl, isGenericName, parsePostdate, stripHtml } from './lib/scoring'
 
 /**
  * Workers Cron 제한:
@@ -31,41 +25,41 @@ import {
  * 실측 기준 ~25개에서 한도 도달 → 여유 두고 25개.
  * wall-clock: 25 × ~1.5초 = ~38초 (15분 대비 충분)
  */
-const BATCH_SIZE = 25;
-const DELAY = 300;
-const RESULTS_PER_QUERY = 5;
-const RECRAWL_DAYS = 30;
+const BATCH_SIZE = 25
+const DELAY = 300
+const RESULTS_PER_QUERY = 5
+const RECRAWL_DAYS = 30
 
-const BLOG_URL = "https://openapi.naver.com/v1/search/blog.json";
-const CAFE_URL = "https://openapi.naver.com/v1/search/cafearticle.json";
+const BLOG_URL = 'https://openapi.naver.com/v1/search/blog.json'
+const CAFE_URL = 'https://openapi.naver.com/v1/search/cafearticle.json'
 
 // ── 타입 ──
 
 interface NaverSearchItem {
-  title: string;
-  link: string;
-  description: string;
-  bloggername?: string;
-  cafename?: string;
-  postdate?: string;
+  title: string
+  link: string
+  description: string
+  bloggername?: string
+  cafename?: string
+  postdate?: string
 }
 
 interface NaverSearchResponse {
-  items: NaverSearchItem[];
+  items: NaverSearchItem[]
 }
 
 interface LotRow {
-  id: string;
-  name: string;
-  address: string;
-  poi_tags: string | null;
+  id: string
+  name: string
+  address: string
+  poi_tags: string | null
 }
 
-type QueryStrategy = "name" | "poi" | "region";
+type QueryStrategy = 'name' | 'poi' | 'region'
 
 interface CrawlQuery {
-  strategy: QueryStrategy;
-  query: string;
+  strategy: QueryStrategy
+  query: string
 }
 
 // ── 네이버 검색 ──
@@ -77,15 +71,15 @@ async function searchNaver(
   clientId: string,
   clientSecret: string,
 ): Promise<NaverSearchResponse> {
-  const params = new URLSearchParams({ query, display: String(display), sort: "sim" });
+  const params = new URLSearchParams({ query, display: String(display), sort: 'sim' })
   const res = await fetch(`${url}?${params}`, {
     headers: {
-      "X-Naver-Client-Id": clientId,
-      "X-Naver-Client-Secret": clientSecret,
+      'X-Naver-Client-Id': clientId,
+      'X-Naver-Client-Secret': clientSecret,
     },
-  });
-  if (!res.ok) throw new Error(`Naver API ${res.status}: ${await res.text()}`);
-  return res.json() as Promise<NaverSearchResponse>;
+  })
+  if (!res.ok) throw new Error(`Naver API ${res.status}: ${await res.text()}`)
+  return res.json() as Promise<NaverSearchResponse>
 }
 
 // ── 쿼리 전략 ──
@@ -98,39 +92,40 @@ async function searchNaver(
  * C. 지역 기반 (A가 불가능할 때 폴백)
  */
 function buildQueries(lot: LotRow): CrawlQuery[] {
-  const region = extractRegion(lot.address);
-  const queries: CrawlQuery[] = [];
+  const region = extractRegion(lot.address)
+  const queries: CrawlQuery[] = []
 
   // A: 이름이 고유하면 항상 포함
   if (!isGenericName(lot.name)) {
-    queries.push({ strategy: "name", query: `${lot.name} 주차장 ${region}`.trim() });
+    queries.push({ strategy: 'name', query: `${lot.name} 주차장 ${region}`.trim() })
   }
 
   // B: POI 태그가 있으면 추가
-  let poiTags: string[] = [];
+  let poiTags: string[] = []
   if (lot.poi_tags) {
-    try { poiTags = JSON.parse(lot.poi_tags); } catch { /* malformed JSON → skip */ }
+    try {
+      poiTags = JSON.parse(lot.poi_tags)
+    } catch {
+      /* malformed JSON → skip */
+    }
   }
   if (poiTags.length > 0) {
-    queries.push({ strategy: "poi", query: `${poiTags[0]} 주차장` });
+    queries.push({ strategy: 'poi', query: `${poiTags[0]} 주차장` })
   }
 
   // C: A도 B도 없으면 지역 폴백
   if (queries.length === 0) {
-    queries.push({ strategy: "region", query: `${region} 주차장 추천` });
+    queries.push({ strategy: 'region', query: `${region} 주차장 추천` })
   }
 
-  return queries;
+  return queries
 }
 
 // ── 다중 매칭 ──
 
 // ── 우선순위 큐 ──
 
-async function selectPriorityLots(
-  db: D1Database,
-  limit: number,
-): Promise<LotRow[]> {
+async function selectPriorityLots(db: D1Database, limit: number): Promise<LotRow[]> {
   const rows = await db
     .prepare(
       `SELECT p.id, p.name, p.address, p.poi_tags
@@ -154,46 +149,52 @@ async function selectPriorityLots(
        LIMIT ?2`,
     )
     .bind(RECRAWL_DAYS, limit)
-    .all<LotRow>();
+    .all<LotRow>()
 
-  return rows.results ?? [];
+  return rows.results ?? []
 }
 
 // ── 공통 파이프라인: 검색 → 필터 → 저장 → 매칭 ──
 
 interface SearchResult {
-  insertBatch: D1PreparedStatement[];
-  saved: number;
+  insertBatch: D1PreparedStatement[]
+  saved: number
 }
 
 async function processSearchResults(
   db: D1Database,
   items: NaverSearchItem[],
-  source: "naver_blog" | "naver_cafe",
+  source: 'naver_blog' | 'naver_cafe',
 ): Promise<SearchResult> {
-  const insertBatch: D1PreparedStatement[] = [];
-  let saved = 0;
+  const insertBatch: D1PreparedStatement[] = []
+  let saved = 0
 
   for (const item of items) {
-    const sourceId = await hashUrl(item.link);
-    const author = source === "naver_blog" ? (item.bloggername ?? "") : (item.cafename ?? "");
+    const sourceId = await hashUrl(item.link)
+    const author = source === 'naver_blog' ? (item.bloggername ?? '') : (item.cafename ?? '')
 
     // web_sources_raw에 URL 단위 저장 (매칭은 별도 단계)
     insertBatch.push(
-      db.prepare(
-        `INSERT OR IGNORE INTO web_sources_raw
+      db
+        .prepare(
+          `INSERT OR IGNORE INTO web_sources_raw
          (source, source_id, source_url, title, content, author, published_at)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)`,
-      ).bind(
-        source, sourceId,
-        item.link, stripHtml(item.title), stripHtml(item.description),
-        author, parsePostdate(item.postdate),
-      ),
-    );
-    saved++;
+        )
+        .bind(
+          source,
+          sourceId,
+          item.link,
+          stripHtml(item.title),
+          stripHtml(item.description),
+          author,
+          parsePostdate(item.postdate),
+        ),
+    )
+    saved++
   }
 
-  return { insertBatch, saved };
+  return { insertBatch, saved }
 }
 
 // ── 메인 배치 실행 ──
@@ -202,72 +203,84 @@ export async function runNaverBlogsBatch(
   db: D1Database,
   env: { NAVER_CLIENT_ID: string; NAVER_CLIENT_SECRET: string },
 ): Promise<{ processed: number; saved: number; done: boolean }> {
-  const lots = await selectPriorityLots(db, BATCH_SIZE);
+  const lots = await selectPriorityLots(db, BATCH_SIZE)
 
   if (lots.length === 0) {
-    return { processed: 0, saved: 0, done: true };
+    return { processed: 0, saved: 0, done: true }
   }
 
-  let saved = 0;
-  const allInserts: D1PreparedStatement[] = [];
-  const progressBatch: D1PreparedStatement[] = [];
+  let saved = 0
+  const allInserts: D1PreparedStatement[] = []
+  const progressBatch: D1PreparedStatement[] = []
 
   for (const lot of lots) {
-    const queries = buildQueries(lot);
-    let lotSaved = 0;
+    const queries = buildQueries(lot)
+    let lotSaved = 0
 
     for (const cq of queries) {
       // 블로그 검색
       try {
         const blogRes = await searchNaver(
-          BLOG_URL, cq.query, RESULTS_PER_QUERY,
-          env.NAVER_CLIENT_ID, env.NAVER_CLIENT_SECRET,
-        );
-        const result = await processSearchResults(db, blogRes.items, "naver_blog");
-        allInserts.push(...result.insertBatch);
-        lotSaved += result.saved;
+          BLOG_URL,
+          cq.query,
+          RESULTS_PER_QUERY,
+          env.NAVER_CLIENT_ID,
+          env.NAVER_CLIENT_SECRET,
+        )
+        const result = await processSearchResults(db, blogRes.items, 'naver_blog')
+        allInserts.push(...result.insertBatch)
+        lotSaved += result.saved
       } catch (err) {
-        console.warn(`[naver-blogs] blog error (${lot.name}, ${cq.strategy}): ${(err as Error).message}`);
+        console.warn(
+          `[naver-blogs] blog error (${lot.name}, ${cq.strategy}): ${(err as Error).message}`,
+        )
       }
 
-      await new Promise((r) => setTimeout(r, DELAY));
+      await new Promise((r) => setTimeout(r, DELAY))
 
       // 카페 검색
       try {
         const cafeRes = await searchNaver(
-          CAFE_URL, cq.query, RESULTS_PER_QUERY,
-          env.NAVER_CLIENT_ID, env.NAVER_CLIENT_SECRET,
-        );
-        const result = await processSearchResults(db, cafeRes.items, "naver_cafe");
-        allInserts.push(...result.insertBatch);
-        lotSaved += result.saved;
+          CAFE_URL,
+          cq.query,
+          RESULTS_PER_QUERY,
+          env.NAVER_CLIENT_ID,
+          env.NAVER_CLIENT_SECRET,
+        )
+        const result = await processSearchResults(db, cafeRes.items, 'naver_cafe')
+        allInserts.push(...result.insertBatch)
+        lotSaved += result.saved
       } catch (err) {
-        console.warn(`[naver-blogs] cafe error (${lot.name}, ${cq.strategy}): ${(err as Error).message}`);
+        console.warn(
+          `[naver-blogs] cafe error (${lot.name}, ${cq.strategy}): ${(err as Error).message}`,
+        )
       }
 
-      await new Promise((r) => setTimeout(r, DELAY));
+      await new Promise((r) => setTimeout(r, DELAY))
     }
 
-    saved += lotSaved;
+    saved += lotSaved
 
     progressBatch.push(
-      db.prepare(
-        `INSERT INTO crawl_progress (crawler_id, last_parking_lot_id, completed_count, last_run_at)
+      db
+        .prepare(
+          `INSERT INTO crawl_progress (crawler_id, last_parking_lot_id, completed_count, last_run_at)
          VALUES (?1, ?2, ?3, datetime('now'))
          ON CONFLICT(crawler_id) DO UPDATE SET
            completed_count = completed_count + ?3, last_run_at = datetime('now')`,
-      ).bind(`naver_blogs_lot:${lot.id}`, lot.id, lotSaved),
-    );
+        )
+        .bind(`naver_blogs_lot:${lot.id}`, lot.id, lotSaved),
+    )
   }
 
   // 배치 실행: INSERT → MATCH 순서 (INSERT 먼저 해야 서브쿼리 가능)
   // D1 batch 한도: 최대 1,000 statements/batch
-  const D1_BATCH_LIMIT = 500;
+  const D1_BATCH_LIMIT = 500
   for (let i = 0; i < allInserts.length; i += D1_BATCH_LIMIT) {
-    await db.batch(allInserts.slice(i, i + D1_BATCH_LIMIT));
+    await db.batch(allInserts.slice(i, i + D1_BATCH_LIMIT))
   }
   if (progressBatch.length > 0) {
-    await db.batch(progressBatch);
+    await db.batch(progressBatch)
   }
 
   // 전체 진행 상태
@@ -279,7 +292,7 @@ export async function runNaverBlogsBatch(
          completed_count = completed_count + ?1, last_run_at = datetime('now')`,
     )
     .bind(lots.length)
-    .run();
+    .run()
 
-  return { processed: lots.length, saved, done: lots.length < BATCH_SIZE };
+  return { processed: lots.length, saved, done: lots.length < BATCH_SIZE }
 }

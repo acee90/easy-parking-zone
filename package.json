@@ -21,7 +21,10 @@
     "crawl-youtube": "bun run scripts/crawl-youtube.ts",
     "seed-reviews": "bun run scripts/seed-reviews.ts",
     "collect-1010": "bun run scripts/collect-1010-channel.ts",
-    "sync-public-data": "bun run scripts/sync-public-data.ts"
+    "sync-public-data": "bun run scripts/sync-public-data.ts",
+    "lint": "biome check src/",
+    "lint:fix": "biome check --write src/",
+    "format": "biome format --write src/"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",
@@ -49,6 +52,7 @@
     "vite-tsconfig-paths": "^6.0.2"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.4.10",
     "@cloudflare/workers-types": "^4.20260219.0",
     "@tanstack/devtools-vite": "^0.3.11",
     "@testing-library/dom": "^10.4.0",

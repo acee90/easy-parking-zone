@@ -1,6 +1,6 @@
-import { betterAuth } from "better-auth";
-import { anonymous } from "better-auth/plugins";
-import { env } from "cloudflare:workers";
+import { env } from 'cloudflare:workers'
+import { betterAuth } from 'better-auth'
+import { anonymous } from 'better-auth/plugins'
 
 export function createAuth() {
   return betterAuth({
@@ -21,5 +21,5 @@ export function createAuth() {
     },
     plugins: [anonymous()],
     baseURL: env.BETTER_AUTH_URL as string | undefined,
-  });
+  })
 }
