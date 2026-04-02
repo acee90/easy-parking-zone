@@ -110,12 +110,12 @@ export const fetchAllParkingPoints = createServerFn({ method: "GET" })
     const result = (rows as unknown as ParkingPoint[]);
 
     if (cache) {
-      await cache.put(
+      cache.put(
         CACHE_KEY,
         new Response(JSON.stringify(result), {
           headers: { "Content-Type": "application/json", "Cache-Control": `public, max-age=${CACHE_TTL}` },
         }),
-      );
+      ).catch(() => {}); // 캐시 쓰기 실패는 무시
     }
 
     return result;

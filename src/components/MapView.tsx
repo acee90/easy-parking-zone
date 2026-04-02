@@ -94,10 +94,10 @@ function clusterMarkerHtml(count: number, score: number | null, easyCount: numbe
     ">${count}</div>`;
   }
 
-  // 도넛 링: 쉬운(초록) / 보통(회색) / 어려운(빨강) 비율
+  // 도넛 링: 점수 있는 포인트 기준 비율 (score null은 회색에 포함)
   const easyDeg = Math.round((easyCount / count) * 360);
   const hardDeg = Math.round((hardCount / count) * 360);
-  const normalDeg = 360 - easyDeg - hardDeg;
+  const normalDeg = Math.max(0, 360 - easyDeg - hardDeg);
 
   // conic-gradient: 초록 → 회색 → 빨강 순서
   const d1 = easyDeg;
