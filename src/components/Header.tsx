@@ -1,49 +1,52 @@
-import { useState, useRef, useEffect } from "react";
-import { Link } from "@tanstack/react-router";
-import { Car, LogIn, LogOut, ChevronDown, Map, BookOpen } from "lucide-react";
-import { SearchBar } from "@/components/SearchBar";
-import { authClient } from "@/lib/auth-client";
-import type { ParkingLot } from "@/types/parking";
+import { Link } from '@tanstack/react-router'
+import { BookOpen, Car, ChevronDown, LogIn, LogOut, Map as MapIcon } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { SearchBar } from '@/components/SearchBar'
+import { authClient } from '@/lib/auth-client'
+import type { ParkingLot } from '@/types/parking'
 
 interface SiteStats {
-  parkingLots: number;
-  reviews: number;
-  mediaPosts: number;
+  parkingLots: number
+  reviews: number
+  mediaPosts: number
 }
 
 interface HeaderProps {
-  active?: "map" | "wiki";
-  onSearchSelect?: (lot: ParkingLot) => void;
-  onPlaceSelect?: (coords: { lat: number; lng: number }) => void;
-  siteStats?: SiteStats;
+  active?: 'map' | 'wiki'
+  onSearchSelect?: (lot: ParkingLot) => void
+  onPlaceSelect?: (coords: { lat: number; lng: number }) => void
+  siteStats?: SiteStats
 }
 
 function LoginModal({ onClose }: { onClose: () => void }) {
-  const handleSocial = (provider: "kakao" | "naver" | "google") => {
-    authClient.signIn.social({ provider, callbackURL: "/" });
-  };
+  const handleSocial = (provider: 'kakao' | 'naver' | 'google') => {
+    authClient.signIn.social({ provider, callbackURL: '/' })
+  }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      onClick={onClose}
+    >
       <div
         className="bg-white rounded-xl p-6 w-80 space-y-3 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="text-base font-semibold text-center mb-4">로그인</h2>
         <button
-          onClick={() => handleSocial("kakao")}
+          onClick={() => handleSocial('kakao')}
           className="w-full rounded-lg py-2.5 text-sm font-medium bg-[#FEE500] text-[#191919] hover:bg-[#FDD835] cursor-pointer transition-colors"
         >
           카카오로 계속하기
         </button>
         <button
-          onClick={() => handleSocial("naver")}
+          onClick={() => handleSocial('naver')}
           className="w-full rounded-lg py-2.5 text-sm font-medium bg-[#03C75A] text-white hover:bg-[#02b351] cursor-pointer transition-colors"
         >
           네이버로 계속하기
         </button>
         <button
-          onClick={() => handleSocial("google")}
+          onClick={() => handleSocial('google')}
           className="w-full rounded-lg py-2.5 text-sm font-medium bg-white text-gray-700 border hover:bg-gray-50 cursor-pointer transition-colors"
         >
           구글로 계속하기
@@ -53,23 +56,23 @@ function LoginModal({ onClose }: { onClose: () => void }) {
         </p>
       </div>
     </div>
-  );
+  )
 }
 
 function UserMenu() {
-  const { data: session } = authClient.useSession();
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const { data: session } = authClient.useSession()
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
 
-  if (!session?.user) return null;
+  if (!session?.user) return null
 
   return (
     <div ref={ref} className="relative">
@@ -81,7 +84,7 @@ function UserMenu() {
           <img src={session.user.image} alt="" className="size-6 rounded-full" />
         ) : (
           <div className="size-6 rounded-full bg-blue-100 flex items-center justify-center text-xs font-medium text-blue-600">
-            {(session.user.name ?? "U")[0]}
+            {(session.user.name ?? 'U')[0]}
           </div>
         )}
         <span className="text-xs hidden sm:inline">{session.user.name}</span>
@@ -91,8 +94,8 @@ function UserMenu() {
         <div className="absolute right-0 top-full mt-1 w-36 rounded-lg border bg-white shadow-lg py-1 z-50">
           <button
             onClick={() => {
-              authClient.signOut();
-              setOpen(false);
+              authClient.signOut()
+              setOpen(false)
             }}
             className="flex items-center gap-2 w-full px-3 py-2 text-xs hover:bg-gray-50 cursor-pointer"
           >
@@ -102,22 +105,23 @@ function UserMenu() {
         </div>
       )}
     </div>
-  );
+  )
 }
 
 function formatCount(n: number): string {
-  if (n >= 10000) return `${(n / 10000).toFixed(1)}만`;
-  if (n >= 1000) return `${(n / 1000).toFixed(1)}천`;
-  return n.toLocaleString();
+  if (n >= 10000) return `${(n / 10000).toFixed(1)}만`
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}천`
+  return n.toLocaleString()
 }
 
-const navItemBase = "inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-sm font-medium transition-colors";
-const navActive = `${navItemBase} bg-gray-100 text-foreground`;
-const navInactive = `${navItemBase} text-muted-foreground hover:text-foreground hover:bg-gray-50`;
+const navItemBase =
+  'inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-sm font-medium transition-colors'
+const navActive = `${navItemBase} bg-gray-100 text-foreground`
+const navInactive = `${navItemBase} text-muted-foreground hover:text-foreground hover:bg-gray-50`
 
-export function Header({ active = "map", onSearchSelect, onPlaceSelect, siteStats }: HeaderProps) {
-  const { data: session } = authClient.useSession();
-  const [showLogin, setShowLogin] = useState(false);
+export function Header({ active = 'map', onSearchSelect, onPlaceSelect, siteStats }: HeaderProps) {
+  const { data: session } = authClient.useSession()
+  const [showLogin, setShowLogin] = useState(false)
 
   return (
     <>
@@ -127,21 +131,31 @@ export function Header({ active = "map", onSearchSelect, onPlaceSelect, siteStat
           <span className="font-bold text-base">쉬운주차장</span>
         </Link>
         <nav className="flex items-center gap-1">
-          {active === "map" ? (
-            <span className={navActive}><Map className="size-3.5" />지도</span>
+          {active === 'map' ? (
+            <span className={navActive}>
+              <MapIcon className="size-3.5" />
+              지도
+            </span>
           ) : (
-            <Link to="/" className={navInactive}><Map className="size-3.5" />지도</Link>
+            <Link to="/" className={navInactive}>
+              <MapIcon className="size-3.5" />
+              지도
+            </Link>
           )}
-          {active === "wiki" ? (
-            <span className={navActive}><BookOpen className="size-3.5" />위키</span>
+          {active === 'wiki' ? (
+            <span className={navActive}>
+              <BookOpen className="size-3.5" />
+              위키
+            </span>
           ) : (
-            <Link to="/wiki" className={navInactive}><BookOpen className="size-3.5" />위키</Link>
+            <Link to="/wiki" className={navInactive}>
+              <BookOpen className="size-3.5" />
+              위키
+            </Link>
           )}
         </nav>
-        {onSearchSelect && (
-          <SearchBar onSelect={onSearchSelect} onPlaceSelect={onPlaceSelect} />
-        )}
-        {active === "map" && (
+        {onSearchSelect && <SearchBar onSelect={onSearchSelect} onPlaceSelect={onPlaceSelect} />}
+        {active === 'map' && (
           <div className="hidden lg:flex items-center gap-2 text-xs text-muted-foreground shrink-0">
             <span>😊추천</span>
             <span>🙂무난</span>
@@ -154,9 +168,17 @@ export function Header({ active = "map", onSearchSelect, onPlaceSelect, siteStat
         {siteStats && (
           <div className="hidden md:flex items-center gap-3 text-xs text-muted-foreground shrink-0">
             <span className="w-px h-4 bg-border" />
-            <span>주차장 <strong className="text-foreground">{formatCount(siteStats.parkingLots)}</strong></span>
-            <span>리뷰 <strong className="text-foreground">{formatCount(siteStats.reviews)}</strong></span>
-            <span>영상/포스팅 <strong className="text-foreground">{formatCount(siteStats.mediaPosts)}</strong></span>
+            <span>
+              주차장{' '}
+              <strong className="text-foreground">{formatCount(siteStats.parkingLots)}</strong>
+            </span>
+            <span>
+              리뷰 <strong className="text-foreground">{formatCount(siteStats.reviews)}</strong>
+            </span>
+            <span>
+              영상/포스팅{' '}
+              <strong className="text-foreground">{formatCount(siteStats.mediaPosts)}</strong>
+            </span>
           </div>
         )}
         <div className="flex-1" />
@@ -174,5 +196,5 @@ export function Header({ active = "map", onSearchSelect, onPlaceSelect, siteStat
       </header>
       {showLogin && <LoginModal onClose={() => setShowLogin(false)} />}
     </>
-  );
+  )
 }

@@ -3,50 +3,56 @@
  * Drizzle 전환 후에도 동일 출력을 보장하기 위해 별도 모듈로 분리.
  * 서버 의존성 없이 순수 함수만 포함.
  */
-import type { ParkingLot, BlogPost, ParkingMedia, ParkingFilters } from "@/types/parking";
-import type { UserReview } from "@/types/parking";
-import { buildDifficultyCondition } from "@/lib/filter-utils";
+
+import { buildDifficultyCondition } from '@/lib/filter-utils'
+import type {
+  BlogPost,
+  ParkingFilters,
+  ParkingLot,
+  ParkingMedia,
+  UserReview,
+} from '@/types/parking'
 
 // ============================================================
 // Parking Lot
 // ============================================================
 
 export interface ParkingLotRow {
-  id: string;
-  name: string;
-  type: string;
-  address: string;
-  lat: number;
-  lng: number;
-  total_spaces: number;
-  free_spaces: number | null;
-  weekday_start: string;
-  weekday_end: string;
-  saturday_start: string;
-  saturday_end: string;
-  holiday_start: string;
-  holiday_end: string;
-  is_free: number;
-  base_time: number | null;
-  base_fee: number | null;
-  extra_time: number | null;
-  extra_fee: number | null;
-  daily_max: number | null;
-  monthly_pass: number | null;
-  phone: string | null;
-  payment_methods: string | null;
-  notes: string | null;
-  curation_tag: string | null;
-  curation_reason: string | null;
-  featured_source: string | null;
-  poi_tags: string | null;
-  avg_score: number | null;
-  review_count: number;
-  reliability: string | null;
+  id: string
+  name: string
+  type: string
+  address: string
+  lat: number
+  lng: number
+  total_spaces: number
+  free_spaces: number | null
+  weekday_start: string
+  weekday_end: string
+  saturday_start: string
+  saturday_end: string
+  holiday_start: string
+  holiday_end: string
+  is_free: number
+  base_time: number | null
+  base_fee: number | null
+  extra_time: number | null
+  extra_fee: number | null
+  daily_max: number | null
+  monthly_pass: number | null
+  phone: string | null
+  payment_methods: string | null
+  notes: string | null
+  curation_tag: string | null
+  curation_reason: string | null
+  featured_source: string | null
+  poi_tags: string | null
+  avg_score: number | null
+  review_count: number
+  reliability: string | null
 }
 
 export function rowToParkingLot(row: ParkingLotRow): ParkingLot {
-  const score = row.avg_score ?? null;
+  const score = row.avg_score ?? null
   return {
     id: row.id,
     name: row.name,
@@ -82,23 +88,23 @@ export function rowToParkingLot(row: ParkingLotRow): ParkingLot {
     curationTag: row.curation_tag as ParkingLot['curationTag'],
     curationReason: row.curation_reason ?? undefined,
     featuredSource: row.featured_source ?? undefined,
-  };
+  }
 }
 
 export function buildFilterClauses(filters?: ParkingFilters): { where: string; params: unknown[] } {
-  const clauses: string[] = [];
-  const params: unknown[] = [];
-  if (filters?.freeOnly) clauses.push("p.is_free = 1");
-  if (filters?.publicOnly) clauses.push("p.id NOT LIKE 'KA-%' AND p.id NOT LIKE 'NV-%'");
-  if (filters?.excludeNoSang) clauses.push("p.type != '노상'");
+  const clauses: string[] = []
+  const params: unknown[] = []
+  if (filters?.freeOnly) clauses.push('p.is_free = 1')
+  if (filters?.publicOnly) clauses.push("p.id NOT LIKE 'KA-%' AND p.id NOT LIKE 'NV-%'")
+  if (filters?.excludeNoSang) clauses.push("p.type != '노상'")
 
-  const diffCond = buildDifficultyCondition(filters, "s.final_score");
-  if (diffCond) clauses.push(diffCond);
+  const diffCond = buildDifficultyCondition(filters, 's.final_score')
+  if (diffCond) clauses.push(diffCond)
 
   return {
-    where: clauses.length > 0 ? " AND " + clauses.join(" AND ") : "",
+    where: clauses.length > 0 ? ` AND ${clauses.join(' AND ')}` : '',
     params,
-  };
+  }
 }
 
 // ============================================================
@@ -106,13 +112,13 @@ export function buildFilterClauses(filters?: ParkingFilters): { where: string; p
 // ============================================================
 
 export interface BlogPostRow {
-  id: number;
-  title: string;
-  content: string;
-  source_url: string;
-  source: string;
-  author: string;
-  published_at: string | null;
+  id: number
+  title: string
+  content: string
+  source_url: string
+  source: string
+  author: string
+  published_at: string | null
 }
 
 export function rowToBlogPost(row: BlogPostRow): BlogPost {
@@ -121,10 +127,10 @@ export function rowToBlogPost(row: BlogPostRow): BlogPost {
     title: row.title,
     snippet: row.content,
     sourceUrl: row.source_url,
-    source: row.source as BlogPost["source"],
+    source: row.source as BlogPost['source'],
     author: row.author,
     publishedAt: row.published_at ?? undefined,
-  };
+  }
 }
 
 // ============================================================
@@ -132,12 +138,12 @@ export function rowToBlogPost(row: BlogPostRow): BlogPost {
 // ============================================================
 
 export interface MediaRow {
-  id: number;
-  media_type: string;
-  url: string;
-  title: string | null;
-  thumbnail_url: string | null;
-  description: string | null;
+  id: number
+  media_type: string
+  url: string
+  title: string | null
+  thumbnail_url: string | null
+  description: string | null
 }
 
 export function rowToMedia(row: MediaRow): ParkingMedia {
@@ -148,7 +154,7 @@ export function rowToMedia(row: MediaRow): ParkingMedia {
     title: row.title ?? undefined,
     thumbnailUrl: row.thumbnail_url ?? undefined,
     description: row.description ?? undefined,
-  };
+  }
 }
 
 // ============================================================
@@ -156,32 +162,30 @@ export function rowToMedia(row: MediaRow): ParkingMedia {
 // ============================================================
 
 export interface ReviewRow {
-  id: number;
-  user_id: string | null;
-  guest_nickname: string | null;
-  entry_score: number;
-  space_score: number;
-  passage_score: number;
-  exit_score: number;
-  overall_score: number;
-  comment: string | null;
-  visited_at: string | null;
-  created_at: string;
-  user_name: string | null;
-  user_image: string | null;
-  source_type: string | null;
-  source_url: string | null;
+  id: number
+  user_id: string | null
+  guest_nickname: string | null
+  entry_score: number
+  space_score: number
+  passage_score: number
+  exit_score: number
+  overall_score: number
+  comment: string | null
+  visited_at: string | null
+  created_at: string
+  user_name: string | null
+  user_image: string | null
+  source_type: string | null
+  source_url: string | null
 }
 
 export function rowToReview(row: ReviewRow, currentUserId: string | null): UserReview {
-  const isMember = row.user_id !== null;
+  const isMember = row.user_id !== null
   return {
     id: row.id,
     author: {
-      type: isMember ? "member" : "guest",
-      nickname: isMember
-        ? (row.user_name ?? "사용자")
-        : (row.guest_nickname ?? "익명"),
+      type: isMember ? 'member' : 'guest',
+      nickname: isMember ? (row.user_name ?? '사용자') : (row.guest_nickname ?? '익명'),
       profileImage: row.user_image ?? undefined,
     },
     scores: {
@@ -197,7 +201,7 @@ export function rowToReview(row: ReviewRow, currentUserId: string | null): UserR
     isMine: currentUserId !== null && row.user_id === currentUserId,
     sourceType: row.source_type ?? undefined,
     sourceUrl: row.source_url ?? undefined,
-  };
+  }
 }
 
 // ============================================================
@@ -205,5 +209,5 @@ export function rowToReview(row: ReviewRow, currentUserId: string | null): UserR
 // ============================================================
 
 export function validateScore(v: unknown): v is number {
-  return typeof v === "number" && v >= 1 && v <= 5 && Number.isInteger(v);
+  return typeof v === 'number' && v >= 1 && v <= 5 && Number.isInteger(v)
 }

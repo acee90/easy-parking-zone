@@ -1,22 +1,21 @@
-import { useState, useMemo, useCallback, useRef } from "react";
-import type { ParkingLot } from "@/types/parking";
+import { ArrowUpDown, ChevronUp } from 'lucide-react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import {
   getDifficultyColor,
   getDifficultyIcon,
   getDifficultyLabel,
   getDistance,
-} from "@/lib/geo-utils";
-import { ChevronUp, ArrowUpDown } from "lucide-react";
-import type { SortMode } from "@/types/parking";
+} from '@/lib/geo-utils'
+import type { ParkingLot, SortMode } from '@/types/parking'
 
 interface MobileBottomPanelProps {
-  parkingLots: ParkingLot[];
-  selectedLotId: string | null;
-  onSelect: (lot: ParkingLot) => void;
-  userLat?: number;
-  userLng?: number;
-  userLocated?: boolean;
-  mapCenter?: { lat: number; lng: number } | null;
+  parkingLots: ParkingLot[]
+  selectedLotId: string | null
+  onSelect: (lot: ParkingLot) => void
+  userLat?: number
+  userLng?: number
+  userLocated?: boolean
+  mapCenter?: { lat: number; lng: number } | null
 }
 
 export function MobileBottomPanel({
@@ -28,48 +27,45 @@ export function MobileBottomPanel({
   userLocated,
   mapCenter,
 }: MobileBottomPanelProps) {
-  const [expanded, setExpanded] = useState(false);
-  const [sortMode, setSortMode] = useState<SortMode>("distance");
+  const [expanded, setExpanded] = useState(false)
+  const [sortMode, setSortMode] = useState<SortMode>('distance')
 
   // 터치 스와이프 핸들링
-  const touchStartY = useRef(0);
+  const touchStartY = useRef(0)
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    touchStartY.current = e.touches[0].clientY;
-  }, []);
+    touchStartY.current = e.touches[0].clientY
+  }, [])
   const handleTouchEnd = useCallback((e: React.TouchEvent) => {
-    const dy = touchStartY.current - e.changedTouches[0].clientY;
-    if (dy > 40) setExpanded(true);
-    if (dy < -40) setExpanded(false);
-  }, []);
+    const dy = touchStartY.current - e.changedTouches[0].clientY
+    if (dy > 40) setExpanded(true)
+    if (dy < -40) setExpanded(false)
+  }, [])
 
-  const refLat = userLocated && userLat != null ? userLat : mapCenter?.lat;
-  const refLng = userLocated && userLng != null ? userLng : mapCenter?.lng;
+  const refLat = userLocated && userLat != null ? userLat : mapCenter?.lat
+  const refLng = userLocated && userLng != null ? userLng : mapCenter?.lng
 
   const sortedLots = useMemo(() => {
     const withDistance = parkingLots.map((lot) => ({
       lot,
       distance:
         refLat != null && refLng != null ? getDistance(refLat, refLng, lot.lat, lot.lng) : null,
-    }));
+    }))
 
-    if (sortMode === "distance") {
+    if (sortMode === 'distance') {
       withDistance.sort((a, b) => {
-        if (a.distance !== null && b.distance !== null)
-          return a.distance - b.distance;
-        return (b.lot.difficulty.score ?? -1) - (a.lot.difficulty.score ?? -1);
-      });
+        if (a.distance !== null && b.distance !== null) return a.distance - b.distance
+        return (b.lot.difficulty.score ?? -1) - (a.lot.difficulty.score ?? -1)
+      })
     } else {
-      withDistance.sort(
-        (a, b) => (b.lot.difficulty.score ?? -1) - (a.lot.difficulty.score ?? -1)
-      );
+      withDistance.sort((a, b) => (b.lot.difficulty.score ?? -1) - (a.lot.difficulty.score ?? -1))
     }
 
-    return withDistance;
-  }, [parkingLots, refLat, refLng, sortMode]);
+    return withDistance
+  }, [parkingLots, refLat, refLng, sortMode])
 
   // 선택된 주차장이 있거나, 데스크톱이면 숨김
   // (md: breakpoint는 CSS로 처리)
-  if (selectedLotId || parkingLots.length === 0) return null;
+  if (selectedLotId || parkingLots.length === 0) return null
 
   return (
     <div
@@ -92,48 +88,44 @@ export function MobileBottomPanel({
               />
             ))}
           </div>
-          <span className="text-sm font-medium">
-            주차장 {parkingLots.length}개
-          </span>
+          <span className="text-sm font-medium">주차장 {parkingLots.length}개</span>
           {sortedLots[0]?.distance !== null && userLocated && (
             <span className="text-xs text-muted-foreground">
-              · 가장 가까운{" "}
+              · 가장 가까운{' '}
               {sortedLots[0].distance! < 1
                 ? `${Math.round(sortedLots[0].distance! * 1000)}m`
-                : `${sortedLots[0].distance!.toFixed(1)}km`}
+                : `${sortedLots[0].distance?.toFixed(1)}km`}
             </span>
           )}
         </div>
         <ChevronUp
-          className={`size-4 text-muted-foreground transition-transform duration-200 ${expanded ? "rotate-180" : ""}`}
+          className={`size-4 text-muted-foreground transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`}
         />
       </button>
 
       {/* 펼친 상태: 목록 */}
       {expanded && (
-        <div
-          className="bg-white max-h-[45vh] overflow-y-auto overscroll-contain border-t border-border"
-        >
+        <div className="bg-white max-h-[45vh] overflow-y-auto overscroll-contain border-t border-border">
           <div className="flex items-center gap-1 px-4 py-2 border-b border-gray-100">
             <ArrowUpDown className="size-3 text-muted-foreground" />
             <button
               type="button"
-              onClick={() => setSortMode("distance")}
+              onClick={() => setSortMode('distance')}
               className={`px-2 py-0.5 rounded text-xs cursor-pointer transition-colors ${
-                sortMode === "distance"
-                  ? "bg-blue-100 text-blue-700 font-medium"
-                  : "text-muted-foreground hover:bg-gray-100"
+                sortMode === 'distance'
+                  ? 'bg-blue-100 text-blue-700 font-medium'
+                  : 'text-muted-foreground hover:bg-gray-100'
               }`}
             >
-              {userLocated ? "가까운 순" : "지도 중심 순"}
+              {userLocated ? '가까운 순' : '지도 중심 순'}
             </button>
             <button
               type="button"
-              onClick={() => setSortMode("difficulty")}
+              onClick={() => setSortMode('difficulty')}
               className={`px-2 py-0.5 rounded text-xs cursor-pointer transition-colors ${
-                sortMode === "difficulty"
-                  ? "bg-blue-100 text-blue-700 font-medium"
-                  : "text-muted-foreground hover:bg-gray-100"
+                sortMode === 'difficulty'
+                  ? 'bg-blue-100 text-blue-700 font-medium'
+                  : 'text-muted-foreground hover:bg-gray-100'
               }`}
             >
               쉬운 순
@@ -143,8 +135,8 @@ export function MobileBottomPanel({
             <button
               key={lot.id}
               onClick={() => {
-                onSelect(lot);
-                setExpanded(false);
+                onSelect(lot)
+                setExpanded(false)
               }}
               className="w-full flex items-center gap-3 px-4 py-2.5 border-b border-gray-50 active:bg-blue-50 transition-colors cursor-pointer"
             >
@@ -153,24 +145,18 @@ export function MobileBottomPanel({
               </span>
               <div className="flex-1 min-w-0 text-left">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-sm font-medium truncate">
-                    {lot.name}
-                  </span>
+                  <span className="text-sm font-medium truncate">{lot.name}</span>
                   {lot.difficulty.score !== null && lot.difficulty.score < 2.0 && (
-                    <span className="text-[10px] text-red-500 font-medium shrink-0">
-                      주의
-                    </span>
+                    <span className="text-[10px] text-red-500 font-medium shrink-0">주의</span>
                   )}
                   {lot.difficulty.score !== null && lot.difficulty.score >= 4.0 && (
-                    <span className="text-[10px] text-green-600 font-medium shrink-0">
-                      추천
-                    </span>
+                    <span className="text-[10px] text-green-600 font-medium shrink-0">추천</span>
                   )}
                 </div>
                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                   <span>{getDifficultyLabel(lot.difficulty.score)}</span>
                   <span>·</span>
-                  <span>{lot.pricing.isFree ? "무료" : "유료"}</span>
+                  <span>{lot.pricing.isFree ? '무료' : '유료'}</span>
                   {lot.totalSpaces > 0 && (
                     <>
                       <span>·</span>
@@ -181,9 +167,7 @@ export function MobileBottomPanel({
               </div>
               {distance !== null && (
                 <span className="text-xs text-muted-foreground shrink-0 tabular-nums">
-                  {distance < 1
-                    ? `${Math.round(distance * 1000)}m`
-                    : `${distance.toFixed(1)}km`}
+                  {distance < 1 ? `${Math.round(distance * 1000)}m` : `${distance.toFixed(1)}km`}
                 </span>
               )}
             </button>
@@ -191,5 +175,5 @@ export function MobileBottomPanel({
         </div>
       )}
     </div>
-  );
+  )
 }

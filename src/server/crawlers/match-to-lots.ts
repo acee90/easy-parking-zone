@@ -6,62 +6,85 @@
  *   - medium 신뢰도: AI 검증 후 저장 (Haiku 1건씩)
  *   - low/none: 스킵
  */
-import { getMatchConfidence, stripHtml } from "./lib/scoring";
-import { classifyBatch, type AiFilterInput } from "./lib/ai-filter";
 
-const MAX_PER_RUN = 50;
+import { type AiFilterInput, classifyBatch } from './lib/ai-filter'
+import { getMatchConfidence, stripHtml } from './lib/scoring'
+
+const MAX_PER_RUN = 50
 /** FTS 후보 최대 개수 */
-const FTS_CANDIDATE_LIMIT = 20;
+const FTS_CANDIDATE_LIMIT = 20
 
 interface RawRow {
-  id: number;
-  source: string;
-  source_id: string;
-  source_url: string;
-  title: string;
-  content: string;
-  author: string | null;
-  published_at: string | null;
-  sentiment_score: number | null;
-  ai_difficulty_keywords: string | null;
-  ai_summary: string | null;
+  id: number
+  source: string
+  source_id: string
+  source_url: string
+  title: string
+  content: string
+  author: string | null
+  published_at: string | null
+  sentiment_score: number | null
+  ai_difficulty_keywords: string | null
+  ai_summary: string | null
 }
 
 interface LotRow {
-  lot_id: string;
-  name: string;
-  address: string;
+  lot_id: string
+  name: string
+  address: string
 }
 
 const STOP_WORDS = new Set([
-  "주차장", "주차", "후기", "정보", "공유", "추천", "이용", "요금",
-  "무료", "저렴", "가격", "시간", "위치", "근처", "주변", "최신",
-  "리스트", "포함", "안내", "방법", "꿀팁", "총정리", "비교",
-  "네이버", "블로그", "카페", "유튜브", "플레이스", "리뷰",
-]);
+  '주차장',
+  '주차',
+  '후기',
+  '정보',
+  '공유',
+  '추천',
+  '이용',
+  '요금',
+  '무료',
+  '저렴',
+  '가격',
+  '시간',
+  '위치',
+  '근처',
+  '주변',
+  '최신',
+  '리스트',
+  '포함',
+  '안내',
+  '방법',
+  '꿀팁',
+  '총정리',
+  '비교',
+  '네이버',
+  '블로그',
+  '카페',
+  '유튜브',
+  '플레이스',
+  '리뷰',
+])
 
 function extractSearchKeywords(title: string, content: string): string[] {
-  const text = `${title} ${content}`.slice(0, 500);
+  const text = `${title} ${content}`.slice(0, 500)
   const words = text
-    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
     .split(/\s+/)
     .filter((w) => w.length >= 2 && w.length <= 15)
     .filter((w) => !STOP_WORDS.has(w))
-    .filter((w) => !/^\d+$/.test(w));
-  return [...new Set(words)].slice(0, 5);
+    .filter((w) => !/^\d+$/.test(w))
+  return [...new Set(words)].slice(0, 5)
 }
 
-async function searchCandidateLots(
-  db: D1Database,
-  keywords: string[],
-): Promise<LotRow[]> {
-  if (keywords.length === 0) return [];
+async function searchCandidateLots(db: D1Database, keywords: string[]): Promise<LotRow[]> {
+  if (keywords.length === 0) return []
 
-  const seen = new Set<string>();
-  const results: LotRow[] = [];
+  const seen = new Set<string>()
+  const results: LotRow[] = []
 
   // 1. FTS5 검색
-  const ftsQuery = keywords.map((kw) => `"${kw}" OR ${kw}*`).join(" OR ");
+  const ftsQuery = keywords.map((kw) => `"${kw}" OR ${kw}*`).join(' OR ')
   try {
     const ftsRows = await db
       .prepare(
@@ -69,39 +92,41 @@ async function searchCandidateLots(
          WHERE parking_lots_fts MATCH ?1 LIMIT ?2`,
       )
       .bind(ftsQuery, FTS_CANDIDATE_LIMIT)
-      .all<LotRow>();
+      .all<LotRow>()
 
     for (const row of ftsRows.results ?? []) {
       if (!seen.has(row.lot_id)) {
-        seen.add(row.lot_id);
-        results.push(row);
+        seen.add(row.lot_id)
+        results.push(row)
       }
     }
-  } catch { /* FTS 쿼리 실패 시 폴백으로 */ }
+  } catch {
+    /* FTS 쿼리 실패 시 폴백으로 */
+  }
 
   // 2. LIKE 폴백
   if (results.length < 3) {
     for (const kw of keywords.slice(0, 3)) {
-      if (kw.length < 2) continue;
+      if (kw.length < 2) continue
       const likeRows = await db
         .prepare(
           `SELECT id as lot_id, name, address FROM parking_lots
            WHERE name LIKE ?1 LIMIT ?2`,
         )
         .bind(`%${kw}%`, FTS_CANDIDATE_LIMIT - results.length)
-        .all<LotRow>();
+        .all<LotRow>()
 
       for (const row of likeRows.results ?? []) {
         if (!seen.has(row.lot_id)) {
-          seen.add(row.lot_id);
-          results.push(row);
+          seen.add(row.lot_id)
+          results.push(row)
         }
       }
-      if (results.length >= FTS_CANDIDATE_LIMIT) break;
+      if (results.length >= FTS_CANDIDATE_LIMIT) break
     }
   }
 
-  return results;
+  return results
 }
 
 export async function runMatchBatch(
@@ -118,44 +143,44 @@ export async function runMatchBatch(
        LIMIT ?1`,
     )
     .bind(MAX_PER_RUN)
-    .all<RawRow>();
+    .all<RawRow>()
 
-  const sources = rows.results ?? [];
-  if (sources.length === 0) return { matched: 0, lotLinks: 0, aiVerified: 0 };
+  const sources = rows.results ?? []
+  if (sources.length === 0) return { matched: 0, lotLinks: 0, aiVerified: 0 }
 
-  const insertBatch: D1PreparedStatement[] = [];
-  const updateBatch: D1PreparedStatement[] = [];
-  let matched = 0;
-  let lotLinks = 0;
-  let aiVerified = 0;
+  const insertBatch: D1PreparedStatement[] = []
+  const updateBatch: D1PreparedStatement[] = []
+  let matched = 0
+  let lotLinks = 0
+  let aiVerified = 0
 
   for (const raw of sources) {
-    const title = stripHtml(raw.title);
-    const content = stripHtml(raw.content);
-    let thisItemLinked = 0;
+    const title = stripHtml(raw.title)
+    const content = stripHtml(raw.content)
+    let thisItemLinked = 0
 
     // 1. FTS로 후보 검색
-    const keywords = extractSearchKeywords(title, content);
-    const candidates = await searchCandidateLots(db, keywords);
+    const keywords = extractSearchKeywords(title, content)
+    const candidates = await searchCandidateLots(db, keywords)
 
     // 2. 후보별 신뢰도 판정
-    const highMatches: Array<{ lot: LotRow; score: number }> = [];
-    const mediumMatches: Array<{ lot: LotRow; score: number }> = [];
+    const highMatches: Array<{ lot: LotRow; score: number }> = []
+    const mediumMatches: Array<{ lot: LotRow; score: number }> = []
 
     for (const lot of candidates) {
-      const { score, confidence } = getMatchConfidence(title, content, lot.name, lot.address);
-      if (confidence === "high") {
-        highMatches.push({ lot, score });
-      } else if (confidence === "medium") {
-        mediumMatches.push({ lot, score });
+      const { score, confidence } = getMatchConfidence(title, content, lot.name, lot.address)
+      if (confidence === 'high') {
+        highMatches.push({ lot, score })
+      } else if (confidence === 'medium') {
+        mediumMatches.push({ lot, score })
       }
     }
 
     // 3. high → 바로 저장
     for (const { lot, score } of highMatches) {
-      insertBatch.push(buildInsert(db, raw, lot, score));
-      lotLinks++;
-      thisItemLinked++;
+      insertBatch.push(buildInsert(db, raw, lot, score))
+      lotLinks++
+      thisItemLinked++
     }
 
     // 4. medium → AI 검증 (API 키가 있을 때만)
@@ -164,54 +189,49 @@ export async function runMatchBatch(
         parkingName: lot.name,
         title,
         description: content,
-      }));
+      }))
 
       try {
-        const results = await classifyBatch(inputs, env.ANTHROPIC_API_KEY);
+        const results = await classifyBatch(inputs, env.ANTHROPIC_API_KEY)
         for (let j = 0; j < mediumMatches.length; j++) {
-          const { lot, score } = mediumMatches[j];
-          const aiResult = results[j];
+          const { lot, score } = mediumMatches[j]
+          const aiResult = results[j]
           if (aiResult?.filterPassed) {
-            insertBatch.push(buildInsert(db, raw, lot, score));
-            lotLinks++;
-            thisItemLinked++;
-            aiVerified++;
+            insertBatch.push(buildInsert(db, raw, lot, score))
+            lotLinks++
+            thisItemLinked++
+            aiVerified++
           }
         }
       } catch (err) {
-        console.log(`[match] AI verify error: ${(err as Error).message}`);
+        console.log(`[match] AI verify error: ${(err as Error).message}`)
       }
     }
 
     // matched_at: 매칭 시도 완료 표시 (재처리 방지)
     // 후보가 없거나 임계값 미달이어도 시도 완료로 기록.
     // 새 주차장 추가 등으로 재매칭이 필요하면 matched_at을 NULL로 리셋.
-    const attempted = candidates.length > 0 || keywords.length > 0;
+    const attempted = candidates.length > 0 || keywords.length > 0
     if (attempted) {
-      if (thisItemLinked > 0) matched++;
+      if (thisItemLinked > 0) matched++
       updateBatch.push(
         db
           .prepare("UPDATE web_sources_raw SET matched_at = datetime('now') WHERE id = ?1")
           .bind(raw.id),
-      );
+      )
     }
   }
 
-  const D1_BATCH_LIMIT = 500;
-  const allStatements = [...insertBatch, ...updateBatch];
+  const D1_BATCH_LIMIT = 500
+  const allStatements = [...insertBatch, ...updateBatch]
   for (let i = 0; i < allStatements.length; i += D1_BATCH_LIMIT) {
-    await db.batch(allStatements.slice(i, i + D1_BATCH_LIMIT));
+    await db.batch(allStatements.slice(i, i + D1_BATCH_LIMIT))
   }
 
-  return { matched, lotLinks, aiVerified };
+  return { matched, lotLinks, aiVerified }
 }
 
-function buildInsert(
-  db: D1Database,
-  raw: RawRow,
-  lot: LotRow,
-  score: number,
-): D1PreparedStatement {
+function buildInsert(db: D1Database, raw: RawRow, lot: LotRow, score: number): D1PreparedStatement {
   return db
     .prepare(
       `INSERT OR IGNORE INTO web_sources
@@ -235,5 +255,5 @@ function buildInsert(
       raw.sentiment_score,
       raw.ai_difficulty_keywords,
       raw.ai_summary,
-    );
+    )
 }

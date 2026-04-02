@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { DEFAULT_CENTER } from '@/lib/geo-utils'
 
 interface GeolocationState {
@@ -22,7 +22,11 @@ export function useGeolocation() {
   // Manual location request (MyLocationButton)
   const requestLocation = useCallback(() => {
     if (!navigator.geolocation) {
-      setState((prev) => ({ ...prev, loading: false, error: '위치 서비스를 지원하지 않는 브라우저입니다.' }))
+      setState((prev) => ({
+        ...prev,
+        loading: false,
+        error: '위치 서비스를 지원하지 않는 브라우저입니다.',
+      }))
       return
     }
 
@@ -49,7 +53,7 @@ export function useGeolocation() {
               : '위치를 가져올 수 없습니다.',
         }))
       },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
     )
   }, [])
 
@@ -78,7 +82,7 @@ export function useGeolocation() {
             () => {
               setInitializing(false)
             },
-            { enableHighAccuracy: false, timeout: 2000, maximumAge: 300000 }
+            { enableHighAccuracy: false, timeout: 2000, maximumAge: 300000 },
           )
         } else {
           setInitializing(false)

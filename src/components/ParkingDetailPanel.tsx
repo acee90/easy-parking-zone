@@ -1,27 +1,37 @@
-import { Badge } from "@/components/ui/badge";
-import type { ParkingLot } from "@/types/parking";
-import { VoteBookmarkBar } from "@/components/VoteBookmarkBar";
-import { ParkingTabs } from "@/components/ParkingTabs";
+import { Link } from '@tanstack/react-router'
 import {
+  ChevronRight,
+  Clock,
+  CreditCard,
+  Flame,
+  MapPin,
+  Navigation,
+  ParkingSquare,
+  Phone,
+  ThumbsUp,
+  X,
+} from 'lucide-react'
+import { NavigationButton } from '@/components/NavigationButton'
+import { ParkingTabs } from '@/components/ParkingTabs'
+import { Badge } from '@/components/ui/badge'
+import { VoteBookmarkBar } from '@/components/VoteBookmarkBar'
+import {
+  getDifficultyColor,
   getDifficultyIcon,
   getDifficultyLabel,
-  getDifficultyColor,
   getDistance,
   getReliabilityBadge,
-} from "@/lib/geo-utils";
-import { NavigationButton } from "@/components/NavigationButton";
-import { MapPin, Clock, CreditCard, Phone, ParkingSquare, X, Flame, ThumbsUp, Navigation, ChevronRight } from "lucide-react";
-import { Link } from "@tanstack/react-router";
-import { makeParkingSlug } from "@/lib/slug";
+} from '@/lib/geo-utils'
+import { makeParkingSlug } from '@/lib/slug'
+import type { ParkingLot } from '@/types/parking'
 
 interface ParkingDetailPanelProps {
-  lot: ParkingLot;
-  onClose: () => void;
-  userLat?: number;
-  userLng?: number;
-  userLocated?: boolean;
+  lot: ParkingLot
+  onClose: () => void
+  userLat?: number
+  userLng?: number
+  userLocated?: boolean
 }
-
 
 export function ParkingDetailPanel({
   lot,
@@ -30,13 +40,11 @@ export function ParkingDetailPanel({
   userLng,
   userLocated,
 }: ParkingDetailPanelProps) {
-  const icon = getDifficultyIcon(lot.difficulty.score);
-  const label = getDifficultyLabel(lot.difficulty.score);
-  const reliabilityBadge = getReliabilityBadge(lot.difficulty.reliability);
+  const icon = getDifficultyIcon(lot.difficulty.score)
+  const label = getDifficultyLabel(lot.difficulty.score)
+  const reliabilityBadge = getReliabilityBadge(lot.difficulty.reliability)
   const distance =
-    userLocated && userLat && userLng
-      ? getDistance(userLat, userLng, lot.lat, lot.lng)
-      : null;
+    userLocated && userLat && userLng ? getDistance(userLat, userLng, lot.lat, lot.lng) : null
 
   return (
     <div className="w-[360px] shrink-0 flex-col bg-white/95 backdrop-blur-sm rounded-xl shadow-lg border pointer-events-auto flex overflow-hidden animate-in slide-in-from-left-4 duration-150">
@@ -77,14 +85,12 @@ export function ParkingDetailPanel({
               {reliabilityBadge.label}
             </Badge>
           )}
-          <Badge variant={lot.pricing.isFree ? "default" : "outline"}>
-            {lot.pricing.isFree ? "무료" : "유료"}
+          <Badge variant={lot.pricing.isFree ? 'default' : 'outline'}>
+            {lot.pricing.isFree ? '무료' : '유료'}
           </Badge>
           {distance !== null && (
             <span className="text-xs text-muted-foreground">
-              {distance < 1
-                ? `${Math.round(distance * 1000)}m`
-                : `${distance.toFixed(1)}km`}
+              {distance < 1 ? `${Math.round(distance * 1000)}m` : `${distance.toFixed(1)}km`}
             </span>
           )}
           {lot.difficulty.reviewCount > 0 && (
@@ -120,14 +126,11 @@ export function ParkingDetailPanel({
           <Clock className="size-4 shrink-0 mt-0.5 text-muted-foreground" />
           <div>
             <div>
-              평일 {lot.operatingHours.weekday.start}-
-              {lot.operatingHours.weekday.end}
+              평일 {lot.operatingHours.weekday.start}-{lot.operatingHours.weekday.end}
             </div>
             <div className="text-xs text-muted-foreground">
-              토 {lot.operatingHours.saturday.start}-
-              {lot.operatingHours.saturday.end} · 공휴일{" "}
-              {lot.operatingHours.holiday.start}-
-              {lot.operatingHours.holiday.end}
+              토 {lot.operatingHours.saturday.start}-{lot.operatingHours.saturday.end} · 공휴일{' '}
+              {lot.operatingHours.holiday.start}-{lot.operatingHours.holiday.end}
             </div>
           </div>
         </div>
@@ -138,14 +141,11 @@ export function ParkingDetailPanel({
             <CreditCard className="size-4 shrink-0 mt-0.5 text-muted-foreground" />
             <div>
               <div>
-                기본 {lot.pricing.baseTime}분{" "}
-                {lot.pricing.baseFee.toLocaleString()}원
+                기본 {lot.pricing.baseTime}분 {lot.pricing.baseFee.toLocaleString()}원
               </div>
               <div className="text-xs text-muted-foreground">
-                추가 {lot.pricing.extraTime}분당{" "}
-                {lot.pricing.extraFee.toLocaleString()}원
-                {lot.pricing.dailyMax &&
-                  ` · 1일 최대 ${lot.pricing.dailyMax.toLocaleString()}원`}
+                추가 {lot.pricing.extraTime}분당 {lot.pricing.extraFee.toLocaleString()}원
+                {lot.pricing.dailyMax && ` · 1일 최대 ${lot.pricing.dailyMax.toLocaleString()}원`}
               </div>
             </div>
           </div>
@@ -192,11 +192,13 @@ export function ParkingDetailPanel({
 
         {/* 큐레이션 사유 */}
         {lot.curationReason && (
-          <div className={`text-xs rounded-lg px-3 py-2 ${
-            lot.difficulty.score !== null && lot.difficulty.score < 2.0
-              ? 'bg-red-50 text-red-700'
-              : 'bg-green-50 text-green-700'
-          }`}>
+          <div
+            className={`text-xs rounded-lg px-3 py-2 ${
+              lot.difficulty.score !== null && lot.difficulty.score < 2.0
+                ? 'bg-red-50 text-red-700'
+                : 'bg-green-50 text-green-700'
+            }`}
+          >
             {lot.difficulty.score !== null && lot.difficulty.score < 2.0 ? '⚠️' : '✅'}{' '}
             {lot.curationReason}
             {lot.featuredSource === '1010' && (
@@ -211,5 +213,5 @@ export function ParkingDetailPanel({
         <ParkingTabs lotId={lot.id} />
       </div>
     </div>
-  );
+  )
 }

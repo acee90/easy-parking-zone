@@ -1,45 +1,42 @@
-import { createServerFn } from "@tanstack/react-start";
-import { getDb } from "@/db";
-import { schema } from "@/db";
-import { eq, and, sql, gt, count } from "drizzle-orm";
-import { createAuth } from "@/lib/auth";
-import type { UserReview } from "@/types/parking";
-import { rowToReview, validateScore, type ReviewRow } from "./transforms";
+import { createServerFn } from '@tanstack/react-start'
+import { and, count, eq, gt, sql } from 'drizzle-orm'
+import { getDb, schema } from '@/db'
+import { createAuth } from '@/lib/auth'
+import type { UserReview } from '@/types/parking'
+import { type ReviewRow, rowToReview, validateScore } from './transforms'
 
 async function getSessionUserId(request: Request): Promise<string | null> {
   try {
-    const auth = createAuth();
-    const session = await auth.api.getSession({ headers: request.headers });
-    return session?.user?.id ?? null;
+    const auth = createAuth()
+    const session = await auth.api.getSession({ headers: request.headers })
+    return session?.user?.id ?? null
   } catch {
-    return null;
+    return null
   }
 }
 
 async function hashIP(ip: string): Promise<string> {
-  const data = new TextEncoder().encode(ip);
-  const hash = await crypto.subtle.digest("SHA-256", data);
+  const data = new TextEncoder().encode(ip)
+  const hash = await crypto.subtle.digest('SHA-256', data)
   return Array.from(new Uint8Array(hash))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('')
 }
 
 function getClientIP(request: Request): string {
   return (
-    request.headers.get("cf-connecting-ip") ??
-    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-    "unknown"
-  );
+    request.headers.get('cf-connecting-ip') ??
+    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
+    'unknown'
+  )
 }
 
 /** 주차장별 사용자 리뷰 목록 */
-export const fetchUserReviews = createServerFn({ method: "GET" })
-  .inputValidator(
-    (input: { parkingLotId: string }): { parkingLotId: string } => input
-  )
+export const fetchUserReviews = createServerFn({ method: 'GET' })
+  .inputValidator((input: { parkingLotId: string }): { parkingLotId: string } => input)
   .handler(async ({ data, request }): Promise<UserReview[]> => {
-    const db = getDb();
-    const currentUserId = request ? await getSessionUserId(request) : null;
+    const db = getDb()
+    const currentUserId = request ? await getSessionUserId(request) : null
 
     // LEFT JOIN user 테이블은 Drizzle에서 raw SQL로 유지 (better-auth 테이블)
     const rows = await db
@@ -64,27 +61,27 @@ export const fetchUserReviews = createServerFn({ method: "GET" })
       .leftJoin(schema.users, eq(schema.users.id, schema.userReviews.userId))
       .where(eq(schema.userReviews.parkingLotId, data.parkingLotId))
       .orderBy(sql`${schema.userReviews.createdAt} DESC`)
-      .limit(20);
+      .limit(20)
 
-    return rows.map((row) => rowToReview(row as ReviewRow, currentUserId));
-  });
+    return rows.map((row) => rowToReview(row as ReviewRow, currentUserId))
+  })
 
 interface CreateReviewInput {
-  parkingLotId: string;
-  entryScore: number;
-  spaceScore: number;
-  passageScore: number;
-  exitScore: number;
-  overallScore: number;
-  comment?: string;
-  visitedAt?: string;
-  guestNickname?: string;
+  parkingLotId: string
+  entryScore: number
+  spaceScore: number
+  passageScore: number
+  exitScore: number
+  overallScore: number
+  comment?: string
+  visitedAt?: string
+  guestNickname?: string
 }
 
 /** 리뷰 작성 (회원/비회원) */
-export const createReview = createServerFn({ method: "POST" })
+export const createReview = createServerFn({ method: 'POST' })
   .inputValidator((input: CreateReviewInput): CreateReviewInput => {
-    if (!input.parkingLotId) throw new Error("주차장 ID 필요");
+    if (!input.parkingLotId) throw new Error('주차장 ID 필요')
     if (
       !validateScore(input.entryScore) ||
       !validateScore(input.spaceScore) ||
@@ -92,17 +89,17 @@ export const createReview = createServerFn({ method: "POST" })
       !validateScore(input.exitScore) ||
       !validateScore(input.overallScore)
     )
-      throw new Error("점수는 1-5 정수");
-    return input;
+      throw new Error('점수는 1-5 정수')
+    return input
   })
   .handler(async ({ data, request }) => {
-    const db = getDb();
-    const userId = request ? await getSessionUserId(request) : null;
+    const db = getDb()
+    const userId = request ? await getSessionUserId(request) : null
 
     // 비회원 rate limit: 같은 IP + 주차장에 24시간 내 1건
-    let ipHash: string | null = null;
+    let ipHash: string | null = null
     if (!userId && request) {
-      ipHash = await hashIP(getClientIP(request));
+      ipHash = await hashIP(getClientIP(request))
       const [existing] = await db
         .select({ cnt: count() })
         .from(schema.userReviews)
@@ -111,10 +108,10 @@ export const createReview = createServerFn({ method: "POST" })
             eq(schema.userReviews.ipHash, ipHash),
             eq(schema.userReviews.parkingLotId, data.parkingLotId),
             gt(schema.userReviews.createdAt, sql`datetime('now', '-24 hours')`),
-          )
-        );
+          ),
+        )
       if (existing && existing.cnt > 0) {
-        throw new Error("24시간 내에 같은 주차장에 이미 리뷰를 남겼습니다");
+        throw new Error('24시간 내에 같은 주차장에 이미 리뷰를 남겼습니다')
       }
     }
 
@@ -128,17 +125,17 @@ export const createReview = createServerFn({ method: "POST" })
             eq(schema.userReviews.userId, userId),
             eq(schema.userReviews.parkingLotId, data.parkingLotId),
             gt(schema.userReviews.createdAt, sql`datetime('now', '-24 hours')`),
-          )
-        );
+          ),
+        )
       if (existing && existing.cnt > 0) {
-        throw new Error("24시간 내에 같은 주차장에 이미 리뷰를 남겼습니다");
+        throw new Error('24시간 내에 같은 주차장에 이미 리뷰를 남겼습니다')
       }
     }
 
     await db.insert(schema.userReviews).values({
       parkingLotId: data.parkingLotId,
       userId,
-      guestNickname: userId ? null : (data.guestNickname || "익명"),
+      guestNickname: userId ? null : data.guestNickname || '익명',
       ipHash: userId ? null : ipHash,
       entryScore: data.entryScore,
       spaceScore: data.spaceScore,
@@ -147,34 +144,30 @@ export const createReview = createServerFn({ method: "POST" })
       overallScore: data.overallScore,
       comment: data.comment ?? null,
       visitedAt: data.visitedAt ?? null,
-    });
+    })
 
-    return { ok: true };
-  });
+    return { ok: true }
+  })
 
 /** 리뷰 삭제 (본인만) */
-export const deleteReview = createServerFn({ method: "POST" })
-  .inputValidator(
-    (input: { reviewId: number }): { reviewId: number } => input
-  )
+export const deleteReview = createServerFn({ method: 'POST' })
+  .inputValidator((input: { reviewId: number }): { reviewId: number } => input)
   .handler(async ({ data, request }) => {
-    const userId = request ? await getSessionUserId(request) : null;
-    if (!userId) throw new Error("로그인 필요");
+    const userId = request ? await getSessionUserId(request) : null
+    if (!userId) throw new Error('로그인 필요')
 
-    const db = getDb();
+    const db = getDb()
     const review = await db
       .select({ userId: schema.userReviews.userId })
       .from(schema.userReviews)
       .where(eq(schema.userReviews.id, data.reviewId))
-      .get();
+      .get()
 
     if (!review || review.userId !== userId) {
-      throw new Error("본인 리뷰만 삭제 가능");
+      throw new Error('본인 리뷰만 삭제 가능')
     }
 
-    await db
-      .delete(schema.userReviews)
-      .where(eq(schema.userReviews.id, data.reviewId));
+    await db.delete(schema.userReviews).where(eq(schema.userReviews.id, data.reviewId))
 
-    return { ok: true };
-  });
+    return { ok: true }
+  })

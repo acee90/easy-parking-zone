@@ -1,48 +1,39 @@
-import { describe, it, expect } from "vitest";
-import { DEFAULT_FILTERS, DEFAULT_DIFFICULTY } from "./parking";
-import type { DifficultyFilter, ParkingFilters } from "./parking";
+import { describe, expect, it } from 'vitest'
+import type { DifficultyFilter } from './parking'
+import { DEFAULT_DIFFICULTY, DEFAULT_FILTERS } from './parking'
 
-describe("DEFAULT_FILTERS", () => {
-  it("has all boolean filters off by default", () => {
-    expect(DEFAULT_FILTERS.freeOnly).toBe(false);
-    expect(DEFAULT_FILTERS.publicOnly).toBe(false);
-    expect(DEFAULT_FILTERS.excludeNoSang).toBe(false);
-  });
+describe('DEFAULT_FILTERS', () => {
+  it('has all boolean filters off by default', () => {
+    expect(DEFAULT_FILTERS.freeOnly).toBe(false)
+    expect(DEFAULT_FILTERS.publicOnly).toBe(false)
+    expect(DEFAULT_FILTERS.excludeNoSang).toBe(false)
+  })
 
-  it("has all difficulty levels ON by default", () => {
-    const d = DEFAULT_FILTERS.difficulty;
-    expect(d.easy).toBe(true);
-    expect(d.decent).toBe(true);
-    expect(d.normal).toBe(true);
-    expect(d.bad).toBe(true);
-    expect(d.hard).toBe(true);
-    expect(d.hell).toBe(true);
-    expect(d.noReview).toBe(true);
-  });
-});
+  it('has all difficulty levels ON by default', () => {
+    const d = DEFAULT_FILTERS.difficulty
+    expect(d.easy).toBe(true)
+    expect(d.decent).toBe(true)
+    expect(d.normal).toBe(true)
+    expect(d.bad).toBe(true)
+    expect(d.hard).toBe(true)
+    expect(d.hell).toBe(true)
+  })
+})
 
-describe("DEFAULT_DIFFICULTY", () => {
-  it("is independent from DEFAULT_FILTERS.difficulty (no reference sharing)", () => {
-    const a = { ...DEFAULT_DIFFICULTY };
-    a.easy = false;
-    expect(DEFAULT_FILTERS.difficulty.easy).toBe(true);
-  });
-});
+describe('DEFAULT_DIFFICULTY', () => {
+  it('is independent from DEFAULT_FILTERS.difficulty (no reference sharing)', () => {
+    const a = { ...DEFAULT_DIFFICULTY }
+    a.easy = false
+    expect(DEFAULT_FILTERS.difficulty.easy).toBe(true)
+  })
+})
 
-describe("DifficultyFilter type", () => {
-  it("has exactly 7 keys", () => {
-    const keys: (keyof DifficultyFilter)[] = [
-      "easy",
-      "decent",
-      "normal",
-      "bad",
-      "hard",
-      "hell",
-      "noReview",
-    ];
-    expect(keys).toHaveLength(7);
+describe('DifficultyFilter type', () => {
+  it('has exactly 6 keys', () => {
+    const keys: (keyof DifficultyFilter)[] = ['easy', 'decent', 'normal', 'bad', 'hard', 'hell']
+    expect(keys).toHaveLength(6)
     for (const key of keys) {
-      expect(typeof DEFAULT_DIFFICULTY[key]).toBe("boolean");
+      expect(typeof DEFAULT_DIFFICULTY[key]).toBe('boolean')
     }
-  });
-});
+  })
+})

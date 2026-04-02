@@ -1,13 +1,14 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { createFileRoute } from '@tanstack/react-router'
+import { Check, ExternalLink, X } from 'lucide-react'
+import { useState } from 'react'
 import {
-  fetchContentReports,
-  fetchReportStats,
-  resolveReport,
-  type AdminReportItem,
-  type ReportStatus,
-  type ReportTargetFilter,
-} from "@/server/admin-reports";
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from '@/components/ui/pagination'
 import {
   Table,
   TableBody,
@@ -15,100 +16,99 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
+} from '@/components/ui/table'
 import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-  PaginationPrevious,
-  PaginationNext,
-} from "@/components/ui/pagination";
-import { ExternalLink, Check, X } from "lucide-react";
+  type AdminReportItem,
+  fetchContentReports,
+  fetchReportStats,
+  type ReportStatus,
+  type ReportTargetFilter,
+  resolveReport,
+} from '@/server/admin-reports'
 
-export const Route = createFileRoute("/admin/reports")({
+export const Route = createFileRoute('/admin/reports')({
   loader: async () => {
     const [reportData, stats] = await Promise.all([
-      fetchContentReports({ data: { status: "pending", page: 1 } }),
+      fetchContentReports({ data: { status: 'pending', page: 1 } }),
       fetchReportStats(),
-    ]);
-    return { reportData, stats };
+    ])
+    return { reportData, stats }
   },
   component: AdminReportsPage,
-});
+})
 
 const TARGET_TYPE_LABELS: Record<string, string> = {
-  web_source: "웹소스",
-  media: "미디어",
-  review: "리뷰",
-};
+  web_source: '웹소스',
+  media: '미디어',
+  review: '리뷰',
+}
 
 const REASON_LABELS: Record<string, string> = {
-  wrong_link: "잘못된 연결",
-  advertisement: "광고",
-  inaccurate: "부정확",
-  broken_link: "링크 깨짐",
-  duplicate: "중복",
-  inappropriate: "부적절",
-  fake_review: "허위 리뷰",
-  abusive: "욕설/비방",
-  spam: "스팸",
-  wrong_parking: "잘못된 주차장",
-  other: "기타",
-};
+  wrong_link: '잘못된 연결',
+  advertisement: '광고',
+  inaccurate: '부정확',
+  broken_link: '링크 깨짐',
+  duplicate: '중복',
+  inappropriate: '부적절',
+  fake_review: '허위 리뷰',
+  abusive: '욕설/비방',
+  spam: '스팸',
+  wrong_parking: '잘못된 주차장',
+  other: '기타',
+}
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  pending: { label: "대기", color: "bg-amber-100 text-amber-700" },
-  resolved: { label: "승인", color: "bg-green-100 text-green-700" },
-  dismissed: { label: "기각", color: "bg-gray-100 text-gray-500" },
-};
+  pending: { label: '대기', color: 'bg-amber-100 text-amber-700' },
+  resolved: { label: '승인', color: 'bg-green-100 text-green-700' },
+  dismissed: { label: '기각', color: 'bg-gray-100 text-gray-500' },
+}
 
 function AdminReportsPage() {
-  const { reportData: initialData, stats: initialStats } = Route.useLoaderData();
-  const [items, setItems] = useState<AdminReportItem[]>(initialData.items);
-  const [total, setTotal] = useState(initialData.total);
-  const [page, setPage] = useState(1);
-  const [status, setStatus] = useState<ReportStatus>("pending");
-  const [targetType, setTargetType] = useState<ReportTargetFilter>("all");
-  const [stats, setStats] = useState(initialStats);
-  const [processing, setProcessing] = useState<number | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const { reportData: initialData, stats: initialStats } = Route.useLoaderData()
+  const [items, setItems] = useState<AdminReportItem[]>(initialData.items)
+  const [total, setTotal] = useState(initialData.total)
+  const [page, setPage] = useState(1)
+  const [status, setStatus] = useState<ReportStatus>('pending')
+  const [targetType, setTargetType] = useState<ReportTargetFilter>('all')
+  const [stats, setStats] = useState(initialStats)
+  const [processing, setProcessing] = useState<number | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   const reload = async (p = page, s = status, t = targetType) => {
     const [data, newStats] = await Promise.all([
       fetchContentReports({ data: { status: s, targetType: t, page: p } }),
       fetchReportStats(),
-    ]);
-    setItems(data.items);
-    setTotal(data.total);
-    setPage(p);
-    setStats(newStats);
-  };
+    ])
+    setItems(data.items)
+    setTotal(data.total)
+    setPage(p)
+    setStats(newStats)
+  }
 
   const handleStatusChange = (s: ReportStatus) => {
-    setStatus(s);
-    reload(1, s, targetType);
-  };
+    setStatus(s)
+    reload(1, s, targetType)
+  }
 
   const handleTargetTypeChange = (t: ReportTargetFilter) => {
-    setTargetType(t);
-    reload(1, status, t);
-  };
+    setTargetType(t)
+    reload(1, status, t)
+  }
 
-  const handleResolve = async (reportId: number, action: "resolve" | "dismiss") => {
-    setProcessing(reportId);
-    setError(null);
+  const handleResolve = async (reportId: number, action: 'resolve' | 'dismiss') => {
+    setProcessing(reportId)
+    setError(null)
     try {
-      await resolveReport({ data: { reportId, action } });
-      await reload();
+      await resolveReport({ data: { reportId, action } })
+      await reload()
     } catch {
-      setError("처리 중 오류가 발생했습니다. 다시 시도해주세요.");
+      setError('처리 중 오류가 발생했습니다. 다시 시도해주세요.')
     } finally {
-      setProcessing(null);
+      setProcessing(null)
     }
-  };
+  }
 
-  const totalPages = Math.ceil(total / 30);
+  const totalPages = Math.ceil(total / 30)
 
   return (
     <div className="space-y-6">
@@ -117,10 +117,10 @@ function AdminReportsPage() {
       {/* Stats */}
       <div className="grid grid-cols-4 gap-4">
         {[
-          { label: "전체", value: stats.total, color: "text-gray-900" },
-          { label: "대기중", value: stats.counts.pending ?? 0, color: "text-amber-600" },
-          { label: "승인", value: stats.counts.resolved ?? 0, color: "text-green-600" },
-          { label: "기각", value: stats.counts.dismissed ?? 0, color: "text-gray-500" },
+          { label: '전체', value: stats.total, color: 'text-gray-900' },
+          { label: '대기중', value: stats.counts.pending ?? 0, color: 'text-amber-600' },
+          { label: '승인', value: stats.counts.resolved ?? 0, color: 'text-green-600' },
+          { label: '기각', value: stats.counts.dismissed ?? 0, color: 'text-gray-500' },
         ].map(({ label, value, color }) => (
           <div key={label} className="bg-white rounded-lg border p-4 text-center">
             <p className="text-xs text-muted-foreground">{label}</p>
@@ -132,18 +132,16 @@ function AdminReportsPage() {
       {/* Filters */}
       <div className="flex gap-4 items-center">
         <div className="flex gap-1 bg-white rounded-lg border p-1">
-          {(["pending", "resolved", "dismissed", "all"] as const).map((s) => (
+          {(['pending', 'resolved', 'dismissed', 'all'] as const).map((s) => (
             <button
               key={s}
               onClick={() => handleStatusChange(s)}
               className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer ${
-                status === s
-                  ? "bg-gray-900 text-white"
-                  : "text-gray-500 hover:text-gray-900"
+                status === s ? 'bg-gray-900 text-white' : 'text-gray-500 hover:text-gray-900'
               }`}
             >
-              {s === "all" ? "전체" : STATUS_LABELS[s].label}
-              {s === "pending" && (stats.counts.pending ?? 0) > 0 && (
+              {s === 'all' ? '전체' : STATUS_LABELS[s].label}
+              {s === 'pending' && (stats.counts.pending ?? 0) > 0 && (
                 <span className="ml-1 text-[10px] bg-red-500 text-white rounded-full px-1.5 py-0.5">
                   {stats.counts.pending}
                 </span>
@@ -152,17 +150,15 @@ function AdminReportsPage() {
           ))}
         </div>
         <div className="flex gap-1 bg-white rounded-lg border p-1">
-          {(["all", "web_source", "media", "review"] as const).map((t) => (
+          {(['all', 'web_source', 'media', 'review'] as const).map((t) => (
             <button
               key={t}
               onClick={() => handleTargetTypeChange(t)}
               className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer ${
-                targetType === t
-                  ? "bg-gray-900 text-white"
-                  : "text-gray-500 hover:text-gray-900"
+                targetType === t ? 'bg-gray-900 text-white' : 'text-gray-500 hover:text-gray-900'
               }`}
             >
-              {t === "all" ? "전체" : TARGET_TYPE_LABELS[t]}
+              {t === 'all' ? '전체' : TARGET_TYPE_LABELS[t]}
             </button>
           ))}
         </div>
@@ -213,7 +209,7 @@ function AdminReportsPage() {
                     )}
                   </TableCell>
                   <TableCell className="text-xs max-w-[200px]">
-                    <p className="line-clamp-1">{item.targetTitle ?? "(제목 없음)"}</p>
+                    <p className="line-clamp-1">{item.targetTitle ?? '(제목 없음)'}</p>
                     {item.targetUrl && (
                       <a
                         href={item.targetUrl}
@@ -229,7 +225,9 @@ function AdminReportsPage() {
                     {item.parkingLotName}
                   </TableCell>
                   <TableCell>
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full ${STATUS_LABELS[item.status]?.color ?? ""}`}>
+                    <span
+                      className={`text-[10px] px-2 py-0.5 rounded-full ${STATUS_LABELS[item.status]?.color ?? ''}`}
+                    >
                       {STATUS_LABELS[item.status]?.label ?? item.status}
                     </span>
                   </TableCell>
@@ -237,10 +235,10 @@ function AdminReportsPage() {
                     {item.createdAt?.slice(0, 10)}
                   </TableCell>
                   <TableCell>
-                    {item.status === "pending" && (
+                    {item.status === 'pending' && (
                       <div className="flex gap-1">
                         <button
-                          onClick={() => handleResolve(item.id, "resolve")}
+                          onClick={() => handleResolve(item.id, 'resolve')}
                           disabled={processing === item.id}
                           className="p-1.5 rounded-md bg-green-50 text-green-600 hover:bg-green-100 cursor-pointer disabled:opacity-50"
                           title="승인 (콘텐츠 숨김)"
@@ -248,7 +246,7 @@ function AdminReportsPage() {
                           <Check className="size-3.5" />
                         </button>
                         <button
-                          onClick={() => handleResolve(item.id, "dismiss")}
+                          onClick={() => handleResolve(item.id, 'dismiss')}
                           disabled={processing === item.id}
                           className="p-1.5 rounded-md bg-gray-50 text-gray-400 hover:bg-gray-100 cursor-pointer disabled:opacity-50"
                           title="기각"
@@ -275,8 +273,8 @@ function AdminReportsPage() {
               </PaginationItem>
             )}
             {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-              const p = page <= 3 ? i + 1 : page - 2 + i;
-              if (p > totalPages) return null;
+              const p = page <= 3 ? i + 1 : page - 2 + i
+              if (p > totalPages) return null
               return (
                 <PaginationItem key={p}>
                   <PaginationLink
@@ -287,7 +285,7 @@ function AdminReportsPage() {
                     {p}
                   </PaginationLink>
                 </PaginationItem>
-              );
+              )
             })}
             {page < totalPages && (
               <PaginationItem>
@@ -298,5 +296,5 @@ function AdminReportsPage() {
         </Pagination>
       )}
     </div>
-  );
+  )
 }

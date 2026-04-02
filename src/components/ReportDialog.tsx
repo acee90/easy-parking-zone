@@ -1,19 +1,14 @@
-import { useState, useEffect } from "react";
-import { Flag, Loader2 } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { createContentReport, getReportReasons, type ReportTargetType } from "@/server/reports";
+import { Flag, Loader2 } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { createContentReport, getReportReasons, type ReportTargetType } from '@/server/reports'
 
 interface ReportDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  targetType: ReportTargetType;
-  targetId: number;
-  parkingLotId: string;
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  targetType: ReportTargetType
+  targetId: number
+  parkingLotId: string
 }
 
 export function ReportDialog({
@@ -23,26 +18,26 @@ export function ReportDialog({
   targetId,
   parkingLotId,
 }: ReportDialogProps) {
-  const [reasons, setReasons] = useState<{ code: string; label: string }[]>([]);
-  const [selected, setSelected] = useState<string | null>(null);
-  const [detail, setDetail] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [result, setResult] = useState<"success" | "duplicate" | "error" | null>(null);
+  const [reasons, setReasons] = useState<{ code: string; label: string }[]>([])
+  const [selected, setSelected] = useState<string | null>(null)
+  const [detail, setDetail] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [result, setResult] = useState<'success' | 'duplicate' | 'error' | null>(null)
 
   useEffect(() => {
     if (open) {
-      setSelected(null);
-      setDetail("");
-      setResult(null);
+      setSelected(null)
+      setDetail('')
+      setResult(null)
       getReportReasons({ data: { targetType } })
         .then(setReasons)
-        .catch(() => setReasons([]));
+        .catch(() => setReasons([]))
     }
-  }, [open, targetType]);
+  }, [open, targetType])
 
   const handleSubmit = async () => {
-    if (!selected) return;
-    setSubmitting(true);
+    if (!selected) return
+    setSubmitting(true)
     try {
       await createContentReport({
         data: {
@@ -50,24 +45,26 @@ export function ReportDialog({
           targetId,
           parkingLotId,
           reason: selected,
-          detail: selected === "other" ? detail : undefined,
+          detail: selected === 'other' ? detail : undefined,
         },
-      });
-      setResult("success");
+      })
+      setResult('success')
     } catch (e) {
-      const code = (e as { code?: string }).code;
-      const msg = e instanceof Error ? e.message : "";
-      setResult(code === "DUPLICATE_REPORT" || msg.includes("UNIQUE constraint") ? "duplicate" : "error");
+      const code = (e as { code?: string }).code
+      const msg = e instanceof Error ? e.message : ''
+      setResult(
+        code === 'DUPLICATE_REPORT' || msg.includes('UNIQUE constraint') ? 'duplicate' : 'error',
+      )
     } finally {
-      setSubmitting(false);
+      setSubmitting(false)
     }
-  };
+  }
 
   const resultMessages = {
-    success: "신고가 접수되었습니다. 검토 후 처리됩니다.",
-    duplicate: "이미 신고한 콘텐츠입니다.",
-    error: "신고 접수에 실패했습니다. 잠시 후 다시 시도해주세요.",
-  };
+    success: '신고가 접수되었습니다. 검토 후 처리됩니다.',
+    duplicate: '이미 신고한 콘텐츠입니다.',
+    error: '신고 접수에 실패했습니다. 잠시 후 다시 시도해주세요.',
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -81,7 +78,9 @@ export function ReportDialog({
 
         {result ? (
           <div className="text-center py-4">
-            <p className={`text-sm ${result === "success" ? "text-green-600" : result === "duplicate" ? "text-amber-600" : "text-red-500"}`}>
+            <p
+              className={`text-sm ${result === 'success' ? 'text-green-600' : result === 'duplicate' ? 'text-amber-600' : 'text-red-500'}`}
+            >
               {resultMessages[result]}
             </p>
             <button
@@ -98,9 +97,7 @@ export function ReportDialog({
                 <label
                   key={code}
                   className={`flex items-center gap-2.5 px-3 py-2 rounded-lg cursor-pointer transition-colors ${
-                    selected === code
-                      ? "bg-red-50 ring-1 ring-red-200"
-                      : "hover:bg-gray-50"
+                    selected === code ? 'bg-red-50 ring-1 ring-red-200' : 'hover:bg-gray-50'
                   }`}
                 >
                   <input
@@ -116,7 +113,7 @@ export function ReportDialog({
               ))}
             </div>
 
-            {selected === "other" && (
+            {selected === 'other' && (
               <textarea
                 value={detail}
                 onChange={(e) => setDetail(e.target.value)}
@@ -129,20 +126,24 @@ export function ReportDialog({
 
             <button
               onClick={handleSubmit}
-              disabled={!selected || submitting || (selected === "other" && detail.trim().length < 2)}
+              disabled={
+                !selected || submitting || (selected === 'other' && detail.trim().length < 2)
+              }
               className="w-full rounded-md bg-red-500 py-2.5 text-xs font-medium text-white hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors flex items-center justify-center gap-1.5"
             >
               {submitting ? (
-                <><Loader2 className="size-3.5 animate-spin" /> 접수 중...</>
+                <>
+                  <Loader2 className="size-3.5 animate-spin" /> 접수 중...
+                </>
               ) : (
-                "신고 접수"
+                '신고 접수'
               )}
             </button>
           </>
         )}
       </DialogContent>
     </Dialog>
-  );
+  )
 }
 
 /** 신고 버튼 (인라인용) */
@@ -151,19 +152,19 @@ export function ReportButton({
   targetId,
   parkingLotId,
 }: {
-  targetType: ReportTargetType;
-  targetId: number;
-  parkingLotId: string;
+  targetType: ReportTargetType
+  targetId: number
+  parkingLotId: string
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(false)
 
   return (
     <>
       <button
         onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          setOpen(true);
+          e.preventDefault()
+          e.stopPropagation()
+          setOpen(true)
         }}
         className="p-1 rounded-full hover:bg-gray-100 cursor-pointer text-gray-400 hover:text-red-400 transition-colors"
         title="신고"
@@ -178,5 +179,5 @@ export function ReportButton({
         parkingLotId={parkingLotId}
       />
     </>
-  );
+  )
 }

@@ -1,10 +1,5 @@
 /** Haversine distance in km between two points */
-export function getDistance(
-  lat1: number,
-  lng1: number,
-  lat2: number,
-  lng2: number
-): number {
+export function getDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371
   const dLat = toRad(lat2 - lat1)
   const dLng = toRad(lng2 - lng1)
@@ -24,13 +19,13 @@ export const DEFAULT_ZOOM = Number(import.meta.env.VITE_DEFAULT_ZOOM) || 17
 
 /** Difficulty score → 아이콘 (6단계) */
 export function getDifficultyIcon(score: number | null): string {
-  if (score === null) return '🅿️'     // 데이터 없음
-  if (score >= 4.0) return '😊'       // 초보추천
-  if (score >= 3.3) return '🙂'       // 무난
-  if (score >= 2.7) return '😐'       // 보통
-  if (score >= 2.0) return '😕'       // 별로
-  if (score >= 1.5) return '💀'       // 비추
-  return '🔥'                          // 헬
+  if (score === null) return '🅿️' // 데이터 없음
+  if (score >= 4.0) return '😊' // 초보추천
+  if (score >= 3.3) return '🙂' // 무난
+  if (score >= 2.7) return '😐' // 보통
+  if (score >= 2.0) return '😕' // 별로
+  if (score >= 1.5) return '💀' // 비추
+  return '🔥' // 헬
 }
 
 /** Difficulty score → Tailwind bg color class (6단계) */
@@ -68,8 +63,6 @@ export function getReliabilityBadge(reliability: Reliability | undefined): {
       return null // 충분한 데이터 — 뱃지 불필요
     case 'reference':
       return { label: '참고', className: 'border-amber-300 text-amber-600' }
-    case 'structural':
-    case 'none':
     default:
       return { label: '데이터 부족', className: 'border-gray-300 text-gray-500' }
   }
