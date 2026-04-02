@@ -90,7 +90,7 @@ export const fetchAllParkingPoints = createServerFn({ method: "GET" })
   .handler(async (): Promise<ParkingPoint[]> => {
     const db = getDb();
 
-    const CACHE_KEY = "https://easy-parking.xyz/__internal/parking-points";
+    const CACHE_KEY = "https://cache.internal/parking-points-v1";
     const CACHE_TTL = 3600; // 1시간
 
     const cache = typeof caches !== "undefined" ? await caches.open("parking-points") : null;

@@ -33,8 +33,8 @@ const SUPERCLUSTER_OPTIONS: Supercluster.Options<
   map: (props) => ({
     sum_score: props.score ?? 0,
     count_score: props.score !== null ? 1 : 0,
-    easy: props.score !== null && props.score >= 3.5 ? 1 : 0,
-    hard: props.score !== null && props.score < 2.5 ? 1 : 0,
+    easy: props.score !== null && props.score >= 4.0 ? 1 : 0,
+    hard: props.score !== null && props.score < 2.0 ? 1 : 0,
   }),
   reduce: (acc, props) => {
     acc.sum_score += props.sum_score;

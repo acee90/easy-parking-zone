@@ -54,22 +54,6 @@ export interface MapBounds {
   east: number
 }
 
-export interface MarkerCluster {
-  key: string;
-  lat: number;
-  lng: number;
-  count: number;
-  avgScore: number | null;
-  easyCount: number;
-  hardCount: number;
-  bounds: {
-    south: number;
-    north: number;
-    west: number;
-    east: number;
-  };
-}
-
 export interface BlogPost {
   id: number
   title: string
