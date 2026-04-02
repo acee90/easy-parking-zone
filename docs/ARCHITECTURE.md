@@ -18,6 +18,7 @@ TanStack Start full-stack React app deployed to Cloudflare Workers.
 | Deployment | Cloudflare Workers + wrangler |
 | Testing | Vitest + @testing-library/react (jsdom) |
 | Crawling | Workers Cron + Anthropic Haiku |
+| Clustering | SuperCluster (서버사이드 → 클라이언트 전환) |
 | Scoring | Bayesian 통합 (유저리뷰 + 텍스트 감성분석) |
 
 ## Data Sources
@@ -36,7 +37,7 @@ TanStack Start full-stack React app deployed to Cloudflare Workers.
 src/
   components/         # 공유 컴포넌트 (Header, MapView)
   components/ui/      # shadcn/ui (자동 생성, 수동 편집 금지)
-  hooks/              # React 훅 (useGeolocation 등)
+  hooks/              # React 훅 (useGeolocation, useSuperCluster, useParkingFilters)
   lib/                # 유틸리티 (cn, geo-utils)
   routes/             # 파일 기반 라우팅 (TanStack Router)
   server/             # 서버 함수 (parking, admin, auth)

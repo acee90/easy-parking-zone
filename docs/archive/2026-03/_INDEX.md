@@ -26,3 +26,10 @@
 ### Documents
 - `wiki-map/wiki-map.plan.md` — Plan Plus 문서
 - `wiki-map/wiki-map.report.md` — 완료 리포트
+
+## misc (2026-04-02 정리)
+
+- `progress.md` — 진행현황 TODO (내용 PRODUCT_SENSE.md에 반영됨)
+- `data-report-2026-03-10.md` — 3/10 데이터 수집 리포트 (1회성)
+- `velog-post-04.md` — 블로그 #4: Drizzle ORM 전환기 (발행 완료)
+- `poi-pipeline.md` — POI 파이프라인 v1 (poi-pipeline-v2.md로 대체)

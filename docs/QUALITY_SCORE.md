@@ -46,7 +46,7 @@
 |----|------|--------|------|------|
 | TD-001 | worker-entry 번들 889KB | Medium | Open | 코드 스플리팅 검토 |
 | TD-002 | 어드민 SQL raw 쿼리 | Low | Open | Drizzle ORM 전환 검토 |
-| TD-003 | web_sources 레거시 컬럼 잔류 (full_text, is_positive) | Low | Open | 사용 여부 확인 후 제거 |
+| TD-003 | web_sources 레거시 컬럼 잔류 (is_positive) | Low | Open | is_ad 제거 완료(0029), is_positive 사용 여부 확인 후 제거 |
 | TD-004 | 테스트 커버리지 부족 | Medium | Open | 핵심 로직(scoring, sentiment) 우선 |
 
 ## Quality Checklist (PR 전)
