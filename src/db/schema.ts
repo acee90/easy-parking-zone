@@ -170,7 +170,7 @@ export const webSources = sqliteTable("web_sources", {
   summary: text("summary"),
   isPositive: integer("is_positive"),
   sentimentScore: real("sentiment_score"),
-  isAd: integer("is_ad").notNull().default(0),
+
   crawledAt: text("crawled_at").notNull().default(now),
 });
 

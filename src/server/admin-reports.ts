@@ -182,10 +182,9 @@ export const resolveReport = createServerFn({ method: "POST" })
     // 승인 시 대상 콘텐츠 처리
     if (data.action === "resolve") {
       if (report.targetType === "web_source") {
-        // 광고로 마킹 (is_ad = 1) — 삭제보다 안전
+        // 신고 승인: web_sources에서 제거
         await db
-          .update(schema.webSources)
-          .set({ isAd: 1 })
+          .delete(schema.webSources)
           .where(eq(schema.webSources.id, report.targetId));
       } else if (report.targetType === "media") {
         await db

@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getDb } from "@/db";
 import { schema } from "@/db";
-import { eq, and, sql, count, desc } from "drizzle-orm";
+import { eq, sql, count, desc } from "drizzle-orm";
 import { env } from "cloudflare:workers";
 import type { MapBounds, BlogPost, ParkingFilters, Place } from "@/types/parking";
 import {
@@ -27,7 +27,7 @@ export const fetchSiteStats = createServerFn({ method: "GET" }).handler(
       db.select({ cnt: count() }).from(schema.parkingLots).get(),
       db.select({ cnt: count() }).from(schema.userReviews).get(),
       db.select({
-        cnt: sql<number>`(SELECT COUNT(*) FROM parking_media) + (SELECT COUNT(*) FROM web_sources WHERE is_ad = 0)`,
+        cnt: sql<number>`(SELECT COUNT(*) FROM parking_media) + (SELECT COUNT(*) FROM web_sources)`,
       }).from(schema.parkingMedia).get(),
     ]);
     const stats = {
@@ -219,12 +219,7 @@ export const fetchTabCounts = createServerFn({ method: "GET" })
         .get(),
       db.select({ cnt: count() })
         .from(schema.webSources)
-        .where(
-          and(
-            eq(schema.webSources.parkingLotId, data.parkingLotId),
-            eq(schema.webSources.isAd, 0),
-          )
-        )
+        .where(eq(schema.webSources.parkingLotId, data.parkingLotId))
         .get(),
       db.select({ cnt: count() })
         .from(schema.parkingMedia)
@@ -258,12 +253,7 @@ export const fetchBlogPosts = createServerFn({ method: "GET" })
         published_at: schema.webSources.publishedAt,
       })
       .from(schema.webSources)
-      .where(
-        and(
-          eq(schema.webSources.parkingLotId, data.parkingLotId),
-          eq(schema.webSources.isAd, 0),
-        )
-      )
+      .where(eq(schema.webSources.parkingLotId, data.parkingLotId))
       .orderBy(desc(schema.webSources.relevanceScore))
       .limit(limit)
       .offset(offset);

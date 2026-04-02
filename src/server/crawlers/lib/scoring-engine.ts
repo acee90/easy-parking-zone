@@ -190,7 +190,7 @@ export async function recomputeStats(
     .prepare(
       `SELECT ws.parking_lot_id, ws.sentiment_score, ws.relevance_score, ws.published_at, 'direct' as match_type
        FROM web_sources ws
-       WHERE ws.is_ad = 0 AND ws.parking_lot_id IN (${placeholders})
+       WHERE ws.parking_lot_id IN (${placeholders})
          AND ws.sentiment_score IS NOT NULL AND ws.relevance_score > 30`,
     )
     .bind(...lotIds)

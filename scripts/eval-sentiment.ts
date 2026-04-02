@@ -91,7 +91,7 @@ async function main() {
     `SELECT ws.id, ws.content, ws.sentiment_score, ws.relevance_score, p.name
      FROM web_sources ws
      JOIN parking_lots p ON p.id = ws.parking_lot_id
-     WHERE ws.content IS NOT NULL AND ws.content != '' AND ws.is_ad = 0
+     WHERE ws.content IS NOT NULL AND ws.content != ''
        AND length(ws.content) > 80 AND ws.relevance_score >= 30
      ORDER BY ws.id
      LIMIT 30`

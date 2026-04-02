@@ -1,6 +1,6 @@
 {
   "version": "2.0",
-  "lastUpdated": "2026-04-02T05:51:26.005Z",
+  "lastUpdated": "2026-04-02T07:35:58.137Z",
   "activeFeatures": [
     "crawlers",
     "server",
@@ -25,9 +25,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-03-20T05:24:59.394Z",
-        "lastUpdated": "2026-04-02T05:51:26.005Z"
+        "lastUpdated": "2026-04-02T07:35:30.885Z"
       },
-      "lastFile": "/Users/junhee/Documents/projects/parking-map/main/src/server/crawlers/ai-filter-batch.ts"
+      "lastFile": "/Users/junhee/Documents/projects/parking-map/main/src/server/crawlers/lib/scoring-engine.ts"
     },
     "server": {
       "phase": "do",
@@ -38,7 +38,7 @@
       "documents": {},
       "timestamps": {
         "started": "2026-03-20T05:25:04.988Z",
-        "lastUpdated": "2026-04-02T05:25:31.871Z"
+        "lastUpdated": "2026-04-02T07:35:58.137Z"
       },
       "lastFile": "/Users/junhee/Documents/projects/parking-map/main/src/server/parking.ts"
     },
@@ -51,9 +51,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-03-20T06:37:51.559Z",
-        "lastUpdated": "2026-03-26T08:02:44.542Z"
+        "lastUpdated": "2026-04-02T07:35:36.491Z"
       },
-      "lastFile": "/Users/junhee/Documents/projects/parking-map/main/scripts/lib/sql-flush.ts"
+      "lastFile": "/Users/junhee/Documents/projects/parking-map/main/scripts/eval-sentiment.ts"
     },
     "db": {
       "phase": "do",
@@ -64,9 +64,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-03-20T08:52:19.261Z",
-        "lastUpdated": "2026-03-21T02:04:17.065Z"
+        "lastUpdated": "2026-04-02T07:35:02.313Z"
       },
-      "lastFile": "/Users/junhee/Documents/projects/parking-map/feature/content-reports/src/db/schema.ts"
+      "lastFile": "/Users/junhee/Documents/projects/parking-map/main/src/db/schema.ts"
     },
     "content-reports": {
       "phase": "do",
@@ -129,9 +129,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-03-21T16:24:42.927Z",
-        "lastUpdated": "2026-03-26T07:23:26.302Z"
+        "lastUpdated": "2026-04-02T07:35:06.821Z"
       },
-      "lastFile": "/Users/junhee/Documents/projects/parking-map/filter-wiki-popularity/src/routes/wiki/index.tsx"
+      "lastFile": "/Users/junhee/Documents/projects/parking-map/main/src/routes/wiki/index.tsx"
     },
     "wiki-map": {
       "phase": "do",
@@ -168,7 +168,7 @@
   "session": {
     "startedAt": "2026-03-20T05:24:59.394Z",
     "onboardingCompleted": false,
-    "lastActivity": "2026-04-02T05:51:26.005Z"
+    "lastActivity": "2026-04-02T07:35:58.137Z"
   },
   "history": [
     {
@@ -1956,6 +1956,162 @@
     {
       "timestamp": "2026-04-02T05:51:26.005Z",
       "feature": "crawlers",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-02T07:25:16.834Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-02T07:25:41.937Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-02T07:26:12.087Z",
+      "feature": "db",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-02T07:26:13.319Z",
+      "feature": "wiki",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-02T07:26:14.314Z",
+      "feature": "wiki",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-02T07:26:17.088Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-02T07:26:18.333Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-02T07:26:19.243Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-02T07:26:20.578Z",
+      "feature": "crawlers",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-02T07:26:23.914Z",
+      "feature": "scripts",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-02T07:26:24.754Z",
+      "feature": "scripts",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-02T07:27:07.027Z",
+      "feature": "db",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-02T07:27:14.544Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-02T07:35:02.313Z",
+      "feature": "db",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-02T07:35:04.611Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-02T07:35:06.000Z",
+      "feature": "wiki",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-02T07:35:06.821Z",
+      "feature": "wiki",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-02T07:35:18.673Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-02T07:35:19.854Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-02T07:35:25.457Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-02T07:35:27.712Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-02T07:35:29.187Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-02T07:35:30.885Z",
+      "feature": "crawlers",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-02T07:35:35.650Z",
+      "feature": "scripts",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-02T07:35:36.491Z",
+      "feature": "scripts",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-02T07:35:58.137Z",
+      "feature": "server",
       "phase": "do",
       "action": "updated"
     }

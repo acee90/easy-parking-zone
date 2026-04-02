@@ -52,12 +52,12 @@ const fetchWikiHome = createServerFn({ method: "GET" }).handler(async () => {
       `SELECT p.*,
         s.final_score as avg_score,
         (SELECT COUNT(*) FROM web_sources ws
-         WHERE ws.parking_lot_id = p.id AND ws.is_ad = 0) as review_count,
+         WHERE ws.parking_lot_id = p.id) as review_count,
         s.reliability
       FROM parking_lots p
       JOIN parking_lot_stats s ON s.parking_lot_id = p.id
       WHERE (SELECT COUNT(*) FROM web_sources ws
-             WHERE ws.parking_lot_id = p.id AND ws.is_ad = 0) > 0
+             WHERE ws.parking_lot_id = p.id) > 0
       ORDER BY review_count DESC
       LIMIT 10`
     )
