@@ -6,8 +6,8 @@
  */
 import { classifyBatch, type AiFilterInput } from "./lib/ai-filter";
 
-/** 1회 cron에서 처리할 최대 건수 (10건 배치 × 5 = 50건, ~5 API 호출) */
-const MAX_PER_RUN = 50;
+/** 1회 cron에서 처리할 최대 건수 (10건 배치 × 20 = 200건, ~20 API 호출) */
+const MAX_PER_RUN = 200;
 const BATCH_SIZE = 10;
 
 interface UnfilteredRow {
