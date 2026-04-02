@@ -14,7 +14,6 @@ export function buildDifficultyCondition(filters?: ParkingFilters, scoreCol = "s
   if (d.bad) conditions.push(`(${scoreCol} >= 2.0 AND ${scoreCol} < 2.7)`);
   if (d.hard) conditions.push(`(${scoreCol} >= 1.5 AND ${scoreCol} < 2.0)`);
   if (d.hell) conditions.push(`(${scoreCol} >= 1.0 AND ${scoreCol} < 1.5)`);
-  if (d.noReview) conditions.push(`(${scoreCol} IS NULL OR s.reliability = 'none')`);
 
   return conditions.length > 0 ? `(${conditions.join(" OR ")})` : "0";
 }

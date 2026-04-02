@@ -3,7 +3,7 @@ import { getDb } from "@/db";
 import { schema } from "@/db";
 import { eq, and, sql, count, desc } from "drizzle-orm";
 import { env } from "cloudflare:workers";
-import type { MapBounds, MarkerCluster, BlogPost, ParkingFilters, Place } from "@/types/parking";
+import type { MapBounds, BlogPost, ParkingFilters, Place } from "@/types/parking";
 import {
   rowToParkingLot, rowToBlogPost, rowToMedia,
   buildFilterClauses,
@@ -77,50 +77,48 @@ export const fetchParkingLots = createServerFn({ method: "GET" })
     return (rows as unknown as ParkingLotRow[]).map(rowToParkingLot);
   });
 
-/** bounds 내 주차장을 그리드 셀로 클러스터링 (zoom ≤ 12) — raw SQL */
-export const fetchParkingClusters = createServerFn({ method: "GET" })
-  .inputValidator(
-    (input: MapBounds & { zoom: number; filters?: ParkingFilters }): MapBounds & { zoom: number; filters?: ParkingFilters } => input
-  )
-  .handler(async ({ data }): Promise<MarkerCluster[]> => {
+/** 전체 주차장 경량 데이터 (SuperCluster용, CDN 캐시) */
+export interface ParkingPoint {
+  id: string;
+  lat: number;
+  lng: number;
+  score: number | null;
+  name: string;
+}
+
+export const fetchAllParkingPoints = createServerFn({ method: "GET" })
+  .handler(async (): Promise<ParkingPoint[]> => {
     const db = getDb();
-    // 클러스터 셀 크기: 기존 대비 3배 (화면상 ~80px 단위에 근사)
-    const cellSize = (360 / Math.pow(2, data.zoom)) * 3;
-    const { where } = buildFilterClauses(data.filters);
+
+    const CACHE_KEY = "https://cache.internal/parking-points-v1";
+    const CACHE_TTL = 3600; // 1시간
+
+    const cache = typeof caches !== "undefined" ? await caches.open("parking-points") : null;
+    if (cache) {
+      const cached = await cache.match(CACHE_KEY);
+      if (cached) return cached.json();
+    }
 
     const rows = await db.all(
       sql.raw(
-        `SELECT
-          CAST(p.lat / ${cellSize} AS INTEGER) || '_' || CAST(p.lng / ${cellSize} AS INTEGER) as cell_key,
-          AVG(p.lat) as lat,
-          AVG(p.lng) as lng,
-          COUNT(*) as count,
-          AVG(s.final_score) as avg_score,
-          MIN(p.lat) as min_lat,
-          MAX(p.lat) as max_lat,
-          MIN(p.lng) as min_lng,
-          MAX(p.lng) as max_lng
-        FROM parking_lots p
-        LEFT JOIN parking_lot_stats s ON s.parking_lot_id = p.id
-        WHERE p.lat BETWEEN ${data.south} AND ${data.north}
-          AND p.lng BETWEEN ${data.west} AND ${data.east}${where}
-        GROUP BY CAST(p.lat / ${cellSize} AS INTEGER), CAST(p.lng / ${cellSize} AS INTEGER)`
+        `SELECT p.id, p.lat, p.lng, p.name, s.final_score as score
+         FROM parking_lots p
+         LEFT JOIN parking_lot_stats s ON s.parking_lot_id = p.id`
       )
     );
 
-    return (rows as unknown as { cell_key: string; lat: number; lng: number; count: number; avg_score: number | null; min_lat: number; max_lat: number; min_lng: number; max_lng: number }[]).map((row) => ({
-      key: row.cell_key,
-      lat: row.lat,
-      lng: row.lng,
-      count: row.count,
-      avgScore: row.avg_score,
-      bounds: {
-        south: row.min_lat,
-        north: row.max_lat,
-        west: row.min_lng,
-        east: row.max_lng,
-      },
-    }));
+    const result = (rows as unknown as ParkingPoint[]);
+
+    if (cache) {
+      cache.put(
+        CACHE_KEY,
+        new Response(JSON.stringify(result), {
+          headers: { "Content-Type": "application/json", "Cache-Control": `public, max-age=${CACHE_TTL}` },
+        }),
+      ).catch(() => {}); // 캐시 쓰기 실패는 무시
+    }
+
+    return result;
   });
 
 /** 이름/주소 LIKE 검색 — raw SQL (동적 WHERE + JOIN) */
