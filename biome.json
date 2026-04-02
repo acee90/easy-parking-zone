@@ -32,7 +32,7 @@
 				"noNonNullAssertion": "warn"
 			},
 			"security": {
-				"noDangerouslySetInnerHtml": "warn"
+				"noDangerouslySetInnerHtml": "error"
 			}
 		}
 	},
