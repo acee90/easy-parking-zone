@@ -35,6 +35,10 @@ scripts/cafe-community-results.json
 scripts/cafe-signals.json
 scripts/verify-lots-removals.json
 
+# scripts 대용량 산출물
+scripts/*.sql
+scripts/parking-stats-results.json
+
 # DB 덤프 / 크롤링 원본
 cafe_signals_data.sql
 cafe_signals_dump.sql
