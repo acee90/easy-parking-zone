@@ -101,13 +101,21 @@ export async function handleScheduled(env: Env): Promise<void> {
     results.push(`match: error - ${(err as Error).message}`)
   }
 
-  // ── 4. 스코어링 재계산 (최근 2시간 내 매칭된 주차장, cron 지연 버퍼 포함) ──
+  // ── 4. 스코어링 재계산 (crawl_progress 기반 — last_run_at 이후 매칭 건) ──
+  const scoringProgress = await env.DB.prepare(
+    "SELECT last_run_at FROM crawl_progress WHERE crawler_id = 'scoring'",
+  ).first<{ last_run_at: string | null }>()
+
+  const lastScoringRun = scoringProgress?.last_run_at ?? '2000-01-01'
+
   const changedRows = await env.DB.prepare(
     `SELECT DISTINCT ws.parking_lot_id
        FROM web_sources ws
        JOIN web_sources_raw r ON r.id = ws.raw_source_id
-       WHERE r.matched_at > datetime('now', '-2 hours')`,
-  ).all<{ parking_lot_id: string }>()
+       WHERE r.matched_at > ?1`,
+  )
+    .bind(lastScoringRun)
+    .all<{ parking_lot_id: string }>()
 
   const changedLotIds = (changedRows.results ?? []).map((r) => r.parking_lot_id)
   if (changedLotIds.length > 0) {
@@ -118,6 +126,17 @@ export async function handleScheduled(env: Env): Promise<void> {
       results.push(`scoring: error - ${(err as Error).message}`)
     }
   }
+
+  // crawl_progress에 scoring 실행 기록
+  await env.DB.prepare(
+    `INSERT INTO crawl_progress (crawler_id, last_run_at, completed_count)
+       VALUES ('scoring', datetime('now'), ?1)
+       ON CONFLICT(crawler_id) DO UPDATE SET
+         last_run_at = datetime('now'),
+         completed_count = completed_count + ?1`,
+  )
+    .bind(changedLotIds.length)
+    .run()
 
   console.log(`[scheduled] ${new Date().toISOString()} | ${results.join(' | ')}`)
 }
