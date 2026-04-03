@@ -39,6 +39,40 @@ export const Route = createFileRoute('/wiki/$slug')({
     const slug = makeParkingSlug(lot.name, lot.id)
     const title = `${lot.name} - 주차 난이도/요금/정보 | 쉬운주차장`
     const desc = `${lot.name} (${lot.address}) 주차 난이도 ${getDifficultyLabel(lot.difficulty.score)}, ${lot.pricing.isFree ? '무료' : `기본 ${lot.pricing.baseTime}분 ${lot.pricing.baseFee.toLocaleString()}원`}. 리뷰 ${lot.difficulty.reviewCount}개.`
+    const jsonLd = {
+      '@context': 'https://schema.org',
+      '@type': 'ParkingFacility',
+      name: lot.name,
+      address: {
+        '@type': 'PostalAddress',
+        streetAddress: lot.address,
+        addressCountry: 'KR',
+      },
+      geo: {
+        '@type': 'GeoCoordinates',
+        latitude: lot.lat,
+        longitude: lot.lng,
+      },
+      url: `https://easy-parking.xyz/wiki/${slug}`,
+      ...(lot.totalSpaces > 0 && { maximumAttendeeCapacity: lot.totalSpaces }),
+      ...(lot.phone && { telephone: lot.phone }),
+      ...(lot.pricing.isFree
+        ? { isAccessibleForFree: true }
+        : {
+            isAccessibleForFree: false,
+            priceRange: `기본 ${lot.pricing.baseTime}분 ${lot.pricing.baseFee.toLocaleString()}원`,
+          }),
+      ...(lot.difficulty.score !== null && {
+        aggregateRating: {
+          '@type': 'AggregateRating',
+          ratingValue: lot.difficulty.score.toFixed(1),
+          bestRating: '5',
+          worstRating: '1',
+          ratingCount: lot.difficulty.reviewCount || 1,
+        },
+      }),
+    }
+
     return {
       meta: [
         { title },
@@ -49,6 +83,12 @@ export const Route = createFileRoute('/wiki/$slug')({
         {
           property: 'og:url',
           content: `https://easy-parking.xyz/wiki/${slug}`,
+        },
+      ],
+      headScripts: [
+        {
+          type: 'application/ld+json',
+          children: JSON.stringify(jsonLd),
         },
       ],
     }
