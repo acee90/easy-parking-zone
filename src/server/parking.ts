@@ -73,7 +73,8 @@ export const fetchParkingLots = createServerFn({ method: 'GET' })
         `SELECT p.*,
           s.final_score as avg_score,
           COALESCE(s.user_review_count, 0) + COALESCE(s.community_count, 0) as review_count,
-          s.reliability
+          s.reliability,
+          p.verified_source
         FROM parking_lots p
         LEFT JOIN parking_lot_stats s ON s.parking_lot_id = p.id
         WHERE p.lat BETWEEN ${data.south} AND ${data.north}

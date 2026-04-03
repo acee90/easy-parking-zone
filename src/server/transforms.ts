@@ -49,6 +49,7 @@ export interface ParkingLotRow {
   avg_score: number | null
   review_count: number
   reliability: string | null
+  verified_source: string | null
 }
 
 export function rowToParkingLot(row: ParkingLotRow): ParkingLot {
@@ -88,6 +89,7 @@ export function rowToParkingLot(row: ParkingLotRow): ParkingLot {
     curationTag: row.curation_tag as ParkingLot['curationTag'],
     curationReason: row.curation_reason ?? undefined,
     featuredSource: row.featured_source ?? undefined,
+    verifiedSource: row.verified_source ?? undefined,
   }
 }
 

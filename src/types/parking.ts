@@ -40,6 +40,7 @@ export interface ParkingLot {
   curationTag?: 'hell' | 'easy' | null // 큐레이션 태그
   curationReason?: string // 큐레이션 사유
   featuredSource?: string // 출처 (e.g. '1010' = 10시10분 채널)
+  verifiedSource?: string // 검증 출처 ('public_api' | 'kakao_detail' | 'naver_detail')
 }
 
 export interface Place {

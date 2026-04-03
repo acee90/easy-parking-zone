@@ -1,5 +1,6 @@
 import { createFileRoute, Link, notFound } from '@tanstack/react-router'
 import {
+  BadgeCheck,
   ChevronRight,
   Clock,
   CreditCard,
@@ -103,6 +104,15 @@ export const Route = createFileRoute('/wiki/$slug')({
   ),
   component: WikiDetailPage,
 })
+
+function VerifiedBadge() {
+  return (
+    <span className="inline-flex items-center gap-0.5 text-xs text-blue-600 font-medium">
+      <BadgeCheck className="size-3.5" />
+      검증됨
+    </span>
+  )
+}
 
 function WikiDetailPage() {
   const { lot } = Route.useLoaderData()
@@ -225,8 +235,9 @@ function WikiDetailPage() {
             <div className="flex items-start gap-2.5 text-sm">
               <Clock className="size-4 shrink-0 mt-0.5 text-muted-foreground" />
               <div>
-                <div>
+                <div className="flex items-center gap-1.5">
                   평일 {lot.operatingHours.weekday.start}-{lot.operatingHours.weekday.end}
+                  {lot.verifiedSource && <VerifiedBadge />}
                 </div>
                 <div className="text-xs text-muted-foreground">
                   토 {lot.operatingHours.saturday.start}-{lot.operatingHours.saturday.end} · 공휴일{' '}
@@ -239,8 +250,9 @@ function WikiDetailPage() {
               <div className="flex items-start gap-2.5 text-sm">
                 <CreditCard className="size-4 shrink-0 mt-0.5 text-muted-foreground" />
                 <div>
-                  <div>
+                  <div className="flex items-center gap-1.5">
                     기본 {lot.pricing.baseTime}분 {lot.pricing.baseFee.toLocaleString()}원
+                    {lot.verifiedSource && <VerifiedBadge />}
                   </div>
                   <div className="text-xs text-muted-foreground">
                     추가 {lot.pricing.extraTime}분당 {lot.pricing.extraFee.toLocaleString()}원
@@ -255,7 +267,10 @@ function WikiDetailPage() {
             {lot.pricing.isFree && (
               <div className="flex items-center gap-2.5 text-sm">
                 <CreditCard className="size-4 shrink-0 text-muted-foreground" />
-                <span className="text-green-600 font-medium">무료 주차장</span>
+                <span className="text-green-600 font-medium flex items-center gap-1.5">
+                  무료 주차장
+                  {lot.verifiedSource && <VerifiedBadge />}
+                </span>
               </div>
             )}
 
