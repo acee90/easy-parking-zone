@@ -1,6 +1,7 @@
 import { env } from 'cloudflare:workers'
 import { createServerFn } from '@tanstack/react-start'
 import { count, desc, eq, sql } from 'drizzle-orm'
+import type { NearbyPlaceInfo } from '@/types/parking'
 import { getDb, schema } from '@/db'
 import type { BlogPost, MapBounds, ParkingFilters, Place } from '@/types/parking'
 import {
@@ -335,6 +336,33 @@ export const reportReview = createServerFn({ method: 'POST' })
       reason: data.reason,
     })
     return { ok: true }
+  })
+
+/** 주차장 주변 장소 (AI 추출) */
+export const fetchNearbyPlaces = createServerFn({ method: 'GET' })
+  .inputValidator((input: { parkingLotId: string }): { parkingLotId: string } => input)
+  .handler(async ({ data }): Promise<NearbyPlaceInfo[]> => {
+    const db = getDb()
+    const rows = await db
+      .select({
+        id: schema.nearbyPlaces.id,
+        name: schema.nearbyPlaces.name,
+        category: schema.nearbyPlaces.category,
+        tip: schema.nearbyPlaces.tip,
+        mentionCount: schema.nearbyPlaces.mentionCount,
+      })
+      .from(schema.nearbyPlaces)
+      .where(eq(schema.nearbyPlaces.parkingLotId, data.parkingLotId))
+      .orderBy(desc(schema.nearbyPlaces.mentionCount))
+      .limit(10)
+
+    return rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      category: row.category as NearbyPlaceInfo['category'],
+      tip: row.tip ?? undefined,
+      mentionCount: row.mentionCount,
+    }))
   })
 
 /** 카카오 키워드 장소 검색 (목적지 → 주변 주차장 찾기용) */

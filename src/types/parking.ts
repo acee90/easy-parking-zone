@@ -77,6 +77,14 @@ export interface ParkingMedia {
   description?: string
 }
 
+export interface NearbyPlaceInfo {
+  id: number
+  name: string
+  category: 'cafe' | 'restaurant' | 'park' | 'tourist' | 'market' | 'hospital' | 'etc'
+  tip?: string
+  mentionCount: number
+}
+
 export interface DifficultyFilter {
   easy: boolean // 😊 초보추천 (4.0-5.0)
   decent: boolean // 🙂 무난 (3.3-3.9)

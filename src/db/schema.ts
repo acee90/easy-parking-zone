@@ -369,3 +369,24 @@ export const poiUnmatched = sqliteTable(
     uniqueIndex('idx_poi_unmatched_unique').on(table.poiName, table.lotName),
   ],
 )
+
+// ============================================================
+// 주변 장소 (AI 추출)
+// ============================================================
+
+export const nearbyPlaces = sqliteTable(
+  'nearby_places',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    parkingLotId: text('parking_lot_id')
+      .notNull()
+      .references(() => parkingLots.id),
+    name: text('name').notNull(),
+    category: text('category').notNull(), // cafe | restaurant | park | tourist | market | hospital | etc
+    tip: text('tip'),
+    mentionCount: integer('mention_count').notNull().default(1),
+    sourceBlogIds: text('source_blog_ids'), // JSON array of web_sources.id
+    createdAt: text('created_at').notNull().default(now),
+  },
+  (table) => [index('idx_nearby_places_lot').on(table.parkingLotId)],
+)

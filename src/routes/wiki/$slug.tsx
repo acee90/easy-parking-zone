@@ -24,15 +24,19 @@ import {
   getReliabilityBadge,
 } from '@/lib/geo-utils'
 import { makeParkingSlug, parseIdFromSlug } from '@/lib/slug'
-import { fetchParkingDetail } from '@/server/parking'
+import { fetchNearbyPlaces, fetchParkingDetail } from '@/server/parking'
+import type { NearbyPlaceInfo } from '@/types/parking'
 
 export const Route = createFileRoute('/wiki/$slug')({
   loader: async ({ params }) => {
     const id = parseIdFromSlug(params.slug)
     if (!id) throw notFound()
-    const lot = await fetchParkingDetail({ data: { id } })
+    const [lot, nearbyPlaces] = await Promise.all([
+      fetchParkingDetail({ data: { id } }),
+      fetchNearbyPlaces({ data: { parkingLotId: id } }),
+    ])
     if (!lot) throw notFound()
-    return { lot }
+    return { lot, nearbyPlaces }
   },
   head: ({ loaderData }) => {
     const lot = loaderData?.lot
@@ -114,8 +118,58 @@ function VerifiedBadge() {
   )
 }
 
+const CATEGORY_META: Record<string, { icon: string; label: string }> = {
+  cafe: { icon: '☕', label: '카페' },
+  restaurant: { icon: '🍽️', label: '맛집' },
+  park: { icon: '🌳', label: '공원' },
+  tourist: { icon: '🎫', label: '관광' },
+  market: { icon: '🛒', label: '시장' },
+  hospital: { icon: '🏥', label: '병원' },
+  etc: { icon: '📍', label: '기타' },
+}
+
+function NearbyPlacesSection({ places }: { places: NearbyPlaceInfo[] }) {
+  if (places.length === 0) return null
+
+  return (
+    <section className="bg-white rounded-xl border p-5 space-y-4">
+      <div className="flex items-center gap-2">
+        <h2 className="font-semibold text-base">주변 갈만한 곳</h2>
+        <Badge variant="secondary" className="text-xs">
+          {places.length}곳
+        </Badge>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {places.map((place) => {
+          const meta = CATEGORY_META[place.category] ?? CATEGORY_META.etc
+          return (
+            <div
+              key={place.id}
+              className="flex items-start gap-3 rounded-lg border p-3 hover:bg-gray-50 transition-colors"
+            >
+              <span className="text-xl mt-0.5">{meta.icon}</span>
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-medium text-sm truncate">{place.name}</span>
+                  <span className="text-xs text-muted-foreground shrink-0">{meta.label}</span>
+                </div>
+                {place.tip && (
+                  <p className="text-xs text-muted-foreground mt-0.5">{place.tip}</p>
+                )}
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {place.mentionCount}개 블로그에서 추천
+                </p>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </section>
+  )
+}
+
 function WikiDetailPage() {
-  const { lot } = Route.useLoaderData()
+  const { lot, nearbyPlaces } = Route.useLoaderData()
 
   const icon = getDifficultyIcon(lot.difficulty.score)
   const label = getDifficultyLabel(lot.difficulty.score)
@@ -313,6 +367,9 @@ function WikiDetailPage() {
 
         {/* 미니 지도 */}
         <WikiMiniMap lat={lot.lat} lng={lot.lng} name={lot.name} />
+
+        {/* 주변 갈만한 곳 */}
+        <NearbyPlacesSection places={nearbyPlaces} />
 
         {/* 리뷰/블로그/영상 탭 */}
         <section className="bg-white rounded-xl border p-5">
