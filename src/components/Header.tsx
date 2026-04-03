@@ -125,7 +125,7 @@ export function Header({ active = 'map', onSearchSelect, onPlaceSelect, siteStat
 
   return (
     <>
-      <header className="shrink-0 flex items-center gap-3 border-b bg-white px-4 py-2.5 z-20">
+      <header className="shrink-0 flex items-center gap-3 border-b bg-white px-4 py-2.5 z-30">
         <Link to="/" className="flex items-center gap-2 shrink-0">
           <Car className="size-5 text-blue-500" />
           <span className="font-bold text-base">쉬운주차장</span>
