@@ -227,17 +227,27 @@ export function MapView({
     }
   }, [navermaps, userLat, userLng, userLocated])
 
+  const selectedLotIdRef = useRef(selectedLotId)
+  selectedLotIdRef.current = selectedLotId
+
   useEffect(() => {
     if (mapRef.current && moveTo) {
       animatingRef.current = true
       mapRef.current.setZoom(16)
-      const adjusted = getPanToAdjusted(mapRef.current, navermaps, moveTo, !!selectedLotId)
+      const adjusted = getPanToAdjusted(
+        mapRef.current,
+        navermaps,
+        moveTo,
+        !!selectedLotIdRef.current,
+      )
       mapRef.current.panTo(adjusted)
       setTimeout(() => {
         animatingRef.current = false
       }, 800)
     }
-  }, [navermaps, moveTo, selectedLotId])
+    // selectedLotId를 deps에서 제외: moveTo가 바뀔 때만 panTo 실행
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [navermaps, moveTo])
 
   const emitBounds = useEffectEvent(() => {
     if (!mapRef.current) return
