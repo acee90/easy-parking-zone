@@ -3,8 +3,7 @@
  *
  * 네이버 크롤러와 동일한 3가지 쿼리 전략 사용:
  *   A. 이름 기반: "{주차장명} 주차장 {지역}"
- *   B. POI 기반:  "{POI} 주차장"
- *   C. 지역 폴백: "{지역} 주차장 추천"
+ *   B. 지역 폴백: "{지역} 주차장 추천"
  *
  * 검색 결과를 web_sources_raw에 URL 단위로 저장.
  */
@@ -30,10 +29,9 @@ interface LotRow {
   id: string
   name: string
   address: string
-  poi_tags: string | null
 }
 
-type QueryStrategy = 'name' | 'poi' | 'region'
+type QueryStrategy = 'name' | 'region'
 
 interface CrawlQuery {
   strategy: QueryStrategy
@@ -51,20 +49,7 @@ function buildQueries(lot: LotRow): CrawlQuery[] {
     queries.push({ strategy: 'name', query: `${lot.name} 주차장 ${region}`.trim() })
   }
 
-  // B: POI 태그가 있으면 추가
-  let poiTags: string[] = []
-  if (lot.poi_tags) {
-    try {
-      poiTags = JSON.parse(lot.poi_tags)
-    } catch {
-      /* skip */
-    }
-  }
-  if (poiTags.length > 0) {
-    queries.push({ strategy: 'poi', query: `${poiTags[0]} 주차장` })
-  }
-
-  // C: A도 B도 없으면 지역 폴백
+  // B: A가 없으면 지역 폴백
   if (queries.length === 0) {
     queries.push({ strategy: 'region', query: `${region} 주차장 추천` })
   }
@@ -168,7 +153,7 @@ function parseDdgHtml(html: string): DdgResult[] {
 async function selectPriorityLots(db: D1Database, limit: number): Promise<LotRow[]> {
   const rows = await db
     .prepare(
-      `SELECT p.id, p.name, p.address, p.poi_tags
+      `SELECT p.id, p.name, p.address
        FROM parking_lots p
        LEFT JOIN parking_lot_stats s ON p.id = s.parking_lot_id
        LEFT JOIN crawl_progress cp

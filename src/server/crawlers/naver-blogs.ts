@@ -4,12 +4,8 @@
  * 3가지 쿼리 전략으로 검색하고, 공통 파이프라인(필터→저장→매칭)을 거침.
  *
  * 쿼리 전략:
- *   A. 이름 기반: "{주차장명} 주차장"           — 고유한 이름
- *   B. POI 기반:  "{POI} 주차장"               — poi_tags 활용
- *   C. 지역 기반: "{동} 주차장 추천"            — 폴백
- *
- * B/C 전략 결과는 한 포스트에 여러 주차장이 언급될 수 있으므로
- * 앵커 lot에 직접 매칭 + 같은 배치 내 주차장 이름 스캔으로 다중 매칭.
+ *   A. 이름 기반: "{주차장명} 주차장 {지역}"   — 고유한 이름
+ *   B. 지역 기반: "{동} 주차장 추천"            — 폴백
  *
  * 네이버 검색 API 쿼타: 25,000/일
  * Workers Cron 타임아웃: 30초
@@ -52,10 +48,9 @@ interface LotRow {
   id: string
   name: string
   address: string
-  poi_tags: string | null
 }
 
-type QueryStrategy = 'name' | 'poi' | 'region'
+type QueryStrategy = 'name' | 'region'
 
 interface CrawlQuery {
   strategy: QueryStrategy
@@ -88,8 +83,7 @@ async function searchNaver(
  * 주차장 데이터에 따라 쿼리 목록을 생성한다.
  *
  * A. 이름 기반 (고유한 이름이면 항상 포함)
- * B. POI 기반 (poi_tags가 있으면 추가)
- * C. 지역 기반 (A가 불가능할 때 폴백)
+ * B. 지역 기반 (A가 불가능할 때 폴백)
  */
 function buildQueries(lot: LotRow): CrawlQuery[] {
   const region = extractRegion(lot.address)
@@ -100,20 +94,7 @@ function buildQueries(lot: LotRow): CrawlQuery[] {
     queries.push({ strategy: 'name', query: `${lot.name} 주차장 ${region}`.trim() })
   }
 
-  // B: POI 태그가 있으면 추가
-  let poiTags: string[] = []
-  if (lot.poi_tags) {
-    try {
-      poiTags = JSON.parse(lot.poi_tags)
-    } catch {
-      /* malformed JSON → skip */
-    }
-  }
-  if (poiTags.length > 0) {
-    queries.push({ strategy: 'poi', query: `${poiTags[0]} 주차장` })
-  }
-
-  // C: A도 B도 없으면 지역 폴백
+  // B: A가 없으면 지역 폴백
   if (queries.length === 0) {
     queries.push({ strategy: 'region', query: `${region} 주차장 추천` })
   }
@@ -128,7 +109,7 @@ function buildQueries(lot: LotRow): CrawlQuery[] {
 async function selectPriorityLots(db: D1Database, limit: number): Promise<LotRow[]> {
   const rows = await db
     .prepare(
-      `SELECT p.id, p.name, p.address, p.poi_tags
+      `SELECT p.id, p.name, p.address
        FROM parking_lots p
        LEFT JOIN parking_lot_stats s ON p.id = s.parking_lot_id
        LEFT JOIN crawl_progress cp
