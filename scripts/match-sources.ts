@@ -131,7 +131,7 @@ function buildInsertSql(raw: RawRow, lot: LotRow, score: number): string {
   const kwJson = raw.ai_difficulty_keywords ? `'${esc(raw.ai_difficulty_keywords)}'` : "NULL";
   const summary = raw.ai_summary ? `'${esc(raw.ai_summary)}'` : "NULL";
 
-  return `INSERT OR IGNORE INTO web_sources (parking_lot_id, source, source_id, title, content, source_url, author, published_at, relevance_score, raw_source_id, filter_passed, filter_removed_by, sentiment_score, ai_difficulty_keywords, ai_summary) VALUES ('${esc(lot.lot_id)}', '${esc(raw.source)}', '${sourceId}', '${title}', '${content}', '${esc(raw.source_url)}', ${author}, ${publishedAt}, ${score}, ${raw.id}, 1, NULL, ${sentScore}, ${kwJson}, ${summary});`;
+  return `INSERT OR IGNORE INTO web_sources (parking_lot_id, source, source_id, title, content, source_url, author, published_at, relevance_score, raw_source_id, sentiment_score, ai_difficulty_keywords, ai_summary) VALUES ('${esc(lot.lot_id)}', '${esc(raw.source)}', '${sourceId}', '${title}', '${content}', '${esc(raw.source_url)}', ${author}, ${publishedAt}, ${score}, ${raw.id}, ${sentScore}, ${kwJson}, ${summary});`;
 }
 
 async function main() {

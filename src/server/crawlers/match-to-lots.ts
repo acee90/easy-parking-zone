@@ -237,9 +237,8 @@ function buildInsert(db: D1Database, raw: RawRow, lot: LotRow, score: number): D
       `INSERT OR IGNORE INTO web_sources
        (parking_lot_id, source, source_id, title, content, source_url,
         author, published_at, relevance_score, raw_source_id,
-        filter_passed, filter_removed_by, sentiment_score,
-        ai_difficulty_keywords, ai_summary)
-       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, 1, NULL, ?11, ?12, ?13)`,
+        sentiment_score, ai_difficulty_keywords, ai_summary)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)`,
     )
     .bind(
       lot.lot_id,
