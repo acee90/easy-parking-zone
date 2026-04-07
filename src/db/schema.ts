@@ -386,6 +386,7 @@ export const nearbyPlaces = sqliteTable(
     tip: text('tip'),
     mentionCount: integer('mention_count').notNull().default(1),
     sourceBlogIds: text('source_blog_ids'), // JSON array of web_sources.id
+    thumbnailUrl: text('thumbnail_url'),
     createdAt: text('created_at').notNull().default(now),
   },
   (table) => [index('idx_nearby_places_lot').on(table.parkingLotId)],

@@ -350,6 +350,7 @@ export const fetchNearbyPlaces = createServerFn({ method: 'GET' })
         category: schema.nearbyPlaces.category,
         tip: schema.nearbyPlaces.tip,
         mentionCount: schema.nearbyPlaces.mentionCount,
+        thumbnailUrl: schema.nearbyPlaces.thumbnailUrl,
       })
       .from(schema.nearbyPlaces)
       .where(eq(schema.nearbyPlaces.parkingLotId, data.parkingLotId))
@@ -362,6 +363,7 @@ export const fetchNearbyPlaces = createServerFn({ method: 'GET' })
       category: row.category as NearbyPlaceInfo['category'],
       tip: row.tip ?? undefined,
       mentionCount: row.mentionCount,
+      thumbnailUrl: row.thumbnailUrl ?? undefined,
     }))
   })
 

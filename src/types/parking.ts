@@ -83,6 +83,7 @@ export interface NearbyPlaceInfo {
   category: 'cafe' | 'restaurant' | 'park' | 'tourist' | 'market' | 'hospital' | 'etc'
   tip?: string
   mentionCount: number
+  thumbnailUrl?: string
 }
 
 export interface DifficultyFilter {

@@ -133,11 +133,16 @@ function NearbyPlacesSection({ places }: { places: NearbyPlaceInfo[] }) {
 
   return (
     <section className="bg-white rounded-xl border p-5 space-y-4">
-      <div className="flex items-center gap-2">
-        <h2 className="font-semibold text-base">주변 갈만한 곳</h2>
-        <Badge variant="secondary" className="text-xs">
-          {places.length}곳
-        </Badge>
+      <div className="space-y-1">
+        <div className="flex items-center gap-2">
+          <h2 className="font-semibold text-base">여기 주차하고 가볼 곳</h2>
+          <Badge variant="secondary" className="text-xs">
+            {places.length}곳
+          </Badge>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          자체 주차가 어려워 이 주차장을 이용하면 좋은 주변 장소
+        </p>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {places.map((place) => {
@@ -145,9 +150,20 @@ function NearbyPlacesSection({ places }: { places: NearbyPlaceInfo[] }) {
           return (
             <div
               key={place.id}
-              className="flex items-start gap-3 rounded-lg border p-3 hover:bg-gray-50 transition-colors"
+              className="flex items-start gap-3 rounded-lg border p-3 hover:bg-gray-50 transition-colors overflow-hidden"
             >
-              <span className="text-xl mt-0.5">{meta.icon}</span>
+              {place.thumbnailUrl ? (
+                <img
+                  src={place.thumbnailUrl}
+                  alt={place.name}
+                  className="size-14 rounded-lg object-cover shrink-0"
+                  loading="lazy"
+                />
+              ) : (
+                <span className="size-14 rounded-lg bg-gray-100 flex items-center justify-center text-xl shrink-0">
+                  {meta.icon}
+                </span>
+              )}
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5">
                   <span className="font-medium text-sm truncate">{place.name}</span>
@@ -157,7 +173,7 @@ function NearbyPlacesSection({ places }: { places: NearbyPlaceInfo[] }) {
                   <p className="text-xs text-muted-foreground mt-0.5">{place.tip}</p>
                 )}
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  {place.mentionCount}개 블로그에서 추천
+                  {place.mentionCount}개 블로그에서 언급
                 </p>
               </div>
             </div>
