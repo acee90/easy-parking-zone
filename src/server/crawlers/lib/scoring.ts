@@ -129,10 +129,73 @@ const NOISE_PATTERNS = [
   /치과/,
 ]
 
+/** 카테고리성 제네릭 단어 — 주차장 유형/속성을 나타내지만 특정 장소를 식별하지 않음 */
+const GENERIC_KEYWORDS = new Set([
+  '공영',
+  '민영',
+  '노상',
+  '노외',
+  '무료',
+  '유료',
+  '부설',
+  '임시',
+  '제1',
+  '제2',
+  '제3',
+  '제4',
+  '제5',
+  '주변',
+  '인근',
+  '마을공동',
+  '마을',
+])
+
+/** 지역명 접미사 — 행정구역을 나타내는 단어 */
+function isLocationWord(word: string): boolean {
+  return /[시군구동읍면리]$/.test(word)
+}
+
+/**
+ * 주차장 이름에 고유 식별자가 있는지 판별한다.
+ * generic/location을 모두 제거한 뒤 의미 있는 잔여가 있으면 true.
+ */
+export function hasSpecificIdentifier(parkingName: string): boolean {
+  let cleaned = parkingName
+    .toLowerCase()
+    .replace(NAME_SUFFIX, '')
+    .replace(/주차$/, '') // "노상공영주차" → "노상공영"
+    .trim()
+
+  // 제네릭 키워드 제거
+  for (const gk of GENERIC_KEYWORDS) {
+    cleaned = cleaned.replaceAll(gk, '')
+  }
+
+  // 지역명 제거: 독립 단어로 시/군/구/동/읍/면/리로 끝나는 것만 (띄어쓰기 기준)
+  cleaned = cleaned
+    .split(/\s+/)
+    .filter((w) => !isLocationWord(w))
+    .join('')
+    .trim()
+
+  return cleaned.length >= 2
+}
+
+/**
+ * 주소에서 시/군 이름을 추출한다 (시/군 레벨 지역 검증용).
+ * "경상북도 경주시 중앙로 47번길 13" → "경주"
+ * "서울특별시 강남구 역삼동" → "" (광역시는 구 레벨이므로 빈 문자열)
+ */
+export function extractCity(address: string): string {
+  const match = address.match(/\s(\S+?)(시|군)\s/)
+  if (!match) return ''
+  if (/특별|광역/.test(match[1])) return ''
+  return match[1]
+}
+
 /**
  * 주차장명에서 매칭용 키워드를 추출한다.
- * 기존: "주차장|공영|노외|노상|부설" 제거 → 2글자 미만 필터
- * 개선: 제거 패턴 최소화, 전체 이름도 키워드로 포함
+ * generic 키워드는 제거하여 오매칭을 방지한다.
  */
 /** 주차장명 접미사 패턴 */
 const NAME_SUFFIX = /(?:공영|민영|노외|노상|부설|유료|무료|임시|기계식)?주차장\d*$/
@@ -184,8 +247,8 @@ export function extractNameKeywords(parkingName: string): string[] {
     }
   }
 
-  // 6. 중복 제거
-  return [...new Set(keywords)]
+  // 6. 중복 제거 + 제네릭 키워드 필터링
+  return [...new Set(keywords)].filter((kw) => !GENERIC_KEYWORDS.has(kw))
 }
 
 /**
@@ -227,22 +290,42 @@ export function scoreBlogRelevance(
   let nameMatched = false
 
   const nameKeywords = extractNameKeywords(parkingName)
+  const hasSpecific = hasSpecificIdentifier(parkingName)
 
-  // 이름 매칭 (전체 이름 또는 핵심 키워드)
-  if (nameKeywords.some((kw) => titleLower.includes(kw))) {
-    score += 40
-    nameMatched = true
-  }
-  if (nameKeywords.some((kw) => descLower.includes(kw))) {
-    score += 20
-    nameMatched = true
-  }
-
-  // 지역 매칭
+  // 지역 매칭 (먼저 계산 — 아래 분기에서 사용)
   const region = extractRegion(address).toLowerCase()
   const regionWords = region.split(/\s+/).filter((w) => w.length >= 2)
   const regionMatched = regionWords.some((rw) => titleLower.includes(rw) || descLower.includes(rw))
+
+  // 시/군 레벨 지역 매칭 (specific 없는 경우 보강)
+  const city = extractCity(address)
+  const cityMatched = city ? combined.includes(city) : false
+  const locationMatched = regionMatched || cityMatched
+
   if (regionMatched) score += 20
+
+  // 이름 매칭 (전략 분기)
+  const nameInTitle = nameKeywords.some((kw) => titleLower.includes(kw))
+  const nameInDesc = nameKeywords.some((kw) => descLower.includes(kw))
+
+  if (hasSpecific) {
+    // A. 고유 식별자 있음 → 이름 매칭만으로 점수 부여
+    if (nameInTitle) {
+      score += 40
+      nameMatched = true
+    }
+    if (nameInDesc) {
+      score += 20
+      nameMatched = true
+    }
+  } else {
+    // B. 고유 식별자 없음 → 이름 + 지역 동시 매칭 필요 (복합 키)
+    if ((nameInTitle || nameInDesc) && locationMatched) {
+      if (nameInTitle) score += 40
+      if (nameInDesc) score += 20
+      nameMatched = true
+    }
+  }
 
   // 주차 키워드 보너스
   if (titleLower.includes('주차') || descLower.includes('주차')) score += 20
@@ -292,6 +375,11 @@ export function getMatchConfidence(
   const hasParkingKw = combined.includes('주차') || combined.includes('parking')
 
   if (maxMatchLen >= 6 && hasParkingKw) {
+    // 고유 식별자 없으면 high 불가 — AI 검증 필수
+    if (!hasSpecificIdentifier(parkingName)) {
+      return { score, confidence: 'medium' }
+    }
+
     const bestKw = matchedKws.reduce((best, kw) => (kw.length > best.length ? kw : best), '')
 
     // 도로명(~로, ~길, ~번길)만 매칭된 경우 → medium (주소에 흔히 포함)

@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
+  extractCity,
   extractNameKeywords,
   extractProvince,
   extractRegion,
   getMatchConfidence,
+  hasSpecificIdentifier,
   isGenericName,
   parsePostdate,
   scoreBlogRelevance,
@@ -100,6 +102,36 @@ describe('extractProvince', () => {
   })
 })
 
+describe('extractCity', () => {
+  it('extracts city from address', () => {
+    expect(extractCity('경상북도 경주시 중앙로 47번길 13')).toBe('경주')
+    expect(extractCity('충북 음성군 음성읍 읍내리 624-5')).toBe('음성')
+    expect(extractCity('경기도 수원시 영통구 원천동 577')).toBe('수원')
+  })
+
+  it('returns empty for metropolitan cities', () => {
+    expect(extractCity('서울특별시 강남구 역삼동')).toBe('')
+    expect(extractCity('부산광역시 해운대구')).toBe('')
+  })
+})
+
+describe('hasSpecificIdentifier', () => {
+  it('returns true for unique names', () => {
+    expect(hasSpecificIdentifier('코엑스 주차장')).toBe(true)
+    expect(hasSpecificIdentifier('광교 대학로 공영')).toBe(true)
+    expect(hasSpecificIdentifier('태화동 가정교회 주변 마을공동주차장')).toBe(true)
+    expect(hasSpecificIdentifier('마장축산물시장 주차장')).toBe(true)
+  })
+
+  it('returns false for generic+location only', () => {
+    expect(hasSpecificIdentifier('경주시 제1공영주차장')).toBe(false)
+    expect(hasSpecificIdentifier('제1공영주차장')).toBe(false)
+    expect(hasSpecificIdentifier('노상공영주차')).toBe(false)
+    expect(hasSpecificIdentifier('무료주차장')).toBe(false)
+    expect(hasSpecificIdentifier('태화동 마을공동주차장')).toBe(false)
+  })
+})
+
 describe('scoreBlogRelevance', () => {
   it('returns 0 when no parking keyword', () => {
     expect(scoreBlogRelevance('맛집 추천', '강남 맛집 리뷰', '강남역 주차장', '서울 강남구')).toBe(0)
@@ -146,6 +178,27 @@ describe('scoreBlogRelevance', () => {
     )
     expect(matched).toBeGreaterThanOrEqual(mismatched)
   })
+
+  it('allows generic name match when location co-occurs', () => {
+    // 블로그에 "경주시" (시 포함)와 "제1공영주차장" 모두 언급
+    const score = scoreBlogRelevance(
+      '경주시 제1공영주차장 이용 후기',
+      '경주시 제1공영주차장에서 주차했습니다',
+      '경주시 제1공영주차장',
+      '경상북도 경주시 중앙로 47번길 13',
+    )
+    expect(score).toBeGreaterThan(40)
+  })
+
+  it('blocks generic name match when location differs', () => {
+    const score = scoreBlogRelevance(
+      '예천군 제1공영주차장 운영 중단',
+      '예천군 제1공영주차장 임시주차장 안내',
+      '경주시 제1공영주차장',
+      '경상북도 경주시 중앙로 47번길 13',
+    )
+    expect(score).toBeLessThanOrEqual(40)
+  })
 })
 
 describe('getMatchConfidence', () => {
@@ -172,6 +225,16 @@ describe('getMatchConfidence', () => {
       '서울 강남구',
     )
     expect(result.confidence).not.toBe('none')
+  })
+
+  it('returns medium for name with no specific identifier', () => {
+    const result = getMatchConfidence(
+      '경주 제1공영주차장 주차 후기',
+      '경주시 제1공영주차장에서 주차했습니다',
+      '경주시 제1공영주차장',
+      '경상북도 경주시 중앙로 47번길 13',
+    )
+    expect(result.confidence).toBe('medium')
   })
 })
 
