@@ -63,3 +63,4 @@ local-parking.db
 d1-dump.sql
 scripts/poi-local-*-checkpoint.json
 scripts/poi-run-*-checkpoint.json
+.bkit/
