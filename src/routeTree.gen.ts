@@ -17,6 +17,8 @@ import { Route as WikiSlugRouteImport } from './routes/wiki/$slug'
 import { Route as AdminWebSourcesRouteImport } from './routes/admin/web-sources'
 import { Route as AdminReviewsRouteImport } from './routes/admin/reviews'
 import { Route as AdminReportsRouteImport } from './routes/admin/reports'
+import { Route as EventHalfpriceTravelIndexRouteImport } from './routes/event/halfprice-travel/index'
+import { Route as EventHalfpriceTravelSlugRouteImport } from './routes/event/halfprice-travel/$slug'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 
 const AdminRoute = AdminRouteImport.update({
@@ -59,6 +61,18 @@ const AdminReportsRoute = AdminReportsRouteImport.update({
   path: '/reports',
   getParentRoute: () => AdminRoute,
 } as any)
+const EventHalfpriceTravelIndexRoute =
+  EventHalfpriceTravelIndexRouteImport.update({
+    id: '/event/halfprice-travel/',
+    path: '/event/halfprice-travel/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const EventHalfpriceTravelSlugRoute =
+  EventHalfpriceTravelSlugRouteImport.update({
+    id: '/event/halfprice-travel/$slug',
+    path: '/event/halfprice-travel/$slug',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
@@ -75,6 +89,8 @@ export interface FileRoutesByFullPath {
   '/admin/': typeof AdminIndexRoute
   '/wiki/': typeof WikiIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/event/halfprice-travel/$slug': typeof EventHalfpriceTravelSlugRoute
+  '/event/halfprice-travel/': typeof EventHalfpriceTravelIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -85,6 +101,8 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminIndexRoute
   '/wiki': typeof WikiIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/event/halfprice-travel/$slug': typeof EventHalfpriceTravelSlugRoute
+  '/event/halfprice-travel': typeof EventHalfpriceTravelIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -97,6 +115,8 @@ export interface FileRoutesById {
   '/admin/': typeof AdminIndexRoute
   '/wiki/': typeof WikiIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/event/halfprice-travel/$slug': typeof EventHalfpriceTravelSlugRoute
+  '/event/halfprice-travel/': typeof EventHalfpriceTravelIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -110,6 +130,8 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/wiki/'
     | '/api/auth/$'
+    | '/event/halfprice-travel/$slug'
+    | '/event/halfprice-travel/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -120,6 +142,8 @@ export interface FileRouteTypes {
     | '/admin'
     | '/wiki'
     | '/api/auth/$'
+    | '/event/halfprice-travel/$slug'
+    | '/event/halfprice-travel'
   id:
     | '__root__'
     | '/'
@@ -131,6 +155,8 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/wiki/'
     | '/api/auth/$'
+    | '/event/halfprice-travel/$slug'
+    | '/event/halfprice-travel/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -139,6 +165,8 @@ export interface RootRouteChildren {
   WikiSlugRoute: typeof WikiSlugRoute
   WikiIndexRoute: typeof WikiIndexRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  EventHalfpriceTravelSlugRoute: typeof EventHalfpriceTravelSlugRoute
+  EventHalfpriceTravelIndexRoute: typeof EventHalfpriceTravelIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -199,6 +227,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminReportsRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/event/halfprice-travel/': {
+      id: '/event/halfprice-travel/'
+      path: '/event/halfprice-travel'
+      fullPath: '/event/halfprice-travel/'
+      preLoaderRoute: typeof EventHalfpriceTravelIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/event/halfprice-travel/$slug': {
+      id: '/event/halfprice-travel/$slug'
+      path: '/event/halfprice-travel/$slug'
+      fullPath: '/event/halfprice-travel/$slug'
+      preLoaderRoute: typeof EventHalfpriceTravelSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
@@ -231,6 +273,8 @@ const rootRouteChildren: RootRouteChildren = {
   WikiSlugRoute: WikiSlugRoute,
   WikiIndexRoute: WikiIndexRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  EventHalfpriceTravelSlugRoute: EventHalfpriceTravelSlugRoute,
+  EventHalfpriceTravelIndexRoute: EventHalfpriceTravelIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

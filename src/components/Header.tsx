@@ -1,5 +1,5 @@
 import { Link } from '@tanstack/react-router'
-import { BookOpen, Car, ChevronDown, LogIn, LogOut, Map as MapIcon } from 'lucide-react'
+import { Car, ChevronDown, Compass, LogIn, LogOut, Map as MapIcon } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { SearchBar } from '@/components/SearchBar'
 import { authClient } from '@/lib/auth-client'
@@ -144,27 +144,17 @@ export function Header({ active = 'map', onSearchSelect, onPlaceSelect, siteStat
           )}
           {active === 'wiki' ? (
             <span className={navActive}>
-              <BookOpen className="size-3.5" />
-              위키
+              <Compass className="size-3.5" />
+              둘러보기
             </span>
           ) : (
             <Link to="/wiki" className={navInactive}>
-              <BookOpen className="size-3.5" />
-              위키
+              <Compass className="size-3.5" />
+              둘러보기
             </Link>
           )}
         </nav>
         {onSearchSelect && <SearchBar onSelect={onSearchSelect} onPlaceSelect={onPlaceSelect} />}
-        {active === 'map' && (
-          <div className="hidden lg:flex items-center gap-2 text-xs text-muted-foreground shrink-0">
-            <span>😊추천</span>
-            <span>🙂무난</span>
-            <span>😐보통</span>
-            <span>😕별로</span>
-            <span>💀비추</span>
-            <span>🔥헬</span>
-          </div>
-        )}
         {siteStats && (
           <div className="hidden md:flex items-center gap-3 text-xs text-muted-foreground shrink-0">
             <span className="w-px h-4 bg-border" />

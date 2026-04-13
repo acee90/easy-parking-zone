@@ -169,9 +169,7 @@ function NearbyPlacesSection({ places }: { places: NearbyPlaceInfo[] }) {
                   <span className="font-medium text-sm truncate">{place.name}</span>
                   <span className="text-xs text-muted-foreground shrink-0">{meta.label}</span>
                 </div>
-                {place.tip && (
-                  <p className="text-xs text-muted-foreground mt-0.5">{place.tip}</p>
-                )}
+                {place.tip && <p className="text-xs text-muted-foreground mt-0.5">{place.tip}</p>}
                 <p className="text-xs text-muted-foreground mt-0.5">
                   {place.mentionCount}개 블로그에서 언급
                 </p>
@@ -201,7 +199,7 @@ function WikiDetailPage() {
           </Link>
           <ChevronRight className="size-3" />
           <Link to="/wiki" className="hover:text-foreground transition-colors">
-            위키
+            둘러보기
           </Link>
           <ChevronRight className="size-3" />
           <span className="text-foreground truncate">{lot.name}</span>

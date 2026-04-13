@@ -1,9 +1,8 @@
 import { env } from 'cloudflare:workers'
 import { createServerFn } from '@tanstack/react-start'
 import { count, desc, eq, sql } from 'drizzle-orm'
-import type { NearbyPlaceInfo } from '@/types/parking'
 import { getDb, schema } from '@/db'
-import type { BlogPost, MapBounds, ParkingFilters, Place } from '@/types/parking'
+import type { BlogPost, MapBounds, NearbyPlaceInfo, ParkingFilters, Place } from '@/types/parking'
 import {
   type BlogPostRow,
   buildFilterClauses,
@@ -365,6 +364,106 @@ export const fetchNearbyPlaces = createServerFn({ method: 'GET' })
       mentionCount: row.mentionCount,
       thumbnailUrl: row.thumbnailUrl ?? undefined,
     }))
+  })
+
+/** 지역 가이드 목록: 16개 반값여행 지역 통계 */
+export const fetchGuideList = createServerFn({ method: 'GET' }).handler(async () => {
+  const { REGIONS } = await import('@/lib/regions')
+  const db = getDb()
+
+  const results = await Promise.all(
+    REGIONS.map(async (region) => {
+      const row = (await db.get(
+        sql.raw(
+          `SELECT COUNT(*) as total,
+            SUM(CASE WHEN is_free = 1 THEN 1 ELSE 0 END) as free_count,
+            ROUND(AVG(CASE WHEN total_spaces > 0 THEN total_spaces END), 0) as avg_spaces
+          FROM parking_lots
+          WHERE address LIKE '${region.prefix}%' OR address LIKE '%${region.prefix}%'`,
+        ),
+      )) as { total: number; free_count: number; avg_spaces: number | null }
+
+      return {
+        slug: region.slug,
+        name: region.name,
+        province: region.province,
+        total: row?.total ?? 0,
+        freeCount: row?.free_count ?? 0,
+        avgSpaces: row?.avg_spaces ?? 0,
+      }
+    }),
+  )
+
+  return results.filter((r) => r.total > 0)
+})
+
+/** 지역 가이드 상세: 초보추천/무료/넓은 주차장 + 관광 스팟 */
+export const fetchGuideDetail = createServerFn({ method: 'GET' })
+  .inputValidator((input: { slug: string }): { slug: string } => input)
+  .handler(async ({ data }) => {
+    const { findRegion } = await import('@/lib/regions')
+    const region = findRegion(data.slug)
+    if (!region) return null
+
+    const db = getDb()
+    const prefix = region.prefix
+    const likeClause = `(p.address LIKE '${prefix}%' OR p.address LIKE '%${prefix}%')`
+
+    const [summaryRow, easyRows, freeRows, largeRows] = await Promise.all([
+      db.get(
+        sql.raw(
+          `SELECT COUNT(*) as total,
+            SUM(CASE WHEN is_free = 1 THEN 1 ELSE 0 END) as free_count,
+            ROUND(AVG(CASE WHEN total_spaces > 0 THEN total_spaces END), 0) as avg_spaces
+          FROM parking_lots p WHERE ${likeClause}`,
+        ),
+      ) as Promise<{ total: number; free_count: number; avg_spaces: number | null }>,
+      db.all(
+        sql.raw(
+          `SELECT p.*, s.final_score as avg_score,
+            COALESCE(s.user_review_count, 0) + COALESCE(s.community_count, 0) as review_count,
+            s.reliability
+          FROM parking_lots p
+          LEFT JOIN parking_lot_stats s ON s.parking_lot_id = p.id
+          WHERE ${likeClause} AND (p.curation_tag = 'easy' OR s.final_score >= 3.5)
+          ORDER BY s.final_score DESC LIMIT 10`,
+        ),
+      ),
+      db.all(
+        sql.raw(
+          `SELECT p.*, s.final_score as avg_score,
+            COALESCE(s.user_review_count, 0) + COALESCE(s.community_count, 0) as review_count,
+            s.reliability
+          FROM parking_lots p
+          LEFT JOIN parking_lot_stats s ON s.parking_lot_id = p.id
+          WHERE ${likeClause} AND p.is_free = 1
+          ORDER BY p.total_spaces DESC LIMIT 10`,
+        ),
+      ),
+      db.all(
+        sql.raw(
+          `SELECT p.*, s.final_score as avg_score,
+            COALESCE(s.user_review_count, 0) + COALESCE(s.community_count, 0) as review_count,
+            s.reliability
+          FROM parking_lots p
+          LEFT JOIN parking_lot_stats s ON s.parking_lot_id = p.id
+          WHERE ${likeClause} AND p.total_spaces >= 200
+          ORDER BY p.total_spaces DESC LIMIT 10`,
+        ),
+      ),
+    ])
+
+    return {
+      region: { name: region.name, province: region.province, slug: region.slug },
+      summary: {
+        total: summaryRow?.total ?? 0,
+        freeCount: summaryRow?.free_count ?? 0,
+        avgSpaces: summaryRow?.avg_spaces ?? 0,
+      },
+      easy: (easyRows as unknown as ParkingLotRow[]).map(rowToParkingLot),
+      free: (freeRows as unknown as ParkingLotRow[]).map(rowToParkingLot),
+      large: (largeRows as unknown as ParkingLotRow[]).map(rowToParkingLot),
+    }
   })
 
 /** 카카오 키워드 장소 검색 (목적지 → 주변 주차장 찾기용) */
