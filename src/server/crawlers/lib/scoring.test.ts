@@ -134,7 +134,9 @@ describe('hasSpecificIdentifier', () => {
 
 describe('scoreBlogRelevance', () => {
   it('returns 0 when no parking keyword', () => {
-    expect(scoreBlogRelevance('맛집 추천', '강남 맛집 리뷰', '강남역 주차장', '서울 강남구')).toBe(0)
+    expect(scoreBlogRelevance('맛집 추천', '강남 맛집 리뷰', '강남역 주차장', '서울 강남구')).toBe(
+      0,
+    )
   })
 
   it('returns 0 for noise content', () => {

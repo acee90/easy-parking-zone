@@ -59,10 +59,7 @@ export async function extractFromBlogs(
   if (blogs.length === 0) return []
 
   const itemsText = blogs
-    .map(
-      (b, i) =>
-        `[${i + 1}] 제목: ${b.title} | 내용: ${b.content.slice(0, 500)}`,
-    )
+    .map((b, i) => `[${i + 1}] 제목: ${b.title} | 내용: ${b.content.slice(0, 500)}`)
     .join('\n\n')
 
   const userPrompt = `주차장 "${parkingName}" 근처 블로그 ${blogs.length}건에서 주변 장소를 추출하세요.\n\n${itemsText}`
@@ -134,7 +131,13 @@ function parseBatchPlaces(
 }
 
 const VALID_CATEGORIES = new Set([
-  'cafe', 'restaurant', 'park', 'tourist', 'market', 'hospital', 'etc',
+  'cafe',
+  'restaurant',
+  'park',
+  'tourist',
+  'market',
+  'hospital',
+  'etc',
 ])
 
 function toPlaces(raw: unknown): NearbyPlace[] {
@@ -142,12 +145,16 @@ function toPlaces(raw: unknown): NearbyPlace[] {
   return raw
     .filter(
       (p): p is Record<string, unknown> =>
-        typeof p === 'object' && p !== null && typeof (p as Record<string, unknown>).name === 'string',
+        typeof p === 'object' &&
+        p !== null &&
+        typeof (p as Record<string, unknown>).name === 'string',
     )
     .slice(0, 5)
     .map((p) => ({
       name: String(p.name).slice(0, 50),
-      category: (VALID_CATEGORIES.has(String(p.category)) ? String(p.category) : 'etc') as NearbyCategory,
+      category: (VALID_CATEGORIES.has(String(p.category))
+        ? String(p.category)
+        : 'etc') as NearbyCategory,
       tip: p.tip ? String(p.tip).slice(0, 50) : null,
     }))
 }
@@ -157,7 +164,13 @@ function toPlaces(raw: unknown): NearbyPlace[] {
  */
 export function mergeExtractedPlaces(
   results: Array<{ blogId: number; places: NearbyPlace[] }>,
-): Array<{ name: string; category: NearbyCategory; tip: string | null; mentionCount: number; sourceBlogIds: number[] }> {
+): Array<{
+  name: string
+  category: NearbyCategory
+  tip: string | null
+  mentionCount: number
+  sourceBlogIds: number[]
+}> {
   const map = new Map<
     string,
     { category: NearbyCategory; tip: string | null; count: number; blogIds: number[] }
@@ -183,9 +196,12 @@ export function mergeExtractedPlaces(
   }
 
   return Array.from(map.entries()).map(([_, v]) => ({
-    name: _.length > 0 ? results.flatMap((r) => r.places).find(
-      (p) => p.name.toLowerCase().replace(/\s/g, '') === _,
-    )!.name : '',
+    name:
+      _.length > 0
+        ? results
+            .flatMap((r) => r.places)
+            .find((p) => p.name.toLowerCase().replace(/\s/g, '') === _)!.name
+        : '',
     category: v.category,
     tip: v.tip,
     mentionCount: v.count,
