@@ -116,6 +116,7 @@ export function ReportDialog({
         )}
 
         <button
+          type="button"
           onClick={handleSubmit}
           disabled={!selected || submitting || (selected === 'other' && detail.trim().length < 2)}
           className="w-full rounded-md bg-red-500 py-2.5 text-xs font-medium text-white hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors flex items-center justify-center gap-1.5"
@@ -148,6 +149,7 @@ export function ReportButton({
   return (
     <>
       <button
+        type="button"
         onClick={(e) => {
           e.preventDefault()
           e.stopPropagation()
