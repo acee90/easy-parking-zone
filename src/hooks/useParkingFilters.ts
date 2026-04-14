@@ -79,5 +79,13 @@ export function useParkingFilters() {
   const diffOff = Object.values(filters.difficulty).filter((v) => !v).length
   const activeCount = booleanCount + diffOff
 
-  return { filters, setFilters, toggle, toggleDifficulty, setFeeRange, toggleMinSpaces, activeCount }
+  return {
+    filters,
+    setFilters,
+    toggle,
+    toggleDifficulty,
+    setFeeRange,
+    toggleMinSpaces,
+    activeCount,
+  }
 }
