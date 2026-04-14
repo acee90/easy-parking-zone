@@ -95,11 +95,17 @@ export interface DifficultyFilter {
   hell: boolean // 🔥 헬 (1.0-1.4)
 }
 
+/** 1시간 기준 요금 상한 필터. 'any' = 전체 */
+export type FeeRange = 'any' | '3000' | '5000' | '10000'
+
 export interface ParkingFilters {
   freeOnly: boolean
   publicOnly: boolean // 공영(공공데이터 출처)만
   excludeNoSang: boolean // 노상 제외
   difficulty: DifficultyFilter
+  feeRange: FeeRange // 1시간 기준 요금 상한
+  openNow: boolean // 현재 운영중인 주차장만
+  minSpaces: number | null // 최소 주차면 수 (null = 제한 없음)
 }
 
 export const DEFAULT_DIFFICULTY: DifficultyFilter = {
@@ -116,6 +122,9 @@ export const DEFAULT_FILTERS: ParkingFilters = {
   publicOnly: false,
   excludeNoSang: false,
   difficulty: { ...DEFAULT_DIFFICULTY },
+  feeRange: 'any',
+  openNow: false,
+  minSpaces: null,
 }
 
 export type SortMode = 'distance' | 'difficulty'

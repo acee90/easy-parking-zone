@@ -1,6 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { Car } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { toast } from 'sonner'
 import { NavermapsProvider } from 'react-naver-maps'
 import { FloatingFilters } from '@/components/FloatingFilters'
 import { Header } from '@/components/Header'
@@ -31,9 +32,11 @@ function App() {
     located: userLocated,
     initializing,
     requestLocation,
+    error: locationError,
   } = useGeolocation()
 
-  const { filters, toggle, toggleDifficulty, activeCount } = useParkingFilters()
+  const { filters, toggle, toggleDifficulty, setFeeRange, toggleMinSpaces, activeCount } =
+    useParkingFilters()
 
   const [isClient, setIsClient] = useState(false)
   const [mapReady, setMapReady] = useState(false)
@@ -52,6 +55,10 @@ function App() {
   useEffect(() => {
     setIsClient(true)
   }, [])
+
+  useEffect(() => {
+    if (locationError) toast.error(locationError)
+  }, [locationError])
 
   // 전체 경량 데이터 1회 로드
   useEffect(() => {
@@ -228,6 +235,8 @@ function App() {
             filters={filters}
             onToggle={toggle}
             onToggleDifficulty={toggleDifficulty}
+            onSetFeeRange={setFeeRange}
+            onToggleMinSpaces={toggleMinSpaces}
             activeCount={activeCount}
           />
         </div>
@@ -238,6 +247,8 @@ function App() {
             filters={filters}
             onToggle={toggle}
             onToggleDifficulty={toggleDifficulty}
+            onSetFeeRange={setFeeRange}
+            onToggleMinSpaces={toggleMinSpaces}
             activeCount={activeCount}
           />
         </div>

@@ -38,7 +38,7 @@ function useSearch(
       ])
       setLotResults(lots)
       setPlaceResults(places)
-      setOpen(lots.length > 0 || places.length > 0)
+      setOpen(true)
     } finally {
       setLoading(false)
     }
@@ -113,7 +113,11 @@ function SearchResults({
   }
 
   if (lotResults.length === 0 && placeResults.length === 0) {
-    return null
+    return (
+      <div className="px-3 py-4 text-sm text-muted-foreground text-center">
+        검색 결과가 없습니다
+      </div>
+    )
   }
 
   return (
@@ -171,13 +175,15 @@ function SearchResults({
           </>
         )}
       </div>
-      <div className="shrink-0 border-t bg-gray-50 px-3 py-1 text-[11px] text-muted-foreground text-right">
-        {placeResults.length > 0 && lotResults.length > 0
-          ? `장소 ${placeResults.length}건 · 주차장 ${lotResults.length}건`
-          : placeResults.length > 0
-            ? `장소 ${placeResults.length}건`
-            : `주차장 ${lotResults.length}건`}
-      </div>
+      {(placeResults.length > 0 || lotResults.length > 0) && (
+        <div className="shrink-0 border-t bg-gray-50 px-3 py-1 text-[11px] text-muted-foreground text-right">
+          {placeResults.length > 0 && lotResults.length > 0
+            ? `장소 ${placeResults.length}건 · 주차장 ${lotResults.length}건`
+            : placeResults.length > 0
+              ? `장소 ${placeResults.length}건`
+              : `주차장 ${lotResults.length}건`}
+        </div>
+      )}
     </>
   )
 }

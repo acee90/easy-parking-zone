@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import type { DifficultyFilter, ParkingFilters } from '@/types/parking'
+import type { DifficultyFilter, FeeRange, ParkingFilters } from '@/types/parking'
 import { DEFAULT_DIFFICULTY, DEFAULT_FILTERS } from '@/types/parking'
 
 const COOKIE_KEY = 'parking_filters'
@@ -38,7 +38,7 @@ export function useParkingFilters() {
   }, [])
 
   const toggle = useCallback(
-    (key: 'freeOnly' | 'publicOnly' | 'excludeNoSang') => {
+    (key: 'freeOnly' | 'publicOnly' | 'excludeNoSang' | 'openNow') => {
       const next = { ...filters, [key]: !filters[key] }
       setFilters(next)
     },
@@ -56,11 +56,28 @@ export function useParkingFilters() {
     [filters, setFilters],
   )
 
-  const booleanCount = [filters.freeOnly, filters.publicOnly, filters.excludeNoSang].filter(
-    Boolean,
-  ).length
+  const setFeeRange = useCallback(
+    (feeRange: FeeRange) => {
+      setFilters({ ...filters, feeRange })
+    },
+    [filters, setFilters],
+  )
+
+  const toggleMinSpaces = useCallback(() => {
+    const next = { ...filters, minSpaces: filters.minSpaces === null ? 50 : null }
+    setFilters(next)
+  }, [filters, setFilters])
+
+  const booleanCount = [
+    filters.freeOnly,
+    filters.publicOnly,
+    filters.excludeNoSang,
+    filters.openNow,
+    filters.minSpaces !== null,
+    filters.feeRange !== 'any',
+  ].filter(Boolean).length
   const diffOff = Object.values(filters.difficulty).filter((v) => !v).length
   const activeCount = booleanCount + diffOff
 
-  return { filters, setFilters, toggle, toggleDifficulty, activeCount }
+  return { filters, setFilters, toggle, toggleDifficulty, setFeeRange, toggleMinSpaces, activeCount }
 }
