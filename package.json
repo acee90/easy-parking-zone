@@ -15,6 +15,7 @@
     "curate-hell": "bun run scripts/curate-hell-parking.ts",
     "crawl-youtube": "bun run scripts/crawl-youtube.ts",
     "sync-public-data": "bun run scripts/sync-public-data.ts",
+    "postinstall": "lefthook install",
     "lint": "biome check src/",
     "lint:fix": "biome check --write src/",
     "format": "biome format --write src/"
