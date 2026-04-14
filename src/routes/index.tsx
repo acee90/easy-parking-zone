@@ -16,15 +16,19 @@ import { useParkingFilters } from '@/hooks/useParkingFilters'
 import { type MapFeature, useSuperCluster } from '@/hooks/useSuperCluster'
 import { Route as RootRoute } from '@/routes/__root'
 import type { ParkingPoint } from '@/server/parking'
-import { fetchAllParkingPoints, fetchParkingLots } from '@/server/parking'
+import { fetchAllParkingPoints, fetchParkingDetail, fetchParkingLots } from '@/server/parking'
 import type { MapBounds, ParkingLot } from '@/types/parking'
 
 export const Route = createFileRoute('/')({
+  validateSearch: (search: Record<string, unknown>) => ({
+    lotId: typeof search.lotId === 'string' ? search.lotId : undefined,
+  }),
   component: App,
 })
 
 function App() {
   const siteStats = RootRoute.useLoaderData()
+  const { lotId } = Route.useSearch()
   const {
     lat: userLat,
     lng: userLng,
@@ -155,6 +159,20 @@ function App() {
     setMoveTo({ lat: lot.lat, lng: lot.lng })
     setSelectedLot(lot)
   }, [])
+
+  // URL ?lotId= 파라미터로 진입 시 지도 이동 + 상세패널 오픈
+  useEffect(() => {
+    if (!mapReady || !lotId) return
+    fetchParkingDetail({ data: { id: lotId } })
+      .then((lot) => {
+        if (!lot) return
+        setSelectedLot(lot)
+        setMoveTo({ lat: lot.lat, lng: lot.lng })
+      })
+      .catch((err) => {
+        console.error('[lotId navigation] error:', err)
+      })
+  }, [mapReady, lotId])
 
   const mapLoading = !isClient || initializing || !mapReady
 
