@@ -103,6 +103,48 @@ export function buildFilterClauses(filters?: ParkingFilters): { where: string; p
   const diffCond = buildDifficultyCondition(filters, 's.final_score')
   if (diffCond) clauses.push(diffCond)
 
+  // 1시간 기준 요금 상한 필터 (무료 주차장은 항상 통과)
+  if (filters?.feeRange && filters.feeRange !== 'any') {
+    const maxFee = Number(filters.feeRange)
+    clauses.push(
+      `(p.is_free = 1 OR p.base_fee IS NULL OR p.base_fee = 0 OR ` +
+        `(p.base_time IS NOT NULL AND p.base_time > 0 AND CAST(p.base_fee * 60.0 / p.base_time AS INTEGER) <= ?))`,
+    )
+    params.push(maxFee)
+  }
+
+  // 현재 운영중 필터 (요일별 운영시간 기준, KST 기준)
+  if (filters?.openNow) {
+    // Cloudflare Workers는 UTC로 실행되므로 KST(UTC+9) 오프셋 적용
+    const kst = new Date(Date.now() + 9 * 60 * 60 * 1000)
+    const day = kst.getUTCDay() // 0=일, 6=토
+    const hh = String(kst.getUTCHours()).padStart(2, '0')
+    const mm = String(kst.getUTCMinutes()).padStart(2, '0')
+    const timeStr = `${hh}:${mm}`
+
+    // end='00:00'은 24시간 운영, start > end는 자정 넘는 운영 (예: 20:00-06:00)
+    const hoursOpen = (s: string, e: string) =>
+      `(${s} IS NOT NULL AND ${s} != '' AND ` +
+      `(${e} = '00:00' OR ` +
+      `(${s} <= ${e} AND ${s} <= ? AND ${e} > ?) OR ` +
+      `(${s} > ${e} AND (${s} <= ? OR ${e} > ?))))`
+
+    if (day === 6) {
+      clauses.push(hoursOpen('p.saturday_start', 'p.saturday_end'))
+    } else if (day === 0) {
+      clauses.push(hoursOpen('p.holiday_start', 'p.holiday_end'))
+    } else {
+      clauses.push(hoursOpen('p.weekday_start', 'p.weekday_end'))
+    }
+    params.push(timeStr, timeStr, timeStr, timeStr)
+  }
+
+  // 최소 주차면 수 필터
+  if (filters?.minSpaces != null) {
+    clauses.push(`p.total_spaces >= ?`)
+    params.push(filters.minSpaces)
+  }
+
   return {
     where: clauses.length > 0 ? ` AND ${clauses.join(' AND ')}` : '',
     params,

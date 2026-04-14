@@ -1,10 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-  aggregateTextSentiment,
-  analyzeSentiment,
-  computeRelevance,
-  timeDecay,
-} from './sentiment'
+import { aggregateTextSentiment, analyzeSentiment, computeRelevance, timeDecay } from './sentiment'
 
 describe('computeRelevance', () => {
   it('returns 1.0 for 2+ experience keywords', () => {

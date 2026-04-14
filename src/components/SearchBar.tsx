@@ -21,6 +21,7 @@ function useSearch(
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const timerRef = useRef<ReturnType<typeof setTimeout>>()
+  const queryRef = useRef('')
 
   const doSearch = useCallback(async (q: string) => {
     const trimmed = q.trim()
@@ -38,7 +39,10 @@ function useSearch(
       ])
       setLotResults(lots)
       setPlaceResults(places)
-      setOpen(lots.length > 0 || places.length > 0)
+      // 비동기 완료 시점에 입력이 이미 지워졌으면 열지 않음
+      if (queryRef.current.trim().length > 0) {
+        setOpen(true)
+      }
     } finally {
       setLoading(false)
     }
@@ -47,6 +51,7 @@ function useSearch(
   const handleChange = useCallback(
     (value: string) => {
       setQuery(value)
+      queryRef.current = value
       clearTimeout(timerRef.current)
       timerRef.current = setTimeout(() => doSearch(value), 300)
     },
@@ -73,6 +78,7 @@ function useSearch(
 
   const handleClear = useCallback(() => {
     setQuery('')
+    queryRef.current = ''
     setLotResults([])
     setPlaceResults([])
     setOpen(false)
@@ -113,7 +119,11 @@ function SearchResults({
   }
 
   if (lotResults.length === 0 && placeResults.length === 0) {
-    return null
+    return (
+      <div className="px-3 py-4 text-sm text-muted-foreground text-center">
+        검색 결과가 없습니다
+      </div>
+    )
   }
 
   return (
@@ -129,6 +139,7 @@ function SearchResults({
             </div>
             {placeResults.map((place, i) => (
               <button
+                type="button"
                 key={`place-${i}`}
                 onClick={() => onSelectPlace(place)}
                 className="w-full text-left px-3 py-2.5 hover:bg-gray-50 border-b last:border-b-0 transition-colors"
@@ -154,6 +165,7 @@ function SearchResults({
             </div>
             {lotResults.slice(0, 5).map((lot) => (
               <button
+                type="button"
                 key={lot.id}
                 onClick={() => onSelectLot(lot)}
                 className="w-full text-left px-3 py-2.5 hover:bg-gray-50 border-b last:border-b-0 transition-colors"
@@ -171,13 +183,15 @@ function SearchResults({
           </>
         )}
       </div>
-      <div className="shrink-0 border-t bg-gray-50 px-3 py-1 text-[11px] text-muted-foreground text-right">
-        {placeResults.length > 0 && lotResults.length > 0
-          ? `장소 ${placeResults.length}건 · 주차장 ${lotResults.length}건`
-          : placeResults.length > 0
-            ? `장소 ${placeResults.length}건`
-            : `주차장 ${lotResults.length}건`}
-      </div>
+      {(placeResults.length > 0 || lotResults.length > 0) && (
+        <div className="shrink-0 border-t bg-gray-50 px-3 py-1 text-[11px] text-muted-foreground text-right">
+          {placeResults.length > 0 && lotResults.length > 0
+            ? `장소 ${placeResults.length}건 · 주차장 ${lotResults.length}건`
+            : placeResults.length > 0
+              ? `장소 ${placeResults.length}건`
+              : `주차장 ${lotResults.length}건`}
+        </div>
+      )}
     </>
   )
 }
@@ -222,6 +236,7 @@ export function SearchBar({ onSelect, onPlaceSelect }: SearchBarProps) {
     <>
       {/* 모바일: 검색 아이콘 버튼 */}
       <button
+        type="button"
         onClick={() => setDialogOpen(true)}
         className="sm:hidden flex size-8 items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
       >
@@ -244,6 +259,7 @@ export function SearchBar({ onSelect, onPlaceSelect }: SearchBarProps) {
           />
           {search.query && (
             <button
+              type="button"
               onClick={search.handleClear}
               className="absolute right-2 top-1/2 -translate-y-1/2"
             >
@@ -283,6 +299,7 @@ export function SearchBar({ onSelect, onPlaceSelect }: SearchBarProps) {
             />
             {search.query && (
               <button
+                type="button"
                 onClick={search.handleClear}
                 className="absolute right-5.5 top-1/2 -translate-y-1/2"
               >

@@ -1,5 +1,6 @@
 import { Flag, Loader2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { toast } from 'sonner'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { createContentReport, getReportReasons, type ReportTargetType } from '@/server/reports'
 
@@ -22,13 +23,13 @@ export function ReportDialog({
   const [selected, setSelected] = useState<string | null>(null)
   const [detail, setDetail] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const [result, setResult] = useState<'success' | 'duplicate' | 'error' | null>(null)
+  const [submitError, setSubmitError] = useState(false)
 
   useEffect(() => {
     if (open) {
       setSelected(null)
       setDetail('')
-      setResult(null)
+      setSubmitError(false)
       getReportReasons({ data: { targetType } })
         .then(setReasons)
         .catch(() => setReasons([]))
@@ -38,6 +39,7 @@ export function ReportDialog({
   const handleSubmit = async () => {
     if (!selected) return
     setSubmitting(true)
+    setSubmitError(false)
     try {
       await createContentReport({
         data: {
@@ -48,22 +50,21 @@ export function ReportDialog({
           detail: selected === 'other' ? detail : undefined,
         },
       })
-      setResult('success')
+      toast.success('신고가 접수되었습니다. 검토 후 처리됩니다.')
+      onOpenChange(false)
     } catch (e) {
       const code = (e as { code?: string }).code
       const msg = e instanceof Error ? e.message : ''
-      setResult(
-        code === 'DUPLICATE_REPORT' || msg.includes('UNIQUE constraint') ? 'duplicate' : 'error',
-      )
+      const isDuplicate = code === 'DUPLICATE_REPORT' || msg.includes('UNIQUE constraint')
+      if (isDuplicate) {
+        toast.warning('이미 신고한 콘텐츠입니다.')
+        onOpenChange(false)
+      } else {
+        setSubmitError(true)
+      }
     } finally {
       setSubmitting(false)
     }
-  }
-
-  const resultMessages = {
-    success: '신고가 접수되었습니다. 검토 후 처리됩니다.',
-    duplicate: '이미 신고한 콘텐츠입니다.',
-    error: '신고 접수에 실패했습니다. 잠시 후 다시 시도해주세요.',
   }
 
   return (
@@ -76,71 +77,58 @@ export function ReportDialog({
           </DialogTitle>
         </DialogHeader>
 
-        {result ? (
-          <div className="text-center py-4">
-            <p
-              className={`text-sm ${result === 'success' ? 'text-green-600' : result === 'duplicate' ? 'text-amber-600' : 'text-red-500'}`}
+        <div className="space-y-1.5">
+          {reasons.map(({ code, label }) => (
+            <label
+              key={code}
+              className={`flex items-center gap-2.5 px-3 py-2 rounded-lg cursor-pointer transition-colors ${
+                selected === code ? 'bg-red-50 ring-1 ring-red-200' : 'hover:bg-gray-50'
+              }`}
             >
-              {resultMessages[result]}
-            </p>
-            <button
-              onClick={() => onOpenChange(false)}
-              className="mt-4 px-4 py-2 text-xs font-medium rounded-md bg-gray-100 hover:bg-gray-200 cursor-pointer"
-            >
-              닫기
-            </button>
-          </div>
-        ) : (
-          <>
-            <div className="space-y-1.5">
-              {reasons.map(({ code, label }) => (
-                <label
-                  key={code}
-                  className={`flex items-center gap-2.5 px-3 py-2 rounded-lg cursor-pointer transition-colors ${
-                    selected === code ? 'bg-red-50 ring-1 ring-red-200' : 'hover:bg-gray-50'
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="report-reason"
-                    value={code}
-                    checked={selected === code}
-                    onChange={() => setSelected(code)}
-                    className="accent-red-500"
-                  />
-                  <span className="text-xs">{label}</span>
-                </label>
-              ))}
-            </div>
-
-            {selected === 'other' && (
-              <textarea
-                value={detail}
-                onChange={(e) => setDetail(e.target.value)}
-                maxLength={200}
-                rows={2}
-                placeholder="신고 사유를 입력해주세요"
-                className="w-full rounded-md border px-2.5 py-1.5 text-xs resize-none"
+              <input
+                type="radio"
+                name="report-reason"
+                value={code}
+                checked={selected === code}
+                onChange={() => setSelected(code)}
+                className="accent-red-500"
               />
-            )}
+              <span className="text-xs">{label}</span>
+            </label>
+          ))}
+        </div>
 
-            <button
-              onClick={handleSubmit}
-              disabled={
-                !selected || submitting || (selected === 'other' && detail.trim().length < 2)
-              }
-              className="w-full rounded-md bg-red-500 py-2.5 text-xs font-medium text-white hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors flex items-center justify-center gap-1.5"
-            >
-              {submitting ? (
-                <>
-                  <Loader2 className="size-3.5 animate-spin" /> 접수 중...
-                </>
-              ) : (
-                '신고 접수'
-              )}
-            </button>
-          </>
+        {selected === 'other' && (
+          <textarea
+            value={detail}
+            onChange={(e) => setDetail(e.target.value)}
+            maxLength={200}
+            rows={2}
+            placeholder="신고 사유를 입력해주세요"
+            className="w-full rounded-md border px-2.5 py-1.5 text-xs resize-none"
+          />
         )}
+
+        {submitError && (
+          <p className="text-xs text-red-500 text-center">
+            신고 접수에 실패했습니다. 잠시 후 다시 시도해주세요.
+          </p>
+        )}
+
+        <button
+          type="button"
+          onClick={handleSubmit}
+          disabled={!selected || submitting || (selected === 'other' && detail.trim().length < 2)}
+          className="w-full rounded-md bg-red-500 py-2.5 text-xs font-medium text-white hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors flex items-center justify-center gap-1.5"
+        >
+          {submitting ? (
+            <>
+              <Loader2 className="size-3.5 animate-spin" /> 접수 중...
+            </>
+          ) : (
+            '신고 접수'
+          )}
+        </button>
       </DialogContent>
     </Dialog>
   )
@@ -161,6 +149,7 @@ export function ReportButton({
   return (
     <>
       <button
+        type="button"
         onClick={(e) => {
           e.preventDefault()
           e.stopPropagation()

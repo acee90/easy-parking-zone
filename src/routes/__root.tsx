@@ -1,4 +1,5 @@
 import { createRootRoute, HeadContent, Outlet, Scripts, useMatches } from '@tanstack/react-router'
+import { Toaster } from 'sonner'
 import { Header } from '@/components/Header'
 import { fetchSiteStats } from '@/server/parking'
 
@@ -177,6 +178,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       </head>
       <body>
         {children}
+        <Toaster position="bottom-center" richColors />
         <Scripts />
       </body>
     </html>
