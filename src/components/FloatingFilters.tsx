@@ -82,6 +82,7 @@ export function FloatingFilters({
       </div>
       {FILTER_OPTIONS.map(({ key, label }) => (
         <button
+          type="button"
           key={key}
           onClick={() => onToggle(key)}
           className={`rounded-full px-3 py-1.5 text-xs font-medium shadow-md border transition-colors ${
@@ -97,6 +98,7 @@ export function FloatingFilters({
       {/* 요금 범위 드롭다운 */}
       <div className="relative" ref={feeDropdownRef}>
         <button
+          type="button"
           onClick={() => setFeeOpen(!feeOpen)}
           className={`rounded-full px-3 py-1.5 text-xs font-medium shadow-md border transition-colors flex items-center gap-1 ${
             filters.feeRange !== 'any'
@@ -112,6 +114,7 @@ export function FloatingFilters({
           <div className="absolute top-full left-0 mt-1.5 w-36 rounded-lg bg-white shadow-lg border border-border py-1 animate-in fade-in slide-in-from-top-1 duration-150 z-50">
             {FEE_OPTIONS.map(({ value, label }) => (
               <button
+                type="button"
                 key={value}
                 onClick={() => {
                   onSetFeeRange(value)
@@ -131,6 +134,7 @@ export function FloatingFilters({
 
       {/* 50면 이상 토글 */}
       <button
+        type="button"
         onClick={onToggleMinSpaces}
         className={`rounded-full px-3 py-1.5 text-xs font-medium shadow-md border transition-colors ${
           filters.minSpaces !== null
@@ -144,6 +148,7 @@ export function FloatingFilters({
       {/* 난이도 드롭다운 */}
       <div className="relative" ref={dropdownRef}>
         <button
+          type="button"
           onClick={() => setDiffOpen(!diffOpen)}
           className={`rounded-full px-3 py-1.5 text-xs font-medium shadow-md border transition-colors flex items-center gap-1 ${
             diffOff > 0
@@ -161,6 +166,7 @@ export function FloatingFilters({
               const checked = filters.difficulty[key]
               return (
                 <button
+                  type="button"
                   key={key}
                   onClick={() => onToggleDifficulty(key)}
                   className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm hover:bg-zinc-50 transition-colors"
