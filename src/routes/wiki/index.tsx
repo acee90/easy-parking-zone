@@ -72,25 +72,27 @@ export const Route = createFileRoute('/wiki/')({
   loader: () => fetchWikiHome(),
   head: () => ({
     meta: [
-      { title: '주차장 둘러보기 — 전국 주차장 난이도 정보 | 쉬운주차장' },
+      { title: '주차장 둘러보기 | 쉽주' },
       {
         name: 'description',
-        content:
-          '전국 주차장의 난이도, 요금, 리뷰를 한눈에. 초보 추천 주차장, 넓은 주차장 TOP을 확인하세요.',
+        content: '초보 추천부터 넓은 주차장 TOP까지. 실제 데이터 기반 전국 주차장 큐레이션.',
       },
-      {
-        property: 'og:title',
-        content: '주차장 둘러보기 — 전국 주차장 난이도 정보 | 쉬운주차장',
-      },
+      { property: 'og:title', content: '주차장 둘러보기 | 쉽주' },
       {
         property: 'og:description',
-        content:
-          '전국 주차장의 난이도, 요금, 리뷰를 한눈에. 초보 추천 주차장, 넓은 주차장 TOP을 확인하세요.',
+        content: '초보 추천부터 넓은 주차장 TOP까지. 실제 데이터 기반 전국 주차장 큐레이션.',
       },
+      { property: 'og:type', content: 'website' },
+      { property: 'og:url', content: 'https://easy-parking.xyz/wiki' },
+      { property: 'og:image', content: 'https://easy-parking.xyz/og-image.png' },
+      { property: 'og:site_name', content: '쉽주' },
+      { name: 'twitter:card', content: 'summary_large_image' },
+      { name: 'twitter:title', content: '주차장 둘러보기 | 쉽주' },
       {
-        property: 'og:url',
-        content: 'https://easy-parking.xyz/wiki',
+        name: 'twitter:description',
+        content: '초보 추천부터 넓은 주차장 TOP까지. 실제 데이터 기반 전국 주차장 큐레이션.',
       },
+      { name: 'twitter:image', content: 'https://easy-parking.xyz/og-image.png' },
     ],
   }),
   component: WikiHomePage,

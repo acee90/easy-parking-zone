@@ -1,20 +1,35 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { ChevronRight, ExternalLink, MapPin } from 'lucide-react'
-import { REGIONS } from '@/lib/regions'
+import { ExternalLink, MapPin } from 'lucide-react'
 import { fetchGuideList } from '@/server/parking'
 
 export const Route = createFileRoute('/event/halfprice-travel/')({
   loader: () => fetchGuideList(),
   head: () => ({
     meta: [
-      { title: '반값여행 주차 가이드 — 16개 지역 관광지 + 주차 안내 | 쉬운주차장' },
+      { title: '반값여행 주차 가이드 | 쉽주' },
       {
         name: 'description',
         content:
-          '2026 대한민국 반값여행 16개 지역 관광지와 주변 주차장 정보. 여행경비 50% 환급받고 주차 걱정 없이 여행하세요.',
+          '16개 지역 관광지별 주변 주차장 안내. 여행경비 50% 환급, 주차는 쉽주에서 미리 확인.',
       },
-      { property: 'og:title', content: '반값여행 주차 가이드 | 쉬운주차장' },
+      { property: 'og:title', content: '반값여행 주차 가이드 | 쉽주' },
+      {
+        property: 'og:description',
+        content:
+          '16개 지역 관광지별 주변 주차장 안내. 여행경비 50% 환급, 주차는 쉽주에서 미리 확인.',
+      },
+      { property: 'og:type', content: 'website' },
       { property: 'og:url', content: 'https://easy-parking.xyz/event/halfprice-travel' },
+      { property: 'og:image', content: 'https://easy-parking.xyz/og-image.png' },
+      { property: 'og:site_name', content: '쉽주' },
+      { name: 'twitter:card', content: 'summary_large_image' },
+      { name: 'twitter:title', content: '반값여행 주차 가이드 | 쉽주' },
+      {
+        name: 'twitter:description',
+        content:
+          '16개 지역 관광지별 주변 주차장 안내. 여행경비 50% 환급, 주차는 쉽주에서 미리 확인.',
+      },
+      { name: 'twitter:image', content: 'https://easy-parking.xyz/og-image.png' },
     ],
   }),
   component: HalfPriceTravelPage,
