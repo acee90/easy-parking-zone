@@ -29,8 +29,11 @@ export const Route = createFileRoute('/wiki/$slug')({
     const lot = loaderData?.lot
     if (!lot) return {}
     const slug = makeParkingSlug(lot.name, lot.id)
-    const title = `${lot.name} - 주차 난이도/요금/정보 | 쉬운주차장`
-    const desc = `${lot.name} (${lot.address}) 주차 난이도 ${getDifficultyLabel(lot.difficulty.score)}, ${lot.pricing.isFree ? '무료' : `기본 ${lot.pricing.baseTime}분 ${lot.pricing.baseFee.toLocaleString()}원`}. 리뷰 ${lot.difficulty.reviewCount}개.`
+    const title = `${lot.name} 주차 정보 | 쉽주`
+    const pricingText = lot.pricing.isFree
+      ? '무료 운영'
+      : `기본 ${lot.pricing.baseTime}분 ${lot.pricing.baseFee.toLocaleString()}원`
+    const desc = `${lot.address}에 있는 주차장. 난이도 ${getDifficultyLabel(lot.difficulty.score)}, ${pricingText}.${lot.difficulty.reviewCount > 0 ? ` 이용자 평가 ${lot.difficulty.reviewCount}건.` : ''}`
     const jsonLd = {
       '@context': 'https://schema.org',
       '@type': 'ParkingFacility',
@@ -72,10 +75,13 @@ export const Route = createFileRoute('/wiki/$slug')({
         { property: 'og:title', content: title },
         { property: 'og:description', content: desc },
         { property: 'og:type', content: 'article' },
-        {
-          property: 'og:url',
-          content: `https://easy-parking.xyz/wiki/${slug}`,
-        },
+        { property: 'og:url', content: `https://easy-parking.xyz/wiki/${slug}` },
+        { property: 'og:image', content: 'https://easy-parking.xyz/og-image.png' },
+        { property: 'og:site_name', content: '쉽주' },
+        { name: 'twitter:card', content: 'summary_large_image' },
+        { name: 'twitter:title', content: title },
+        { name: 'twitter:description', content: desc },
+        { name: 'twitter:image', content: 'https://easy-parking.xyz/og-image.png' },
       ],
       headScripts: [
         {

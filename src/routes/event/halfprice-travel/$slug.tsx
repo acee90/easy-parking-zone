@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { ChevronRight, Clock, ExternalLink, Info, MapPin, Navigation } from 'lucide-react'
+import { ChevronRight, ExternalLink, Info, MapPin, Navigation } from 'lucide-react'
 import { getDifficultyColor, getDifficultyIcon } from '@/lib/geo-utils'
 import { findRegion } from '@/lib/regions'
 import { makeParkingSlug } from '@/lib/slug'
@@ -13,16 +13,30 @@ export const Route = createFileRoute('/event/halfprice-travel/$slug')({
     const name = region?.name ?? params.slug
     return {
       meta: [
-        { title: `${name} 반값여행 가이드 — 관광지 + 주차 안내 | 쉬운주차장` },
+        { title: `${name} 반값여행 주차 가이드 | 쉽주` },
         {
           name: 'description',
-          content: `${name} 반값여행 관광지와 주변 주차장 정보. 여행경비 50% 환급받고 주차 걱정 없이 여행하세요.`,
+          content: `${name} 관광지별 주변 주차장 정보. 난이도와 요금까지 한눈에 확인하고 여행 준비를 마치세요.`,
         },
-        { property: 'og:title', content: `${name} 반값여행 가이드 | 쉬운주차장` },
+        { property: 'og:title', content: `${name} 반값여행 주차 가이드 | 쉽주` },
+        {
+          property: 'og:description',
+          content: `${name} 관광지별 주변 주차장 정보. 난이도와 요금까지 한눈에 확인하고 여행 준비를 마치세요.`,
+        },
+        { property: 'og:type', content: 'article' },
         {
           property: 'og:url',
           content: `https://easy-parking.xyz/event/halfprice-travel/${params.slug}`,
         },
+        { property: 'og:image', content: 'https://easy-parking.xyz/og-image.png' },
+        { property: 'og:site_name', content: '쉽주' },
+        { name: 'twitter:card', content: 'summary_large_image' },
+        { name: 'twitter:title', content: `${name} 반값여행 주차 가이드 | 쉽주` },
+        {
+          name: 'twitter:description',
+          content: `${name} 관광지별 주변 주차장 정보. 난이도와 요금까지 한눈에 확인하고 여행 준비를 마치세요.`,
+        },
+        { name: 'twitter:image', content: 'https://easy-parking.xyz/og-image.png' },
       ],
     }
   },
