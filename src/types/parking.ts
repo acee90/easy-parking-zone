@@ -41,6 +41,8 @@ export interface ParkingLot {
   curationReason?: string // 큐레이션 사유
   featuredSource?: string // 출처 (e.g. '1010' = 10시10분 채널)
   verifiedSource?: string // 검증 출처 ('public_api' | 'kakao_detail' | 'naver_detail')
+  aiSummary?: string // AI가 블로그/리뷰를 정리한 한 줄 요약
+  aiSummaryUpdatedAt?: string
 }
 
 export interface Place {

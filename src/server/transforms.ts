@@ -50,6 +50,8 @@ export interface ParkingLotRow {
   review_count: number
   reliability: string | null
   verified_source: string | null
+  ai_summary?: string | null
+  ai_summary_updated_at?: string | null
 }
 
 export function rowToParkingLot(row: ParkingLotRow): ParkingLot {
@@ -90,6 +92,8 @@ export function rowToParkingLot(row: ParkingLotRow): ParkingLot {
     curationReason: row.curation_reason ?? undefined,
     featuredSource: row.featured_source ?? undefined,
     verifiedSource: row.verified_source ?? undefined,
+    aiSummary: row.ai_summary ?? undefined,
+    aiSummaryUpdatedAt: row.ai_summary_updated_at ?? undefined,
   }
 }
 

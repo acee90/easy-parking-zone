@@ -288,6 +288,21 @@ function WikiDetailPage() {
         </header>
 
         <div className="py-8 space-y-10">
+          {/* AI 요약 */}
+          {lot.aiSummary && (
+            <div className="rounded-2xl bg-white border border-stone-200 px-5 py-4">
+              <div className="flex items-center gap-1.5 mb-2">
+                <span className="text-[10px] font-semibold tracking-[0.15em] uppercase text-stone-400">
+                  AI가 정리한 이 주차장
+                </span>
+                <span className="text-[10px] text-stone-300">· 블로그·리뷰 기반</span>
+              </div>
+              <p className="text-sm leading-relaxed text-stone-700 whitespace-pre-line">
+                {lot.aiSummary}
+              </p>
+            </div>
+          )}
+
           {/* 큐레이션 사유 */}
           {lot.curationReason && (
             <div
