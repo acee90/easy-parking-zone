@@ -115,6 +115,18 @@ export function ParkingDetailPanel({
 
       {/* 상세 정보 */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+        {/* AI 요약 */}
+        {lot.aiSummary && (
+          <div className="rounded-lg border border-stone-200 bg-stone-50/60 px-3 py-2.5">
+            <div className="text-[10px] font-semibold tracking-wider uppercase text-stone-400 mb-1">
+              AI 요약
+            </div>
+            <p className="text-xs leading-relaxed text-stone-700 whitespace-pre-line">
+              {lot.aiSummary}
+            </p>
+          </div>
+        )}
+
         {/* 주소 */}
         <div className="flex items-start gap-2.5 text-sm">
           <MapPin className="size-4 shrink-0 mt-0.5 text-muted-foreground" />
