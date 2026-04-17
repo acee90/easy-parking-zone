@@ -8,6 +8,7 @@ import { Header } from '@/components/Header'
 import { MapErrorBoundary } from '@/components/MapErrorBoundary'
 import { MapView } from '@/components/MapView'
 import { MobileBottomPanel } from '@/components/MobileBottomPanel'
+import { MobileFilterSheet } from '@/components/MobileFilterSheet'
 import { ParkingCard } from '@/components/ParkingCard'
 import { ParkingDetailPanel } from '@/components/ParkingDetailPanel'
 import { ParkingSidebar } from '@/components/ParkingSidebar'
@@ -259,9 +260,9 @@ function App() {
           />
         </div>
 
-        {/* 필터 — 모바일 */}
+        {/* 필터 — 모바일 (버튼 → 시트) */}
         <div className="md:hidden absolute top-3 left-3 z-20 pointer-events-auto">
-          <FloatingFilters
+          <MobileFilterSheet
             filters={filters}
             onToggle={toggle}
             onToggleDifficulty={toggleDifficulty}
