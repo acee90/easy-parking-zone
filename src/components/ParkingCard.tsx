@@ -20,6 +20,12 @@ import {
 } from '@/lib/geo-utils'
 import type { ParkingLot } from '@/types/parking'
 
+const COLLAPSED_HEIGHT = 320
+const EXPANDED_HEIGHT_RATIO = 0.85
+const EXPAND_DRAG_THRESHOLD = 20
+const COLLAPSE_DRAG_THRESHOLD = 20
+const CLOSE_DRAG_THRESHOLD = 72
+
 interface ParkingCardProps {
   lot: ParkingLot | null
   onClose: () => void
@@ -30,9 +36,32 @@ interface ParkingCardProps {
 
 export function ParkingCard({ lot, onClose, userLat, userLng, userLocated }: ParkingCardProps) {
   const [isMobile, setIsMobile] = useState(true)
-  const [expanded, setExpanded] = useState(false)
+  const [sheetHeight, setSheetHeight] = useState(COLLAPSED_HEIGHT)
+  const [isDragging, setIsDragging] = useState(false)
   const prevLotId = useRef<string | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const dragStartY = useRef(0)
+  const dragStartHeight = useRef(COLLAPSED_HEIGHT)
+  const lastDragDelta = useRef(0)
+
+  const getExpandedHeight = useCallback(
+    () => Math.max(COLLAPSED_HEIGHT, Math.round(window.innerHeight * EXPANDED_HEIGHT_RATIO)),
+    [],
+  )
+
+  const clampHeight = useCallback(
+    (height: number) => Math.min(getExpandedHeight(), Math.max(COLLAPSED_HEIGHT, height)),
+    [getExpandedHeight],
+  )
+
+  const snapTo = useCallback(
+    (next: 'collapsed' | 'expanded') => {
+      setSheetHeight(next === 'expanded' ? getExpandedHeight() : COLLAPSED_HEIGHT)
+    },
+    [getExpandedHeight],
+  )
+
+  const isExpanded = sheetHeight > COLLAPSED_HEIGHT + 8
 
   useEffect(() => {
     const mql = window.matchMedia('(min-width: 768px)')
@@ -45,7 +74,8 @@ export function ParkingCard({ lot, onClose, userLat, userLng, userLocated }: Par
   // 새 주차장 선택 시 접힌 상태로 리셋 + 스크롤 맨 위로
   useEffect(() => {
     if (lot && lot.id !== prevLotId.current) {
-      setExpanded(false)
+      setIsDragging(false)
+      setSheetHeight(COLLAPSED_HEIGHT)
       prevLotId.current = lot.id
       scrollRef.current?.scrollTo(0, 0)
     }
@@ -60,38 +90,92 @@ export function ParkingCard({ lot, onClose, userLat, userLng, userLocated }: Par
     const el = scrollRef.current
     if (!el) return
     const st = el.scrollTop
-    if (!expanded && st > lastScrollTop.current) {
-      setExpanded(true)
+    if (!isDragging && !isExpanded && st > lastScrollTop.current) {
+      snapTo('expanded')
     }
     lastScrollTop.current = st
-  }, [expanded])
+  }, [isDragging, isExpanded, snapTo])
 
   const handleClose = useCallback(() => {
-    setExpanded(false)
+    setIsDragging(false)
+    setSheetHeight(COLLAPSED_HEIGHT)
     onClose()
   }, [onClose])
 
-  // 시트 전체 터치: 위로 스와이프 → 확장, 아래로 스와이프 → 닫기
-  const sheetTouchY = useRef(0)
-  const handleSheetTouchStart = useCallback((e: React.TouchEvent) => {
-    sheetTouchY.current = e.touches[0].clientY
-  }, [])
-  const handleSheetTouchEnd = useCallback(
-    (e: React.TouchEvent) => {
-      const dy = e.changedTouches[0].clientY - sheetTouchY.current
-      if (dy > 30) {
-        if (expanded) {
-          setExpanded(false)
-          scrollRef.current?.scrollTo(0, 0)
-        } else {
-          handleClose()
-        }
-      }
-      if (dy < -30 && !expanded) {
-        setExpanded(true)
-      }
+  useEffect(() => {
+    if (!isMobile) return
+
+    const handleResize = () => {
+      setSheetHeight((prev) => {
+        if (prev <= COLLAPSED_HEIGHT) return COLLAPSED_HEIGHT
+        return getExpandedHeight()
+      })
+    }
+
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [getExpandedHeight, isMobile])
+
+  const handleDragStart = useCallback(
+    (e: React.TouchEvent<HTMLButtonElement>) => {
+      dragStartY.current = e.touches[0].clientY
+      dragStartHeight.current = sheetHeight
+      lastDragDelta.current = 0
+      setIsDragging(true)
     },
-    [expanded, handleClose],
+    [sheetHeight],
+  )
+
+  const handleDragMove = useCallback(
+    (e: React.TouchEvent<HTMLButtonElement>) => {
+      if (!isDragging) return
+
+      const deltaY = e.touches[0].clientY - dragStartY.current
+      lastDragDelta.current = deltaY
+      setSheetHeight(clampHeight(dragStartHeight.current - deltaY))
+    },
+    [clampHeight, isDragging],
+  )
+
+  const handleDragEnd = useCallback(() => {
+    if (!isDragging) return
+
+    const dragDistance = lastDragDelta.current
+    const draggedUp = dragDistance < 0
+    const draggedDown = dragDistance > 0
+
+    setIsDragging(false)
+
+    if (dragStartHeight.current <= COLLAPSED_HEIGHT + 8 && dragDistance > CLOSE_DRAG_THRESHOLD) {
+      handleClose()
+      return
+    }
+
+    if (!isExpanded) {
+      if (draggedUp && Math.abs(dragDistance) >= EXPAND_DRAG_THRESHOLD) {
+        snapTo('expanded')
+        return
+      }
+
+      snapTo('collapsed')
+      return
+    }
+
+    if (draggedDown && dragDistance >= COLLAPSE_DRAG_THRESHOLD) {
+      snapTo('collapsed')
+      scrollRef.current?.scrollTo({ top: 0 })
+      return
+    }
+
+    snapTo('expanded')
+  }, [handleClose, isDragging, isExpanded, snapTo])
+
+  const handleHeaderClick = useCallback(
+    (_e: React.MouseEvent<HTMLButtonElement>) => {
+      if (isDragging) return
+      snapTo(isExpanded ? 'collapsed' : 'expanded')
+    },
+    [isDragging, isExpanded, snapTo],
   )
 
   if (!lot || !isMobile) return null
@@ -106,12 +190,11 @@ export function ParkingCard({ lot, onClose, userLat, userLng, userLocated }: Par
     <Sheet open={!!lot} onOpenChange={(open) => !open && handleClose()}>
       <SheetContent
         side="bottom"
-        className={`rounded-t-xl overflow-hidden flex flex-col ${
-          expanded ? 'max-h-[85vh]' : 'max-h-[320px]'
+        className={`rounded-t-xl overflow-hidden flex flex-col will-change-[height] ${
+          isDragging ? 'duration-0' : 'transition-[height] duration-300 ease-out'
         }`}
+        style={{ height: `${sheetHeight}px` }}
         showCloseButton={false}
-        onTouchStart={handleSheetTouchStart}
-        onTouchEnd={handleSheetTouchEnd}
       >
         <div
           ref={scrollRef}
@@ -120,25 +203,37 @@ export function ParkingCard({ lot, onClose, userLat, userLng, userLocated }: Par
         >
           {/* 드래그 핸들 + 타이틀 — sticky 고정 */}
           <div className="sticky top-0 z-10 bg-background">
-            <div className="flex items-center justify-between px-4 pt-1.5">
-              <div className="w-8" />
-              <div className="w-10 h-1 rounded-full bg-gray-300" />
-              <button
-                onClick={handleClose}
-                className="flex size-7 items-center justify-center rounded-full hover:bg-gray-100 active:bg-gray-200 transition-colors cursor-pointer"
-                aria-label="닫기"
-              >
-                <X className="size-4 text-muted-foreground" />
-              </button>
-            </div>
+            <button
+              type="button"
+              className="block w-full touch-none select-none"
+              onClick={handleHeaderClick}
+              onTouchEnd={handleDragEnd}
+              onTouchMove={handleDragMove}
+              onTouchStart={handleDragStart}
+              aria-label={isExpanded ? '상세 패널 접기' : '상세 패널 펼치기'}
+            >
+              <div className="flex items-center justify-between px-4 py-3">
+                <div className="w-8" />
+                <div className="w-10 h-1 rounded-full bg-gray-300" />
+                <div className="w-8" />
+              </div>
+            </button>
 
-            <SheetHeader className="[&]:p-0 [&]:px-4 [&]:pb-1">
-              <div className="flex items-center gap-2">
+            <SheetHeader className="[&]:p-0 [&]:px-4 [&]:pb-2">
+              <div className="flex items-center gap-2 pr-8">
                 <div
                   className={`size-3 rounded-full shrink-0 ${getDifficultyColor(lot.difficulty.score)}`}
                 />
                 <SheetTitle className="text-lg truncate">{lot.name}</SheetTitle>
               </div>
+              <button
+                type="button"
+                onClick={handleClose}
+                className="absolute top-7 right-4 flex size-7 items-center justify-center rounded-full hover:bg-gray-100 active:bg-gray-200 transition-colors cursor-pointer"
+                aria-label="닫기"
+              >
+                <X className="size-4 text-muted-foreground" />
+              </button>
               <SheetDescription className="sr-only">주차장 상세 정보</SheetDescription>
             </SheetHeader>
           </div>
