@@ -4,7 +4,9 @@
  * TanStack Start의 fetch 핸들러를 그대로 사용하면서
  * Cloudflare Workers Cron용 scheduled 핸들러를 추가.
  */
+
 import { createStartHandler, defaultStreamHandler } from '@tanstack/react-start/server'
+import { NodeHtmlMarkdown } from 'node-html-markdown'
 import { handleDdgScheduled, handleScheduled } from './scheduled'
 
 interface Env {
@@ -20,6 +22,8 @@ interface Env {
 const startHandler = createStartHandler(defaultStreamHandler)
 
 const API_CATALOG_PROFILE = 'https://www.rfc-editor.org/info/rfc9727'
+const MARKDOWN_CONTENT_TYPE = 'text/markdown; charset=utf-8'
+const HTML_ACCEPT_HEADER = 'text/html,application/xhtml+xml;q=1.0,*/*;q=0.8'
 
 const HOMEPAGE_DISCOVERY_LINKS = [
   `</.well-known/api-catalog>; rel="api-catalog"; type="application/linkset+json"; profile="${API_CATALOG_PROFILE}"`,
@@ -115,6 +119,100 @@ function buildApiDiscoveryDocument(request: Request) {
   }
 }
 
+function requestAcceptsMarkdown(request: Request) {
+  if (request.method !== 'GET' && request.method !== 'HEAD') {
+    return false
+  }
+
+  const accept = request.headers.get('Accept')?.toLowerCase() ?? ''
+  return accept.includes('text/markdown')
+}
+
+function canNegotiateMarkdown(pathname: string) {
+  return !pathname.startsWith('/api/') && pathname !== '/.well-known/api-catalog'
+}
+
+function cloneRequestForHtmlRendering(request: Request) {
+  const headers = new Headers(request.headers)
+  headers.set('Accept', HTML_ACCEPT_HEADER)
+  return new Request(request, { headers })
+}
+
+function appendVaryHeader(headers: Headers, value: string) {
+  const existing = headers.get('Vary')
+  if (!existing) {
+    headers.set('Vary', value)
+    return
+  }
+
+  const values = existing
+    .split(',')
+    .map((part) => part.trim().toLowerCase())
+    .filter(Boolean)
+
+  if (!values.includes(value.toLowerCase())) {
+    headers.set('Vary', `${existing}, ${value}`)
+  }
+}
+
+function estimateMarkdownTokens(markdown: string) {
+  return Math.max(1, Math.ceil(markdown.length / 4))
+}
+
+async function convertHtmlResponseToMarkdown(response: Response) {
+  const html = await response.text()
+  const markdown = NodeHtmlMarkdown.translate(html)
+  const headers = new Headers(response.headers)
+
+  headers.set('Content-Type', MARKDOWN_CONTENT_TYPE)
+  headers.set('x-markdown-tokens', String(estimateMarkdownTokens(markdown)))
+  headers.delete('Content-Length')
+  appendVaryHeader(headers, 'Accept')
+
+  return new Response(markdown, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  })
+}
+
+export async function withMarkdownNegotiation(request: Request, response: Response) {
+  const headers = new Headers(response.headers)
+  const contentType = headers.get('Content-Type')?.toLowerCase() ?? ''
+
+  if (!contentType.startsWith('text/html')) {
+    return response
+  }
+
+  appendVaryHeader(headers, 'Accept')
+
+  if (!requestAcceptsMarkdown(request)) {
+    return new Response(response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers,
+    })
+  }
+
+  if (request.method === 'HEAD') {
+    headers.set('Content-Type', MARKDOWN_CONTENT_TYPE)
+    headers.delete('Content-Length')
+    return new Response(null, {
+      status: response.status,
+      statusText: response.statusText,
+      headers,
+    })
+  }
+
+  return convertHtmlResponseToMarkdown(
+    new Response(response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers,
+    }),
+  )
+}
+
 export function withHomepageDiscoveryHeaders(request: Request, response: Response) {
   if (new URL(request.url).pathname !== '/') {
     return response
@@ -175,7 +273,10 @@ export default {
 
     if (url.pathname === '/docs/api') {
       const body = request.method === 'HEAD' ? null : buildApiDocsHtml(request)
-      return buildDiscoveryResponse(body, 'text/html; charset=utf-8')
+      return withMarkdownNegotiation(
+        request,
+        buildDiscoveryResponse(body, 'text/html; charset=utf-8'),
+      )
     }
 
     if (url.pathname === '/api/discovery') {
@@ -187,8 +288,14 @@ export default {
       return buildDiscoveryResponse(body, 'application/json; charset=utf-8')
     }
 
-    const response = await startHandler(request, env)
-    return withHomepageDiscoveryHeaders(request, response)
+    const renderRequest =
+      requestAcceptsMarkdown(request) && canNegotiateMarkdown(url.pathname)
+        ? cloneRequestForHtmlRendering(request)
+        : request
+
+    const response = await startHandler(renderRequest, env)
+    const discoveredResponse = withHomepageDiscoveryHeaders(request, response)
+    return withMarkdownNegotiation(request, discoveredResponse)
   },
   async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext) {
     // 매시 0분: 메인 파이프라인 (naver, youtube, brave, AI필터, 매칭, 스코어링)
