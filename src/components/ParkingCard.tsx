@@ -194,9 +194,6 @@ export function ParkingCard({ lot, onClose, userLat, userLng, userLocated }: Par
 
   if (!lot || !isMobile) return null
 
-  const icon = getDifficultyIcon(lot.difficulty.score)
-  const label = getDifficultyLabel(lot.difficulty.score)
-  const reliabilityBadge = getReliabilityBadge(lot.difficulty.reliability)
   const distance =
     userLocated && userLat && userLng ? getDistance(userLat, userLng, lot.lat, lot.lng) : null
 
@@ -226,12 +223,12 @@ export function ParkingCard({ lot, onClose, userLat, userLng, userLocated }: Par
                 onTouchStart={handleDragStart}
                 onTouchMove={handleDragMove}
                 onTouchEnd={handleDragEnd}
-                className="w-10 h-1 rounded-full bg-gray-300 hover:bg-gray-400 transition-colors cursor-grab active:cursor-grabbing"
+                className="w-10 h-1 rounded-full bg-gray-300 hover:bg-gray-400 transition-colors cursor-grab active:cursor-grabbing outline-none focus:outline-none"
                 aria-label="드래그하여 시트 크기 조절"
               />
               <button
                 onClick={handleClose}
-                className="flex size-7 items-center justify-center rounded-full hover:bg-gray-100 active:bg-gray-200 transition-colors cursor-pointer"
+                className="flex size-7 items-center justify-center rounded-full hover:bg-gray-100 active:bg-gray-200 transition-colors cursor-pointer outline-none focus:outline-none"
                 aria-label="닫기"
               >
                 <X className="size-4 text-muted-foreground" />
