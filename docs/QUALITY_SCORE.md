@@ -1,6 +1,6 @@
 # Quality Score
 
-> 최종 업데이트: 2026-04-02
+> 최종 업데이트: 2026-04-14
 
 코드 품질 기준과 기술 부채 관리 문서.
 
@@ -17,6 +17,7 @@
 ### Build Health
 
 - `bun --bun run build` — 빌드 성공 필수 (CI 게이트)
+- GitHub Actions CI — PR 시 자동 build/test 실행 (`.github/workflows/ci.yml`)
 - TypeScript strict mode — 타입 에러 0
 - Bundle size 모니터링 — `worker-entry` 889KB (주시)
 
@@ -46,8 +47,9 @@
 |----|------|--------|------|------|
 | TD-001 | worker-entry 번들 889KB | Medium | Open | 코드 스플리팅 검토 |
 | TD-002 | 어드민 SQL raw 쿼리 | Low | Open | Drizzle ORM 전환 검토 |
-| TD-003 | web_sources 레거시 컬럼 잔류 (is_positive) | Low | Open | is_ad 제거 완료(0029), is_positive 사용 여부 확인 후 제거 |
-| TD-004 | 테스트 커버리지 부족 | Medium | Open | 핵심 로직(scoring, sentiment) 우선 |
+| TD-003 | schema.ts의 isPositive 레거시 컬럼 | Low | Open | is_ad 제거 완료(0029), is_positive는 schema에 잔류 — 실제 사용 여부 확인 후 마이그레이션 제거 필요 |
+| TD-004 | 테스트 커버리지 부족 | Medium | Open | scoring.test.ts 257줄 추가(2026-04-13), 핵심 로직 일부 커버 — sentiment/transforms 확대 필요 |
+| TD-005 | 어드민 SQL raw 쿼리 (Drizzle 미전환) | Low | Open | admin.ts 일부 기능 raw SQL — Drizzle 전환 미완 |
 
 ## Quality Checklist (PR 전)
 

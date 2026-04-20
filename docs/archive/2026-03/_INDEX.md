@@ -33,3 +33,4 @@
 - `data-report-2026-03-10.md` — 3/10 데이터 수집 리포트 (1회성)
 - `velog-post-04.md` — 블로그 #4: Drizzle ORM 전환기 (발행 완료)
 - `poi-pipeline.md` — POI 파이프라인 v1 (poi-pipeline-v2.md로 대체)
+- `crawlers/crawlers-sentiment.analysis.md` — 감성분석 키워드 감쇠 분석 (#60, 2026-03-26, 100%)

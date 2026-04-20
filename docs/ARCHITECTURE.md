@@ -1,6 +1,6 @@
 # Architecture
 
-> 최종 업데이트: 2026-04-02
+> 최종 업데이트: 2026-04-14
 
 ## Overview
 
@@ -40,13 +40,14 @@ src/
   hooks/              # React 훅 (useGeolocation, useSuperCluster, useParkingFilters)
   lib/                # 유틸리티 (cn, geo-utils)
   routes/             # 파일 기반 라우팅 (TanStack Router)
+  routes/event/       # 이벤트 페이지 (반값여행 등)
   server/             # 서버 함수 (parking, admin, auth)
   server/crawlers/    # 크롤러 + AI 필터 + 매칭
   server/crawlers/lib/ # 공통 유틸 (scoring, sentiment, ai-filter)
   types/              # 타입 정의
   db/                 # Drizzle ORM 스키마 + D1 바인딩
 scripts/              # 배치 스크립트 (import, compute, crawl)
-migrations/           # D1 마이그레이션 SQL (0001~0029)
+migrations/           # D1 마이그레이션 SQL (0001~0033)
 docs/                 # 프로젝트 문서
 ```
 
@@ -69,6 +70,8 @@ parking_lots       # 주차장 마스터 (34,719건)
 parking_lot_stats  # 통합 스코어 (Bayesian)
 parking_media      # YouTube 미디어
 user_reviews       # 사용자 리뷰
+nearby_places      # 위키 주변 장소 (AI 추출, 0031)
+content_reports    # 콘텐츠 신고
 ```
 
 상세: [Crawling Pipeline](poi-pipeline-v2.md)
