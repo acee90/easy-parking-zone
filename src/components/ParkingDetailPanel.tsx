@@ -8,6 +8,7 @@ import {
   Navigation,
   ParkingSquare,
   Phone,
+  Star,
   ThumbsUp,
   X,
 } from 'lucide-react'
@@ -46,60 +47,74 @@ export function ParkingDetailPanel({
   const distance =
     userLocated && userLat && userLng ? getDistance(userLat, userLng, lot.lat, lot.lng) : null
 
+  const rating = lot.difficulty.score ?? 0
+  const hasImage = true // TODO: 실제 이미지 URL이 있으면 표시
+
   return (
     <div className="w-[360px] shrink-0 flex-col bg-white/95 backdrop-blur-sm rounded-xl shadow-lg border pointer-events-auto flex overflow-hidden animate-in slide-in-from-left-4 duration-150">
+      {/* 히어로 이미지 */}
+      <div className="relative shrink-0 h-40 bg-gradient-to-br from-blue-100 to-blue-50 flex items-center justify-center overflow-hidden">
+        <div className="absolute inset-0 opacity-10">
+          <ParkingSquare className="size-32 text-blue-500" />
+        </div>
+        <button
+          onClick={onClose}
+          className="absolute top-2 right-2 p-1.5 rounded-md bg-white/90 hover:bg-white shadow-sm transition-colors cursor-pointer z-10"
+        >
+          <X className="size-4 text-muted-foreground" />
+        </button>
+      </div>
+
       {/* 헤더 */}
       <div className="shrink-0 border-b px-4 py-4">
+        {/* 제목 + 평점 + 상태 */}
         <div className="flex items-start justify-between gap-2 mb-3">
-          <div className="flex items-center gap-2 min-w-0">
-            <div
-              className={`size-3 rounded-full shrink-0 ${getDifficultyColor(lot.difficulty.score)}`}
-            />
-            <h2 className="font-semibold text-base truncate">{lot.name}</h2>
+          <div className="flex-1 min-w-0">
+            <h2 className="font-bold text-lg mb-1.5">{lot.name}</h2>
+            {/* 평점 표시 */}
+            <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-0.5">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <Star
+                    key={i}
+                    className={`size-3.5 ${
+                      i <= Math.round(rating) ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'
+                    }`}
+                  />
+                ))}
+              </div>
+              <span className="text-sm font-semibold">{rating.toFixed(1)}</span>
+              {lot.difficulty.reviewCount > 0 && (
+                <span className="text-xs text-muted-foreground ml-0.5">
+                  리뷰 {lot.difficulty.reviewCount}개
+                </span>
+              )}
+            </div>
           </div>
-          <button
-            onClick={onClose}
-            className="shrink-0 p-1 rounded-md hover:bg-gray-100 transition-colors cursor-pointer"
-          >
-            <X className="size-4 text-muted-foreground" />
-          </button>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
+
+        {/* 상태 배지 */}
+        <div className="flex items-center gap-2 flex-wrap mb-3">
+          <Badge className="bg-green-500 hover:bg-green-600 text-white text-xs">주차 가능</Badge>
+          <Badge variant={lot.pricing.isFree ? 'default' : 'outline'} className="text-xs">
+            {lot.pricing.isFree ? '무료' : '유료'}
+          </Badge>
+          {lot.difficulty.score !== null && lot.difficulty.score >= 4.0 && (
+            <Badge className="text-xs gap-1 bg-green-100 text-green-700 hover:bg-green-100">
+              <ThumbsUp className="size-3" />
+              초보 추천
+            </Badge>
+          )}
           {lot.difficulty.score !== null && lot.difficulty.score < 2.0 && (
             <Badge variant="destructive" className="text-xs gap-1">
               <Flame className="size-3" />
               초보 주의
             </Badge>
           )}
-          {lot.difficulty.score !== null && lot.difficulty.score >= 4.0 && (
-            <Badge className="text-xs gap-1 bg-green-500 hover:bg-green-600">
-              <ThumbsUp className="size-3" />
-              초보 추천
-            </Badge>
-          )}
-          <Badge variant="secondary" className="text-sm">
-            {icon} {label}
-          </Badge>
-          {reliabilityBadge && (
-            <Badge variant="outline" className={`text-xs ${reliabilityBadge.className}`}>
-              {reliabilityBadge.label}
-            </Badge>
-          )}
-          <Badge variant={lot.pricing.isFree ? 'default' : 'outline'}>
-            {lot.pricing.isFree ? '무료' : '유료'}
-          </Badge>
-          {distance !== null && (
-            <span className="text-xs text-muted-foreground">
-              {distance < 1 ? `${Math.round(distance * 1000)}m` : `${distance.toFixed(1)}km`}
-            </span>
-          )}
-          {lot.difficulty.reviewCount > 0 && (
-            <span className="text-xs text-muted-foreground">
-              리뷰 {lot.difficulty.reviewCount}개
-            </span>
-          )}
         </div>
-        <div className="mt-2.5 flex items-center gap-2">
+
+        {/* 액션 버튼 */}
+        <div className="flex items-center gap-2">
           <NavigationButton lat={lot.lat} lng={lot.lng} name={lot.name} />
           <VoteBookmarkBar lotId={lot.id} />
           <Link
@@ -115,15 +130,32 @@ export function ParkingDetailPanel({
 
       {/* 상세 정보 */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
-        {/* AI 요약 */}
-        {lot.aiSummary && (
-          <div className="rounded-lg border border-stone-200 bg-stone-50/60 px-3 py-2.5">
-            <div className="text-[10px] font-semibold tracking-wider uppercase text-stone-400 mb-1">
-              AI 요약
+        {/* AI Summary */}
+        {lot.curationReason && (
+          <div
+            className={`rounded-lg px-3.5 py-3 text-sm space-y-1.5 ${
+              lot.difficulty.score !== null && lot.difficulty.score < 2.0
+                ? 'bg-red-50 border border-red-200'
+                : 'bg-blue-50 border border-blue-200'
+            }`}
+          >
+            <div className="font-semibold flex items-center gap-2">
+              {lot.difficulty.score !== null && lot.difficulty.score < 2.0 ? '⚠️' : '✨'} AI 요약
             </div>
-            <p className="text-xs leading-relaxed text-stone-700 whitespace-pre-line">
-              {lot.aiSummary}
+            <p
+              className={
+                lot.difficulty.score !== null && lot.difficulty.score < 2.0
+                  ? 'text-red-700'
+                  : 'text-blue-700'
+              }
+            >
+              {lot.curationReason}
             </p>
+            {lot.featuredSource === '1010' && (
+              <p className="text-xs text-muted-foreground mt-2 pt-2 border-t border-current border-opacity-20">
+                📺 10시10분 유튜브 채널에 소개된 주차장
+              </p>
+            )}
           </div>
         )}
 
@@ -200,25 +232,6 @@ export function ParkingDetailPanel({
           <p className="text-xs text-muted-foreground bg-gray-50 rounded-lg px-3 py-2">
             {lot.notes}
           </p>
-        )}
-
-        {/* 큐레이션 사유 */}
-        {lot.curationReason && (
-          <div
-            className={`text-xs rounded-lg px-3 py-2 ${
-              lot.difficulty.score !== null && lot.difficulty.score < 2.0
-                ? 'bg-red-50 text-red-700'
-                : 'bg-green-50 text-green-700'
-            }`}
-          >
-            {lot.difficulty.score !== null && lot.difficulty.score < 2.0 ? '⚠️' : '✅'}{' '}
-            {lot.curationReason}
-            {lot.featuredSource === '1010' && (
-              <span className="block mt-1 text-muted-foreground">
-                📺 10시10분 유튜브에 소개된 주차장
-              </span>
-            )}
-          </div>
         )}
 
         {/* 탭 영역 */}

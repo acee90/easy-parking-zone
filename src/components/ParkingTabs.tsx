@@ -31,9 +31,9 @@ function BlogPostCard({ post, lotId }: { post: BlogPost; lotId: string }) {
   return (
     <div className="relative rounded-lg border px-3 py-2.5 hover:bg-gray-50 transition-colors">
       <a href={post.sourceUrl} target="_blank" rel="noopener noreferrer" className="block">
-        <p className="text-xs font-medium text-gray-900 line-clamp-1 mb-1 pr-6">{post.title}</p>
-        <p className="text-xs text-gray-600 line-clamp-2 leading-relaxed mb-1.5">{post.snippet}</p>
-        <p className="text-[11px] text-muted-foreground">
+        <p className="text-sm font-medium text-gray-900 line-clamp-1 mb-1 pr-6">{post.title}</p>
+        <p className="text-sm text-gray-600 line-clamp-2 leading-relaxed mb-1.5">{post.snippet}</p>
+        <p className="text-xs text-muted-foreground">
           {sourceLabel} · {post.author}
           {post.publishedAt && ` · ${post.publishedAt.slice(0, 10)}`}
         </p>
@@ -81,20 +81,20 @@ function UserReviewCard({
           ) : (
             <User className="size-4 text-muted-foreground" />
           )}
-          <span className="text-xs font-medium">{review.author.nickname}</span>
+          <span className="text-sm font-medium">{review.author.nickname}</span>
           {review.sourceType &&
             (review.sourceUrl ? (
               <a
                 href={review.sourceUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-0.5 rounded-full bg-orange-50 px-1.5 py-0.5 text-[10px] font-medium text-orange-600 hover:bg-orange-100 transition-colors"
+                className="inline-flex items-center gap-0.5 rounded-full bg-orange-50 px-1.5 py-0.5 text-xs font-medium text-orange-600 hover:bg-orange-100 transition-colors"
               >
                 {REVIEW_SOURCE_LABELS[review.sourceType] ?? review.sourceType}
                 <ExternalLink className="size-2.5" />
               </a>
             ) : (
-              <span className="inline-flex items-center rounded-full bg-orange-50 px-1.5 py-0.5 text-[10px] font-medium text-orange-600">
+              <span className="inline-flex items-center rounded-full bg-orange-50 px-1.5 py-0.5 text-xs font-medium text-orange-600">
                 {REVIEW_SOURCE_LABELS[review.sourceType] ?? review.sourceType}
               </span>
             ))}
@@ -108,10 +108,10 @@ function UserReviewCard({
               />
             ))}
           </div>
-          <span className="text-[11px] text-muted-foreground">{review.createdAt.slice(0, 10)}</span>
+          <span className="text-xs text-muted-foreground">{review.createdAt.slice(0, 10)}</span>
         </div>
       </div>
-      {review.comment && <p className="text-xs text-gray-700 leading-relaxed">{review.comment}</p>}
+      {review.comment && <p className="text-sm text-gray-700 leading-relaxed">{review.comment}</p>}
       <div className="flex items-center justify-end gap-2 mt-1">
         {!review.isMine && (
           <ReportButton targetType="review" targetId={review.id} parkingLotId={lotId} />
@@ -119,7 +119,7 @@ function UserReviewCard({
         {review.isMine && onDelete && (
           <button
             onClick={onDelete}
-            className="text-[11px] text-red-400 hover:text-red-600 cursor-pointer"
+            className="text-xs text-red-400 hover:text-red-600 cursor-pointer"
           >
             삭제
           </button>
@@ -177,12 +177,12 @@ function ReviewForm({
           onChange={(e) => setGuestNickname(e.target.value)}
           placeholder="닉네임 (선택)"
           maxLength={20}
-          className="w-full rounded-md border px-2.5 py-1.5 text-xs"
+          className="w-full rounded-md border px-2.5 py-1.5 text-sm"
         />
       )}
 
       <div className="flex items-center justify-between">
-        <span className="text-xs font-medium">초보 추천도</span>
+        <span className="text-sm font-medium">초보 추천도</span>
         <StarRating value={overallScore} onChange={setOverallScore} />
       </div>
 
@@ -192,21 +192,21 @@ function ReviewForm({
         maxLength={200}
         rows={2}
         placeholder="진입로, 주차면 크기, 통로 여유, 출차 난이도 등 경험을 적어주세요"
-        className="w-full rounded-md border px-2.5 py-1.5 text-xs resize-none"
+        className="w-full rounded-md border px-2.5 py-1.5 text-sm resize-none"
       />
 
-      {error && <p className="text-xs text-red-500">{error}</p>}
+      {error && <p className="text-sm text-red-500">{error}</p>}
 
       <button
         onClick={handleSubmit}
         disabled={overallScore < 1 || submitting}
-        className="w-full rounded-md bg-blue-500 py-2 text-xs font-medium text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors"
+        className="w-full rounded-md bg-blue-500 py-2 text-sm font-medium text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors"
       >
         {submitting ? '등록 중...' : '등록하기'}
       </button>
 
       {!session && (
-        <p className="text-[11px] text-muted-foreground text-center">
+        <p className="text-xs text-muted-foreground text-center">
           로그인하면 리뷰를 수정/삭제할 수 있어요
         </p>
       )}
@@ -360,7 +360,7 @@ export function ParkingTabs({ lotId, expanded }: ParkingTabsProps) {
               <button
                 key={key}
                 onClick={() => setActiveTab(key)}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium border-b-2 transition-colors cursor-pointer ${
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-sm font-medium border-b-2 transition-colors cursor-pointer ${
                   activeTab === key
                     ? 'border-blue-500 text-blue-600'
                     : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -370,7 +370,7 @@ export function ParkingTabs({ lotId, expanded }: ParkingTabsProps) {
                 {label}
                 {count > 0 && (
                   <span
-                    className={`text-[10px] rounded-full px-1.5 py-0.5 ${
+                    className={`text-xs rounded-full px-1.5 py-0.5 ${
                       activeTab === key ? 'bg-blue-50 text-blue-600' : 'bg-zinc-100 text-zinc-500'
                     }`}
                   >
@@ -390,11 +390,11 @@ export function ParkingTabs({ lotId, expanded }: ParkingTabsProps) {
         {/* 데스크톱: 모든 섹션 펼침 */}
         <div className="hidden md:block space-y-6">
           <section>
-            <h3 className="flex items-center gap-1.5 font-semibold text-sm mb-3">
+            <h3 className="flex items-center gap-1.5 font-semibold text-base mb-3">
               <MessageSquare className="size-4" />
               리뷰
               {tabCounts.reviews > 0 && (
-                <span className="text-xs text-muted-foreground font-normal">
+                <span className="text-sm text-muted-foreground font-normal">
                   ({tabCounts.reviews})
                 </span>
               )}
@@ -402,11 +402,11 @@ export function ParkingTabs({ lotId, expanded }: ParkingTabsProps) {
             {renderReviews()}
           </section>
           <section>
-            <h3 className="flex items-center gap-1.5 font-semibold text-sm mb-3">
+            <h3 className="flex items-center gap-1.5 font-semibold text-base mb-3">
               <Play className="size-4" />
               영상
               {tabCounts.media > 0 && (
-                <span className="text-xs text-muted-foreground font-normal">
+                <span className="text-sm text-muted-foreground font-normal">
                   ({tabCounts.media})
                 </span>
               )}
@@ -414,11 +414,11 @@ export function ParkingTabs({ lotId, expanded }: ParkingTabsProps) {
             {renderMedia()}
           </section>
           <section>
-            <h3 className="flex items-center gap-1.5 font-semibold text-sm mb-3">
+            <h3 className="flex items-center gap-1.5 font-semibold text-base mb-3">
               <FileText className="size-4" />
               웹사이트
               {tabCounts.blog > 0 && (
-                <span className="text-xs text-muted-foreground font-normal">
+                <span className="text-sm text-muted-foreground font-normal">
                   ({tabCounts.blog})
                 </span>
               )}
@@ -473,7 +473,7 @@ export function ParkingTabs({ lotId, expanded }: ParkingTabsProps) {
           <div className="flex justify-end mb-2.5">
             <button
               onClick={() => setShowReviewForm(true)}
-              className="flex items-center gap-1 text-xs text-blue-500 hover:text-blue-600 cursor-pointer"
+              className="flex items-center gap-1 text-sm text-blue-500 hover:text-blue-600 cursor-pointer"
             >
               <Pen className="size-3" />
               리뷰 쓰기
@@ -486,7 +486,7 @@ export function ParkingTabs({ lotId, expanded }: ParkingTabsProps) {
             <ReviewForm key={reviewKey} parkingLotId={lotId} onSubmitted={refreshReviews} />
             <button
               onClick={() => setShowReviewForm(false)}
-              className="mt-2 w-full text-xs text-muted-foreground hover:text-foreground cursor-pointer"
+              className="mt-2 w-full text-sm text-muted-foreground hover:text-foreground cursor-pointer"
             >
               취소
             </button>
@@ -514,7 +514,7 @@ export function ParkingTabs({ lotId, expanded }: ParkingTabsProps) {
           </div>
         ) : (
           !showReviewForm && (
-            <p className="text-xs text-muted-foreground text-center py-6">
+            <p className="text-sm text-muted-foreground text-center py-6">
               아직 리뷰가 없습니다. 첫 리뷰를 남겨보세요!
             </p>
           )
@@ -547,11 +547,11 @@ export function ParkingTabs({ lotId, expanded }: ParkingTabsProps) {
                     />
                   )}
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-medium text-gray-900 line-clamp-2 mb-1 pr-5">
+                    <p className="text-sm font-medium text-gray-900 line-clamp-2 mb-1 pr-5">
                       {m.title ? decodeHtmlEntities(m.title) : ''}
                     </p>
                     {m.description && (
-                      <p className="text-[11px] text-muted-foreground line-clamp-2">
+                      <p className="text-xs text-muted-foreground line-clamp-2">
                         {decodeHtmlEntities(m.description)}
                       </p>
                     )}
@@ -566,10 +566,10 @@ export function ParkingTabs({ lotId, expanded }: ParkingTabsProps) {
         ) : loadingTabs.has('media') ? (
           <div className="flex items-center justify-center gap-1.5 py-6">
             <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
-            <span className="text-xs text-muted-foreground">불러오는 중...</span>
+            <span className="text-sm text-muted-foreground">불러오는 중...</span>
           </div>
         ) : (
-          <p className="text-xs text-muted-foreground text-center py-6">관련 영상이 없습니다</p>
+          <p className="text-sm text-muted-foreground text-center py-6">관련 영상이 없습니다</p>
         )}
       </div>
     )
@@ -587,7 +587,7 @@ export function ParkingTabs({ lotId, expanded }: ParkingTabsProps) {
               <button
                 onClick={loadMoreBlog}
                 disabled={blogLoadingMore}
-                className="w-full py-2 text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center justify-center gap-1.5"
+                className="w-full py-2 text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center justify-center gap-1.5"
               >
                 {blogLoadingMore ? (
                   <>
@@ -604,10 +604,10 @@ export function ParkingTabs({ lotId, expanded }: ParkingTabsProps) {
         ) : loadingTabs.has('blog') ? (
           <div className="flex items-center justify-center gap-1.5 py-6">
             <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
-            <span className="text-xs text-muted-foreground">불러오는 중...</span>
+            <span className="text-sm text-muted-foreground">불러오는 중...</span>
           </div>
         ) : (
-          <p className="text-xs text-muted-foreground text-center py-6">
+          <p className="text-sm text-muted-foreground text-center py-6">
             관련 웹사이트 글이 없습니다
           </p>
         )}

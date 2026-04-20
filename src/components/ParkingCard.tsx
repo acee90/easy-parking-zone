@@ -1,4 +1,4 @@
-import { Clock, CreditCard, Flame, MapPin, Phone, Tag, ThumbsUp, X } from 'lucide-react'
+import { Clock, CreditCard, Flame, MapPin, Phone, Star, Tag, ThumbsUp, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { NavigationButton } from '@/components/NavigationButton'
 import { ParkingTabs } from '@/components/ParkingTabs'
@@ -20,12 +20,6 @@ import {
 } from '@/lib/geo-utils'
 import type { ParkingLot } from '@/types/parking'
 
-const COLLAPSED_HEIGHT = 320
-const EXPANDED_HEIGHT_RATIO = 0.85
-const EXPAND_DRAG_THRESHOLD = 20
-const COLLAPSE_DRAG_THRESHOLD = 20
-const CLOSE_DRAG_THRESHOLD = 72
-
 interface ParkingCardProps {
   lot: ParkingLot | null
   onClose: () => void
@@ -36,32 +30,9 @@ interface ParkingCardProps {
 
 export function ParkingCard({ lot, onClose, userLat, userLng, userLocated }: ParkingCardProps) {
   const [isMobile, setIsMobile] = useState(true)
-  const [sheetHeight, setSheetHeight] = useState(COLLAPSED_HEIGHT)
-  const [isDragging, setIsDragging] = useState(false)
+  const [expanded, setExpanded] = useState(false)
   const prevLotId = useRef<string | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
-  const dragStartY = useRef(0)
-  const dragStartHeight = useRef(COLLAPSED_HEIGHT)
-  const lastDragDelta = useRef(0)
-
-  const getExpandedHeight = useCallback(
-    () => Math.max(COLLAPSED_HEIGHT, Math.round(window.innerHeight * EXPANDED_HEIGHT_RATIO)),
-    [],
-  )
-
-  const clampHeight = useCallback(
-    (height: number) => Math.min(getExpandedHeight(), Math.max(COLLAPSED_HEIGHT, height)),
-    [getExpandedHeight],
-  )
-
-  const snapTo = useCallback(
-    (next: 'collapsed' | 'expanded') => {
-      setSheetHeight(next === 'expanded' ? getExpandedHeight() : COLLAPSED_HEIGHT)
-    },
-    [getExpandedHeight],
-  )
-
-  const isExpanded = sheetHeight > COLLAPSED_HEIGHT + 8
 
   useEffect(() => {
     const mql = window.matchMedia('(min-width: 768px)')
@@ -74,8 +45,7 @@ export function ParkingCard({ lot, onClose, userLat, userLng, userLocated }: Par
   // 새 주차장 선택 시 접힌 상태로 리셋 + 스크롤 맨 위로
   useEffect(() => {
     if (lot && lot.id !== prevLotId.current) {
-      setIsDragging(false)
-      setSheetHeight(COLLAPSED_HEIGHT)
+      setExpanded(false)
       prevLotId.current = lot.id
       scrollRef.current?.scrollTo(0, 0)
     }
@@ -90,92 +60,38 @@ export function ParkingCard({ lot, onClose, userLat, userLng, userLocated }: Par
     const el = scrollRef.current
     if (!el) return
     const st = el.scrollTop
-    if (!isDragging && !isExpanded && st > lastScrollTop.current) {
-      snapTo('expanded')
+    if (!expanded && st > lastScrollTop.current) {
+      setExpanded(true)
     }
     lastScrollTop.current = st
-  }, [isDragging, isExpanded, snapTo])
+  }, [expanded])
 
   const handleClose = useCallback(() => {
-    setIsDragging(false)
-    setSheetHeight(COLLAPSED_HEIGHT)
+    setExpanded(false)
     onClose()
   }, [onClose])
 
-  useEffect(() => {
-    if (!isMobile) return
-
-    const handleResize = () => {
-      setSheetHeight((prev) => {
-        if (prev <= COLLAPSED_HEIGHT) return COLLAPSED_HEIGHT
-        return getExpandedHeight()
-      })
-    }
-
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
-  }, [getExpandedHeight, isMobile])
-
-  const handleDragStart = useCallback(
-    (e: React.TouchEvent<HTMLButtonElement>) => {
-      dragStartY.current = e.touches[0].clientY
-      dragStartHeight.current = sheetHeight
-      lastDragDelta.current = 0
-      setIsDragging(true)
-    },
-    [sheetHeight],
-  )
-
-  const handleDragMove = useCallback(
-    (e: React.TouchEvent<HTMLButtonElement>) => {
-      if (!isDragging) return
-
-      const deltaY = e.touches[0].clientY - dragStartY.current
-      lastDragDelta.current = deltaY
-      setSheetHeight(clampHeight(dragStartHeight.current - deltaY))
-    },
-    [clampHeight, isDragging],
-  )
-
-  const handleDragEnd = useCallback(() => {
-    if (!isDragging) return
-
-    const dragDistance = lastDragDelta.current
-    const draggedUp = dragDistance < 0
-    const draggedDown = dragDistance > 0
-
-    setIsDragging(false)
-
-    if (dragStartHeight.current <= COLLAPSED_HEIGHT + 8 && dragDistance > CLOSE_DRAG_THRESHOLD) {
-      handleClose()
-      return
-    }
-
-    if (!isExpanded) {
-      if (draggedUp && Math.abs(dragDistance) >= EXPAND_DRAG_THRESHOLD) {
-        snapTo('expanded')
-        return
+  // 시트 전체 터치: 위로 스와이프 → 확장, 아래로 스와이프 → 닫기
+  const sheetTouchY = useRef(0)
+  const handleSheetTouchStart = useCallback((e: React.TouchEvent) => {
+    sheetTouchY.current = e.touches[0].clientY
+  }, [])
+  const handleSheetTouchEnd = useCallback(
+    (e: React.TouchEvent) => {
+      const dy = e.changedTouches[0].clientY - sheetTouchY.current
+      if (dy > 30) {
+        if (expanded) {
+          setExpanded(false)
+          scrollRef.current?.scrollTo(0, 0)
+        } else {
+          handleClose()
+        }
       }
-
-      snapTo('collapsed')
-      return
-    }
-
-    if (draggedDown && dragDistance >= COLLAPSE_DRAG_THRESHOLD) {
-      snapTo('collapsed')
-      scrollRef.current?.scrollTo({ top: 0 })
-      return
-    }
-
-    snapTo('expanded')
-  }, [handleClose, isDragging, isExpanded, snapTo])
-
-  const handleHeaderClick = useCallback(
-    (_e: React.MouseEvent<HTMLButtonElement>) => {
-      if (isDragging) return
-      snapTo(isExpanded ? 'collapsed' : 'expanded')
+      if (dy < -30 && !expanded) {
+        setExpanded(true)
+      }
     },
-    [isDragging, isExpanded, snapTo],
+    [expanded, handleClose],
   )
 
   if (!lot || !isMobile) return null
@@ -190,11 +106,12 @@ export function ParkingCard({ lot, onClose, userLat, userLng, userLocated }: Par
     <Sheet open={!!lot} onOpenChange={(open) => !open && handleClose()}>
       <SheetContent
         side="bottom"
-        className={`rounded-t-xl overflow-hidden flex flex-col will-change-[height] ${
-          isDragging ? 'duration-0' : 'transition-[height] duration-300 ease-out'
+        className={`rounded-t-xl overflow-hidden flex flex-col ${
+          expanded ? 'max-h-[85vh]' : 'max-h-[320px]'
         }`}
-        style={{ height: `${sheetHeight}px` }}
         showCloseButton={false}
+        onTouchStart={handleSheetTouchStart}
+        onTouchEnd={handleSheetTouchEnd}
       >
         <div
           ref={scrollRef}
@@ -203,42 +120,75 @@ export function ParkingCard({ lot, onClose, userLat, userLng, userLocated }: Par
         >
           {/* 드래그 핸들 + 타이틀 — sticky 고정 */}
           <div className="sticky top-0 z-10 bg-background">
-            <button
-              type="button"
-              className="block w-full touch-none select-none"
-              onClick={handleHeaderClick}
-              onTouchEnd={handleDragEnd}
-              onTouchMove={handleDragMove}
-              onTouchStart={handleDragStart}
-              aria-label={isExpanded ? '상세 패널 접기' : '상세 패널 펼치기'}
-            >
-              <div className="flex items-center justify-between px-4 py-3">
-                <div className="w-8" />
-                <div className="w-10 h-1 rounded-full bg-gray-300" />
-                <div className="w-8" />
-              </div>
-            </button>
-
-            <SheetHeader className="[&]:p-0 [&]:px-4 [&]:pb-2">
-              <div className="flex items-center gap-2 pr-8">
-                <div
-                  className={`size-3 rounded-full shrink-0 ${getDifficultyColor(lot.difficulty.score)}`}
-                />
-                <SheetTitle className="text-lg truncate">{lot.name}</SheetTitle>
-              </div>
+            <div className="flex items-center justify-between px-4 pt-1.5">
+              <div className="w-8" />
+              <div className="w-10 h-1 rounded-full bg-gray-300" />
               <button
-                type="button"
                 onClick={handleClose}
-                className="absolute top-7 right-4 flex size-7 items-center justify-center rounded-full hover:bg-gray-100 active:bg-gray-200 transition-colors cursor-pointer"
+                className="flex size-7 items-center justify-center rounded-full hover:bg-gray-100 active:bg-gray-200 transition-colors cursor-pointer"
                 aria-label="닫기"
               >
                 <X className="size-4 text-muted-foreground" />
               </button>
+            </div>
+
+            <SheetHeader className="[&]:p-0 [&]:px-4 [&]:pb-2">
+              <SheetTitle className="text-lg font-bold mb-1">{lot.name}</SheetTitle>
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* 별점 */}
+                <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-0.5">
+                    {[1, 2, 3, 4, 5].map((i) => {
+                      const rating = lot.difficulty.score ?? 0
+                      return (
+                        <Star
+                          key={i}
+                          className={`size-3 ${
+                            i <= Math.round(rating)
+                              ? 'fill-yellow-400 text-yellow-400'
+                              : 'text-gray-300'
+                          }`}
+                        />
+                      )
+                    })}
+                  </div>
+                  <span className="text-xs font-semibold">
+                    {(lot.difficulty.score ?? 0).toFixed(1)}
+                  </span>
+                </div>
+                <Badge className="bg-green-500 hover:bg-green-600 text-white text-xs">
+                  주차 가능
+                </Badge>
+              </div>
               <SheetDescription className="sr-only">주차장 상세 정보</SheetDescription>
             </SheetHeader>
           </div>
 
           <div className="px-4 pb-4 space-y-3">
+            {/* AI Summary */}
+            {lot.curationReason && (
+              <div
+                className={`rounded-lg px-3 py-2.5 text-xs space-y-1 ${
+                  lot.difficulty.score !== null && lot.difficulty.score < 2.0
+                    ? 'bg-red-50 border border-red-200'
+                    : 'bg-blue-50 border border-blue-200'
+                }`}
+              >
+                <div className="font-semibold flex items-center gap-1">
+                  {lot.difficulty.score !== null && lot.difficulty.score < 2.0 ? '⚠️' : '✨'} 요약
+                </div>
+                <p
+                  className={
+                    lot.difficulty.score !== null && lot.difficulty.score < 2.0
+                      ? 'text-red-700'
+                      : 'text-blue-700'
+                  }
+                >
+                  {lot.curationReason}
+                </p>
+              </div>
+            )}
+
             {/* 난이도 배지 */}
             <div className="flex items-center gap-2 flex-wrap">
               {lot.difficulty.score !== null && lot.difficulty.score < 2.0 && (
