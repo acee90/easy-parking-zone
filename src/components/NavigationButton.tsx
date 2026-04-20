@@ -6,6 +6,7 @@ interface NavigationButtonProps {
   lat: number
   lng: number
   name: string
+  buttonClassName?: string
 }
 
 const APP_ICONS: Record<NavApp, string> = {
@@ -14,7 +15,7 @@ const APP_ICONS: Record<NavApp, string> = {
   tmap: '🔵',
 }
 
-export function NavigationButton({ lat, lng, name }: NavigationButtonProps) {
+export function NavigationButton({ lat, lng, name, buttonClassName }: NavigationButtonProps) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -51,7 +52,7 @@ export function NavigationButton({ lat, lng, name }: NavigationButtonProps) {
         aria-expanded={open}
         aria-haspopup="menu"
         onClick={() => setOpen((v) => !v)}
-        className="inline-flex items-center gap-1.5 rounded-lg bg-blue-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-600 active:bg-blue-700 transition-colors cursor-pointer"
+        className={`inline-flex items-center gap-1.5 rounded-lg bg-blue-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-600 active:bg-blue-700 transition-colors cursor-pointer ${buttonClassName || ''}`}
       >
         <Navigation className="size-3" />
         길찾기

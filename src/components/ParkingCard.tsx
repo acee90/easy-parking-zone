@@ -239,7 +239,12 @@ export function ParkingCard({ lot, onClose, userLat, userLng, userLocated }: Par
             </div>
 
             <SheetHeader className="[&]:p-0 [&]:px-4 [&]:pb-2">
-              <SheetTitle className="text-lg font-bold mb-2">{lot.name}</SheetTitle>
+              <SheetTitle className="text-lg font-bold mb-2 flex items-center gap-2">
+                <div
+                  className={`size-2.5 rounded-full shrink-0 ${getDifficultyColor(lot.difficulty.score)}`}
+                />
+                {lot.name}
+              </SheetTitle>
               {/* 헤더 한 줄: 별점 + 거리 + 주차가능 배지 */}
               <div className="flex items-center gap-2 flex-wrap text-xs">
                 <div className="flex items-center gap-1">
@@ -301,14 +306,6 @@ export function ParkingCard({ lot, onClose, userLat, userLng, userLocated }: Par
               <Badge variant={lot.pricing.isFree ? 'default' : 'outline'}>
                 {lot.pricing.isFree ? '무료' : '유료'}
               </Badge>
-              <Badge variant="secondary">
-                {icon} {label}
-              </Badge>
-              {reliabilityBadge && (
-                <Badge variant="outline" className={reliabilityBadge.className}>
-                  {reliabilityBadge.label}
-                </Badge>
-              )}
               {lot.difficulty.reviewCount > 0 && (
                 <span className="text-muted-foreground">리뷰 {lot.difficulty.reviewCount}개</span>
               )}
@@ -327,16 +324,23 @@ export function ParkingCard({ lot, onClose, userLat, userLng, userLocated }: Par
             </div>
 
             {/* 액션 버튼 영역 */}
-            <div className="grid grid-cols-2 gap-2">
-              <NavigationButton lat={lot.lat} lng={lot.lng} name={lot.name} />
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <NavigationButton
+                  lat={lot.lat}
+                  lng={lot.lng}
+                  name={lot.name}
+                  buttonClassName="w-full justify-center py-2 text-sm"
+                />
+              </div>
               <Link
                 to="/wiki/$slug"
                 params={{ slug: makeParkingSlug(lot.name, lot.id) }}
                 onClick={handleClose}
-                className="flex items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-gray-50 transition-colors"
+                className="shrink-0 flex items-center gap-1 rounded-lg border border-border px-3 py-2 text-xs text-muted-foreground hover:bg-gray-50 transition-colors"
               >
-                <ExternalLink className="size-4" />
-                <span>자세히 보기</span>
+                <ExternalLink className="size-3.5" />
+                자세히보기
               </Link>
             </div>
 
@@ -344,16 +348,16 @@ export function ParkingCard({ lot, onClose, userLat, userLng, userLocated }: Par
             <VoteBookmarkBar lotId={lot.id} />
 
             {/* 주소 */}
-            <div className="flex items-start gap-2 text-xs">
+            <div className="flex items-start gap-2">
               <MapPin className="size-4 shrink-0 mt-0.5 text-muted-foreground" />
-              <span>{lot.address}</span>
+              <span className="text-sm">{lot.address}</span>
             </div>
 
             {/* 운영시간 */}
-            <div className="flex items-start gap-2 text-xs">
+            <div className="flex items-start gap-2">
               <Clock className="size-4 shrink-0 mt-0.5 text-muted-foreground" />
               <div>
-                <div>
+                <div className="text-sm font-medium">
                   평일 {lot.operatingHours.weekday.start}-{lot.operatingHours.weekday.end}
                 </div>
                 <div className="text-xs text-muted-foreground">
@@ -365,10 +369,10 @@ export function ParkingCard({ lot, onClose, userLat, userLng, userLocated }: Par
 
             {/* 요금 */}
             {!lot.pricing.isFree && (
-              <div className="flex items-start gap-2 text-xs">
+              <div className="flex items-start gap-2">
                 <CreditCard className="size-4 shrink-0 mt-0.5 text-muted-foreground" />
                 <div>
-                  <div>
+                  <div className="text-sm font-medium">
                     기본 {lot.pricing.baseTime}분 {lot.pricing.baseFee.toLocaleString()}원
                   </div>
                   <div className="text-xs text-muted-foreground">
@@ -382,9 +386,9 @@ export function ParkingCard({ lot, onClose, userLat, userLng, userLocated }: Par
 
             {/* 전화번호 */}
             {lot.phone && (
-              <div className="flex items-center gap-2 text-sm">
+              <div className="flex items-center gap-2">
                 <Phone className="size-4 shrink-0 text-muted-foreground" />
-                <a href={`tel:${lot.phone}`} className="text-blue-500 underline">
+                <a href={`tel:${lot.phone}`} className="text-sm text-blue-500 underline">
                   {lot.phone}
                 </a>
               </div>
@@ -392,7 +396,7 @@ export function ParkingCard({ lot, onClose, userLat, userLng, userLocated }: Par
 
             {/* POI 태그 */}
             {lot.poiTags && lot.poiTags.length > 0 && (
-              <div className="flex items-start gap-2 text-xs">
+              <div className="flex items-start gap-2">
                 <Tag className="size-4 shrink-0 mt-0.5 text-muted-foreground" />
                 <div className="flex flex-wrap gap-1.5">
                   {lot.poiTags.map((tag) => (
