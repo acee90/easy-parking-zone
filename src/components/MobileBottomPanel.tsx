@@ -88,9 +88,9 @@ export function MobileBottomPanel({
               />
             ))}
           </div>
-          <span className="text-sm font-medium">주차장 {parkingLots.length}개</span>
+          <span className="text-base font-medium">주차장 {parkingLots.length}개</span>
           {sortedLots[0]?.distance !== null && userLocated && (
-            <span className="text-xs text-muted-foreground">
+            <span className="text-sm text-muted-foreground">
               · 가장 가까운{' '}
               {sortedLots[0].distance! < 1
                 ? `${Math.round(sortedLots[0].distance! * 1000)}m`
@@ -111,7 +111,7 @@ export function MobileBottomPanel({
             <button
               type="button"
               onClick={() => setSortMode('distance')}
-              className={`px-2 py-0.5 rounded text-xs cursor-pointer transition-colors ${
+              className={`px-2 py-0.5 rounded text-sm cursor-pointer transition-colors ${
                 sortMode === 'distance'
                   ? 'bg-blue-100 text-blue-700 font-medium'
                   : 'text-muted-foreground hover:bg-gray-100'
@@ -122,7 +122,7 @@ export function MobileBottomPanel({
             <button
               type="button"
               onClick={() => setSortMode('difficulty')}
-              className={`px-2 py-0.5 rounded text-xs cursor-pointer transition-colors ${
+              className={`px-2 py-0.5 rounded text-sm cursor-pointer transition-colors ${
                 sortMode === 'difficulty'
                   ? 'bg-blue-100 text-blue-700 font-medium'
                   : 'text-muted-foreground hover:bg-gray-100'
@@ -153,7 +153,7 @@ export function MobileBottomPanel({
                     <span className="text-[10px] text-green-600 font-medium shrink-0">추천</span>
                   )}
                 </div>
-                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                   <span>{getDifficultyLabel(lot.difficulty.score)}</span>
                   <span>·</span>
                   <span>{lot.pricing.isFree ? '무료' : '유료'}</span>
@@ -166,7 +166,7 @@ export function MobileBottomPanel({
                 </div>
               </div>
               {distance !== null && (
-                <span className="text-xs text-muted-foreground shrink-0 tabular-nums">
+                <span className="text-sm text-muted-foreground shrink-0 tabular-nums">
                   {distance < 1 ? `${Math.round(distance * 1000)}m` : `${distance.toFixed(1)}km`}
                 </span>
               )}

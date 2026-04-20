@@ -92,16 +92,16 @@ export function ParkingSidebar({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <ParkingSquare className="size-4 text-blue-500" />
-            <span className="font-semibold text-sm">주차장 목록</span>
+            <span className="font-semibold text-base">주차장 목록</span>
           </div>
-          <span className="text-xs text-muted-foreground">{parkingLots.length}개</span>
+          <span className="text-sm text-muted-foreground">{parkingLots.length}개</span>
         </div>
         <div className="flex items-center gap-1 mt-2">
           <ArrowUpDown className="size-3 text-muted-foreground" />
           <button
             type="button"
             onClick={() => setSortMode('distance')}
-            className={`px-2 py-0.5 rounded text-xs cursor-pointer transition-colors ${
+            className={`px-2 py-0.5 rounded text-sm cursor-pointer transition-colors ${
               sortMode === 'distance'
                 ? 'bg-blue-100 text-blue-700 font-medium'
                 : 'text-muted-foreground hover:bg-gray-100'
@@ -160,16 +160,16 @@ export function ParkingSidebar({
                     <div
                       className={`size-2.5 rounded-full shrink-0 ${difficultyColor(lot.difficulty.score)}`}
                     />
-                    <span className="font-medium text-sm truncate flex-1">{lot.name}</span>
+                    <span className="font-medium text-base truncate flex-1">{lot.name}</span>
                     <span className="text-sm shrink-0">{icon}</span>
                   </div>
 
                   <div className="flex items-center gap-1.5 mb-1.5">
                     <MapPin className="size-3 text-muted-foreground shrink-0" />
-                    <span className="text-xs text-muted-foreground truncate">{lot.address}</span>
+                    <span className="text-sm text-muted-foreground truncate">{lot.address}</span>
                   </div>
 
-                  <div className="flex items-center gap-2 text-xs">
+                  <div className="flex items-center gap-2 text-sm">
                     <span
                       className={`px-1.5 py-0.5 rounded ${
                         lot.difficulty.score !== null
@@ -204,7 +204,7 @@ export function ParkingSidebar({
             })}
             {hasMore && (
               <button
-                className="w-full py-3 text-xs text-blue-500 hover:bg-blue-50 transition-colors cursor-pointer font-medium"
+                className="w-full py-3 text-sm text-blue-500 hover:bg-blue-50 transition-colors cursor-pointer font-medium"
                 onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
               >
                 더 보기 ({sortedLots.length - effectiveCount}개 남음)

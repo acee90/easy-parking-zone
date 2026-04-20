@@ -70,7 +70,7 @@ export function ParkingDetailPanel({
         {/* 제목 + 평점 + 상태 */}
         <div className="flex items-start justify-between gap-2 mb-3">
           <div className="flex-1 min-w-0">
-            <h2 className="font-bold text-lg mb-1.5">{lot.name}</h2>
+            <h2 className="font-bold text-xl mb-1.5">{lot.name}</h2>
             {/* 평점 표시 */}
             <div className="flex items-center gap-1.5">
               <div className="flex items-center gap-0.5">
@@ -83,9 +83,9 @@ export function ParkingDetailPanel({
                   />
                 ))}
               </div>
-              <span className="text-sm font-semibold">{rating.toFixed(1)}</span>
+              <span className="text-base font-semibold">{rating.toFixed(1)}</span>
               {lot.difficulty.reviewCount > 0 && (
-                <span className="text-xs text-muted-foreground ml-0.5">
+                <span className="text-sm text-muted-foreground ml-0.5">
                   리뷰 {lot.difficulty.reviewCount}개
                 </span>
               )}
@@ -95,18 +95,18 @@ export function ParkingDetailPanel({
 
         {/* 상태 배지 */}
         <div className="flex items-center gap-2 flex-wrap mb-3">
-          <Badge className="bg-green-500 hover:bg-green-600 text-white text-xs">주차 가능</Badge>
-          <Badge variant={lot.pricing.isFree ? 'default' : 'outline'} className="text-xs">
+          <Badge className="bg-green-500 hover:bg-green-600 text-white text-sm">주차 가능</Badge>
+          <Badge variant={lot.pricing.isFree ? 'default' : 'outline'} className="text-sm">
             {lot.pricing.isFree ? '무료' : '유료'}
           </Badge>
           {lot.difficulty.score !== null && lot.difficulty.score >= 4.0 && (
-            <Badge className="text-xs gap-1 bg-green-100 text-green-700 hover:bg-green-100">
+            <Badge className="text-sm gap-1 bg-green-100 text-green-700 hover:bg-green-100">
               <ThumbsUp className="size-3" />
               초보 추천
             </Badge>
           )}
           {lot.difficulty.score !== null && lot.difficulty.score < 2.0 && (
-            <Badge variant="destructive" className="text-xs gap-1">
+            <Badge variant="destructive" className="text-sm gap-1">
               <Flame className="size-3" />
               초보 주의
             </Badge>
@@ -120,7 +120,7 @@ export function ParkingDetailPanel({
           <Link
             to="/wiki/$slug"
             params={{ slug: makeParkingSlug(lot.name, lot.id) }}
-            className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-md border hover:bg-gray-50 transition-colors"
+            className="inline-flex items-center gap-1 px-2.5 py-1.5 text-sm font-medium rounded-md border hover:bg-gray-50 transition-colors"
           >
             자세히
             <ChevronRight className="size-3" />
@@ -133,7 +133,7 @@ export function ParkingDetailPanel({
         {/* AI Summary */}
         {lot.curationReason && (
           <div
-            className={`rounded-lg px-3.5 py-3 text-sm space-y-1.5 ${
+            className={`rounded-lg px-3.5 py-3 text-base space-y-1.5 ${
               lot.difficulty.score !== null && lot.difficulty.score < 2.0
                 ? 'bg-red-50 border border-red-200'
                 : 'bg-blue-50 border border-blue-200'
@@ -152,7 +152,7 @@ export function ParkingDetailPanel({
               {lot.curationReason}
             </p>
             {lot.featuredSource === '1010' && (
-              <p className="text-xs text-muted-foreground mt-2 pt-2 border-t border-current border-opacity-20">
+              <p className="text-sm text-muted-foreground mt-2 pt-2 border-t border-current border-opacity-20">
                 📺 10시10분 유튜브 채널에 소개된 주차장
               </p>
             )}
@@ -160,19 +160,19 @@ export function ParkingDetailPanel({
         )}
 
         {/* 주소 */}
-        <div className="flex items-start gap-2.5 text-sm">
+        <div className="flex items-start gap-2.5 text-base">
           <MapPin className="size-4 shrink-0 mt-0.5 text-muted-foreground" />
           <span>{lot.address}</span>
         </div>
 
         {/* 운영시간 */}
-        <div className="flex items-start gap-2.5 text-sm">
+        <div className="flex items-start gap-2.5 text-base">
           <Clock className="size-4 shrink-0 mt-0.5 text-muted-foreground" />
           <div>
             <div>
               평일 {lot.operatingHours.weekday.start}-{lot.operatingHours.weekday.end}
             </div>
-            <div className="text-xs text-muted-foreground">
+            <div className="text-sm text-muted-foreground">
               토 {lot.operatingHours.saturday.start}-{lot.operatingHours.saturday.end} · 공휴일{' '}
               {lot.operatingHours.holiday.start}-{lot.operatingHours.holiday.end}
             </div>
@@ -181,13 +181,13 @@ export function ParkingDetailPanel({
 
         {/* 요금 */}
         {!lot.pricing.isFree && (
-          <div className="flex items-start gap-2.5 text-sm">
+          <div className="flex items-start gap-2.5 text-base">
             <CreditCard className="size-4 shrink-0 mt-0.5 text-muted-foreground" />
             <div>
               <div>
                 기본 {lot.pricing.baseTime}분 {lot.pricing.baseFee.toLocaleString()}원
               </div>
-              <div className="text-xs text-muted-foreground">
+              <div className="text-sm text-muted-foreground">
                 추가 {lot.pricing.extraTime}분당 {lot.pricing.extraFee.toLocaleString()}원
                 {lot.pricing.dailyMax && ` · 1일 최대 ${lot.pricing.dailyMax.toLocaleString()}원`}
               </div>
@@ -197,7 +197,7 @@ export function ParkingDetailPanel({
 
         {/* 주차면수 */}
         {lot.totalSpaces > 0 && (
-          <div className="flex items-center gap-2.5 text-sm">
+          <div className="flex items-center gap-2.5 text-base">
             <ParkingSquare className="size-4 shrink-0 text-muted-foreground" />
             <span>총 {lot.totalSpaces}면</span>
           </div>
@@ -205,7 +205,7 @@ export function ParkingDetailPanel({
 
         {/* 전화번호 */}
         {lot.phone && (
-          <div className="flex items-center gap-2.5 text-sm">
+          <div className="flex items-center gap-2.5 text-base">
             <Phone className="size-4 shrink-0 text-muted-foreground" />
             <a href={`tel:${lot.phone}`} className="text-blue-500 underline">
               {lot.phone}
@@ -215,11 +215,11 @@ export function ParkingDetailPanel({
 
         {/* POI 태그 */}
         {lot.poiTags && lot.poiTags.length > 0 && (
-          <div className="flex items-start gap-2.5 text-sm">
+          <div className="flex items-start gap-2.5 text-base">
             <Navigation className="size-4 shrink-0 mt-0.5 text-muted-foreground" />
             <div className="flex flex-wrap gap-1.5">
               {lot.poiTags.map((tag) => (
-                <Badge key={tag} variant="outline" className="text-xs">
+                <Badge key={tag} variant="outline" className="text-sm">
                   {tag}
                 </Badge>
               ))}
@@ -229,7 +229,7 @@ export function ParkingDetailPanel({
 
         {/* 특기사항 */}
         {lot.notes && (
-          <p className="text-xs text-muted-foreground bg-gray-50 rounded-lg px-3 py-2">
+          <p className="text-sm text-muted-foreground bg-gray-50 rounded-lg px-3 py-2">
             {lot.notes}
           </p>
         )}

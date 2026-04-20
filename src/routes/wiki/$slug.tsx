@@ -112,7 +112,7 @@ export const Route = createFileRoute('/wiki/$slug')({
 
 function VerifiedBadge() {
   return (
-    <span className="inline-flex items-center gap-0.5 text-xs text-blue-600 font-medium">
+    <span className="inline-flex items-center gap-0.5 text-sm text-blue-600 font-medium">
       <BadgeCheck className="size-3.5" />
       검증됨
     </span>
@@ -136,12 +136,12 @@ function NearbyPlacesSection({ places }: { places: NearbyPlaceInfo[] }) {
     <section className="bg-white rounded-xl border p-5 space-y-4">
       <div className="space-y-1">
         <div className="flex items-center gap-2">
-          <h2 className="font-semibold text-base">여기 주차하고 가볼 곳</h2>
-          <Badge variant="secondary" className="text-xs">
+          <h2 className="font-semibold text-lg">여기 주차하고 가볼 곳</h2>
+          <Badge variant="secondary" className="text-sm">
             {places.length}곳
           </Badge>
         </div>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-sm text-muted-foreground">
           자체 주차가 어려워 이 주차장을 이용하면 좋은 주변 장소
         </p>
       </div>
@@ -167,11 +167,11 @@ function NearbyPlacesSection({ places }: { places: NearbyPlaceInfo[] }) {
               )}
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5">
-                  <span className="font-medium text-sm truncate">{place.name}</span>
-                  <span className="text-xs text-muted-foreground shrink-0">{meta.label}</span>
+                  <span className="font-medium text-base truncate">{place.name}</span>
+                  <span className="text-sm text-muted-foreground shrink-0">{meta.label}</span>
                 </div>
-                {place.tip && <p className="text-xs text-muted-foreground mt-0.5">{place.tip}</p>}
-                <p className="text-xs text-muted-foreground mt-0.5">
+                {place.tip && <p className="text-sm text-muted-foreground mt-0.5">{place.tip}</p>}
+                <p className="text-sm text-muted-foreground mt-0.5">
                   {place.mentionCount}개 블로그에서 언급
                 </p>
               </div>
@@ -230,7 +230,7 @@ function WikiDetailPage() {
                 <span className="font-bold text-xl">{(lot.difficulty.score ?? 0).toFixed(1)}</span>
               </div>
               {lot.difficulty.reviewCount > 0 && (
-                <span className="text-base text-muted-foreground">
+                <span className="text-lg text-muted-foreground">
                   리뷰 {lot.difficulty.reviewCount}개
                 </span>
               )}
