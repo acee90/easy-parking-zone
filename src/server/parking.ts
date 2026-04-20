@@ -181,7 +181,9 @@ export const fetchParkingDetail = createServerFn({ method: 'GET' })
       sql`SELECT p.*,
           s.final_score as avg_score,
           COALESCE(s.user_review_count, 0) + COALESCE(s.community_count, 0) as review_count,
-          s.reliability
+          s.reliability,
+          s.ai_summary,
+          s.ai_summary_updated_at
         FROM parking_lots p
         LEFT JOIN parking_lot_stats s ON s.parking_lot_id = p.id
         WHERE p.id = ${data.id}`,

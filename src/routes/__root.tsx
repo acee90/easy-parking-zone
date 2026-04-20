@@ -6,10 +6,9 @@ import { fetchSiteStats } from '@/server/parking'
 import appCss from '../styles.css?url'
 
 const SITE_URL = 'https://easy-parking.xyz'
-const SITE_NAME = '쉬운주차장 (쉽주)'
-const SITE_TITLE = '쉬운주차장 (쉽주) - 전국 주차장 난이도 지도'
-const SITE_DESC =
-  '초보운전자를 위한 전국 주차장 난이도 정보! "쉽주"에서 주차장 찾기, 요금, 편의 시설을 한눈에 확인하세요.'
+const SITE_NAME = '쉽주'
+const SITE_TITLE = '쉽주 — 전국 주차장 난이도 지도'
+const SITE_DESC = '주차하기 전에 한 번만 확인하세요. 전국 주차장 난이도, 요금, 운영시간을 한눈에.'
 
 export const Route = createRootRoute({
   loader: () => fetchSiteStats(),
@@ -33,7 +32,7 @@ export const Route = createRootRoute({
       {
         name: 'keywords',
         content:
-          '쉽주, 쉬운주차장, 주차 난이도, 주차장 지도, 쉬운 주차, 주차장 찾기, 전국 주차장, 초보운전 주차, 주차 쉬운 곳',
+          '쉽주, 쉬운주차장, 주차 난이도, 주차장 지도, 주차장 요금, 주차장 운영시간, 초보운전 주차, 전국 주차장 정보',
       },
       {
         name: 'theme-color',
@@ -67,6 +66,10 @@ export const Route = createRootRoute({
       {
         property: 'og:image:height',
         content: '630',
+      },
+      {
+        property: 'og:image:alt',
+        content: SITE_TITLE,
       },
       {
         property: 'og:locale',

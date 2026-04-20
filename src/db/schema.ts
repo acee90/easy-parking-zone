@@ -142,6 +142,8 @@ export const parkingLotStats = sqliteTable('parking_lot_stats', {
   nEffective: real('n_effective').default(0),
   finalScore: real('final_score'),
   reliability: text('reliability'),
+  aiSummary: text('ai_summary'),
+  aiSummaryUpdatedAt: text('ai_summary_updated_at'),
   computedAt: text('computed_at').default(now),
 })
 
