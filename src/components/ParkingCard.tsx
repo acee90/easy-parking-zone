@@ -214,6 +214,7 @@ export function ParkingCard({ lot, onClose, userLat, userLng, userLocated }: Par
             <div className="flex items-center justify-between px-4 pt-1.5">
               <div className="w-8" />
               <button
+                type="button"
                 onTouchStart={handleDragStart}
                 onTouchMove={handleDragMove}
                 onTouchEnd={handleDragEnd}
@@ -221,6 +222,7 @@ export function ParkingCard({ lot, onClose, userLat, userLng, userLocated }: Par
                 aria-label="드래그하여 시트 크기 조절"
               />
               <button
+                type="button"
                 onClick={handleClose}
                 className="flex size-7 items-center justify-center rounded-full hover:bg-gray-100 active:bg-gray-200 transition-colors cursor-pointer outline-none focus:outline-none"
                 aria-label="닫기"
