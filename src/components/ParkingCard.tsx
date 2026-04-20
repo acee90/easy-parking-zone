@@ -23,13 +23,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { VoteBookmarkBar } from '@/components/VoteBookmarkBar'
-import {
-  getDifficultyColor,
-  getDifficultyIcon,
-  getDifficultyLabel,
-  getDistance,
-  getReliabilityBadge,
-} from '@/lib/geo-utils'
+import { getDifficultyColor, getDistance } from '@/lib/geo-utils'
 import { makeParkingSlug } from '@/lib/slug'
 import type { ParkingLot } from '@/types/parking'
 
