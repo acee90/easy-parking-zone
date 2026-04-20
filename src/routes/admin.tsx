@@ -12,6 +12,7 @@ const NAV_ITEMS = [
   { to: '/admin/web-sources', label: '웹 소스 관리' },
   { to: '/admin/reviews', label: '유저 리뷰 관리' },
   { to: '/admin/reports', label: '신고 관리' },
+  { to: '/admin/tools', label: '도구' },
 ] as const
 
 function AdminLayout() {

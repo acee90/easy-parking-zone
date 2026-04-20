@@ -83,6 +83,10 @@ export const Route = createFileRoute('/wiki/$slug')({
       meta: [
         { title },
         { name: 'description', content: desc },
+        {
+          name: 'robots',
+          content: 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1',
+        },
         { property: 'og:title', content: title },
         { property: 'og:description', content: desc },
         { property: 'og:type', content: 'article' },
@@ -91,6 +95,7 @@ export const Route = createFileRoute('/wiki/$slug')({
           content: `https://easy-parking.xyz/wiki/${slug}`,
         },
       ],
+      links: [{ rel: 'canonical', href: `https://easy-parking.xyz/wiki/${slug}` }],
       headScripts: [
         {
           type: 'application/ld+json',

@@ -15,6 +15,7 @@ import { Route as WikiIndexRouteImport } from './routes/wiki/index'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as WikiSlugRouteImport } from './routes/wiki/$slug'
 import { Route as AdminWebSourcesRouteImport } from './routes/admin/web-sources'
+import { Route as AdminToolsRouteImport } from './routes/admin/tools'
 import { Route as AdminReviewsRouteImport } from './routes/admin/reviews'
 import { Route as AdminReportsRouteImport } from './routes/admin/reports'
 import { Route as EventHalfpriceTravelIndexRouteImport } from './routes/event/halfprice-travel/index'
@@ -51,6 +52,11 @@ const AdminWebSourcesRoute = AdminWebSourcesRouteImport.update({
   path: '/web-sources',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminToolsRoute = AdminToolsRouteImport.update({
+  id: '/tools',
+  path: '/tools',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminReviewsRoute = AdminReviewsRouteImport.update({
   id: '/reviews',
   path: '/reviews',
@@ -84,6 +90,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRouteWithChildren
   '/admin/reports': typeof AdminReportsRoute
   '/admin/reviews': typeof AdminReviewsRoute
+  '/admin/tools': typeof AdminToolsRoute
   '/admin/web-sources': typeof AdminWebSourcesRoute
   '/wiki/$slug': typeof WikiSlugRoute
   '/admin/': typeof AdminIndexRoute
@@ -96,6 +103,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin/reports': typeof AdminReportsRoute
   '/admin/reviews': typeof AdminReviewsRoute
+  '/admin/tools': typeof AdminToolsRoute
   '/admin/web-sources': typeof AdminWebSourcesRoute
   '/wiki/$slug': typeof WikiSlugRoute
   '/admin': typeof AdminIndexRoute
@@ -110,6 +118,7 @@ export interface FileRoutesById {
   '/admin': typeof AdminRouteWithChildren
   '/admin/reports': typeof AdminReportsRoute
   '/admin/reviews': typeof AdminReviewsRoute
+  '/admin/tools': typeof AdminToolsRoute
   '/admin/web-sources': typeof AdminWebSourcesRoute
   '/wiki/$slug': typeof WikiSlugRoute
   '/admin/': typeof AdminIndexRoute
@@ -125,6 +134,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/admin/reports'
     | '/admin/reviews'
+    | '/admin/tools'
     | '/admin/web-sources'
     | '/wiki/$slug'
     | '/admin/'
@@ -137,6 +147,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin/reports'
     | '/admin/reviews'
+    | '/admin/tools'
     | '/admin/web-sources'
     | '/wiki/$slug'
     | '/admin'
@@ -150,6 +161,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/admin/reports'
     | '/admin/reviews'
+    | '/admin/tools'
     | '/admin/web-sources'
     | '/wiki/$slug'
     | '/admin/'
@@ -213,6 +225,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminWebSourcesRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/tools': {
+      id: '/admin/tools'
+      path: '/tools'
+      fullPath: '/admin/tools'
+      preLoaderRoute: typeof AdminToolsRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/reviews': {
       id: '/admin/reviews'
       path: '/reviews'
@@ -254,6 +273,7 @@ declare module '@tanstack/react-router' {
 interface AdminRouteChildren {
   AdminReportsRoute: typeof AdminReportsRoute
   AdminReviewsRoute: typeof AdminReviewsRoute
+  AdminToolsRoute: typeof AdminToolsRoute
   AdminWebSourcesRoute: typeof AdminWebSourcesRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
@@ -261,6 +281,7 @@ interface AdminRouteChildren {
 const AdminRouteChildren: AdminRouteChildren = {
   AdminReportsRoute: AdminReportsRoute,
   AdminReviewsRoute: AdminReviewsRoute,
+  AdminToolsRoute: AdminToolsRoute,
   AdminWebSourcesRoute: AdminWebSourcesRoute,
   AdminIndexRoute: AdminIndexRoute,
 }

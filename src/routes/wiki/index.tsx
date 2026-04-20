@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, Link, redirect, useNavigate } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
 import { sql } from 'drizzle-orm'
 import { ChevronRight, MapPin, Search, X } from 'lucide-react'
@@ -77,6 +77,11 @@ export const Route = createFileRoute('/wiki/')({
         name: 'description',
         content: '초보 추천부터 넓은 주차장 TOP까지. 실제 데이터 기반 전국 주차장 큐레이션.',
       },
+      {
+        name: 'robots',
+        content: 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1',
+      },
+      { httpEquiv: 'content-language', content: 'ko' },
       { property: 'og:title', content: '주차장 둘러보기 | 쉽주' },
       {
         property: 'og:description',
@@ -94,6 +99,7 @@ export const Route = createFileRoute('/wiki/')({
       },
       { name: 'twitter:image', content: 'https://easy-parking.xyz/og-image.png' },
     ],
+    links: [{ rel: 'canonical', href: 'https://easy-parking.xyz/wiki' }],
   }),
   component: WikiHomePage,
 })
