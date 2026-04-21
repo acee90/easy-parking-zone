@@ -38,6 +38,12 @@ export const Route = createFileRoute('/event/halfprice-travel/$slug')({
         },
         { name: 'twitter:image', content: 'https://easy-parking.xyz/og-image.png' },
       ],
+      links: [
+        {
+          rel: 'canonical',
+          href: `https://easy-parking.xyz/event/halfprice-travel/${params.slug}`,
+        },
+      ],
     }
   },
   component: RegionDetailPage,

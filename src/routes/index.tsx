@@ -24,6 +24,9 @@ export const Route = createFileRoute('/')({
   validateSearch: (search: Record<string, unknown>) => ({
     lotId: typeof search.lotId === 'string' ? search.lotId : undefined,
   }),
+  head: () => ({
+    links: [{ rel: 'canonical', href: 'https://easy-parking.xyz' }],
+  }),
   component: App,
 })
 
