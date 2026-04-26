@@ -76,6 +76,31 @@ content_reports    # 콘텐츠 신고
 
 상세: [Crawling Pipeline](poi-pipeline-v2.md)
 
+## SEO
+
+### 사이트맵 구조
+
+`src/server/sitemap-handler.ts` — Worker에서 D1 직접 쿼리로 동적 생성
+
+| 경로 | 내용 |
+|------|------|
+| `/sitemap.xml` | 사이트맵 인덱스 (static + 메인 N개) |
+| `/sitemap-static.xml` | 홈, /wiki |
+| `/sitemap-N.xml` | **web_sources 있는 주차장만** (5,000개 단위, 구글 제출 대상) |
+| `/sitemap-thin-N.xml` | web_sources 없는 주차장 (인덱스 미포함, 대기) |
+
+web_sources가 보강되면 `sitemap-N.xml`에 자동 반영됨 (카운트 동적 계산).
+
+### 상세 페이지 SSR 콘텐츠
+
+`src/routes/wiki/$slug.tsx` loader에서 병렬 fetch:
+- `fetchParkingDetail` — 기본 정보 + AI 요약/팁
+- `fetchNearbyPlaces` — 주변 POI
+- `fetchBlogPosts(limit: 5)` — **상위 5개 블로그 스니펫 SSR** (구글봇 가시성)
+
+블로그 스니펫은 `BlogSnippetsSection` 컴포넌트로 HTML에 직접 렌더링.
+`ParkingTabs`(CSR)는 사용자 인터랙션용으로 유지.
+
 ## Deployment
 
 ```bash
