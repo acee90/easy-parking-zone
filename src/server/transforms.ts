@@ -52,6 +52,9 @@ export interface ParkingLotRow {
   verified_source: string | null
   ai_summary?: string | null
   ai_summary_updated_at?: string | null
+  ai_tip_pricing?: string | null
+  ai_tip_visit?: string | null
+  ai_tip_alternative?: string | null
 }
 
 export function rowToParkingLot(row: ParkingLotRow): ParkingLot {
@@ -94,6 +97,9 @@ export function rowToParkingLot(row: ParkingLotRow): ParkingLot {
     verifiedSource: row.verified_source ?? undefined,
     aiSummary: row.ai_summary ?? undefined,
     aiSummaryUpdatedAt: row.ai_summary_updated_at ?? undefined,
+    aiTipPricing: row.ai_tip_pricing ?? undefined,
+    aiTipVisit: row.ai_tip_visit ?? undefined,
+    aiTipAlternative: row.ai_tip_alternative ?? undefined,
   }
 }
 
@@ -167,6 +173,7 @@ export interface BlogPostRow {
   source: string
   author: string
   published_at: string | null
+  relevance_score: number | null
 }
 
 export function rowToBlogPost(row: BlogPostRow): BlogPost {
@@ -178,6 +185,7 @@ export function rowToBlogPost(row: BlogPostRow): BlogPost {
     source: row.source as BlogPost['source'],
     author: row.author,
     publishedAt: row.published_at ?? undefined,
+    relevanceScore: row.relevance_score ?? undefined,
   }
 }
 

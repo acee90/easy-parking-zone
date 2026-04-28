@@ -183,7 +183,10 @@ export const fetchParkingDetail = createServerFn({ method: 'GET' })
           COALESCE(s.user_review_count, 0) + COALESCE(s.community_count, 0) as review_count,
           s.reliability,
           s.ai_summary,
-          s.ai_summary_updated_at
+          s.ai_summary_updated_at,
+          s.ai_tip_pricing,
+          s.ai_tip_visit,
+          s.ai_tip_alternative
         FROM parking_lots p
         LEFT JOIN parking_lot_stats s ON s.parking_lot_id = p.id
         WHERE p.id = ${data.id}`,
@@ -283,10 +286,28 @@ export const fetchBlogPosts = createServerFn({ method: 'GET' })
         source: schema.webSources.source,
         author: schema.webSources.author,
         published_at: schema.webSources.publishedAt,
+        relevance_score: schema.webSources.relevanceScore,
+        boost_score: sql<number>`
+          CASE 
+            WHEN ${schema.webSources.title} LIKE '%' || ${schema.parkingLots.name} || '%' THEN 30
+            ELSE 0 
+          END`.as('boost_score'),
       })
       .from(schema.webSources)
-      .where(eq(schema.webSources.parkingLotId, data.parkingLotId))
-      .orderBy(desc(schema.webSources.relevanceScore))
+      .innerJoin(schema.parkingLots, eq(schema.webSources.parkingLotId, schema.parkingLots.id))
+      .where(
+        and(
+          eq(schema.webSources.parkingLotId, data.parkingLotId),
+          sql`${schema.webSources.relevanceScore} >= 40`
+        )
+      )
+      .orderBy(
+        desc(sql`${schema.webSources.relevanceScore} + CASE 
+            WHEN ${schema.webSources.title} LIKE '%' || ${schema.parkingLots.name} || '%' THEN 30
+            ELSE 0 
+          END`),
+        desc(schema.webSources.publishedAt)
+      )
       .limit(limit)
       .offset(offset)
 

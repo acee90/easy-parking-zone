@@ -5,7 +5,10 @@
  * parking_lot_stats 테이블에 베이지안 통합 점수를 사전 계산하여 저장.
  *
  * Usage:
- *   bun run scripts/compute-parking-stats.ts [--remote] [--dry-run]
+ *   bun run scripts/compute-parking-stats.ts [--remote] [--dry-run] [--dry-stats]
+ *
+ * --dry-run:   DB 업데이트 없이 결과를 JSON 파일로 저장
+ * --dry-stats: DB 업데이트 없이 분포 + 큐레이션 일관성만 콘솔 출력 (sweep용)
  */
 import { d1Query, d1Execute, isRemote } from "./lib/d1";
 import { writeFileSync } from "fs";
@@ -13,10 +16,29 @@ import { join } from "path";
 import { timeDecay } from "../src/server/crawlers/lib/sentiment";
 
 const isDryRun = process.argv.includes("--dry-run");
+const isDryStats = process.argv.includes("--dry-stats");
 const BATCH_SIZE = 1000;
 
-/** 베이지안 신뢰 임계치 — prior의 가상 리뷰 수. 낮을수록 실제 데이터 반영이 빠름 */
-const C = 1.5;
+// ---------------------------------------------------------------------------
+// 튜닝 파라미터 — issue#113 scoring calibration
+// A: structural prior 조정폭, B: 텍스트 n_effective 가중치
+// ---------------------------------------------------------------------------
+const PARAMS = {
+  /** 베이지안 신뢰 임계치 — prior의 가상 리뷰 수 (높을수록 구조 prior 신뢰) */
+  C: 2.5,
+  /** B: 텍스트 n_effective 가중치 (relevance >= 70 텍스트당) */
+  TEXT_N_EFF_WEIGHT: 0.5,
+  // A: structural prior 조정값
+  PRIOR_MECHANICAL:  -0.40,  // 기계식 (강한 부정 신호)
+  PRIOR_SMALL_LOT:   -0.10,  // 면수 < 30
+  PRIOR_LARGE_LOT:   +0.05,  // 면수 > 200 (대형이라도 복잡할 수 있어 최소화)
+  PRIOR_XLARGE_LOT:  +0.00,  // 면수 > 500
+  PRIOR_UNDERGROUND: -0.15,  // 지하 (이름에 '지하' 포함)
+  PRIOR_OUTDOOR:     +0.00,  // 노외 = 행정분류, 실외 의미 아님 → 0
+  PRIOR_FREE:        +0.00,  // 무료 ≠ 쉬운 주차 → 0
+  /** hell 큐레이션 태그 점수 상한 — 위치 텍스트 positive bias 보정용 */
+  HELL_SCORE_CAP:    2.9,
+} as const;
 
 /** 소스별 기본 가중치 */
 const WEIGHTS = {
@@ -45,35 +67,30 @@ interface ParkingLot {
  * curation_tag는 크롤링 가이드 용도로만 사용하며 점수에는 관여하지 않음.
  */
 function computeStructuralPrior(lot: ParkingLot): number {
-  // 리뷰 없는 주차장은 "보통"(2.7-3.2) 범위에 모이도록 조정폭 축소
-  let score = 3.0; // 중립 기본값 (보통 중앙)
+  let score = 3.0;
 
   const nameNotes = `${lot.name} ${lot.notes ?? ""}`.toLowerCase();
 
-  // 기계식 주차장 감지 — 보통 하단(별로 경계)
   if (nameNotes.includes("기계식") || nameNotes.includes("기계")) {
-    score -= 0.15;
+    score += PARAMS.PRIOR_MECHANICAL;
   }
 
-  // 총 면수
   if (lot.total_spaces !== null) {
-    if (lot.total_spaces < 30) score -= 0.05;
-    if (lot.total_spaces > 200) score += 0.1;
+    if (lot.total_spaces < 30) score += PARAMS.PRIOR_SMALL_LOT;
+    if (lot.total_spaces > 500) score += PARAMS.PRIOR_XLARGE_LOT;
+    else if (lot.total_spaces > 200) score += PARAMS.PRIOR_LARGE_LOT;
   }
 
-  // 지하 주차장 감지
   if (nameNotes.includes("지하")) {
-    score -= 0.05;
+    score += PARAMS.PRIOR_UNDERGROUND;
   }
 
-  // 노외 주차장 (넓은 편)
   if (lot.type === "노외") {
-    score += 0.08;
+    score += PARAMS.PRIOR_OUTDOOR;
   }
 
-  // 무료 주차장 (접근성)
   if (lot.is_free === 1) {
-    score += 0.04;
+    score += PARAMS.PRIOR_FREE;
   }
 
   return Math.max(1.0, Math.min(5.0, score));
@@ -174,7 +191,7 @@ function computeSourceScores(
   const nEffective =
     userReviews.length * 1.0 +
     communityReviews.length * 0.6 +
-    highRelevanceTexts.reduce((sum, t) => sum + 0.2 * MATCH_TYPE_FACTOR[t.match_type], 0);
+    highRelevanceTexts.reduce((sum, t) => sum + PARAMS.TEXT_N_EFF_WEIGHT * MATCH_TYPE_FACTOR[t.match_type], 0);
 
   return {
     userReviewScore: userReviewScore
@@ -244,7 +261,7 @@ function computeFinalScore(
 
   // 베이지안 평균: (C × m + n_eff × raw) / (C + n_eff)
   const finalScore =
-    (C * prior + sources.nEffective * rawScore) / (C + sources.nEffective);
+    (PARAMS.C * prior + sources.nEffective * rawScore) / (PARAMS.C + sources.nEffective);
   const clamped = Math.max(1.0, Math.min(5.0, Math.round(finalScore * 100) / 100));
 
   // 신뢰도 등급
@@ -268,8 +285,11 @@ function computeFinalScore(
 
 async function main() {
   console.log(
-    `[Stats] ${isRemote ? "REMOTE" : "LOCAL"} D1 | ${isDryRun ? "DRY-RUN" : "LIVE"}`,
+    `[Stats] ${isRemote ? "REMOTE" : "LOCAL"} D1 | ${isDryRun ? "DRY-RUN" : isDryStats ? "DRY-STATS" : "LIVE"}`,
   );
+  if (isDryStats) {
+    console.log("[Stats] PARAMS:", JSON.stringify(PARAMS, null, 2));
+  }
 
   const now = new Date();
 
@@ -340,7 +360,11 @@ async function main() {
       const reviews = reviewsByLot.get(lot.id) ?? [];
       const texts = textsByLot.get(lot.id) ?? [];
       const sources = computeSourceScores(reviews, texts, now);
-      const { finalScore, reliability } = computeFinalScore(prior, sources);
+      const { finalScore: rawFinalScore, reliability } = computeFinalScore(prior, sources);
+      const finalScore =
+        lot.curation_tag === "hell"
+          ? Math.min(rawFinalScore, PARAMS.HELL_SCORE_CAP)
+          : rawFinalScore;
 
       results.push({
         parkingLotId: lot.id,
@@ -393,6 +417,53 @@ async function main() {
   console.log("  점수 분포:");
   for (const [k, v] of Object.entries(scoreBuckets)) {
     console.log(`    ${k.padEnd(15)} ${v.toString().padStart(6)} (${((v / results.length) * 100).toFixed(1)}%)`);
+  }
+
+  // --dry-stats: 분포 + 큐레이션 일관성만 출력하고 종료 (sweep용)
+  if (isDryStats) {
+    const total = results.length;
+    const buckets: Record<string, number> = {
+      "< 2.0": 0, "2.0~2.5": 0, "2.5~3.0": 0,
+      "3.0~3.1": 0, "3.1~3.5": 0, ">= 3.5": 0,
+    };
+    for (const r of results) {
+      const s = r.finalScore;
+      if (s < 2.0) buckets["< 2.0"]++;
+      else if (s < 2.5) buckets["2.0~2.5"]++;
+      else if (s < 3.0) buckets["2.5~3.0"]++;
+      else if (s < 3.1) buckets["3.0~3.1"]++;
+      else if (s < 3.5) buckets["3.1~3.5"]++;
+      else buckets[">= 3.5"]++;
+    }
+    const avg = results.reduce((s, r) => s + r.finalScore, 0) / total;
+
+    const allHell = results.filter((r) => r.curationTag === "hell");
+    const hellAbove3 = allHell.filter((r) => r.finalScore >= 3.0);
+    const allEasy = results.filter((r) => r.curationTag === "easy");
+    const easyBelow3 = allEasy.filter((r) => r.finalScore < 3.0);
+
+    console.log("\n[dry-stats] ========== 분포 ==========");
+    for (const [b, cnt] of Object.entries(buckets)) {
+      const pct = ((cnt / total) * 100).toFixed(1);
+      const bar = "█".repeat(Math.round(cnt / total * 40));
+      console.log(`  ${b.padEnd(10)} ${String(cnt).padStart(6)}  ${pct.padStart(5)}%  ${bar}`);
+    }
+    console.log(`  전체 평균: ${avg.toFixed(3)}  총 ${total}개`);
+
+    console.log("\n[dry-stats] ========== 큐레이션 일관성 ==========");
+    console.log(`  Hell ${allHell.length}개 중 >= 3.0 오분류: ${hellAbove3.length}개`);
+    if (hellAbove3.length > 0) {
+      for (const r of hellAbove3.slice(0, 10)) {
+        console.log(`    ${r.finalScore.toFixed(2)} [${r.reliability}] ${r.parkingLotName}`);
+      }
+      if (hellAbove3.length > 10) console.log(`    ... 외 ${hellAbove3.length - 10}개`);
+    }
+    console.log(`  Easy ${allEasy.length}개 중 < 3.0: ${easyBelow3.length}개`);
+
+    console.log("\n[dry-stats] ✅ PASS 조건: hell >= 3.0 == 0개");
+    const verdict = hellAbove3.length === 0 ? "PASS ✅" : hellAbove3.length <= 3 ? "WARN ⚠️" : "FAIL ❌";
+    console.log(`[dry-stats] 현재 판정: ${verdict} (hell >= 3.0: ${hellAbove3.length}개)`);
+    return;
   }
 
   // DB 업데이트

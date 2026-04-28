@@ -86,7 +86,7 @@ function AdminToolsPage() {
 
             <div className="text-xs text-gray-500 space-y-1">
               <p>
-                • <code>/sitemap.xml</code> 인덱스 — 모든 주차장 사이트맵 링크
+                • <code>/sitemap-main.xml</code> 인덱스 — 모든 주차장 사이트맵 링크
               </p>
               <p>
                 • <code>/sitemap-static.xml</code> — 홈, 위키 등 정적 페이지
@@ -138,7 +138,7 @@ function AdminToolsPage() {
 Allow: /
 Disallow: /admin/
 
-Sitemap: https://easy-parking.xyz/sitemap.xml`}</pre>
+Sitemap: https://easy-parking.xyz/sitemap-main.xml`}</pre>
           </div>
         </div>
       </div>

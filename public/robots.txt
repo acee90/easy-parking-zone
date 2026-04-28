@@ -2,4 +2,4 @@ User-agent: *
 Allow: /
 Disallow: /admin/
 
-Sitemap: https://easy-parking.xyz/sitemap.xml
+Sitemap: https://easy-parking.xyz/sitemap-main.xml

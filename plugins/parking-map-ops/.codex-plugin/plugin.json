@@ -1,0 +1,29 @@
+{
+  "name": "parking-map-ops",
+  "version": "0.1.0",
+  "description": "Parking Map operational workflows for enrichment and remote D1 maintenance.",
+  "author": {
+    "name": "Parking Map"
+  },
+  "license": "UNLICENSED",
+  "keywords": [
+    "parking-map",
+    "d1",
+    "kakao",
+    "enrichment"
+  ],
+  "interface": {
+    "displayName": "Parking Map Ops",
+    "shortDescription": "Parking Map DB enrichment workflows",
+    "longDescription": "Operational Codex commands for Parking Map data enrichment, including Kakao basic info SQL generation and safe remote D1 application.",
+    "developerName": "Parking Map",
+    "category": "Coding",
+    "capabilities": [
+      "Interactive",
+      "Write"
+    ],
+    "defaultPrompt": [
+      "Help me run Parking Map data enrichment safely"
+    ]
+  }
+}

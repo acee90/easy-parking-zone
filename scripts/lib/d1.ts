@@ -24,11 +24,24 @@ let _localDb: InstanceType<typeof Database> | null = null;
 
 function getLocalDb(): InstanceType<typeof Database> {
   if (_localDb) return _localDb;
-  const d1Dir = resolve(import.meta.dir, "../../.wrangler/state/v3/d1/miniflare-D1DatabaseObject");
-  const files = readdirSync(d1Dir).filter((f) => f.endsWith(".sqlite"));
-  if (files.length === 0) throw new Error("로컬 D1 SQLite 파일을 찾을 수 없습니다. wrangler dev를 먼저 실행하세요.");
-  _localDb = new Database(resolve(d1Dir, files[0]));
-  return _localDb;
+  const stateDir = resolve(import.meta.dir, "../../.wrangler/state/v3/d1");
+  const subDirs = readdirSync(stateDir);
+  
+  for (const dir of subDirs) {
+    const fullPath = resolve(stateDir, dir);
+    try {
+      const files = readdirSync(fullPath).filter((f) => f.endsWith(".sqlite") && !f.includes("metadata"));
+      if (files.length > 0) {
+        console.log(`로컬 DB 발견: ${fullPath}/${files[0]}`);
+        _localDb = new Database(resolve(fullPath, files[0]));
+        return _localDb;
+      }
+    } catch (e) {
+      continue;
+    }
+  }
+  
+  throw new Error("로컬 D1 SQLite 파일을 찾을 수 없습니다. wrangler dev를 먼저 실행하거나 .wrangler 폴더를 확인하세요.");
 }
 
 export function d1Query<T = Record<string, unknown>>(sql: string): T[] {
@@ -37,7 +50,7 @@ export function d1Query<T = Record<string, unknown>>(sql: string): T[] {
   }
   const escaped = sql.replace(/"/g, '\\"');
   const raw = execSync(
-    `npx wrangler d1 execute ${DB_NAME} ${target} --json --command "${escaped}"`,
+    `bunx wrangler d1 execute ${DB_NAME} ${target} --json --command "${escaped}"`,
     { encoding: "utf-8", maxBuffer: 100 * 1024 * 1024 }
   );
   return JSON.parse(raw)[0]?.results ?? [];
@@ -50,7 +63,7 @@ export function d1Execute(sql: string): void {
   }
   const escaped = sql.replace(/"/g, '\\"');
   execSync(
-    `npx wrangler d1 execute ${DB_NAME} ${target} --command "${escaped}"`,
+    `bunx wrangler d1 execute ${DB_NAME} ${target} --command "${escaped}"`,
     { stdio: "pipe" }
   );
 }
@@ -62,7 +75,7 @@ export function d1ExecFile(filePath: string): void {
     return;
   }
   execSync(
-    `npx wrangler d1 execute ${DB_NAME} ${target} --file="${filePath}"`,
+    `bunx wrangler d1 execute ${DB_NAME} ${target} --file="${filePath}"`,
     { stdio: "pipe" }
   );
 }

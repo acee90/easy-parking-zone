@@ -130,31 +130,43 @@ export function ParkingDetailPanel({
 
       {/* 상세 정보 */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
-        {/* AI Summary */}
-        {lot.curationReason && (
-          <div
-            className={`rounded-lg px-3.5 py-3 text-base space-y-1.5 ${
-              lot.difficulty.score !== null && lot.difficulty.score < 2.0
-                ? 'bg-red-50 border border-red-200'
-                : 'bg-blue-50 border border-blue-200'
-            }`}
-          >
-            <div className="font-semibold flex items-center gap-2">
-              {lot.difficulty.score !== null && lot.difficulty.score < 2.0 ? '⚠️' : '✨'} AI 요약
-            </div>
-            <p
-              className={
-                lot.difficulty.score !== null && lot.difficulty.score < 2.0
-                  ? 'text-red-700'
-                  : 'text-blue-700'
-              }
-            >
-              {lot.curationReason}
-            </p>
-            {lot.featuredSource === '1010' && (
-              <p className="text-sm text-muted-foreground mt-2 pt-2 border-t border-current border-opacity-20">
-                📺 10시10분 유튜브 채널에 소개된 주차장
-              </p>
+        {/* AI 요약 + 팁 */}
+        {(lot.aiSummary || lot.aiTipPricing || lot.aiTipVisit || lot.aiTipAlternative) && (
+          <div className="rounded-lg border border-blue-200 bg-blue-50 overflow-hidden text-base">
+            {lot.aiSummary && (
+              <div className="px-3.5 py-3 space-y-1.5">
+                <div className="font-semibold flex items-center gap-1.5 text-blue-900">
+                  ✨ AI 요약
+                </div>
+                <p className="text-blue-800 leading-snug">{lot.aiSummary}</p>
+                {lot.featuredSource === '1010' && (
+                  <p className="text-sm text-muted-foreground pt-2 border-t border-blue-200">
+                    📺 10시10분 유튜브 채널에 소개된 주차장
+                  </p>
+                )}
+              </div>
+            )}
+            {(lot.aiTipPricing || lot.aiTipVisit || lot.aiTipAlternative) && (
+              <div className="px-3.5 py-3 bg-white/60 border-t border-blue-100 space-y-2">
+                {lot.aiTipPricing && (
+                  <p className="text-sm text-gray-700">
+                    <span className="font-medium text-gray-800">요금</span> {lot.aiTipPricing}
+                  </p>
+                )}
+                {lot.aiTipVisit && (
+                  <p className="text-sm text-gray-700">
+                    <span className="font-medium text-gray-800">방문</span> {lot.aiTipVisit}
+                  </p>
+                )}
+                {lot.aiTipAlternative && (
+                  <p className="text-sm text-gray-700">
+                    <span className="font-medium text-gray-800">대안</span> {lot.aiTipAlternative}
+                  </p>
+                )}
+                <p className="text-[11px] text-gray-400 pt-1 border-t border-gray-100">
+                  ※ 블로그·리뷰 기반 AI 요약으로 실제와 다를 수 있습니다.
+                </p>
+              </div>
             )}
           </div>
         )}

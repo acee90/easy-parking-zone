@@ -1,0 +1,20 @@
+{
+  "name": "parking-map-local",
+  "interface": {
+    "displayName": "Parking Map Local"
+  },
+  "plugins": [
+    {
+      "name": "parking-map-ops",
+      "source": {
+        "source": "local",
+        "path": "./plugins/parking-map-ops"
+      },
+      "policy": {
+        "installation": "INSTALLED_BY_DEFAULT",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

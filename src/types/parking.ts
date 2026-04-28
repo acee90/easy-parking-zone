@@ -43,6 +43,9 @@ export interface ParkingLot {
   verifiedSource?: string // 검증 출처 ('public_api' | 'kakao_detail' | 'naver_detail')
   aiSummary?: string // AI가 블로그/리뷰를 정리한 한 줄 요약
   aiSummaryUpdatedAt?: string
+  aiTipPricing?: string // 요금/할인 팁
+  aiTipVisit?: string // 방문/난이도 팁
+  aiTipAlternative?: string // 대안/주변 연계 팁
 }
 
 export interface Place {
@@ -68,6 +71,7 @@ export interface BlogPost {
   source: 'naver_blog' | 'naver_cafe' | 'youtube_comment' | 'google_search' | 'clien'
   author: string
   publishedAt?: string
+  relevanceScore?: number
 }
 
 export interface ParkingMedia {

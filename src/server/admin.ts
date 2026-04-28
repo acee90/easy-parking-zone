@@ -89,8 +89,6 @@ export const fetchSignals = createServerFn({ method: 'GET' })
     const offset = (page - 1) * limit
 
     const conditions: string[] = []
-    const params: unknown[] = []
-    let idx = 1
 
     if (status === 'pending') {
       conditions.push('cs.human_score IS NULL')
@@ -105,9 +103,8 @@ export const fetchSignals = createServerFn({ method: 'GET' })
       joinClause = `
         JOIN cafe_signal_lots csl_f ON csl_f.signal_id = cs.id
         JOIN parking_lots p_f ON p_f.id = csl_f.parking_lot_id`
-      conditions.push(`p_f.name LIKE ?${idx}`)
-      params.push(`%${lotSearch}%`)
-      idx++
+      const escaped = lotSearch.replace(/'/g, "''")
+      conditions.push(`p_f.name LIKE '%${escaped}%'`)
     }
 
     const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
@@ -122,14 +119,13 @@ export const fetchSignals = createServerFn({ method: 'GET' })
     const total = (countRows[0] as { total: number } | undefined)?.total ?? 0
 
     // Paginated signals
-    params.push(limit, offset)
     const signals = (await db.all(
       sql.raw(
         `SELECT DISTINCT cs.id, cs.title, cs.url, cs.snippet,
                 cs.ai_sentiment, cs.human_score
          FROM cafe_signals cs ${joinClause} ${where}
          ORDER BY cs.id
-         LIMIT ?${idx} OFFSET ?${idx + 1}`,
+         LIMIT ${limit} OFFSET ${offset}`,
       ),
     )) as unknown as {
       id: number
@@ -151,13 +147,12 @@ export const fetchSignals = createServerFn({ method: 'GET' })
 
     // Fetch lots for these signals
     const ids = signals.map((s) => s.id)
-    const ph = ids.map((_, i) => `?${i + 1}`).join(',')
     const lotRows = (await db.all(
       sql.raw(
         `SELECT csl.signal_id, csl.parking_lot_id, p.name, p.address
          FROM cafe_signal_lots csl
          JOIN parking_lots p ON p.id = csl.parking_lot_id
-         WHERE csl.signal_id IN (${ph})`,
+         WHERE csl.signal_id IN (${ids.join(',')})`,
       ),
     )) as unknown as {
       signal_id: number

@@ -144,6 +144,10 @@ export const parkingLotStats = sqliteTable('parking_lot_stats', {
   reliability: text('reliability'),
   aiSummary: text('ai_summary'),
   aiSummaryUpdatedAt: text('ai_summary_updated_at'),
+  aiTipPricing: text('ai_tip_pricing'),
+  aiTipVisit: text('ai_tip_visit'),
+  aiTipAlternative: text('ai_tip_alternative'),
+  aiTipUpdatedAt: text('ai_tip_updated_at'),
   computedAt: text('computed_at').default(now),
 })
 

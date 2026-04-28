@@ -22,6 +22,7 @@ export const POSITIVE_KEYWORDS = [
   '쉽',
   '쉬운',
   '쉬워',
+  '쉬웠',
   '초보',
   '추천',
   '평면',
@@ -34,6 +35,11 @@ export const POSITIVE_KEYWORDS = [
   '공간이 넓',
   '자리가 많',
   '주차면이 넓',
+  // 주관 평가 — 좋았다/만족/수월
+  '좋았',
+  '좋아요',
+  '만족',
+  '수월',
 ] as const
 
 /** 부정 키워드 — 주차하기 어려움을 나타내는 표현 (주요 활용형 포함) */
@@ -46,10 +52,11 @@ export const NEGATIVE_KEYWORDS = [
   '긁',
   '어려',
   '어렵',
+  '어려웠',
   '공포',
   '골뱅이',
   '나선',
-  '기계식',
+  // '기계식' 제거 — structural prior(PRIOR_MECHANICAL)가 이미 반영, 이중 계산 방지
   '기둥',
   '사이드미러',
   '복잡',
@@ -69,6 +76,10 @@ export const NEGATIVE_KEYWORDS = [
   '회전',
   '경사',
   '돌아가',
+  // 주관 평가 — 안좋았다/불편/후회
+  '불편',
+  '안좋',
+  '후회',
 ] as const
 
 /** 부정어 패턴 — 뒤따르는 키워드의 극성 반전 */
@@ -158,6 +169,15 @@ const EXPERIENCE_KEYWORDS = [
   '차폭',
   '주차타워',
   '발렛',
+  // 주관 평가 — 좋았다/불편/만족/수월/후회
+  '좋았',
+  '불편',
+  '만족',
+  '수월',
+  '안좋',
+  '후회',
+  '어려웠',
+  '쉬웠',
 ] as const
 
 /**
@@ -404,12 +424,12 @@ export function analyzeSentiment(text: string, idfDict: IdfDict | null = null): 
 
   const sentimentRaw = weightSum > 0 ? weightedSum / weightSum : 0
 
-  // 1-5 스케일 변환 + 부정성 편향 보정 (중립점 = +0.1)
-  // S_text→5 = (S_text - 0.1) × 2.0 + 3.0
-  const scaled = (sentimentRaw - 0.1) * 2.0 + 3.0
+  // 1-5 스케일 변환: S = sentimentRaw × 2.0 + 3.0
+  // (이전 -0.1 보정 제거 — 실측 분포가 positive 편향으로 보정 방향이 반대였음)
+  const scaled = sentimentRaw * 2.0 + 3.0
 
-  // 키워드 수 기반 감쇠: 키워드가 적으면 중립(3.0) 방향으로 당김
-  const DAMPING: Record<number, number> = { 1: 0.5, 2: 0.7 }
+  // 키워드 수 기반 감쇠: 키워드가 적으면 중립(3.0) 방향으로 당김 (완화)
+  const DAMPING: Record<number, number> = { 1: 0.65, 2: 0.82 }
   const damping = DAMPING[matches.length] ?? 1.0
   const damped = 3.0 + (scaled - 3.0) * damping
   const sentimentScore = Math.max(1.0, Math.min(5.0, damped))
