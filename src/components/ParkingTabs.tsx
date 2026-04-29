@@ -220,56 +220,83 @@ interface ParkingTabsProps {
   lotId: string
   /** 데스크톱에서 탭 대신 모든 섹션을 펼쳐서 표시 (위키 페이지용) */
   expanded?: boolean
+  /** SSR loader에서 prefetch한 데이터 — 있으면 hydration에서 재요청 생략 */
+  initialBlogPosts?: BlogPost[]
+  initialMedia?: ParkingMedia[]
+  initialReviews?: UserReview[]
+  initialTabCounts?: { reviews: number; blog: number; media: number }
 }
 
-export function ParkingTabs({ lotId, expanded }: ParkingTabsProps) {
-  const [blogPosts, setBlogPosts] = useState<BlogPost[]>([])
-  const [blogHasMore, setBlogHasMore] = useState(false)
+export function ParkingTabs({
+  lotId,
+  expanded,
+  initialBlogPosts,
+  initialMedia,
+  initialReviews,
+  initialTabCounts,
+}: ParkingTabsProps) {
+  const [blogPosts, setBlogPosts] = useState<BlogPost[]>(initialBlogPosts ?? [])
+  const [blogHasMore, setBlogHasMore] = useState((initialBlogPosts?.length ?? 0) >= BLOG_PAGE_SIZE)
   const [blogLoadingMore, setBlogLoadingMore] = useState(false)
-  const [userReviews, setUserReviews] = useState<UserReview[]>([])
-  const [media, setMedia] = useState<ParkingMedia[]>([])
+  const [userReviews, setUserReviews] = useState<UserReview[]>(initialReviews ?? [])
+  const [media, setMedia] = useState<ParkingMedia[]>(initialMedia ?? [])
   const [showReviewForm, setShowReviewForm] = useState(false)
   const [reviewKey, setReviewKey] = useState(0)
   const [activeTab, setActiveTab] = useState<'reviews' | 'media' | 'blog'>('reviews')
-  const [tabCounts, setTabCounts] = useState<{ reviews: number; blog: number; media: number }>({
-    reviews: 0,
-    blog: 0,
-    media: 0,
-  })
+  const [tabCounts, setTabCounts] = useState<{ reviews: number; blog: number; media: number }>(
+    initialTabCounts ?? { reviews: 0, blog: 0, media: 0 },
+  )
   const [loadingTabs, setLoadingTabs] = useState<Set<string>>(new Set())
-  const fetchedTabsRef = useRef<Set<string>>(new Set(['reviews']))
+  const fetchedTabsRef = useRef<Set<string>>(
+    new Set(
+      initialBlogPosts !== undefined || initialMedia !== undefined || initialReviews !== undefined
+        ? ['reviews', 'media', 'blog']
+        : ['reviews'],
+    ),
+  )
 
   // lotId 변경 시 상태 초기화 + 카운트 즉시 조회 + 기본 탭(reviews) fetch
   useEffect(() => {
-    setBlogPosts([])
-    setBlogHasMore(false)
-    setMedia([])
-    setUserReviews([])
+    setBlogPosts(initialBlogPosts ?? [])
+    setBlogHasMore((initialBlogPosts?.length ?? 0) >= BLOG_PAGE_SIZE)
+    setMedia(initialMedia ?? [])
+    setUserReviews(initialReviews ?? [])
     setShowReviewForm(false)
     setActiveTab('reviews')
-    setTabCounts({ reviews: 0, blog: 0, media: 0 })
-    fetchedTabsRef.current = new Set(['reviews'])
-    fetchTabCounts({ data: { parkingLotId: lotId } })
-      .then(setTabCounts)
-      .catch(() => {})
-    fetchUserReviews({ data: { parkingLotId: lotId } })
-      .then(setUserReviews)
-      .catch(() => setUserReviews([]))
+    setTabCounts(initialTabCounts ?? { reviews: 0, blog: 0, media: 0 })
 
-    // expanded 모드: 모든 탭 데이터 즉시 fetch
-    if (expanded) {
-      fetchedTabsRef.current = new Set(['reviews', 'media', 'blog'])
-      fetchParkingMedia({ data: { parkingLotId: lotId } })
-        .then(setMedia)
-        .catch(() => setMedia([]))
-      fetchBlogPosts({ data: { parkingLotId: lotId, limit: BLOG_PAGE_SIZE } })
-        .then((posts) => {
-          setBlogPosts(posts)
-          setBlogHasMore(posts.length >= BLOG_PAGE_SIZE)
-        })
-        .catch(() => setBlogPosts([]))
+    const hasInitial =
+      initialBlogPosts !== undefined || initialMedia !== undefined || initialReviews !== undefined
+    fetchedTabsRef.current = new Set(hasInitial ? ['reviews', 'media', 'blog'] : ['reviews'])
+
+    if (initialTabCounts === undefined) {
+      fetchTabCounts({ data: { parkingLotId: lotId } })
+        .then(setTabCounts)
+        .catch(() => {})
     }
-  }, [lotId, expanded])
+    if (initialReviews === undefined) {
+      fetchUserReviews({ data: { parkingLotId: lotId } })
+        .then(setUserReviews)
+        .catch(() => setUserReviews([]))
+    }
+
+    // expanded 모드: initial 없는 탭만 fetch
+    if (expanded) {
+      if (initialMedia === undefined) {
+        fetchParkingMedia({ data: { parkingLotId: lotId } })
+          .then(setMedia)
+          .catch(() => setMedia([]))
+      }
+      if (initialBlogPosts === undefined) {
+        fetchBlogPosts({ data: { parkingLotId: lotId, limit: BLOG_PAGE_SIZE } })
+          .then((posts) => {
+            setBlogPosts(posts)
+            setBlogHasMore(posts.length >= BLOG_PAGE_SIZE)
+          })
+          .catch(() => setBlogPosts([]))
+      }
+    }
+  }, [lotId, expanded, initialBlogPosts, initialMedia, initialReviews, initialTabCounts])
 
   // 탭 전환 시 아직 fetch하지 않은 탭만 lazy fetch
   useEffect(() => {

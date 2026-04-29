@@ -138,7 +138,7 @@ export function ParkingDetailPanel({
                 <div className="font-semibold flex items-center gap-1.5 text-blue-900">
                   ✨ AI 요약
                 </div>
-                <p className="text-blue-800 leading-snug">{lot.aiSummary}</p>
+                <p className="whitespace-pre-line text-blue-800 leading-snug">{lot.aiSummary}</p>
                 {lot.featuredSource === '1010' && (
                   <p className="text-sm text-muted-foreground pt-2 border-t border-blue-200">
                     📺 10시10분 유튜브 채널에 소개된 주차장
