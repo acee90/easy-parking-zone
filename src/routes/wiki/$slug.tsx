@@ -5,16 +5,19 @@ import {
   CreditCard,
   Flame,
   MapPin,
+  MessageSquare,
   ParkingSquare,
   Phone,
   Star,
   Tag,
   ThumbsUp,
 } from 'lucide-react'
-import { ParkingTabs } from '@/components/ParkingTabs'
+import { NavigationButton } from '@/components/NavigationButton'
+import { ParkingReputationSections } from '@/components/ParkingReputationSections'
 import { Badge } from '@/components/ui/badge'
+import { VoteBookmarkBar } from '@/components/VoteBookmarkBar'
 import { WikiMiniMap } from '@/components/WikiMiniMap'
-import { getDifficultyLabel } from '@/lib/geo-utils'
+import { getDifficultyLabel, getReliabilityBadge } from '@/lib/geo-utils'
 import { makeParkingSlug, parseIdFromSlug } from '@/lib/slug'
 import {
   fetchBlogPosts,
@@ -183,219 +186,233 @@ function NearbyPlacesSection({ places }: { places: NearbyPlaceInfo[] }) {
 
 function WikiDetailPage() {
   const { lot, nearbyPlaces, blogPosts, media, reviews, tabCounts } = Route.useLoaderData()
+  const score = lot.difficulty.score
+  const scoreLabel = getDifficultyLabel(score)
+  const reliabilityBadge = getReliabilityBadge(lot.difficulty.reliability)
+  const sourceCount = tabCounts.reviews + tabCounts.blog + tabCounts.media
+  const summary = lot.curationReason ?? lot.aiSummary
 
   return (
     <div className="min-h-screen bg-white">
-      {/* 히어로 이미지 */}
-      <div className="relative h-48 bg-gradient-to-br from-blue-100 to-blue-50 flex items-center justify-center overflow-hidden">
-        <div className="absolute inset-0 opacity-10 flex items-center justify-center">
-          <ParkingSquare className="size-40 text-blue-500" />
+      <section className="relative border-b bg-white">
+        <div className="relative mx-auto grid max-w-6xl grid-cols-1 gap-5 px-4 py-4 md:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)] md:py-6">
+          <WikiMiniMap lat={lot.lat} lng={lot.lng} name={lot.name} />
+
+          <div className="flex flex-col justify-between gap-5">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant={lot.pricing.isFree ? 'default' : 'outline'}>
+                    {lot.pricing.isFree ? '무료' : '유료'}
+                  </Badge>
+                  <Badge variant="outline">{lot.type}</Badge>
+                  {lot.difficulty.score !== null && lot.difficulty.score >= 4.0 && (
+                    <Badge className="gap-1 bg-green-100 text-green-700 hover:bg-green-100">
+                      <ThumbsUp className="size-3" />
+                      초보 추천
+                    </Badge>
+                  )}
+                  {lot.difficulty.score !== null && lot.difficulty.score < 2.0 && (
+                    <Badge variant="destructive" className="gap-1">
+                      <Flame className="size-3" />
+                      초보 주의
+                    </Badge>
+                  )}
+                </div>
+                <h1 className="text-3xl font-bold leading-tight tracking-normal md:text-4xl">
+                  {lot.name}
+                </h1>
+                <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                  <MapPin className="mt-0.5 size-4 shrink-0" />
+                  <span>{lot.address}</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-lg border bg-white p-4">
+                  <div className="text-xs font-medium text-muted-foreground">쉬움 점수</div>
+                  <div className="mt-2 flex items-end gap-2">
+                    <span className="text-4xl font-black leading-none">
+                      {score === null ? '-' : score.toFixed(1)}
+                    </span>
+                    <span className="pb-1 text-sm font-semibold text-muted-foreground">/ 5</span>
+                  </div>
+                  <div className="mt-2 flex items-center gap-1.5 text-sm font-medium">
+                    <div className="flex items-center gap-0.5">
+                      {[1, 2, 3, 4, 5].map((i) => (
+                        <Star
+                          key={i}
+                          className={`size-3.5 ${
+                            i <= Math.round(score ?? 0)
+                              ? 'fill-yellow-400 text-yellow-400'
+                              : 'text-gray-300'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                    <span>{scoreLabel}</span>
+                  </div>
+                </div>
+
+                <div className="rounded-lg border bg-white p-4">
+                  <div className="text-xs font-medium text-muted-foreground">평판 근거</div>
+                  <div className="mt-2 text-4xl font-black leading-none">{sourceCount}</div>
+                  <div className="mt-2 flex items-center gap-1.5 text-sm text-muted-foreground">
+                    <MessageSquare className="size-3.5" />
+                    리뷰/영상/웹 글
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <NavigationButton
+                  lat={lot.lat}
+                  lng={lot.lng}
+                  name={lot.name}
+                  buttonClassName="px-4 py-2 text-sm"
+                />
+                <VoteBookmarkBar lotId={lot.id} />
+                {lot.phone && (
+                  <a
+                    href={`tel:${lot.phone}`}
+                    className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition-colors hover:bg-zinc-50"
+                  >
+                    <Phone className="size-3.5" />
+                    전화
+                  </a>
+                )}
+              </div>
+              {reliabilityBadge && (
+                <Badge variant="outline" className={reliabilityBadge.className}>
+                  {reliabilityBadge.label}
+                </Badge>
+              )}
+            </div>
+          </div>
         </div>
         <Link
           to="/"
-          className="absolute top-4 left-4 p-2 rounded-lg bg-white/90 hover:bg-white shadow-sm transition-colors"
+          className="absolute left-4 top-4 rounded-lg bg-white/90 p-2 shadow-sm transition-colors hover:bg-white"
+          aria-label="지도로 돌아가기"
         >
           <ChevronRight className="size-5 rotate-180" />
         </Link>
-      </div>
+      </section>
 
       {/* 컨텐츠 */}
-      <div className="max-w-6xl mx-auto px-4 py-6">
+      <div className="mx-auto max-w-6xl px-4 py-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* 좌측: 정보 + 탭 */}
           <div className="md:col-span-2 space-y-4">
-            {/* 제목 */}
-            <h1 className="text-3xl font-bold">{lot.name}</h1>
-
-            {/* 평점 + 리뷰 수 */}
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-1">
-                <div className="flex items-center gap-0.5">
-                  {[1, 2, 3, 4, 5].map((i) => {
-                    const rating = lot.difficulty.score ?? 0
-                    return (
-                      <Star
-                        key={i}
-                        className={`size-4 ${
-                          i <= Math.round(rating)
-                            ? 'fill-yellow-400 text-yellow-400'
-                            : 'text-gray-300'
-                        }`}
-                      />
-                    )
-                  })}
-                </div>
-                <span className="font-bold text-xl">{(lot.difficulty.score ?? 0).toFixed(1)}</span>
-              </div>
-              {lot.difficulty.reviewCount > 0 && (
-                <span className="text-lg text-muted-foreground">
-                  리뷰 {lot.difficulty.reviewCount}개
-                </span>
-              )}
-            </div>
-
-            {/* 상태 배지 */}
-            <div className="flex items-center gap-2 flex-wrap">
-              <Badge className="bg-green-500 hover:bg-green-600 text-white text-sm">
-                주차 가능
-              </Badge>
-              <Badge variant={lot.pricing.isFree ? 'default' : 'outline'} className="text-sm">
-                {lot.pricing.isFree ? '무료' : '유료'}
-              </Badge>
-              {lot.difficulty.score !== null && lot.difficulty.score >= 4.0 && (
-                <Badge className="bg-green-100 text-green-700 hover:bg-green-100 gap-1 text-sm">
-                  <ThumbsUp className="size-3" />
-                  초보 추천
-                </Badge>
-              )}
-              {lot.difficulty.score !== null && lot.difficulty.score < 2.0 && (
-                <Badge variant="destructive" className="gap-1 text-sm">
-                  <Flame className="size-3" />
-                  초보 주의
-                </Badge>
-              )}
-            </div>
-
-            {/* 액션 버튼 */}
-            <div className="flex gap-2 pt-2">
-              <a
-                href={`https://map.kakao.com/link/map/${lot.name},${lot.lat},${lot.lng}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex-1 rounded-lg bg-yellow-400 text-black font-medium py-3 text-base hover:bg-yellow-500 transition-colors text-center"
-              >
-                카카오맵
-              </a>
-              <a
-                href={`https://map.naver.com/v5/directions/-/${lot.lng},${lot.lat},${encodeURIComponent(lot.name)}/-/transit?c=${lot.lng},${lot.lat},15,0,0,0,dh`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex-1 rounded-lg bg-green-500 text-white font-medium py-3 text-base hover:bg-green-600 transition-colors text-center"
-              >
-                네이버맵
-              </a>
-            </div>
-
-            {/* AI Summary: 큐레이션 텍스트 우선, 없으면 ai_summary fallback */}
-            {(lot.curationReason || lot.aiSummary) && (
-              <div
-                className={`rounded-lg px-4 py-3.5 border space-y-2 ${
-                  lot.difficulty.score !== null && lot.difficulty.score < 2.0
-                    ? 'bg-red-50 border-red-200'
-                    : 'bg-blue-50 border-blue-200'
-                }`}
-              >
-                <div className="font-semibold text-base flex items-center gap-2">
-                  {lot.difficulty.score !== null && lot.difficulty.score < 2.0 ? '⚠️' : '✨'} AI 요약
-                </div>
-                <p
-                  className={`whitespace-pre-line text-base ${
-                    lot.difficulty.score !== null && lot.difficulty.score < 2.0
-                      ? 'text-red-700'
-                      : 'text-blue-700'
-                  }`}
-                >
-                  {lot.curationReason ?? lot.aiSummary}
+            {summary && (
+              <section className="rounded-xl border border-blue-100 bg-blue-50 p-5">
+                <div className="mb-2 text-sm font-semibold text-blue-700">AI 요약</div>
+                <p className="whitespace-pre-line text-lg font-medium leading-relaxed text-zinc-900">
+                  {summary}
                 </p>
-                {lot.featuredSource === '1010' && (
-                  <p className="text-xs text-muted-foreground pt-2 border-t border-current border-opacity-20">
-                    📺 10시10분 유튜브 채널에 소개된 주차장
-                  </p>
-                )}
-              </div>
+              </section>
             )}
 
             {/* AI 팁 */}
             {(lot.aiTipPricing || lot.aiTipVisit || lot.aiTipAlternative) && (
-              <div className="space-y-2">
+              <section className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                 {lot.aiTipPricing && (
-                  <div className="rounded-lg px-4 py-3 border bg-gray-50 text-sm text-gray-700">
-                    <span className="font-semibold mr-1.5">💳 요금</span>
+                  <div className="rounded-lg border bg-white px-4 py-3 text-sm text-gray-700">
+                    <span className="mb-1 block font-semibold text-gray-900">요금</span>
                     {lot.aiTipPricing}
                   </div>
                 )}
                 {lot.aiTipVisit && (
-                  <div className="rounded-lg px-4 py-3 border bg-gray-50 text-sm text-gray-700">
-                    <span className="font-semibold mr-1.5">🚗 방문 팁</span>
+                  <div className="rounded-lg border bg-white px-4 py-3 text-sm text-gray-700">
+                    <span className="mb-1 block font-semibold text-gray-900">방문 팁</span>
                     {lot.aiTipVisit}
                   </div>
                 )}
                 {lot.aiTipAlternative && (
-                  <div className="rounded-lg px-4 py-3 border bg-gray-50 text-sm text-gray-700">
-                    <span className="font-semibold mr-1.5">🔄 대안</span>
+                  <div className="rounded-lg border bg-white px-4 py-3 text-sm text-gray-700">
+                    <span className="mb-1 block font-semibold text-gray-900">대안</span>
                     {lot.aiTipAlternative}
                   </div>
                 )}
-              </div>
+              </section>
             )}
 
             {/* 기본 정보 */}
-            <div className="space-y-3 text-base border-t pt-4">
-              {/* 주소 */}
-              <div className="flex items-start gap-2.5">
-                <MapPin className="size-4 shrink-0 mt-0.5 text-muted-foreground" />
-                <span>{lot.address}</span>
-              </div>
-
-              {/* 운영시간 */}
-              <div className="flex items-start gap-2.5">
-                <Clock className="size-4 shrink-0 mt-0.5 text-muted-foreground" />
-                <div>
-                  <div>
-                    평일 {lot.operatingHours.weekday.start}-{lot.operatingHours.weekday.end}
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    토 {lot.operatingHours.saturday.start}-{lot.operatingHours.saturday.end} ·
-                    공휴일 {lot.operatingHours.holiday.start}-{lot.operatingHours.holiday.end}
-                  </div>
-                </div>
-              </div>
-
-              {/* 요금 */}
-              {!lot.pricing.isFree && (
+            <section className="border-t-2 border-zinc-300 pt-7 pb-8">
+              <h2 className="mb-4 text-lg font-semibold">주차장 정보</h2>
+              <div className="space-y-3 text-base">
+                {/* 주소 */}
                 <div className="flex items-start gap-2.5">
-                  <CreditCard className="size-4 shrink-0 mt-0.5 text-muted-foreground" />
+                  <MapPin className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                  <span>{lot.address}</span>
+                </div>
+
+                {/* 운영시간 */}
+                <div className="flex items-start gap-2.5">
+                  <Clock className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
                   <div>
                     <div>
-                      기본 {lot.pricing.baseTime}분 {lot.pricing.baseFee.toLocaleString()}원
+                      평일 {lot.operatingHours.weekday.start}-{lot.operatingHours.weekday.end}
                     </div>
                     <div className="text-sm text-muted-foreground">
-                      추가 {lot.pricing.extraTime}분당 {lot.pricing.extraFee.toLocaleString()}원
-                      {lot.pricing.dailyMax &&
-                        ` · 1일 최대 ${lot.pricing.dailyMax.toLocaleString()}원`}
+                      토 {lot.operatingHours.saturday.start}-{lot.operatingHours.saturday.end} ·
+                      공휴일 {lot.operatingHours.holiday.start}-{lot.operatingHours.holiday.end}
                     </div>
                   </div>
                 </div>
-              )}
 
-              {/* 전화번호 */}
-              {lot.phone && (
-                <div className="flex items-center gap-2.5">
-                  <Phone className="size-4 shrink-0 text-muted-foreground" />
-                  <a href={`tel:${lot.phone}`} className="text-blue-500 underline">
-                    {lot.phone}
-                  </a>
-                </div>
-              )}
-
-              {/* POI 태그 */}
-              {lot.poiTags && lot.poiTags.length > 0 && (
-                <div className="flex items-start gap-2.5">
-                  <Tag className="size-4 shrink-0 mt-0.5 text-muted-foreground" />
-                  <div className="flex flex-wrap gap-1.5">
-                    {lot.poiTags.map((tag) => (
-                      <Badge key={tag} variant="outline" className="text-sm">
-                        {tag}
-                      </Badge>
-                    ))}
+                {/* 요금 */}
+                {!lot.pricing.isFree && (
+                  <div className="flex items-start gap-2.5">
+                    <CreditCard className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                    <div>
+                      <div>
+                        기본 {lot.pricing.baseTime}분 {lot.pricing.baseFee.toLocaleString()}원
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        추가 {lot.pricing.extraTime}분당 {lot.pricing.extraFee.toLocaleString()}원
+                        {lot.pricing.dailyMax &&
+                          ` · 1일 최대 ${lot.pricing.dailyMax.toLocaleString()}원`}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
+                )}
 
-            {/* 리뷰/블로그/영상 탭 (loader에서 prefetch → SSR로 봇 노출) */}
-            <div className="pt-4">
-              <ParkingTabs
+                {lot.totalSpaces > 0 && (
+                  <div className="flex items-center gap-2.5">
+                    <ParkingSquare className="size-4 shrink-0 text-muted-foreground" />
+                    <span>총 {lot.totalSpaces}면</span>
+                  </div>
+                )}
+
+                {/* 전화번호 */}
+                {lot.phone && (
+                  <div className="flex items-center gap-2.5">
+                    <Phone className="size-4 shrink-0 text-muted-foreground" />
+                    <a href={`tel:${lot.phone}`} className="text-blue-500 underline">
+                      {lot.phone}
+                    </a>
+                  </div>
+                )}
+
+                {/* POI 태그 */}
+                {lot.poiTags && lot.poiTags.length > 0 && (
+                  <div className="flex items-start gap-2.5">
+                    <Tag className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                    <div className="flex flex-wrap gap-1.5">
+                      {lot.poiTags.map((tag) => (
+                        <Badge key={tag} variant="outline" className="text-sm">
+                          {tag}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </section>
+
+            {/* 리뷰/블로그/영상 섹션 (loader에서 prefetch → SSR로 봇 노출) */}
+            <section className="pt-2">
+              <ParkingReputationSections
                 lotId={lot.id}
                 expanded
                 initialBlogPosts={blogPosts}
@@ -403,16 +420,10 @@ function WikiDetailPage() {
                 initialReviews={reviews}
                 initialTabCounts={tabCounts}
               />
-            </div>
+            </section>
           </div>
 
-          {/* 우측: 지도 + 주변장소 */}
           <div className="space-y-4">
-            {/* 미니 지도 */}
-            <div className="sticky top-4">
-              <WikiMiniMap lat={lot.lat} lng={lot.lng} name={lot.name} />
-            </div>
-
             {/* 주변 갈만한 곳 */}
             {nearbyPlaces.length > 0 && <NearbyPlacesSection places={nearbyPlaces} />}
           </div>

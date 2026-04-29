@@ -13,16 +13,9 @@ import {
   X,
 } from 'lucide-react'
 import { NavigationButton } from '@/components/NavigationButton'
-import { ParkingTabs } from '@/components/ParkingTabs'
+import { ParkingReputationSections } from '@/components/ParkingReputationSections'
 import { Badge } from '@/components/ui/badge'
 import { VoteBookmarkBar } from '@/components/VoteBookmarkBar'
-import {
-  getDifficultyColor,
-  getDifficultyIcon,
-  getDifficultyLabel,
-  getDistance,
-  getReliabilityBadge,
-} from '@/lib/geo-utils'
 import { makeParkingSlug } from '@/lib/slug'
 import type { ParkingLot } from '@/types/parking'
 
@@ -34,21 +27,8 @@ interface ParkingDetailPanelProps {
   userLocated?: boolean
 }
 
-export function ParkingDetailPanel({
-  lot,
-  onClose,
-  userLat,
-  userLng,
-  userLocated,
-}: ParkingDetailPanelProps) {
-  const icon = getDifficultyIcon(lot.difficulty.score)
-  const label = getDifficultyLabel(lot.difficulty.score)
-  const reliabilityBadge = getReliabilityBadge(lot.difficulty.reliability)
-  const distance =
-    userLocated && userLat && userLng ? getDistance(userLat, userLng, lot.lat, lot.lng) : null
-
+export function ParkingDetailPanel({ lot, onClose }: ParkingDetailPanelProps) {
   const rating = lot.difficulty.score ?? 0
-  const hasImage = true // TODO: 실제 이미지 URL이 있으면 표시
 
   return (
     <div className="w-[360px] shrink-0 flex-col bg-white/95 backdrop-blur-sm rounded-xl shadow-lg border pointer-events-auto flex overflow-hidden animate-in slide-in-from-left-4 duration-150">
@@ -58,6 +38,7 @@ export function ParkingDetailPanel({
           <ParkingSquare className="size-32 text-blue-500" />
         </div>
         <button
+          type="button"
           onClick={onClose}
           className="absolute top-2 right-2 p-1.5 rounded-md bg-white/90 hover:bg-white shadow-sm transition-colors cursor-pointer z-10"
         >
@@ -247,7 +228,7 @@ export function ParkingDetailPanel({
         )}
 
         {/* 탭 영역 */}
-        <ParkingTabs lotId={lot.id} />
+        <ParkingReputationSections lotId={lot.id} />
       </div>
     </div>
   )

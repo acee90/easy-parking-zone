@@ -13,7 +13,7 @@ import {
 } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { NavigationButton } from '@/components/NavigationButton'
-import { ParkingTabs } from '@/components/ParkingTabs'
+import { ParkingReputationSections } from '@/components/ParkingReputationSections'
 import { Badge } from '@/components/ui/badge'
 import {
   Sheet,
@@ -409,7 +409,7 @@ export function ParkingCard({ lot, onClose, userLat, userLng, userLocated }: Par
             )}
 
             {/* 리뷰/영상/블로그 탭 */}
-            <ParkingTabs lotId={lot.id} />
+            <ParkingReputationSections lotId={lot.id} />
           </div>
         </div>
       </SheetContent>
