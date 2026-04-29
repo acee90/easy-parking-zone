@@ -1,5 +1,5 @@
 import { Link } from '@tanstack/react-router'
-import { Car, ChevronDown, Compass, LogIn, LogOut, Map as MapIcon } from 'lucide-react'
+import { ChevronDown, Compass, LogIn, LogOut, Map as MapIcon } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { SearchBar } from '@/components/SearchBar'
 import { authClient } from '@/lib/auth-client'
@@ -127,7 +127,7 @@ export function Header({ active = 'map', onSearchSelect, onPlaceSelect, siteStat
     <>
       <header className="shrink-0 flex items-center gap-3 border-b bg-white px-4 py-2.5 z-30">
         <Link to="/" className="flex items-center gap-2 shrink-0">
-          <Car className="size-5 text-blue-500" />
+          <img src="/IMG_5843.PNG" alt="" className="size-7 rounded-md" />
           <span className="font-bold text-base hidden sm:inline">쉬운주차장</span>
         </Link>
         <nav className="flex items-center gap-1">

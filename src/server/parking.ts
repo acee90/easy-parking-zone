@@ -25,20 +25,17 @@ export const fetchSiteStats = createServerFn({ method: 'GET' }).handler(async ()
   }
 
   const db = getDb()
-  const [lots, reviews, media] = await Promise.all([
-    db.select({ cnt: count() }).from(schema.parkingLots).get(),
-    db.select({ cnt: count() }).from(schema.userReviews).get(),
-    db
-      .select({
-        cnt: sql<number>`(SELECT COUNT(*) FROM parking_media) + (SELECT COUNT(*) FROM web_sources)`,
-      })
-      .from(schema.parkingMedia)
-      .get(),
-  ])
+  const statsRow = (await db.get(
+    sql.raw(`SELECT
+      (SELECT COUNT(*) FROM parking_lots) as parking_lots,
+      (SELECT COUNT(*) FROM user_reviews) as reviews,
+      (SELECT COUNT(*) FROM parking_media) + (SELECT COUNT(*) FROM web_sources) as media_posts`),
+  )) as { parking_lots: number; reviews: number; media_posts: number } | null
+
   const stats = {
-    parkingLots: lots?.cnt ?? 0,
-    reviews: reviews?.cnt ?? 0,
-    mediaPosts: media?.cnt ?? 0,
+    parkingLots: statsRow?.parking_lots ?? 0,
+    reviews: statsRow?.reviews ?? 0,
+    mediaPosts: statsRow?.media_posts ?? 0,
   }
 
   if (cache) {
@@ -298,15 +295,15 @@ export const fetchBlogPosts = createServerFn({ method: 'GET' })
       .where(
         and(
           eq(schema.webSources.parkingLotId, data.parkingLotId),
-          sql`${schema.webSources.relevanceScore} >= 40`
-        )
+          sql`${schema.webSources.relevanceScore} >= 40`,
+        ),
       )
       .orderBy(
         desc(sql`${schema.webSources.relevanceScore} + CASE 
             WHEN ${schema.webSources.title} LIKE '%' || ${schema.parkingLots.name} || '%' THEN 30
             ELSE 0 
           END`),
-        desc(schema.webSources.publishedAt)
+        desc(schema.webSources.publishedAt),
       )
       .limit(limit)
       .offset(offset)
