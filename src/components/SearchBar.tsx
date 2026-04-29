@@ -23,30 +23,35 @@ function useSearch(
   const timerRef = useRef<ReturnType<typeof setTimeout>>()
   const queryRef = useRef('')
 
-  const doSearch = useCallback(async (q: string) => {
-    const trimmed = q.trim()
-    if (trimmed.length < 1) {
-      setLotResults([])
-      setPlaceResults([])
-      setOpen(false)
-      return
-    }
-    setLoading(true)
-    try {
-      const [lots, places] = await Promise.all([
-        searchParkingLots({ data: { query: trimmed } }),
-        trimmed.length >= 2 ? searchPlaces({ data: { query: trimmed } }) : Promise.resolve([]),
-      ])
-      setLotResults(lots)
-      setPlaceResults(places)
-      // 비동기 완료 시점에 입력이 이미 지워졌으면 열지 않음
-      if (queryRef.current.trim().length > 0) {
-        setOpen(true)
+  const doSearch = useCallback(
+    async (q: string) => {
+      const trimmed = q.trim()
+      if (trimmed.length < 1) {
+        setLotResults([])
+        setPlaceResults([])
+        setOpen(false)
+        return
       }
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+      setLoading(true)
+      try {
+        const [lots, places] = await Promise.all([
+          searchParkingLots({ data: { query: trimmed } }),
+          onPlaceSelect && trimmed.length >= 2
+            ? searchPlaces({ data: { query: trimmed } })
+            : Promise.resolve([]),
+        ])
+        setLotResults(lots)
+        setPlaceResults(places)
+        // 비동기 완료 시점에 입력이 이미 지워졌으면 열지 않음
+        if (queryRef.current.trim().length > 0) {
+          setOpen(true)
+        }
+      } finally {
+        setLoading(false)
+      }
+    },
+    [onPlaceSelect],
+  )
 
   const handleChange = useCallback(
     (value: string) => {

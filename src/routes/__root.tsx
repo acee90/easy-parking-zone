@@ -1,7 +1,17 @@
-import { createRootRoute, HeadContent, Outlet, Scripts, useMatches } from '@tanstack/react-router'
+import {
+  createRootRoute,
+  HeadContent,
+  Outlet,
+  Scripts,
+  useMatches,
+  useNavigate,
+} from '@tanstack/react-router'
+import { useCallback } from 'react'
 import { Toaster } from 'sonner'
 import { Header } from '@/components/Header'
+import { makeParkingSlug } from '@/lib/slug'
 import { fetchSiteStats } from '@/server/parking'
+import type { ParkingLot } from '@/types/parking'
 
 import appCss from '../styles.css?url'
 
@@ -149,16 +159,31 @@ export const Route = createRootRoute({
 
 function RootComponent() {
   const siteStats = Route.useLoaderData()
+  const navigate = useNavigate()
   // 현재 라우트 경로로 active 탭 결정
   const matches = useMatches()
   const lastMatch = matches[matches.length - 1]
   const active = lastMatch?.fullPath?.startsWith('/wiki') ? ('wiki' as const) : ('map' as const)
-  // 지도 페이지가 아니면 검색바/필터 없음 — 각 페이지에서 별도 처리
   const isMap = lastMatch?.fullPath === '/'
+  const handleWikiSearchSelect = useCallback(
+    (lot: ParkingLot) => {
+      navigate({
+        to: '/wiki/$slug',
+        params: { slug: makeParkingSlug(lot.name, lot.id) },
+      })
+    },
+    [navigate],
+  )
 
   return (
     <>
-      {!isMap && <Header active={active} siteStats={siteStats} />}
+      {!isMap && (
+        <Header
+          active={active}
+          onSearchSelect={active === 'wiki' ? handleWikiSearchSelect : undefined}
+          siteStats={siteStats}
+        />
+      )}
       <Outlet />
     </>
   )

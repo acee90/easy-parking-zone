@@ -125,7 +125,7 @@ export function Header({ active = 'map', onSearchSelect, onPlaceSelect, siteStat
 
   return (
     <>
-      <header className="shrink-0 flex items-center gap-3 border-b bg-white px-4 py-2.5 z-30">
+      <header className="z-30 flex h-[52px] shrink-0 items-center gap-3 border-b bg-white px-4">
         <Link to="/" className="flex items-center gap-2 shrink-0">
           <img src="/IMG_5843.PNG" alt="" className="size-7 rounded-md" />
           <span className="font-bold text-base hidden sm:inline">쉬운주차장</span>
