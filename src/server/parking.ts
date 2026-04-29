@@ -1,6 +1,6 @@
 import { env } from 'cloudflare:workers'
 import { createServerFn } from '@tanstack/react-start'
-import { count, desc, eq, sql } from 'drizzle-orm'
+import { and, count, desc, eq, sql } from 'drizzle-orm'
 import { getDb, schema } from '@/db'
 import type { BlogPost, MapBounds, NearbyPlaceInfo, ParkingFilters, Place } from '@/types/parking'
 import {

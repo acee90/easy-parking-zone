@@ -163,7 +163,7 @@ function SearchResults({
             <div className="px-3 py-1.5 text-[11px] font-medium text-muted-foreground bg-gray-50 sticky top-0">
               주차장 바로가기
             </div>
-            {lotResults.slice(0, 5).map((lot) => (
+            {lotResults.map((lot) => (
               <button
                 type="button"
                 key={lot.id}
