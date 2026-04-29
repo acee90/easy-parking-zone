@@ -88,7 +88,7 @@ function resolveLots(): LotRow[] {
     );
   }
   if (isBatch) {
-    // 모든 web_sources에 ai_summary가 채워진 주차장만 선택
+    // 유효한 web_sources.ai_summary가 하나라도 있으면 처리 대상
     return d1Query<LotRow>(`
       SELECT p.id, p.name, p.address
       FROM parking_lots p
@@ -98,11 +98,6 @@ function resolveLots(): LotRow[] {
           SELECT 1 FROM web_sources w
           WHERE w.parking_lot_id = p.id
             AND w.ai_summary IS NOT NULL AND w.ai_summary != ''
-        )
-        AND NOT EXISTS (
-          SELECT 1 FROM web_sources w
-          WHERE w.parking_lot_id = p.id
-            AND (w.ai_summary IS NULL OR w.ai_summary = '')
         )
       ORDER BY COALESCE(s.final_score, 0) DESC
       LIMIT ${batchLimit}

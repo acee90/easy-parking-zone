@@ -64,3 +64,8 @@ d1-dump.sql
 scripts/poi-local-*-checkpoint.json
 scripts/poi-run-*-checkpoint.json
 .bkit/
+
+# DB dumps (too large, regenerate from wrangler d1 export)
+data/dump-*.sql
+web_sources.db
+web_sources_dump.sql

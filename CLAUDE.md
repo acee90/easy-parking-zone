@@ -24,6 +24,7 @@ Add shadcn components with: `npx shadcn@latest add <component>`
 - [Crawling Pipeline](docs/poi-pipeline-v2.md) — 크롤링 파이프라인 현행 아키텍처
 - [Scoring Algorithm](docs/archive/2026-03/crawlers/parking-scoring-algorithm.md) — 스코어링 알고리즘
 - [Nearby Places Pipeline](docs/nearby-places-pipeline.md) — 주변 장소 AI 추출 파이프라인
+- [Web Sources AI Summary](docs/web-sources-ai-summary.md) — web_sources.ai_summary 재추출 스킬 (저품질 필터링 기준, 프롬프트, 실행 순서)
 
 ## Behavioral Guidelines
 
