@@ -7,6 +7,8 @@ import { ReviewForm } from './ReviewForm'
 import { SectionTitle } from './SectionTitle'
 import { UserReviewCard } from './UserReviewCard'
 
+const CAROUSEL_LIMIT = 7
+
 interface ReviewSectionProps {
   lotId: string
   count: number
@@ -14,6 +16,7 @@ interface ReviewSectionProps {
   showTitle?: boolean
   className?: string
   onRefreshCount?: () => void
+  viewAllSlug?: string
 }
 
 export function ReviewSection({
@@ -23,6 +26,7 @@ export function ReviewSection({
   showTitle = true,
   className,
   onRefreshCount,
+  viewAllSlug,
 }: ReviewSectionProps) {
   const [reviews, setReviews] = useState<UserReview[]>(initialReviews ?? [])
   const [showReviewForm, setShowReviewForm] = useState(false)
@@ -47,9 +51,18 @@ export function ReviewSection({
     setReviewKey((key) => key + 1)
   }
 
+  const visibleReviews = reviews.slice(0, CAROUSEL_LIMIT)
+  const hasMore = reviews.length > CAROUSEL_LIMIT || count > CAROUSEL_LIMIT
+
   return (
     <section className={className}>
-      {showTitle && <SectionTitle title="리뷰" count={count} />}
+      {showTitle && (
+        <SectionTitle
+          title="리뷰"
+          count={count}
+          viewAll={hasMore && viewAllSlug ? { slug: viewAllSlug, tab: 'reviews' } : undefined}
+        />
+      )}
 
       {!showReviewForm && (
         <div className="mb-2.5 flex justify-end">
@@ -77,9 +90,9 @@ export function ReviewSection({
         </div>
       )}
 
-      {reviews.length > 0 ? (
+      {visibleReviews.length > 0 ? (
         <Carousel>
-          {reviews.map((review) => (
+          {visibleReviews.map((review) => (
             <CarouselSlide key={review.id} size="review">
               <UserReviewCard
                 review={review}

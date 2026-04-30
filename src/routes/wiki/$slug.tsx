@@ -42,9 +42,9 @@ export const Route = createFileRoute('/wiki/$slug')({
     const [lot, nearbyPlaces, blogPosts, media, reviews, tabCounts] = await Promise.all([
       fetchParkingDetail({ data: { id } }),
       fetchNearbyPlaces({ data: { parkingLotId: id } }),
-      fetchBlogPosts({ data: { parkingLotId: id, limit: 10 } }),
-      fetchParkingMedia({ data: { parkingLotId: id } }),
-      fetchUserReviews({ data: { parkingLotId: id } }),
+      fetchBlogPosts({ data: { parkingLotId: id, limit: 7 } }),
+      fetchParkingMedia({ data: { parkingLotId: id, limit: 7 } }),
+      fetchUserReviews({ data: { parkingLotId: id, limit: 7 } }),
       fetchTabCounts({ data: { parkingLotId: id } }),
     ])
     if (!lot) throw notFound()
@@ -205,6 +205,7 @@ function WikiDetailPage() {
   const pricing = formatPricing(lot.pricing)
   const totalSpacesLabel = formatTotalSpaces(lot.totalSpaces)
   const phoneLabel = formatPhone(lot.phone)
+  const slug = makeParkingSlug(lot.name, lot.id)
 
   return (
     <div className="min-h-screen bg-white">
@@ -432,6 +433,7 @@ function WikiDetailPage() {
                 initialMedia={media}
                 initialReviews={reviews}
                 initialTabCounts={tabCounts}
+                viewAllSlug={slug}
               />
             </section>
           </div>

@@ -13,6 +13,8 @@ interface ParkingReputationSectionsProps {
   initialMedia?: ParkingMedia[]
   initialReviews?: UserReview[]
   initialTabCounts?: { reviews: number; blog: number; media: number }
+  /** 전체 보기 라우팅용 slug. 미지정 시 "전체 보기" 링크 미노출 */
+  viewAllSlug?: string
 }
 
 export function ParkingReputationSections({
@@ -22,6 +24,7 @@ export function ParkingReputationSections({
   initialMedia,
   initialReviews,
   initialTabCounts,
+  viewAllSlug,
 }: ParkingReputationSectionsProps) {
   const [activeTab, setActiveTab] = useState<'reviews' | 'media' | 'blog'>('reviews')
   const [counts, setCounts] = useState(initialTabCounts ?? { reviews: 0, blog: 0, media: 0 })
@@ -50,18 +53,21 @@ export function ParkingReputationSections({
           initialReviews={initialReviews}
           onRefreshCount={refreshCounts}
           className="border-t-2 border-zinc-300 pt-7 pb-8"
+          viewAllSlug={viewAllSlug}
         />
         <MediaSection
           lotId={lotId}
           count={counts.media}
           initialMedia={initialMedia}
           className="border-t-2 border-zinc-300 pt-7 pb-8"
+          viewAllSlug={viewAllSlug}
         />
         <RelatedWebsitesSection
           lotId={lotId}
           count={counts.blog}
           initialBlogPosts={initialBlogPosts}
           className="border-t-2 border-zinc-300 pt-7"
+          viewAllSlug={viewAllSlug}
         />
       </div>
     )
