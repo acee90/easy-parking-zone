@@ -5,6 +5,7 @@ import type { BlogPost, ParkingMedia, UserReview } from '@/types/parking'
 import { MediaSection } from './parking-reputation/MediaSection'
 import { RelatedWebsitesSection } from './parking-reputation/RelatedWebsitesSection'
 import { ReviewSection } from './parking-reputation/ReviewSection'
+import { WriteReviewSection } from './parking-reputation/WriteReviewSection'
 
 interface ParkingReputationSectionsProps {
   lotId: string
@@ -28,12 +29,18 @@ export function ParkingReputationSections({
 }: ParkingReputationSectionsProps) {
   const [activeTab, setActiveTab] = useState<'reviews' | 'media' | 'blog'>('reviews')
   const [counts, setCounts] = useState(initialTabCounts ?? { reviews: 0, blog: 0, media: 0 })
+  const [reviewRefreshKey, setReviewRefreshKey] = useState(0)
 
   const refreshCounts = useCallback(() => {
     fetchTabCounts({ data: { parkingLotId: lotId } })
       .then(setCounts)
       .catch(() => {})
   }, [lotId])
+
+  const handleReviewSubmitted = useCallback(() => {
+    setReviewRefreshKey((k) => k + 1)
+    refreshCounts()
+  }, [refreshCounts])
 
   useEffect(() => {
     setActiveTab('reviews')
@@ -54,6 +61,12 @@ export function ParkingReputationSections({
           onRefreshCount={refreshCounts}
           className="border-t-2 border-zinc-300 pt-7 pb-8"
           viewAllSlug={viewAllSlug}
+          refreshKey={reviewRefreshKey}
+        />
+        <WriteReviewSection
+          lotId={lotId}
+          onSubmitted={handleReviewSubmitted}
+          className="border-t-2 border-zinc-300 pt-7 pb-8"
         />
         <MediaSection
           lotId={lotId}

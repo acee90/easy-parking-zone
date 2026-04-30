@@ -1,9 +1,7 @@
-import { Pen } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { deleteReview, fetchUserReviews } from '@/server/reviews'
 import type { UserReview } from '@/types/parking'
 import { Carousel, CarouselSlide } from './Carousel'
-import { ReviewForm } from './ReviewForm'
 import { SectionTitle } from './SectionTitle'
 import { UserReviewCard } from './UserReviewCard'
 
@@ -17,6 +15,8 @@ interface ReviewSectionProps {
   className?: string
   onRefreshCount?: () => void
   viewAllSlug?: string
+  /** 외부에서 변경 시 다시 불러오기 위한 트리거 (WriteReviewSection 제출 후 증가) */
+  refreshKey?: number
 }
 
 export function ReviewSection({
@@ -27,28 +27,28 @@ export function ReviewSection({
   className,
   onRefreshCount,
   viewAllSlug,
+  refreshKey = 0,
 }: ReviewSectionProps) {
   const [reviews, setReviews] = useState<UserReview[]>(initialReviews ?? [])
-  const [showReviewForm, setShowReviewForm] = useState(false)
-  const [reviewKey, setReviewKey] = useState(0)
 
   useEffect(() => {
-    setReviews(initialReviews ?? [])
-    setShowReviewForm(false)
-    if (initialReviews === undefined) {
-      fetchUserReviews({ data: { parkingLotId: lotId } })
-        .then(setReviews)
-        .catch(() => setReviews([]))
+    if (refreshKey === 0 && initialReviews !== undefined) {
+      setReviews(initialReviews)
+      return
     }
-  }, [lotId, initialReviews])
-
-  const refreshReviews = () => {
     fetchUserReviews({ data: { parkingLotId: lotId } })
       .then(setReviews)
       .catch(() => setReviews([]))
-    onRefreshCount?.()
-    setShowReviewForm(false)
-    setReviewKey((key) => key + 1)
+  }, [lotId, initialReviews, refreshKey])
+
+  const handleDelete = (reviewId: number) => {
+    deleteReview({ data: { reviewId } })
+      .then(() => fetchUserReviews({ data: { parkingLotId: lotId } }))
+      .then((next) => {
+        setReviews(next)
+        onRefreshCount?.()
+      })
+      .catch(() => {})
   }
 
   const visibleReviews = reviews.slice(0, CAROUSEL_LIMIT)
@@ -64,32 +64,6 @@ export function ReviewSection({
         />
       )}
 
-      {!showReviewForm && (
-        <div className="mb-2.5 flex justify-end">
-          <button
-            type="button"
-            onClick={() => setShowReviewForm(true)}
-            className="flex cursor-pointer items-center gap-1 text-sm font-medium text-blue-500 hover:text-blue-600"
-          >
-            <Pen className="size-3" />
-            리뷰 쓰기
-          </button>
-        </div>
-      )}
-
-      {showReviewForm && (
-        <div className="mb-3">
-          <ReviewForm key={reviewKey} parkingLotId={lotId} onSubmitted={refreshReviews} />
-          <button
-            type="button"
-            onClick={() => setShowReviewForm(false)}
-            className="mt-2 w-full cursor-pointer text-sm text-muted-foreground hover:text-foreground"
-          >
-            취소
-          </button>
-        </div>
-      )}
-
       {visibleReviews.length > 0 ? (
         <Carousel>
           {visibleReviews.map((review) => (
@@ -97,25 +71,15 @@ export function ReviewSection({
               <UserReviewCard
                 review={review}
                 lotId={lotId}
-                onDelete={
-                  review.isMine
-                    ? () => {
-                        deleteReview({ data: { reviewId: review.id } })
-                          .then(refreshReviews)
-                          .catch(() => {})
-                      }
-                    : undefined
-                }
+                onDelete={review.isMine ? () => handleDelete(review.id) : undefined}
               />
             </CarouselSlide>
           ))}
         </Carousel>
       ) : (
-        !showReviewForm && (
-          <p className="py-6 text-center text-xs text-muted-foreground">
-            아직 리뷰가 없습니다. 첫 리뷰를 남겨보세요!
-          </p>
-        )
+        <p className="py-6 text-center text-xs text-muted-foreground">
+          아직 리뷰가 없습니다. 첫 리뷰를 남겨보세요!
+        </p>
       )}
     </section>
   )

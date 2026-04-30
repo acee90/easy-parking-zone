@@ -14,7 +14,6 @@ import {
 } from 'lucide-react'
 import { NavigationButton } from '@/components/NavigationButton'
 import { ParkingReputationSections } from '@/components/ParkingReputationSections'
-import { UpcomingSection } from '@/components/parking-reputation/UpcomingSection'
 import { Badge } from '@/components/ui/badge'
 import { VoteBookmarkBar } from '@/components/VoteBookmarkBar'
 import { WikiMiniMap } from '@/components/WikiMiniMap'
@@ -207,6 +206,8 @@ function WikiDetailPage() {
   const totalSpacesLabel = formatTotalSpaces(lot.totalSpaces)
   const phoneLabel = formatPhone(lot.phone)
   const slug = makeParkingSlug(lot.name, lot.id)
+  const hasAiTips = Boolean(lot.aiTipPricing || lot.aiTipVisit || lot.aiTipAlternative)
+  const hasContentAbove = Boolean(summary) || hasAiTips
 
   return (
     <div className="min-h-screen bg-white">
@@ -355,7 +356,9 @@ function WikiDetailPage() {
             )}
 
             {/* 기본 정보 */}
-            <section className="border-t-2 border-zinc-300 pt-7 pb-8">
+            <section
+              className={hasContentAbove ? 'border-t-2 border-zinc-300 pt-7 pb-8' : 'pt-2 pb-8'}
+            >
               <h2 className="mb-4 text-xl font-bold">주차장 정보</h2>
               <div className="space-y-3 text-sm">
                 {/* 주소 */}
@@ -441,18 +444,7 @@ function WikiDetailPage() {
 
           <div className="space-y-4">
             {/* 주변 갈만한 곳 */}
-            {nearbyPlaces.length > 0 ? (
-              <NearbyPlacesSection places={nearbyPlaces} />
-            ) : (
-              <UpcomingSection
-                title="여기 주차하고 가볼 곳"
-                description="주변 명소 정보가 곧 추가됩니다"
-              />
-            )}
-            <UpcomingSection
-              title="비슷한 주차장"
-              description="유사 난이도 주차장 추천이 곧 추가됩니다"
-            />
+            {nearbyPlaces.length > 0 && <NearbyPlacesSection places={nearbyPlaces} />}
           </div>
         </div>
       </div>
