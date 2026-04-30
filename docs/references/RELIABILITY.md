@@ -1,6 +1,6 @@
 # Reliability
 
-> 최종 업데이트: 2026-04-14
+> 최종 업데이트: 2026-04-30
 
 운영 안정성, 모니터링, 장애 대응 가이드.
 
@@ -29,7 +29,7 @@
 | Cron 실행 여부 | Workers Logs | 2시간 이상 로그 없음 |
 | AI 필터 미처리 | `SELECT COUNT(*) FROM web_sources_raw WHERE ai_filtered_at IS NULL` | 1,000건 이상 적체 |
 | 매칭 미처리 | `SELECT COUNT(*) FROM web_sources_raw WHERE filter_passed=1 AND matched_at IS NULL` | 500건 이상 적체 |
-| D1 용량 | wrangler d1 info | 225MB / 500MB (Free plan) |
+| D1 용량 | wrangler d1 info | 242MB / 500MB (Free plan) |
 | API 키 유효성 | Cron 로그 에러 | 연속 3회 실패 |
 
 ## Cache Strategy
@@ -46,7 +46,7 @@
 |------|-----|------|
 | Workers CPU time (Free) | 10ms | Cron에서 대량 처리 제한 |
 | Workers wall time (Free) | 30초 | AI 필터 배치 100건 제한 |
-| D1 storage (Free) | 500MB | 현재 225MB 사용 |
+| D1 storage (Free) | 500MB | 현재 242MB 사용 (48%) |
 | D1 rows read/day (Free) | 5M | 대량 쿼리 주의 |
 | Subrequests/invocation | 1,000 | DDG 크롤러 별도 cron 분리 이유 |
 

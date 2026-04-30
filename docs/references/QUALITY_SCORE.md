@@ -1,6 +1,6 @@
 # Quality Score
 
-> 최종 업데이트: 2026-04-14
+> 최종 업데이트: 2026-04-30
 
 코드 품질 기준과 기술 부채 관리 문서.
 
@@ -19,7 +19,7 @@
 - `bun --bun run build` — 빌드 성공 필수 (CI 게이트)
 - GitHub Actions CI — PR 시 자동 build/test 실행 (`.github/workflows/ci.yml`)
 - TypeScript strict mode — 타입 에러 0
-- Bundle size 모니터링 — `worker-entry` 889KB (주시)
+- Bundle size 모니터링 — `worker-entry` 1,290KB (Severity ↑, 분리 검토 필요)
 
 ## Code Quality Standards
 
@@ -45,11 +45,12 @@
 
 | ID | 항목 | 심각도 | 상태 | 비고 |
 |----|------|--------|------|------|
-| TD-001 | worker-entry 번들 889KB | Medium | Open | 코드 스플리팅 검토 |
-| TD-002 | 어드민 SQL raw 쿼리 | Low | Open | Drizzle ORM 전환 검토 |
+| TD-001 | worker-entry 번들 1,290KB | High | Open | 4월 초 889KB → 1,290KB (45% 증가). 코드 스플리팅 시급 |
+| TD-002 | 어드민 SQL raw 쿼리 | Low | Open | admin.ts 일부 raw SQL — Drizzle 전환 미완 |
 | TD-003 | schema.ts의 isPositive 레거시 컬럼 | Low | Open | is_ad 제거 완료(0029), is_positive는 schema에 잔류 — 실제 사용 여부 확인 후 마이그레이션 제거 필요 |
-| TD-004 | 테스트 커버리지 부족 | Medium | Open | scoring.test.ts 257줄 추가(2026-04-13), 핵심 로직 일부 커버 — sentiment/transforms 확대 필요 |
-| TD-005 | 어드민 SQL raw 쿼리 (Drizzle 미전환) | Low | Open | admin.ts 일부 기능 raw SQL — Drizzle 전환 미완 |
+| TD-004 | 테스트 커버리지 부족 | Medium | Open | scoring.test.ts 257줄 (2026-04-13), reviews.test.ts 0.5점 케이스 추가(2026-04-30) — sentiment/transforms 등 확대 필요 |
+| TD-005 | scoring.test.ts 사전 실패 3건 | Low | Open | match-confidence 기대값 mismatch (`high` vs `medium`) — scoring 로직 변경 후 테스트 미동기화 |
+| TD-006 | migrations/ 0031 prefix 충돌 | Medium | Open | `0031_nearby_places.sql` + `0031_review_score_real.sql`. 신규 환경 마이그레이션 시 적용 순서 비결정적 (이미 prod 적용 완료, 향후 0036 rename 검토) |
 
 ## Quality Checklist (PR 전)
 
