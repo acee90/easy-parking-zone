@@ -16,8 +16,13 @@ export function UserReviewCard({
   onDelete?: () => void
 }) {
   return (
-    <div className="rounded-xl bg-muted px-4 py-4">
-      <div className="mb-3 flex items-start justify-between gap-3">
+    <div className="relative flex h-full flex-col rounded-xl bg-muted px-4 py-4">
+      {!review.isMine && (
+        <div className="absolute right-2 top-2">
+          <ReportButton targetType="review" targetId={review.id} parkingLotId={lotId} />
+        </div>
+      )}
+      <div className="mb-3 flex items-start justify-between gap-3 pr-20">
         <div className="flex min-w-0 items-center gap-2">
           {review.author.profileImage ? (
             <img src={review.author.profileImage} alt="" className="size-7 rounded-full" />
@@ -42,35 +47,30 @@ export function UserReviewCard({
               </span>
             ))}
         </div>
-        <div className="shrink-0 space-y-1 text-right">
-          <div className="flex gap-0.5">
-            {[1, 2, 3, 4, 5].map((n) => (
-              <Star
-                key={n}
-                className={`size-3.5 ${n <= review.scores.overall ? 'fill-yellow-400 text-yellow-400' : 'text-gray-200'}`}
-              />
-            ))}
-          </div>
-          <div className="text-xs text-muted-foreground">{review.createdAt.slice(0, 10)}</div>
-        </div>
       </div>
-      {review.comment && (
-        <p className="text-base leading-relaxed text-gray-700">{review.comment}</p>
-      )}
-      <div className="mt-3 flex items-center justify-end gap-2">
-        {!review.isMine && (
-          <ReportButton targetType="review" targetId={review.id} parkingLotId={lotId} />
-        )}
-        {review.isMine && onDelete && (
+      <div className="mb-3 flex items-center justify-between">
+        <div className="flex gap-0.5">
+          {[1, 2, 3, 4, 5].map((n) => (
+            <Star
+              key={n}
+              className={`size-3.5 ${n <= review.scores.overall ? 'fill-yellow-400 text-yellow-400' : 'text-gray-200'}`}
+            />
+          ))}
+        </div>
+        <div className="text-xs text-muted-foreground">{review.createdAt.slice(0, 10)}</div>
+      </div>
+      {review.comment && <p className="text-sm leading-relaxed text-gray-700">{review.comment}</p>}
+      {review.isMine && onDelete && (
+        <div className="mt-3 flex items-center justify-end">
           <button
             type="button"
             onClick={onDelete}
-            className="cursor-pointer text-sm text-red-400 hover:text-red-600"
+            className="cursor-pointer text-xs text-red-400 hover:text-red-600"
           >
             삭제
           </button>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   )
 }

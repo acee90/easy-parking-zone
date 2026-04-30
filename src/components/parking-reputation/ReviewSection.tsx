@@ -56,7 +56,7 @@ export function ReviewSection({
           <button
             type="button"
             onClick={() => setShowReviewForm(true)}
-            className="flex cursor-pointer items-center gap-1 text-base font-medium text-blue-500 hover:text-blue-600"
+            className="flex cursor-pointer items-center gap-1 text-sm font-medium text-blue-500 hover:text-blue-600"
           >
             <Pen className="size-3" />
             리뷰 쓰기
@@ -99,7 +99,7 @@ export function ReviewSection({
         </Carousel>
       ) : (
         !showReviewForm && (
-          <p className="py-6 text-center text-sm text-muted-foreground">
+          <p className="py-6 text-center text-xs text-muted-foreground">
             아직 리뷰가 없습니다. 첫 리뷰를 남겨보세요!
           </p>
         )

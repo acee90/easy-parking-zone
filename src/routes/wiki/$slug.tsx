@@ -18,6 +18,12 @@ import { Badge } from '@/components/ui/badge'
 import { VoteBookmarkBar } from '@/components/VoteBookmarkBar'
 import { WikiMiniMap } from '@/components/WikiMiniMap'
 import { getDifficultyLabel, getReliabilityBadge } from '@/lib/geo-utils'
+import {
+  formatOperatingHours,
+  formatPhone,
+  formatPricing,
+  formatTotalSpaces,
+} from '@/lib/parking-display'
 import { makeParkingSlug, parseIdFromSlug } from '@/lib/slug'
 import {
   fetchBlogPosts,
@@ -137,8 +143,8 @@ function NearbyPlacesSection({ places }: { places: NearbyPlaceInfo[] }) {
     <section className="bg-white rounded-xl border p-5 space-y-4">
       <div className="space-y-1">
         <div className="flex items-center gap-2">
-          <h2 className="font-semibold text-lg">여기 주차하고 가볼 곳</h2>
-          <Badge variant="secondary" className="text-sm">
+          <h2 className="text-xl font-bold">여기 주차하고 가볼 곳</h2>
+          <Badge variant="secondary" className="text-xs">
             {places.length}곳
           </Badge>
         </div>
@@ -168,11 +174,15 @@ function NearbyPlacesSection({ places }: { places: NearbyPlaceInfo[] }) {
               )}
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5">
-                  <span className="font-medium text-base truncate">{place.name}</span>
-                  <span className="text-sm text-muted-foreground shrink-0">{meta.label}</span>
+                  <span className="truncate text-base font-semibold">{place.name}</span>
+                  <span className="shrink-0 text-xs text-muted-foreground">{meta.label}</span>
                 </div>
-                {place.tip && <p className="text-sm text-muted-foreground mt-0.5">{place.tip}</p>}
-                <p className="text-sm text-muted-foreground mt-0.5">
+                {place.tip && (
+                  <p className="mt-0.5 text-sm leading-relaxed text-muted-foreground">
+                    {place.tip}
+                  </p>
+                )}
+                <p className="mt-0.5 text-xs text-muted-foreground">
                   {place.mentionCount}개 블로그에서 언급
                 </p>
               </div>
@@ -191,6 +201,10 @@ function WikiDetailPage() {
   const reliabilityBadge = getReliabilityBadge(lot.difficulty.reliability)
   const sourceCount = tabCounts.reviews + tabCounts.blog + tabCounts.media
   const summary = lot.curationReason ?? lot.aiSummary
+  const operatingHours = formatOperatingHours(lot.operatingHours)
+  const pricing = formatPricing(lot.pricing)
+  const totalSpacesLabel = formatTotalSpaces(lot.totalSpaces)
+  const phoneLabel = formatPhone(lot.phone)
 
   return (
     <div className="min-h-screen bg-white">
@@ -305,8 +319,8 @@ function WikiDetailPage() {
           <div className="md:col-span-2 space-y-4">
             {summary && (
               <section className="rounded-xl border border-blue-100 bg-blue-50 p-5">
-                <div className="mb-2 text-sm font-semibold text-blue-700">AI 요약</div>
-                <p className="whitespace-pre-line text-lg font-medium leading-relaxed text-zinc-900">
+                <div className="mb-2 text-xs font-semibold text-blue-700">AI 요약</div>
+                <p className="whitespace-pre-line text-base font-medium leading-relaxed text-zinc-900">
                   {summary}
                 </p>
               </section>
@@ -316,20 +330,22 @@ function WikiDetailPage() {
             {(lot.aiTipPricing || lot.aiTipVisit || lot.aiTipAlternative) && (
               <section className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                 {lot.aiTipPricing && (
-                  <div className="rounded-lg border bg-white px-4 py-3 text-sm text-gray-700">
-                    <span className="mb-1 block font-semibold text-gray-900">요금</span>
+                  <div className="rounded-lg border bg-white px-4 py-3 text-sm leading-relaxed text-gray-700">
+                    <span className="mb-1 block text-base font-semibold text-gray-900">요금</span>
                     {lot.aiTipPricing}
                   </div>
                 )}
                 {lot.aiTipVisit && (
-                  <div className="rounded-lg border bg-white px-4 py-3 text-sm text-gray-700">
-                    <span className="mb-1 block font-semibold text-gray-900">방문 팁</span>
+                  <div className="rounded-lg border bg-white px-4 py-3 text-sm leading-relaxed text-gray-700">
+                    <span className="mb-1 block text-base font-semibold text-gray-900">
+                      방문 팁
+                    </span>
                     {lot.aiTipVisit}
                   </div>
                 )}
                 {lot.aiTipAlternative && (
-                  <div className="rounded-lg border bg-white px-4 py-3 text-sm text-gray-700">
-                    <span className="mb-1 block font-semibold text-gray-900">대안</span>
+                  <div className="rounded-lg border bg-white px-4 py-3 text-sm leading-relaxed text-gray-700">
+                    <span className="mb-1 block text-base font-semibold text-gray-900">대안</span>
                     {lot.aiTipAlternative}
                   </div>
                 )}
@@ -338,8 +354,8 @@ function WikiDetailPage() {
 
             {/* 기본 정보 */}
             <section className="border-t-2 border-zinc-300 pt-7 pb-8">
-              <h2 className="mb-4 text-lg font-semibold">주차장 정보</h2>
-              <div className="space-y-3 text-base">
+              <h2 className="mb-4 text-xl font-bold">주차장 정보</h2>
+              <div className="space-y-3 text-sm">
                 {/* 주소 */}
                 <div className="flex items-start gap-2.5">
                   <MapPin className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
@@ -350,46 +366,43 @@ function WikiDetailPage() {
                 <div className="flex items-start gap-2.5">
                   <Clock className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
                   <div>
-                    <div>
-                      평일 {lot.operatingHours.weekday.start}-{lot.operatingHours.weekday.end}
+                    <div className={operatingHours.isUnknown ? 'text-muted-foreground' : ''}>
+                      {operatingHours.primary}
                     </div>
-                    <div className="text-sm text-muted-foreground">
-                      토 {lot.operatingHours.saturday.start}-{lot.operatingHours.saturday.end} ·
-                      공휴일 {lot.operatingHours.holiday.start}-{lot.operatingHours.holiday.end}
-                    </div>
+                    {operatingHours.secondary && (
+                      <div className="text-xs text-muted-foreground">
+                        {operatingHours.secondary}
+                      </div>
+                    )}
                   </div>
                 </div>
 
                 {/* 요금 */}
-                {!lot.pricing.isFree && (
-                  <div className="flex items-start gap-2.5">
-                    <CreditCard className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-                    <div>
-                      <div>
-                        기본 {lot.pricing.baseTime}분 {lot.pricing.baseFee.toLocaleString()}원
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        추가 {lot.pricing.extraTime}분당 {lot.pricing.extraFee.toLocaleString()}원
-                        {lot.pricing.dailyMax &&
-                          ` · 1일 최대 ${lot.pricing.dailyMax.toLocaleString()}원`}
-                      </div>
+                <div className="flex items-start gap-2.5">
+                  <CreditCard className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                  <div>
+                    <div className={pricing.isUnknown ? 'text-muted-foreground' : ''}>
+                      {pricing.primary}
                     </div>
+                    {pricing.secondary && (
+                      <div className="text-xs text-muted-foreground">{pricing.secondary}</div>
+                    )}
                   </div>
-                )}
+                </div>
 
-                {lot.totalSpaces > 0 && (
+                {totalSpacesLabel && (
                   <div className="flex items-center gap-2.5">
                     <ParkingSquare className="size-4 shrink-0 text-muted-foreground" />
-                    <span>총 {lot.totalSpaces}면</span>
+                    <span>{totalSpacesLabel}</span>
                   </div>
                 )}
 
                 {/* 전화번호 */}
-                {lot.phone && (
+                {phoneLabel && (
                   <div className="flex items-center gap-2.5">
                     <Phone className="size-4 shrink-0 text-muted-foreground" />
-                    <a href={`tel:${lot.phone}`} className="text-blue-500 underline">
-                      {lot.phone}
+                    <a href={`tel:${phoneLabel}`} className="text-blue-500 underline">
+                      {phoneLabel}
                     </a>
                   </div>
                 )}
@@ -400,7 +413,7 @@ function WikiDetailPage() {
                     <Tag className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
                     <div className="flex flex-wrap gap-1.5">
                       {lot.poiTags.map((tag) => (
-                        <Badge key={tag} variant="outline" className="text-sm">
+                        <Badge key={tag} variant="outline" className="text-xs">
                           {tag}
                         </Badge>
                       ))}

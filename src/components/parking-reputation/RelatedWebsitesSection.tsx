@@ -95,7 +95,7 @@ export function RelatedWebsitesSection({
       ) : loading ? (
         <LoadingState />
       ) : (
-        <p className="py-6 text-center text-sm text-muted-foreground">
+        <p className="py-6 text-center text-xs text-muted-foreground">
           관련 웹사이트 글이 없습니다
         </p>
       )}

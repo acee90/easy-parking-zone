@@ -34,7 +34,7 @@ export function MediaCard({ media, lotId }: { media: ParkingMedia; lotId: string
         </div>
       </a>
       <div className="absolute right-2 top-2">
-        <ReportButton targetType="media" targetId={media.id} parkingLotId={lotId} variant="pill" />
+        <ReportButton targetType="media" targetId={media.id} parkingLotId={lotId} />
       </div>
     </div>
   )

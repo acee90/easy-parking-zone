@@ -53,7 +53,7 @@ export function MediaSection({
       ) : loading ? (
         <LoadingState />
       ) : (
-        <p className="py-6 text-center text-sm text-muted-foreground">관련 영상이 없습니다</p>
+        <p className="py-6 text-center text-xs text-muted-foreground">관련 영상이 없습니다</p>
       )}
     </section>
   )
