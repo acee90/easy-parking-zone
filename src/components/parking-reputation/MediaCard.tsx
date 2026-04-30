@@ -18,11 +18,11 @@ export function MediaCard({ media, lotId }: { media: ParkingMedia; lotId: string
           <img
             src={media.thumbnailUrl}
             alt=""
-            className="h-48 w-full shrink-0 scale-105 object-cover sm:h-52 md:h-56"
+            className="aspect-video w-full shrink-0 scale-105 object-cover"
             loading="lazy"
           />
         ) : (
-          <div className="h-48 w-full shrink-0 bg-zinc-100 sm:h-52 md:h-56" />
+          <div className="aspect-video w-full shrink-0 bg-zinc-100" />
         )}
         <div className="flex min-w-0 flex-1 flex-col p-4">
           <p className="mb-2 line-clamp-2 min-h-[2.75rem] pr-5 text-base font-semibold leading-snug text-gray-900">

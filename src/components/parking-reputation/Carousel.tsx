@@ -51,17 +51,14 @@ export function Carousel({ children }: { children: ReactNode }) {
 
 export function CarouselSlide({
   children,
-  size,
+  size = 'review',
 }: {
   children: ReactNode
-  size: 'review' | 'media' | 'more'
+  size?: 'review' | 'media'
 }) {
-  const sizeClass =
-    size === 'media'
-      ? 'basis-[88vw] sm:basis-[380px] md:basis-[400px]'
-      : size === 'more'
-        ? 'basis-[52vw] sm:basis-[200px]'
-        : 'basis-[88vw] sm:basis-[400px] md:basis-[420px]'
+  // review/media 모두 동일 basis로 통일 (이슈 #115 Phase 5)
+  void size
+  const sizeClass = 'basis-[85vw] sm:basis-[380px] md:basis-[400px]'
 
   return <div className={`flex min-w-0 shrink-0 grow-0 ${sizeClass}`}>{children}</div>
 }

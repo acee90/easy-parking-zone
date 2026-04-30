@@ -1,6 +1,7 @@
-import { ExternalLink, Star, User } from 'lucide-react'
+import { ExternalLink, User } from 'lucide-react'
 import { ReportButton } from '@/components/ReportDialog'
 import type { UserReview } from '@/types/parking'
+import { StarDisplay } from './StarDisplay'
 
 const REVIEW_SOURCE_LABELS: Record<string, string> = {
   clien: '클리앙',
@@ -49,19 +50,16 @@ export function UserReviewCard({
         </div>
       </div>
       <div className="mb-3 flex items-center justify-between">
-        <div className="flex gap-0.5">
-          {[1, 2, 3, 4, 5].map((n) => (
-            <Star
-              key={n}
-              className={`size-3.5 ${n <= review.scores.overall ? 'fill-yellow-400 text-yellow-400' : 'text-gray-200'}`}
-            />
-          ))}
-        </div>
+        <StarDisplay score={review.scores.overall} />
         <div className="text-xs text-muted-foreground">{review.createdAt.slice(0, 10)}</div>
       </div>
-      {review.comment && <p className="text-sm leading-relaxed text-gray-700">{review.comment}</p>}
+      {review.comment && (
+        <p className="line-clamp-3 min-h-[3.75rem] text-sm leading-relaxed text-gray-700">
+          {review.comment}
+        </p>
+      )}
       {review.isMine && onDelete && (
-        <div className="mt-3 flex items-center justify-end">
+        <div className="mt-auto flex items-center justify-end pt-3">
           <button
             type="button"
             onClick={onDelete}

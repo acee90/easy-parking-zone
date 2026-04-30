@@ -1,7 +1,20 @@
-import { Star } from 'lucide-react'
 import { useState } from 'react'
 import { authClient } from '@/lib/auth-client'
 import { createReview } from '@/server/reviews'
+import { StarRatingInput } from './StarRatingInput'
+
+const MICROCOPY: Record<number, string> = {
+  0.5: '아주 어려워요',
+  1: '어려워요',
+  1.5: '꽤 어려워요',
+  2: '조금 어려워요',
+  2.5: '보통이에요',
+  3: '괜찮아요',
+  3.5: '쉬운 편이에요',
+  4: '쉬워요',
+  4.5: '아주 쉬워요',
+  5: '누구나 쉽게 주차',
+}
 
 export function ReviewForm({
   parkingLotId,
@@ -18,7 +31,7 @@ export function ReviewForm({
   const [error, setError] = useState<string | null>(null)
 
   const handleSubmit = async () => {
-    if (overallScore < 1) return
+    if (overallScore < 0.5) return
     setSubmitting(true)
     setError(null)
     try {
@@ -42,63 +55,61 @@ export function ReviewForm({
     }
   }
 
-  return (
-    <div className="rounded-lg border p-3 space-y-3">
-      {!session && (
-        <input
-          type="text"
-          value={guestNickname}
-          onChange={(e) => setGuestNickname(e.target.value)}
-          placeholder="닉네임 (선택)"
-          maxLength={20}
-          className="w-full rounded-md border px-2.5 py-1.5 text-sm"
-        />
-      )}
+  const hasScore = overallScore >= 0.5
 
-      <div className="flex items-center justify-between">
-        <span className="text-sm font-medium">초보 추천도</span>
-        <StarRating value={overallScore} onChange={setOverallScore} />
+  return (
+    <div className="rounded-xl border-2 border-yellow-100 bg-gradient-to-br from-yellow-50 to-white p-5">
+      <div className="mb-4 text-center">
+        <p className="text-base font-semibold text-zinc-900">주차하기 쉬웠나요?</p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          {hasScore ? MICROCOPY[overallScore] : '별을 클릭해 평점을 남겨주세요'}
+        </p>
       </div>
 
-      <textarea
-        value={comment}
-        onChange={(e) => setComment(e.target.value)}
-        maxLength={200}
-        rows={2}
-        placeholder="진입로, 주차면 크기, 통로 여유, 출차 난이도 등 경험을 적어주세요"
-        className="w-full rounded-md border px-2.5 py-1.5 text-sm resize-none"
-      />
+      <div className="mb-4 flex justify-center">
+        <StarRatingInput value={overallScore} onChange={setOverallScore} size="lg" />
+      </div>
 
-      {error && <p className="text-sm text-red-500">{error}</p>}
+      {hasScore && (
+        <div className="space-y-3 border-t border-yellow-100 pt-4">
+          {!session && (
+            <input
+              type="text"
+              value={guestNickname}
+              onChange={(e) => setGuestNickname(e.target.value)}
+              placeholder="닉네임 (선택)"
+              maxLength={20}
+              className="w-full rounded-md border bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-300"
+            />
+          )}
 
-      <button
-        type="button"
-        onClick={handleSubmit}
-        disabled={overallScore < 1 || submitting}
-        className="w-full rounded-md bg-blue-500 py-2 text-sm font-medium text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors"
-      >
-        {submitting ? '등록 중...' : '등록하기'}
-      </button>
-
-      {!session && (
-        <p className="text-xs text-muted-foreground text-center">
-          로그인하면 리뷰를 수정/삭제할 수 있어요
-        </p>
-      )}
-    </div>
-  )
-}
-
-function StarRating({ value, onChange }: { value: number; onChange: (v: number) => void }) {
-  return (
-    <div className="flex gap-0.5">
-      {[1, 2, 3, 4, 5].map((n) => (
-        <button key={n} type="button" onClick={() => onChange(n)} className="cursor-pointer p-0.5">
-          <Star
-            className={`size-4 ${n <= value ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`}
+          <textarea
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            maxLength={200}
+            rows={3}
+            placeholder="진입로, 주차면 크기, 통로 여유, 출차 난이도 등 경험을 적어주세요 (선택)"
+            className="w-full resize-none rounded-md border bg-white px-3 py-2 text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-yellow-300"
           />
-        </button>
-      ))}
+
+          {error && <p className="text-xs text-red-500">{error}</p>}
+
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={submitting}
+            className="w-full cursor-pointer rounded-md bg-yellow-500 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-yellow-600 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {submitting ? '등록 중...' : '평가 등록'}
+          </button>
+
+          {!session && (
+            <p className="text-center text-xs text-muted-foreground">
+              로그인하면 리뷰를 수정/삭제할 수 있어요
+            </p>
+          )}
+        </div>
+      )}
     </div>
   )
 }

@@ -93,7 +93,7 @@ export const createReview = createServerFn({ method: 'POST' })
       !validateScore(input.exitScore) ||
       !validateScore(input.overallScore)
     )
-      throw new Error('점수는 1-5 정수')
+      throw new Error('점수는 0.5 ~ 5.0 (0.5 단위)')
     return input
   })
   .handler(async ({ data, request }) => {
