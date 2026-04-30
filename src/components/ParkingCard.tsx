@@ -80,8 +80,9 @@ export function ParkingCard({ lot, onClose, userLat, userLng, userLocated }: Par
     [getFullHeight],
   )
 
+  // 드래그 중에는 0까지 따라가도록 허용 (mid → close 드래그 시 시각 피드백)
   const clampHeight = useCallback(
-    (height: number) => Math.min(getFullHeight(), Math.max(MID_HEIGHT, height)),
+    (height: number) => Math.min(getFullHeight(), Math.max(0, height)),
     [getFullHeight],
   )
 
