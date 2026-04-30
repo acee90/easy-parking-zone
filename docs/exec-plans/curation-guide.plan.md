@@ -38,7 +38,7 @@
 
 - GitHub Issue: [#80](https://github.com/acee90/easy-parking-zone/issues/80)
 - Parent Epic: [#77](https://github.com/acee90/easy-parking-zone/issues/77)
-- M7 Report: [docs/archive/2026-04/M7-curation/](../../archive/2026-04/M7-curation/)
+- M7 Report: [docs/archive/2026-04/M7-curation/](../archive/2026-04/M7-curation/)
 
 ---
 

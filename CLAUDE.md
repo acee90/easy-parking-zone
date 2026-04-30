@@ -15,16 +15,23 @@ Add shadcn components with: `npx shadcn@latest add <component>`
 
 ## References
 
-- [Architecture](docs/ARCHITECTURE.md) — 기술 스택, 디렉토리 구조, 데이터 흐름
-- [Product Sense](docs/PRODUCT_SENSE.md) — 서비스 비전, 핵심 기능, 난이도 체계
-- [Quality Score](docs/QUALITY_SCORE.md) — 코드 품질 기준, 테스트 전략, 기술 부채
-- [Reliability](docs/RELIABILITY.md) — 운영 안정성, 모니터링, 장애 대응
-- [Review](docs/REVIEW.md) — 코드 리뷰 체크리스트, PR 기준
-- [Security](docs/SECURITY.md) — 인증, 데이터 보호, 취약점 관리
-- [Crawling Pipeline](docs/poi-pipeline-v2.md) — 크롤링 파이프라인 현행 아키텍처
-- [Scoring Algorithm](docs/archive/2026-03/crawlers/parking-scoring-algorithm.md) — 스코어링 알고리즘
-- [Nearby Places Pipeline](docs/nearby-places-pipeline.md) — 주변 장소 AI 추출 파이프라인
-- [Web Sources AI Summary](docs/web-sources-ai-summary.md) — web_sources.ai_summary 재추출 스킬 (저품질 필터링 기준, 프롬프트, 실행 순서)
+### references
+- [Architecture](docs/references/ARCHITECTURE.md) — 기술 스택, 디렉토리 구조, 데이터 흐름
+- [Quality Score](docs/references/QUALITY_SCORE.md) — 코드 품질 기준, 테스트 전략, 기술 부채
+- [Reliability](docs/references/RELIABILITY.md) — 운영 안정성, 모니터링, 장애 대응
+- [Review](docs/references/REVIEW.md) — 코드 리뷰 체크리스트, PR 기준
+- [Security](docs/references/SECURITY.md) — 인증, 데이터 보호, 취약점 관리
+- [Crawling Pipeline](docs/references/poi-pipeline-v2.md) — 크롤링 파이프라인 현행 아키텍처
+- [Nearby Places Pipeline](docs/references/nearby-places-pipeline.md) — 주변 장소 AI 추출 파이프라인
+- [Web Sources AI Summary](docs/references/web-sources-ai-summary.md) — web_sources.ai_summary 재추출 스킬
+
+### product-specs
+- [Product Sense](docs/product-specs/PRODUCT_SENSE.md) — 서비스 비전, 핵심 기능, 난이도 체계
+
+### archive
+- [Scoring Algorithm](docs/archive/2026-03/crawlers/parking-scoring-algorithm.md) — 스코어링 알고리즘 설계
+
+> 폴더 안내: `design-docs/` (디자인) · `exec-plans/` (구현 계획) · `product-specs/` (제품 스펙) · `references/` (운영 문서) · `archive/` (이전 작업)
 
 ## Behavioral Guidelines
 
