@@ -37,15 +37,14 @@ import {
   formatPricing,
   formatTotalSpaces,
 } from '@/lib/parking-display'
+import { nearestSnap, type SnapPoints } from '@/lib/sheet-snap'
 import { makeParkingSlug } from '@/lib/slug'
 import { fetchTabCounts } from '@/server/parking'
 import type { ParkingLot } from '@/types/parking'
 
-const COLLAPSED_HEIGHT = 320
-const EXPANDED_HEIGHT_RATIO = 0.85
-const EXPAND_DRAG_THRESHOLD = 20
-const COLLAPSE_DRAG_THRESHOLD = 20
-const CLOSE_DRAG_THRESHOLD_RATIO = 0.5
+const MID_HEIGHT = 320
+const FULL_HEIGHT_RATIO = 0.85
+const CLOSE_DRAG_THRESHOLD = 120
 
 interface ParkingCardProps {
   lot: ParkingLot | null
@@ -57,12 +56,12 @@ interface ParkingCardProps {
 
 export function ParkingCard({ lot, onClose, userLat, userLng, userLocated }: ParkingCardProps) {
   const [isMobile, setIsMobile] = useState(true)
-  const [sheetHeight, setSheetHeight] = useState(COLLAPSED_HEIGHT)
+  const [sheetHeight, setSheetHeight] = useState(MID_HEIGHT)
   const [isDragging, setIsDragging] = useState(false)
   const prevLotId = useRef<string | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const dragStartY = useRef(0)
-  const dragStartHeight = useRef(COLLAPSED_HEIGHT)
+  const dragStartHeight = useRef(MID_HEIGHT)
   const lastDragDelta = useRef(0)
 
   const [tabCounts, setTabCounts] = useState<{ reviews: number; blog: number; media: number }>({
@@ -71,24 +70,20 @@ export function ParkingCard({ lot, onClose, userLat, userLng, userLocated }: Par
     media: 0,
   })
 
-  const getExpandedHeight = useCallback(
-    () => Math.max(COLLAPSED_HEIGHT, Math.round(window.innerHeight * EXPANDED_HEIGHT_RATIO)),
+  const getFullHeight = useCallback(
+    () => Math.max(MID_HEIGHT, Math.round(window.innerHeight * FULL_HEIGHT_RATIO)),
     [],
   )
 
+  const getSnapPoints = useCallback(
+    (): SnapPoints => ({ mid: MID_HEIGHT, full: getFullHeight() }),
+    [getFullHeight],
+  )
+
   const clampHeight = useCallback(
-    (height: number) => Math.min(getExpandedHeight(), Math.max(COLLAPSED_HEIGHT, height)),
-    [getExpandedHeight],
+    (height: number) => Math.min(getFullHeight(), Math.max(MID_HEIGHT, height)),
+    [getFullHeight],
   )
-
-  const snapTo = useCallback(
-    (next: 'collapsed' | 'expanded') => {
-      setSheetHeight(next === 'expanded' ? getExpandedHeight() : COLLAPSED_HEIGHT)
-    },
-    [getExpandedHeight],
-  )
-
-  const isExpanded = sheetHeight > COLLAPSED_HEIGHT + 8
 
   useEffect(() => {
     const mql = window.matchMedia('(min-width: 768px)')
@@ -98,11 +93,11 @@ export function ParkingCard({ lot, onClose, userLat, userLng, userLocated }: Par
     return () => mql.removeEventListener('change', handler)
   }, [])
 
-  // 새 주차장 선택 시 접힌 상태로 리셋 + 스크롤 맨 위로
+  // 새 주차장 선택 시 mid 위치로 리셋 + 스크롤 맨 위로
   useEffect(() => {
     if (lot && lot.id !== prevLotId.current) {
       setIsDragging(false)
-      setSheetHeight(COLLAPSED_HEIGHT)
+      setSheetHeight(MID_HEIGHT)
       prevLotId.current = lot.id
       scrollRef.current?.scrollTo(0, 0)
     }
@@ -126,18 +121,6 @@ export function ParkingCard({ lot, onClose, userLat, userLng, userLocated }: Par
     }
   }, [lot])
 
-  // 아래로 스크롤 → 확장
-  const lastScrollTop = useRef(0)
-  const handleScroll = useCallback(() => {
-    const el = scrollRef.current
-    if (!el) return
-    const st = el.scrollTop
-    if (!isDragging && !isExpanded && st > lastScrollTop.current) {
-      snapTo('expanded')
-    }
-    lastScrollTop.current = st
-  }, [isDragging, isExpanded, snapTo])
-
   const handleClose = useCallback(() => {
     setIsDragging(false)
     setSheetHeight(0)
@@ -151,14 +134,14 @@ export function ParkingCard({ lot, onClose, userLat, userLng, userLocated }: Par
 
     const handleResize = () => {
       setSheetHeight((prev) => {
-        if (prev <= COLLAPSED_HEIGHT) return COLLAPSED_HEIGHT
-        return getExpandedHeight()
+        if (prev <= MID_HEIGHT) return MID_HEIGHT
+        return getFullHeight()
       })
     }
 
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
-  }, [getExpandedHeight, isMobile])
+  }, [getFullHeight, isMobile])
 
   const handleDragStart = useCallback(
     (e: React.TouchEvent<HTMLElement>) => {
@@ -185,16 +168,10 @@ export function ParkingCard({ lot, onClose, userLat, userLng, userLocated }: Par
     if (!isDragging) return
 
     const dragDistance = lastDragDelta.current
-    const draggedUp = dragDistance < 0
-    const draggedDown = dragDistance > 0
-
     setIsDragging(false)
 
-    // collapsed에서 아래로 충분히 드래그하면 닫기 (threshold: collapsed 높이의 50%)
-    if (
-      dragStartHeight.current <= COLLAPSED_HEIGHT + 8 &&
-      dragDistance > COLLAPSED_HEIGHT * CLOSE_DRAG_THRESHOLD_RATIO
-    ) {
+    // mid에서 아래로 충분히 드래그하면 닫기 (transition 그대로 적용 → 부드러운 close)
+    if (dragStartHeight.current <= MID_HEIGHT + 8 && dragDistance > CLOSE_DRAG_THRESHOLD) {
       setSheetHeight(0)
       setTimeout(() => {
         onClose()
@@ -202,24 +179,15 @@ export function ParkingCard({ lot, onClose, userLat, userLng, userLocated }: Par
       return
     }
 
-    if (!isExpanded) {
-      if (draggedUp && Math.abs(dragDistance) >= EXPAND_DRAG_THRESHOLD) {
-        snapTo('expanded')
-        return
-      }
+    // 가장 가까운 스냅 포인트로 이동 (mid / full)
+    const target = nearestSnap(sheetHeight, getSnapPoints())
+    setSheetHeight(target)
 
-      snapTo('collapsed')
-      return
-    }
-
-    if (draggedDown && dragDistance >= COLLAPSE_DRAG_THRESHOLD) {
-      snapTo('collapsed')
+    // mid로 돌아가는 경우 스크롤도 맨 위로
+    if (target === MID_HEIGHT) {
       scrollRef.current?.scrollTo({ top: 0 })
-      return
     }
-
-    snapTo('expanded')
-  }, [onClose, isDragging, isExpanded, snapTo])
+  }, [getSnapPoints, isDragging, onClose, sheetHeight])
 
   if (!lot || !isMobile) return null
 
@@ -247,26 +215,25 @@ export function ParkingCard({ lot, onClose, userLat, userLng, userLocated }: Par
         }`}
         style={{ height: `${sheetHeight}px` }}
         showCloseButton={false}
-        onTouchStart={handleDragStart}
-        onTouchMove={handleDragMove}
-        onTouchEnd={handleDragEnd}
       >
         <div
           ref={scrollRef}
-          onScroll={handleScroll}
-          className="flex-1 overflow-y-auto overscroll-contain"
+          className={`flex-1 overflow-y-auto overscroll-contain ${
+            isDragging ? 'overflow-hidden' : ''
+          }`}
         >
-          {/* 드래그 핸들 + 닫기 — sticky 고정 */}
-          <div className="sticky top-0 z-10 bg-background">
+          {/* 드래그 핸들 + 닫기 — sticky 고정. touch-none으로 native scroll 차단 */}
+          <div
+            className="sticky top-0 z-10 bg-background touch-none"
+            onTouchStart={handleDragStart}
+            onTouchMove={handleDragMove}
+            onTouchEnd={handleDragEnd}
+          >
             <div className="flex items-center justify-between px-4 pt-1.5">
               <div className="w-8" />
-              <button
-                type="button"
-                onTouchStart={handleDragStart}
-                onTouchMove={handleDragMove}
-                onTouchEnd={handleDragEnd}
-                className="w-10 h-1 rounded-full bg-gray-300 hover:bg-gray-400 transition-colors cursor-grab active:cursor-grabbing outline-none focus:outline-none"
-                aria-label="드래그하여 시트 크기 조절"
+              <div
+                aria-hidden="true"
+                className="w-10 h-1 rounded-full bg-gray-300 cursor-grab active:cursor-grabbing"
               />
               <button
                 type="button"
@@ -284,7 +251,7 @@ export function ParkingCard({ lot, onClose, userLat, userLng, userLocated }: Par
             </SheetHeader>
           </div>
 
-          <div className="px-4 pb-6 space-y-4">
+          <div className="px-4 pb-safe space-y-4">
             {/* 헤더: 뱃지 + 제목 + 주소 */}
             <div className="space-y-2">
               <div className="flex flex-wrap items-center gap-1.5">
