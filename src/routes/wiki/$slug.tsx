@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { NavigationButton } from '@/components/NavigationButton'
 import { ParkingReputationSections } from '@/components/ParkingReputationSections'
+import { UpcomingSection } from '@/components/parking-reputation/UpcomingSection'
 import { Badge } from '@/components/ui/badge'
 import { VoteBookmarkBar } from '@/components/VoteBookmarkBar'
 import { WikiMiniMap } from '@/components/WikiMiniMap'
@@ -440,7 +441,18 @@ function WikiDetailPage() {
 
           <div className="space-y-4">
             {/* 주변 갈만한 곳 */}
-            {nearbyPlaces.length > 0 && <NearbyPlacesSection places={nearbyPlaces} />}
+            {nearbyPlaces.length > 0 ? (
+              <NearbyPlacesSection places={nearbyPlaces} />
+            ) : (
+              <UpcomingSection
+                title="여기 주차하고 가볼 곳"
+                description="주변 명소 정보가 곧 추가됩니다"
+              />
+            )}
+            <UpcomingSection
+              title="비슷한 주차장"
+              description="유사 난이도 주차장 추천이 곧 추가됩니다"
+            />
           </div>
         </div>
       </div>
