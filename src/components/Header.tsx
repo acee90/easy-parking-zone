@@ -115,7 +115,7 @@ function formatCount(n: number): string {
 }
 
 const navItemBase =
-  'inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-sm font-medium transition-colors'
+  'inline-flex cursor-pointer items-center gap-1.5 px-3 py-1 rounded-md text-sm font-medium transition-colors'
 const navActive = `${navItemBase} bg-gray-100 text-foreground`
 const navInactive = `${navItemBase} text-muted-foreground hover:text-foreground hover:bg-gray-50`
 
@@ -131,28 +131,14 @@ export function Header({ active = 'map', onSearchSelect, onPlaceSelect, siteStat
           <span className="font-bold text-base hidden sm:inline">쉬운주차장</span>
         </Link>
         <nav className="flex items-center gap-1">
-          {active === 'map' ? (
-            <span className={navActive}>
-              <MapIcon className="size-3.5" />
-              지도
-            </span>
-          ) : (
-            <Link to="/" className={navInactive}>
-              <MapIcon className="size-3.5" />
-              지도
-            </Link>
-          )}
-          {active === 'wiki' ? (
-            <span className={navActive}>
-              <Compass className="size-3.5" />
-              둘러보기
-            </span>
-          ) : (
-            <Link to="/wiki" className={navInactive}>
-              <Compass className="size-3.5" />
-              둘러보기
-            </Link>
-          )}
+          <Link to="/" className={active === 'map' ? navActive : navInactive}>
+            <MapIcon className="size-3.5" />
+            지도
+          </Link>
+          <Link to="/wiki" className={active === 'wiki' ? navActive : navInactive}>
+            <Compass className="size-3.5" />
+            둘러보기
+          </Link>
         </nav>
         {onSearchSelect && <SearchBar onSelect={onSearchSelect} onPlaceSelect={onPlaceSelect} />}
         {siteStats && (
