@@ -69,3 +69,6 @@ scripts/poi-run-*-checkpoint.json
 data/dump-*.sql
 web_sources.db
 web_sources_dump.sql
+
+# DB backups (local only)
+backups/
