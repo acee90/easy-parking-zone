@@ -1,9 +1,6 @@
 -- user_reviews 점수 컬럼 INTEGER → REAL 변환 (0.5점 단위 입력 지원)
 -- SQLite는 ALTER COLUMN을 지원하지 않으므로 새 테이블 생성 → 데이터 복사 → 교체 패턴
-
-PRAGMA foreign_keys = OFF;
-
-BEGIN TRANSACTION;
+-- D1은 자동 batch atomicity 처리 → 명시적 BEGIN/COMMIT 불필요
 
 CREATE TABLE user_reviews_new (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -42,7 +39,3 @@ ALTER TABLE user_reviews_new RENAME TO user_reviews;
 CREATE INDEX IF NOT EXISTS idx_reviews_parking_lot_id ON user_reviews(parking_lot_id);
 CREATE INDEX IF NOT EXISTS idx_reviews_user_id ON user_reviews(user_id);
 CREATE INDEX IF NOT EXISTS idx_reviews_source_created ON user_reviews(source_type, created_at DESC);
-
-COMMIT;
-
-PRAGMA foreign_keys = ON;
