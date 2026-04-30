@@ -1,16 +1,11 @@
 name: Claude Code Review
 
+# 자동 트리거 정지 (API 키 미사용). 필요 시 Actions 탭에서 수동 실행.
 on:
-  pull_request:
-    types: [opened, synchronize, ready_for_review, reopened]
-  issue_comment:
-    types: [created]
+  workflow_dispatch:
 
 jobs:
   claude-review:
-    if: >
-      (github.event_name == 'pull_request') ||
-      (github.event_name == 'issue_comment' && github.event.issue.pull_request && contains(github.event.comment.body, '@claude'))
     runs-on: ubuntu-latest
     permissions:
       contents: read
