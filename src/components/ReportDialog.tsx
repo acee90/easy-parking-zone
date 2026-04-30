@@ -2,7 +2,6 @@ import { Flag, Loader2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { cn } from '@/lib/utils'
 import { createContentReport, getReportReasons, type ReportTargetType } from '@/server/reports'
 
 interface ReportDialogProps {
@@ -135,17 +134,15 @@ export function ReportDialog({
   )
 }
 
-/** 신고 버튼 (인라인용) */
+/** 신고 버튼 (인라인용, pill 형태로 통일) */
 export function ReportButton({
   targetType,
   targetId,
   parkingLotId,
-  variant = 'icon',
 }: {
   targetType: ReportTargetType
   targetId: number
   parkingLotId: string
-  variant?: 'icon' | 'pill'
 }) {
   const [open, setOpen] = useState(false)
 
@@ -158,16 +155,11 @@ export function ReportButton({
           e.stopPropagation()
           setOpen(true)
         }}
-        className={cn(
-          'cursor-pointer transition-colors',
-          variant === 'pill'
-            ? 'inline-flex items-center gap-1 rounded-full border border-white/70 bg-white/95 px-2.5 py-1.5 text-xs font-semibold text-zinc-700 shadow-sm hover:border-red-100 hover:bg-red-50 hover:text-red-600'
-            : 'rounded-full p-1 text-gray-400 hover:bg-gray-100 hover:text-red-400',
-        )}
+        className="inline-flex cursor-pointer items-center gap-1 rounded-full border border-white/70 bg-white/95 px-2.5 py-1.5 text-xs font-semibold text-zinc-700 shadow-sm transition-colors hover:border-red-100 hover:bg-red-50 hover:text-red-600"
         title="신고"
       >
-        <Flag className={variant === 'pill' ? 'size-3.5' : 'size-3'} />
-        {variant === 'pill' && <span>신고</span>}
+        <Flag className="size-3.5" />
+        <span>신고</span>
       </button>
       <ReportDialog
         open={open}

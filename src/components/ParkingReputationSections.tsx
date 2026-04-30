@@ -5,6 +5,7 @@ import type { BlogPost, ParkingMedia, UserReview } from '@/types/parking'
 import { MediaSection } from './parking-reputation/MediaSection'
 import { RelatedWebsitesSection } from './parking-reputation/RelatedWebsitesSection'
 import { ReviewSection } from './parking-reputation/ReviewSection'
+import { WriteReviewSection } from './parking-reputation/WriteReviewSection'
 
 interface ParkingReputationSectionsProps {
   lotId: string
@@ -13,6 +14,8 @@ interface ParkingReputationSectionsProps {
   initialMedia?: ParkingMedia[]
   initialReviews?: UserReview[]
   initialTabCounts?: { reviews: number; blog: number; media: number }
+  /** 전체 보기 라우팅용 slug. 미지정 시 "전체 보기" 링크 미노출 */
+  viewAllSlug?: string
 }
 
 export function ParkingReputationSections({
@@ -22,15 +25,22 @@ export function ParkingReputationSections({
   initialMedia,
   initialReviews,
   initialTabCounts,
+  viewAllSlug,
 }: ParkingReputationSectionsProps) {
   const [activeTab, setActiveTab] = useState<'reviews' | 'media' | 'blog'>('reviews')
   const [counts, setCounts] = useState(initialTabCounts ?? { reviews: 0, blog: 0, media: 0 })
+  const [reviewRefreshKey, setReviewRefreshKey] = useState(0)
 
   const refreshCounts = useCallback(() => {
     fetchTabCounts({ data: { parkingLotId: lotId } })
       .then(setCounts)
       .catch(() => {})
   }, [lotId])
+
+  const handleReviewSubmitted = useCallback(() => {
+    setReviewRefreshKey((k) => k + 1)
+    refreshCounts()
+  }, [refreshCounts])
 
   useEffect(() => {
     setActiveTab('reviews')
@@ -50,18 +60,27 @@ export function ParkingReputationSections({
           initialReviews={initialReviews}
           onRefreshCount={refreshCounts}
           className="border-t-2 border-zinc-300 pt-7 pb-8"
+          viewAllSlug={viewAllSlug}
+          refreshKey={reviewRefreshKey}
+        />
+        <WriteReviewSection
+          lotId={lotId}
+          onSubmitted={handleReviewSubmitted}
+          className="border-t-2 border-zinc-300 pt-7 pb-8"
         />
         <MediaSection
           lotId={lotId}
           count={counts.media}
           initialMedia={initialMedia}
           className="border-t-2 border-zinc-300 pt-7 pb-8"
+          viewAllSlug={viewAllSlug}
         />
         <RelatedWebsitesSection
           lotId={lotId}
           count={counts.blog}
           initialBlogPosts={initialBlogPosts}
           className="border-t-2 border-zinc-300 pt-7"
+          viewAllSlug={viewAllSlug}
         />
       </div>
     )

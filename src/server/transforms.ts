@@ -264,6 +264,10 @@ export function rowToReview(row: ReviewRow, currentUserId: string | null): UserR
 // Validation
 // ============================================================
 
+/** 점수 검증: 0.5 ~ 5.0 범위, 0.5점 단위 */
 export function validateScore(v: unknown): v is number {
-  return typeof v === 'number' && v >= 1 && v <= 5 && Number.isInteger(v)
+  if (typeof v !== 'number' || !Number.isFinite(v)) return false
+  if (v < 0.5 || v > 5) return false
+  // 0.5 단위 체크 (부동소수 오차 허용)
+  return Math.abs(v * 2 - Math.round(v * 2)) < 1e-6
 }

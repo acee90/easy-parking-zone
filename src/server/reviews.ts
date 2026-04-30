@@ -33,10 +33,14 @@ function getClientIP(request: Request): string {
 
 /** 주차장별 사용자 리뷰 목록 */
 export const fetchUserReviews = createServerFn({ method: 'GET' })
-  .inputValidator((input: { parkingLotId: string }): { parkingLotId: string } => input)
+  .inputValidator(
+    (input: { parkingLotId: string; limit?: number }): { parkingLotId: string; limit?: number } =>
+      input,
+  )
   .handler(async ({ data, request }): Promise<UserReview[]> => {
     const db = getDb()
     const currentUserId = request ? await getSessionUserId(request) : null
+    const limit = data.limit ?? 20
 
     // LEFT JOIN user 테이블은 Drizzle에서 raw SQL로 유지 (better-auth 테이블)
     const rows = await db
@@ -61,7 +65,7 @@ export const fetchUserReviews = createServerFn({ method: 'GET' })
       .leftJoin(schema.users, eq(schema.users.id, schema.userReviews.userId))
       .where(eq(schema.userReviews.parkingLotId, data.parkingLotId))
       .orderBy(sql`${schema.userReviews.createdAt} DESC`)
-      .limit(20)
+      .limit(limit)
 
     return rows.map((row) => rowToReview(row as ReviewRow, currentUserId))
   })
@@ -89,7 +93,7 @@ export const createReview = createServerFn({ method: 'POST' })
       !validateScore(input.exitScore) ||
       !validateScore(input.overallScore)
     )
-      throw new Error('점수는 1-5 정수')
+      throw new Error('점수는 0.5 ~ 5.0 (0.5 단위)')
     return input
   })
   .handler(async ({ data, request }) => {

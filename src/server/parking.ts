@@ -313,9 +313,13 @@ export const fetchBlogPosts = createServerFn({ method: 'GET' })
 
 /** 주차장 미디어 (YouTube 등) */
 export const fetchParkingMedia = createServerFn({ method: 'GET' })
-  .inputValidator((input: { parkingLotId: string }): { parkingLotId: string } => input)
+  .inputValidator(
+    (input: { parkingLotId: string; limit?: number }): { parkingLotId: string; limit?: number } =>
+      input,
+  )
   .handler(async ({ data }) => {
     const db = getDb()
+    const limit = data.limit ?? 20
 
     const rows = await db
       .select({
@@ -329,7 +333,7 @@ export const fetchParkingMedia = createServerFn({ method: 'GET' })
       .from(schema.parkingMedia)
       .where(eq(schema.parkingMedia.parkingLotId, data.parkingLotId))
       .orderBy(desc(schema.parkingMedia.createdAt))
-      .limit(5)
+      .limit(limit)
 
     return rows.map((row) => rowToMedia(row as MediaRow))
   })

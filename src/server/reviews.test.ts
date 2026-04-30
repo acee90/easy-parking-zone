@@ -118,28 +118,35 @@ describe('rowToReview', () => {
 // ============================================================
 
 describe('validateScore', () => {
-  it('1-5 정수를 허용', () => {
+  it('0.5 ~ 5.0 0.5 단위 정상값을 허용', () => {
+    expect(validateScore(0.5)).toBe(true)
     expect(validateScore(1)).toBe(true)
-    expect(validateScore(2)).toBe(true)
-    expect(validateScore(3)).toBe(true)
-    expect(validateScore(4)).toBe(true)
+    expect(validateScore(1.5)).toBe(true)
+    expect(validateScore(2.5)).toBe(true)
+    expect(validateScore(3.5)).toBe(true)
+    expect(validateScore(4.5)).toBe(true)
     expect(validateScore(5)).toBe(true)
   })
 
-  it('범위 밖 정수를 거부', () => {
+  it('범위 밖 값을 거부', () => {
     expect(validateScore(0)).toBe(false)
+    expect(validateScore(0.4)).toBe(false)
+    expect(validateScore(5.5)).toBe(false)
     expect(validateScore(6)).toBe(false)
     expect(validateScore(-1)).toBe(false)
   })
 
-  it('소수를 거부', () => {
-    expect(validateScore(3.5)).toBe(false)
+  it('0.5 단위가 아닌 소수를 거부', () => {
     expect(validateScore(1.1)).toBe(false)
+    expect(validateScore(2.3)).toBe(false)
+    expect(validateScore(3.7)).toBe(false)
   })
 
-  it('문자열/null/undefined를 거부', () => {
+  it('문자열/null/undefined/NaN을 거부', () => {
     expect(validateScore('3')).toBe(false)
     expect(validateScore(null)).toBe(false)
     expect(validateScore(undefined)).toBe(false)
+    expect(validateScore(Number.NaN)).toBe(false)
+    expect(validateScore(Number.POSITIVE_INFINITY)).toBe(false)
   })
 })
