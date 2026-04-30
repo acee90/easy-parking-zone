@@ -76,7 +76,7 @@ nearby_places      # 위키 주변 장소 (AI 추출, 0031)
 content_reports    # 콘텐츠 신고
 ```
 
-> ⚠️ Migration 0031 prefix 충돌: `0031_nearby_places.sql`(#79) + `0031_review_score_real.sql`(#117). 신규 환경 마이그레이션 시 적용 순서 비결정적. 향후 어느 한쪽을 0036으로 rename 검토 필요 (이미 prod 적용 완료).
+> Note: `0036_review_score_real.sql`은 PR #117에서 최초 `0031_*`로 추가되어 prod에 직접 적용됐으나, 0031 prefix 충돌로 0036으로 rename됨. 신규 환경에서는 0035 다음에 정상 적용된다.
 
 상세: [Crawling Pipeline](poi-pipeline-v2.md)
 

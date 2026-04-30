@@ -1,6 +1,11 @@
 -- user_reviews 점수 컬럼 INTEGER → REAL 변환 (0.5점 단위 입력 지원)
 -- SQLite는 ALTER COLUMN을 지원하지 않으므로 새 테이블 생성 → 데이터 복사 → 교체 패턴
 -- D1은 자동 batch atomicity 처리 → 명시적 BEGIN/COMMIT 불필요
+--
+-- 이력: 최초 PR #117에서 0031_review_score_real.sql로 추가되어 prod에 wrangler
+-- d1 execute --file=로 직접 적용됨 (2026-04-30). 이후 0031_nearby_places.sql과
+-- prefix 충돌 발견되어 0036으로 rename. 신규 환경에서는 wrangler d1 migrations
+-- apply 시 0035 다음에 정상 적용됨.
 
 CREATE TABLE user_reviews_new (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
