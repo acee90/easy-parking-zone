@@ -50,7 +50,7 @@ export function DesktopMapPanel({
 
   return (
     <aside
-      className="relative w-[400px] h-full overflow-hidden rounded-xl shadow-lg border bg-white/95 backdrop-blur-sm pointer-events-auto"
+      className="relative w-[360px] h-full overflow-hidden rounded-xl shadow-lg border bg-white/95 backdrop-blur-sm pointer-events-auto"
       aria-label="주차장 패널"
     >
       <AnimatePresence mode="wait" initial={false}>

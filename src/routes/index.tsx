@@ -19,7 +19,7 @@ import type { ParkingPoint } from '@/server/parking'
 import { fetchAllParkingPoints, fetchParkingDetail, fetchParkingLots } from '@/server/parking'
 import type { MapBounds, ParkingLot } from '@/types/parking'
 
-const PANEL_WIDTH = 400
+const PANEL_WIDTH = 360
 const FILTER_LEFT = 12 + PANEL_WIDTH + 8
 
 export const Route = createFileRoute('/')({
