@@ -88,39 +88,30 @@ export function ParkingSidebar({
 
   return (
     <aside className="w-full h-full flex-col bg-white/95 backdrop-blur-sm flex overflow-hidden">
-      <div className="shrink-0 px-4 py-3 border-b">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <ParkingSquare className="size-4 text-blue-500" />
-            <span className="font-semibold text-base">주차장 목록</span>
-          </div>
-          <span className="text-sm text-muted-foreground">{parkingLots.length}개</span>
-        </div>
-        <div className="flex items-center gap-1 mt-2">
-          <ArrowUpDown className="size-3 text-muted-foreground" />
-          <button
-            type="button"
-            onClick={() => setSortMode('distance')}
-            className={`px-2 py-0.5 rounded text-sm cursor-pointer transition-colors ${
-              sortMode === 'distance'
-                ? 'bg-blue-100 text-blue-700 font-medium'
-                : 'text-muted-foreground hover:bg-gray-100'
-            }`}
-          >
-            {userLocated ? '가까운 순' : '지도 중심 순'}
-          </button>
-          <button
-            type="button"
-            onClick={() => setSortMode('difficulty')}
-            className={`px-2 py-0.5 rounded text-xs cursor-pointer transition-colors ${
-              sortMode === 'difficulty'
-                ? 'bg-blue-100 text-blue-700 font-medium'
-                : 'text-muted-foreground hover:bg-gray-100'
-            }`}
-          >
-            쉬운 순
-          </button>
-        </div>
+      <div className="shrink-0 px-4 py-2 border-b flex items-center gap-1">
+        <ArrowUpDown className="size-3 text-muted-foreground" />
+        <button
+          type="button"
+          onClick={() => setSortMode('distance')}
+          className={`px-2 py-0.5 rounded text-sm cursor-pointer transition-colors ${
+            sortMode === 'distance'
+              ? 'bg-blue-100 text-blue-700 font-medium'
+              : 'text-muted-foreground hover:bg-gray-100'
+          }`}
+        >
+          {userLocated ? '가까운 순' : '지도 중심 순'}
+        </button>
+        <button
+          type="button"
+          onClick={() => setSortMode('difficulty')}
+          className={`px-2 py-0.5 rounded text-xs cursor-pointer transition-colors ${
+            sortMode === 'difficulty'
+              ? 'bg-blue-100 text-blue-700 font-medium'
+              : 'text-muted-foreground hover:bg-gray-100'
+          }`}
+        >
+          쉬운 순
+        </button>
       </div>
 
       <div className="flex-1 overflow-y-auto">

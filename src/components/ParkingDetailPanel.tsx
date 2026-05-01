@@ -1,6 +1,5 @@
 import { Link } from '@tanstack/react-router'
 import {
-  ChevronLeft,
   ChevronRight,
   Clock,
   CreditCard,
@@ -29,13 +28,12 @@ import type { ParkingLot } from '@/types/parking'
 
 interface ParkingDetailPanelProps {
   lot: ParkingLot
-  onClose: () => void
   userLat?: number
   userLng?: number
   userLocated?: boolean
 }
 
-export function ParkingDetailPanel({ lot, onClose }: ParkingDetailPanelProps) {
+export function ParkingDetailPanel({ lot }: ParkingDetailPanelProps) {
   const score = lot.difficulty.score
   const reliabilityBadge = getReliabilityBadge(lot.difficulty.reliability)
   const summary = lot.curationReason ?? lot.aiSummary
@@ -71,18 +69,8 @@ export function ParkingDetailPanel({ lot, onClose }: ParkingDetailPanelProps) {
     <div className="w-full h-full flex-col bg-white/95 backdrop-blur-sm flex overflow-hidden">
       <div className="flex-1 overflow-y-auto">
         {/* 헤더 */}
-        <section className="relative border-b bg-white px-5 pt-5 pb-4">
-          <button
-            type="button"
-            onClick={onClose}
-            className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-gray-100 transition-colors cursor-pointer"
-            aria-label="목록으로 돌아가기"
-          >
-            <ChevronLeft className="size-4" />
-            목록
-          </button>
-
-          <div className="space-y-4 pt-8">
+        <section className="border-b bg-white px-5 pt-4 pb-4">
+          <div className="space-y-4">
             <div className="space-y-2">
               <div className="flex flex-wrap items-center gap-1.5">
                 <Badge variant={lot.pricing.isFree ? 'default' : 'outline'}>
