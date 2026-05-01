@@ -53,7 +53,7 @@ export function DesktopMapPanel({
       className="relative w-[360px] h-full overflow-hidden rounded-xl shadow-lg border bg-white/95 backdrop-blur-sm pointer-events-auto"
       aria-label="주차장 패널"
     >
-      <AnimatePresence mode="wait" initial={false}>
+      <AnimatePresence mode="sync" initial={false}>
         {showDetail && selectedLot ? (
           <motion.div
             key="detail"
