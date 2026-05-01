@@ -1,7 +1,7 @@
-import { ArrowUpDown, ChevronRight, MapPin, ParkingSquare } from 'lucide-react'
+import { ChevronRight, MapPin, ParkingSquare } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { getDifficultyIcon, getDifficultyLabel, getDistance } from '@/lib/geo-utils'
-import type { ParkingLot, SortMode } from '@/types/parking'
+import type { ParkingLot } from '@/types/parking'
 
 const PAGE_SIZE = 20
 
@@ -37,7 +37,6 @@ export function ParkingSidebar({
   mapCenter,
 }: ParkingSidebarProps) {
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
-  const [sortMode, setSortMode] = useState<SortMode>('distance')
 
   // parkingLots 변경 시 표시 개수 초기화
   useEffect(() => {
@@ -48,6 +47,7 @@ export function ParkingSidebar({
   const refLat = userLocated && userLat != null ? userLat : mapCenter?.lat
   const refLng = userLocated && userLng != null ? userLng : mapCenter?.lng
 
+  // 거리순 정렬 (유저/지도 중심 기준). 거리 정보 없으면 난이도 점수로 폴백.
   const sortedLots = useMemo(() => {
     const withDistance = parkingLots.map((lot) => ({
       lot,
@@ -55,19 +55,15 @@ export function ParkingSidebar({
         refLat != null && refLng != null ? getDistance(refLat, refLng, lot.lat, lot.lng) : null,
     }))
 
-    if (sortMode === 'distance') {
-      withDistance.sort((a, b) => {
-        if (a.distance !== null && b.distance !== null) {
-          return a.distance - b.distance
-        }
-        return (b.lot.difficulty.score ?? -1) - (a.lot.difficulty.score ?? -1)
-      })
-    } else {
-      withDistance.sort((a, b) => (b.lot.difficulty.score ?? -1) - (a.lot.difficulty.score ?? -1))
-    }
+    withDistance.sort((a, b) => {
+      if (a.distance !== null && b.distance !== null) {
+        return a.distance - b.distance
+      }
+      return (b.lot.difficulty.score ?? -1) - (a.lot.difficulty.score ?? -1)
+    })
 
     return withDistance
-  }, [parkingLots, refLat, refLng, sortMode])
+  }, [parkingLots, refLat, refLng])
 
   // 선택된 주차장이 visibleCount 밖이면 확장
   const selectedIdx = selectedLotId ? sortedLots.findIndex((s) => s.lot.id === selectedLotId) : -1
@@ -88,32 +84,6 @@ export function ParkingSidebar({
 
   return (
     <aside className="w-full h-full flex-col bg-white/95 backdrop-blur-sm flex overflow-hidden">
-      <div className="shrink-0 px-4 py-2 border-b flex items-center gap-1">
-        <ArrowUpDown className="size-3 text-muted-foreground" />
-        <button
-          type="button"
-          onClick={() => setSortMode('distance')}
-          className={`px-2 py-0.5 rounded text-sm cursor-pointer transition-colors ${
-            sortMode === 'distance'
-              ? 'bg-blue-100 text-blue-700 font-medium'
-              : 'text-muted-foreground hover:bg-gray-100'
-          }`}
-        >
-          {userLocated ? '가까운 순' : '지도 중심 순'}
-        </button>
-        <button
-          type="button"
-          onClick={() => setSortMode('difficulty')}
-          className={`px-2 py-0.5 rounded text-xs cursor-pointer transition-colors ${
-            sortMode === 'difficulty'
-              ? 'bg-blue-100 text-blue-700 font-medium'
-              : 'text-muted-foreground hover:bg-gray-100'
-          }`}
-        >
-          쉬운 순
-        </button>
-      </div>
-
       <div className="flex-1 overflow-y-auto">
         {sortedLots.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground text-sm px-4 text-center">
