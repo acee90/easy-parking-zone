@@ -3,6 +3,7 @@ import { Car } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { NavermapsProvider } from 'react-naver-maps'
 import { toast } from 'sonner'
+import { DesktopMapPanel } from '@/components/DesktopMapPanel'
 import { FloatingFilters } from '@/components/FloatingFilters'
 import { Header } from '@/components/Header'
 import { MapErrorBoundary } from '@/components/MapErrorBoundary'
@@ -10,8 +11,6 @@ import { MapView } from '@/components/MapView'
 import { MobileBottomPanel } from '@/components/MobileBottomPanel'
 import { MobileFilterSheet } from '@/components/MobileFilterSheet'
 import { ParkingCard } from '@/components/ParkingCard'
-import { ParkingDetailPanel } from '@/components/ParkingDetailPanel'
-import { ParkingSidebar } from '@/components/ParkingSidebar'
 import { useGeolocation } from '@/hooks/useGeolocation'
 import { useParkingFilters } from '@/hooks/useParkingFilters'
 import { type MapFeature, useSuperCluster } from '@/hooks/useSuperCluster'
@@ -20,9 +19,8 @@ import type { ParkingPoint } from '@/server/parking'
 import { fetchAllParkingPoints, fetchParkingDetail, fetchParkingLots } from '@/server/parking'
 import type { MapBounds, ParkingLot } from '@/types/parking'
 
-const DETAIL_PANEL_WIDTH = 400
-const FILTER_LEFT_CLOSED = 296
-const FILTER_LEFT_OPENED = 12 + 280 + 8 + DETAIL_PANEL_WIDTH
+const PANEL_WIDTH = 360
+const FILTER_LEFT = 12 + PANEL_WIDTH + 8
 
 export const Route = createFileRoute('/')({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -56,6 +54,7 @@ function App() {
   const [parkingLots, setParkingLots] = useState<ParkingLot[]>([])
   const [features, setFeatures] = useState<MapFeature[]>([])
   const [selectedLot, setSelectedLot] = useState<ParkingLot | null>(null)
+  const [viewMode, setViewMode] = useState<'list' | 'detail'>('list')
   const [hoveredLotId, setHoveredLotId] = useState<string | null>(null)
   const [moveTo, setMoveTo] = useState<{ lat: number; lng: number } | null>(null)
   const lastViewRef = useRef<{ bounds: MapBounds; zoom: number } | null>(null)
@@ -149,32 +148,57 @@ function App() {
     }
   }, [handleBoundsChanged])
 
-  const handleMarkerClick = useCallback((lot: ParkingLot) => {
-    setSelectedLot(lot)
-  }, [])
+  // 마커/사이드바 클릭: 첫 클릭은 highlight만(데스크톱), 같은 항목 재클릭 시 detail로 push.
+  // 모바일은 ParkingCard가 selectedLot != null이면 자동 노출 (viewMode 무시)이므로 영향 없음.
+  const handleMarkerClick = useCallback(
+    (lot: ParkingLot) => {
+      if (selectedLot?.id === lot.id) {
+        setViewMode('detail')
+      } else {
+        setSelectedLot(lot)
+      }
+    },
+    [selectedLot],
+  )
 
   const handleSearchSelect = useCallback((lot: ParkingLot) => {
+    // 검색은 명시적 의도이므로 detail로 직행
     setMoveTo({ lat: lot.lat, lng: lot.lng })
     setSelectedLot(lot)
+    setViewMode('detail')
   }, [])
 
   const handlePlaceSelect = useCallback((coords: { lat: number; lng: number }) => {
     setSelectedLot(null)
+    setViewMode('list')
     setMoveTo(coords)
   }, [])
 
-  const handleSidebarSelect = useCallback((lot: ParkingLot) => {
-    setMoveTo({ lat: lot.lat, lng: lot.lng })
-    setSelectedLot(lot)
+  const handleSidebarSelect = useCallback(
+    (lot: ParkingLot) => {
+      setMoveTo({ lat: lot.lat, lng: lot.lng })
+      if (selectedLot?.id === lot.id) {
+        setViewMode('detail')
+      } else {
+        setSelectedLot(lot)
+      }
+    },
+    [selectedLot],
+  )
+
+  const handleCloseDetail = useCallback(() => {
+    setViewMode('list')
+    // selectedLot은 유지 → 목록으로 돌아갔을 때 직전 선택 항목 highlight 유지
   }, [])
 
-  // URL ?lotId= 파라미터로 진입 시 지도 이동 + 상세패널 오픈
+  // URL ?lotId= 파라미터로 진입 시: 명시적 진입이므로 detail로 직행
   useEffect(() => {
     if (!mapReady || !lotId) return
     fetchParkingDetail({ data: { id: lotId } })
       .then((lot) => {
         if (!lot) return
         setSelectedLot(lot)
+        setViewMode('detail')
         setMoveTo({ lat: lot.lat, lng: lot.lng })
       })
       .catch((err) => {
@@ -228,34 +252,27 @@ function App() {
           )}
         </div>
 
-        {/* 아일랜드 패널 — 지도 위에 float */}
-        <div className="hidden md:flex absolute top-3 left-3 bottom-3 z-10 gap-2 pointer-events-none">
-          <ParkingSidebar
+        {/* 아일랜드 패널 — 지도 위에 float (List ↔ Detail 슬라이드) */}
+        <div className="hidden md:block absolute top-3 left-3 bottom-3 z-10 pointer-events-none">
+          <DesktopMapPanel
             parkingLots={displayedLots}
-            selectedLotId={selectedLot?.id ?? null}
+            selectedLot={selectedLot}
+            viewMode={viewMode}
             hoveredLotId={hoveredLotId}
             onSelect={handleSidebarSelect}
             onHover={setHoveredLotId}
+            onCloseDetail={handleCloseDetail}
             userLat={userLat}
             userLng={userLng}
             userLocated={userLocated}
             mapCenter={mapCenter}
           />
-          {selectedLot && (
-            <ParkingDetailPanel
-              lot={selectedLot}
-              onClose={() => setSelectedLot(null)}
-              userLat={userLat}
-              userLng={userLng}
-              userLocated={userLocated}
-            />
-          )}
         </div>
 
-        {/* 필터 — 사이드바 오른쪽, 상세패널 열리면 더 오른쪽 */}
+        {/* 필터 — 패널 우측 (단일 위치) */}
         <div
-          className="hidden md:block absolute top-3 z-20 pointer-events-auto transition-[left] duration-200"
-          style={{ left: selectedLot ? `${FILTER_LEFT_OPENED}px` : `${FILTER_LEFT_CLOSED}px` }}
+          className="hidden md:block absolute top-3 z-20 pointer-events-auto"
+          style={{ left: `${FILTER_LEFT}px` }}
         >
           <FloatingFilters
             filters={filters}

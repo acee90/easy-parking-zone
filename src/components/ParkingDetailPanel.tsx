@@ -9,7 +9,6 @@ import {
   Phone,
   Tag,
   ThumbsUp,
-  X,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { NavigationButton } from '@/components/NavigationButton'
@@ -29,13 +28,12 @@ import type { ParkingLot } from '@/types/parking'
 
 interface ParkingDetailPanelProps {
   lot: ParkingLot
-  onClose: () => void
   userLat?: number
   userLng?: number
   userLocated?: boolean
 }
 
-export function ParkingDetailPanel({ lot, onClose }: ParkingDetailPanelProps) {
+export function ParkingDetailPanel({ lot }: ParkingDetailPanelProps) {
   const score = lot.difficulty.score
   const reliabilityBadge = getReliabilityBadge(lot.difficulty.reliability)
   const summary = lot.curationReason ?? lot.aiSummary
@@ -68,20 +66,11 @@ export function ParkingDetailPanel({ lot, onClose }: ParkingDetailPanelProps) {
   const sourceCount = tabCounts.reviews + tabCounts.blog + tabCounts.media
 
   return (
-    <div className="w-[400px] shrink-0 flex-col bg-white/95 backdrop-blur-sm rounded-xl shadow-lg border pointer-events-auto flex overflow-hidden animate-in slide-in-from-left-4 duration-150">
+    <div className="w-full h-full flex-col bg-white/95 backdrop-blur-sm flex overflow-hidden">
       <div className="flex-1 overflow-y-auto">
         {/* 헤더 */}
-        <section className="relative border-b bg-white px-5 pt-5 pb-4">
-          <button
-            type="button"
-            onClick={onClose}
-            className="absolute right-3 top-3 p-1.5 rounded-md bg-white/90 hover:bg-gray-100 transition-colors cursor-pointer"
-            aria-label="닫기"
-          >
-            <X className="size-4 text-muted-foreground" />
-          </button>
-
-          <div className="space-y-4 pr-8">
+        <section className="border-b bg-white px-5 pt-4 pb-4">
+          <div className="space-y-4">
             <div className="space-y-2">
               <div className="flex flex-wrap items-center gap-1.5">
                 <Badge variant={lot.pricing.isFree ? 'default' : 'outline'}>
