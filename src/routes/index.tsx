@@ -20,6 +20,10 @@ import type { ParkingPoint } from '@/server/parking'
 import { fetchAllParkingPoints, fetchParkingDetail, fetchParkingLots } from '@/server/parking'
 import type { MapBounds, ParkingLot } from '@/types/parking'
 
+const DETAIL_PANEL_WIDTH = 400
+const FILTER_LEFT_CLOSED = 296
+const FILTER_LEFT_OPENED = 12 + 280 + 8 + DETAIL_PANEL_WIDTH
+
 export const Route = createFileRoute('/')({
   validateSearch: (search: Record<string, unknown>) => ({
     lotId: typeof search.lotId === 'string' ? search.lotId : undefined,
@@ -251,7 +255,7 @@ function App() {
         {/* 필터 — 사이드바 오른쪽, 상세패널 열리면 더 오른쪽 */}
         <div
           className="hidden md:block absolute top-3 z-20 pointer-events-auto transition-[left] duration-200"
-          style={{ left: selectedLot ? '660px' : '296px' }}
+          style={{ left: selectedLot ? `${FILTER_LEFT_OPENED}px` : `${FILTER_LEFT_CLOSED}px` }}
         >
           <FloatingFilters
             filters={filters}

@@ -154,3 +154,8 @@ code {
 .search-dropdown-scroll::-webkit-scrollbar-thumb:hover {
   background-color: rgba(0, 0, 0, 0.35);
 }
+
+/* Safe area utilities — viewport-fit=cover 와 함께 사용 */
+@utility pb-safe {
+  padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+}
