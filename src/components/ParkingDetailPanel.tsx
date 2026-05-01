@@ -5,10 +5,8 @@ import {
   CreditCard,
   Flame,
   MapPin,
-  MessageSquare,
   ParkingSquare,
   Phone,
-  Star,
   Tag,
   ThumbsUp,
   X,
@@ -18,7 +16,7 @@ import { NavigationButton } from '@/components/NavigationButton'
 import { ParkingReputationSections } from '@/components/ParkingReputationSections'
 import { Badge } from '@/components/ui/badge'
 import { VoteBookmarkBar } from '@/components/VoteBookmarkBar'
-import { getDifficultyLabel, getReliabilityBadge } from '@/lib/geo-utils'
+import { getReliabilityBadge } from '@/lib/geo-utils'
 import {
   formatOperatingHours,
   formatPhone,
@@ -39,7 +37,6 @@ interface ParkingDetailPanelProps {
 
 export function ParkingDetailPanel({ lot, onClose }: ParkingDetailPanelProps) {
   const score = lot.difficulty.score
-  const scoreLabel = getDifficultyLabel(score)
   const reliabilityBadge = getReliabilityBadge(lot.difficulty.reliability)
   const summary = lot.curationReason ?? lot.aiSummary
   const operatingHours = formatOperatingHours(lot.operatingHours)
@@ -120,30 +117,11 @@ export function ParkingDetailPanel({ lot, onClose }: ParkingDetailPanelProps) {
                   </span>
                   <span className="pb-1 text-sm font-semibold text-muted-foreground">/ 5</span>
                 </div>
-                <div className="mt-2 flex items-center gap-1.5 text-sm font-medium">
-                  <div className="flex items-center gap-0.5">
-                    {[1, 2, 3, 4, 5].map((i) => (
-                      <Star
-                        key={i}
-                        className={`size-3 ${
-                          i <= Math.round(score ?? 0)
-                            ? 'fill-yellow-400 text-yellow-400'
-                            : 'text-gray-300'
-                        }`}
-                      />
-                    ))}
-                  </div>
-                  <span>{scoreLabel}</span>
-                </div>
               </div>
 
               <div className="rounded-lg border bg-white p-3">
-                <div className="text-xs font-medium text-muted-foreground">평판 근거</div>
+                <div className="text-xs font-medium text-muted-foreground">리뷰/영상/블로그</div>
                 <div className="mt-2 text-3xl font-black leading-none">{sourceCount}</div>
-                <div className="mt-2 flex items-center gap-1.5 text-sm text-muted-foreground">
-                  <MessageSquare className="size-3.5" />
-                  리뷰/영상/웹 글
-                </div>
               </div>
             </div>
 
@@ -155,15 +133,6 @@ export function ParkingDetailPanel({ lot, onClose }: ParkingDetailPanelProps) {
                 buttonClassName="px-3 py-2 text-sm"
               />
               <VoteBookmarkBar lotId={lot.id} />
-              {lot.phone && (
-                <a
-                  href={`tel:${lot.phone}`}
-                  className="inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-2 text-sm font-medium transition-colors hover:bg-zinc-50"
-                >
-                  <Phone className="size-3.5" />
-                  전화
-                </a>
-              )}
               <Link
                 to="/wiki/$slug"
                 params={{ slug }}
