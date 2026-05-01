@@ -1,5 +1,6 @@
 import { Link } from '@tanstack/react-router'
 import {
+  ChevronLeft,
   ChevronRight,
   Clock,
   CreditCard,
@@ -9,7 +10,6 @@ import {
   Phone,
   Tag,
   ThumbsUp,
-  X,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { NavigationButton } from '@/components/NavigationButton'
@@ -68,20 +68,21 @@ export function ParkingDetailPanel({ lot, onClose }: ParkingDetailPanelProps) {
   const sourceCount = tabCounts.reviews + tabCounts.blog + tabCounts.media
 
   return (
-    <div className="w-[400px] shrink-0 flex-col bg-white/95 backdrop-blur-sm rounded-xl shadow-lg border pointer-events-auto flex overflow-hidden animate-in slide-in-from-left-4 duration-150">
+    <div className="w-full h-full flex-col bg-white/95 backdrop-blur-sm flex overflow-hidden">
       <div className="flex-1 overflow-y-auto">
         {/* 헤더 */}
         <section className="relative border-b bg-white px-5 pt-5 pb-4">
           <button
             type="button"
             onClick={onClose}
-            className="absolute right-3 top-3 p-1.5 rounded-md bg-white/90 hover:bg-gray-100 transition-colors cursor-pointer"
-            aria-label="닫기"
+            className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-gray-100 transition-colors cursor-pointer"
+            aria-label="목록으로 돌아가기"
           >
-            <X className="size-4 text-muted-foreground" />
+            <ChevronLeft className="size-4" />
+            목록
           </button>
 
-          <div className="space-y-4 pr-8">
+          <div className="space-y-4 pt-8">
             <div className="space-y-2">
               <div className="flex flex-wrap items-center gap-1.5">
                 <Badge variant={lot.pricing.isFree ? 'default' : 'outline'}>
