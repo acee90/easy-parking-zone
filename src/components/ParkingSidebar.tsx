@@ -1,4 +1,4 @@
-import { ArrowUpDown, MapPin, ParkingSquare } from 'lucide-react'
+import { ArrowUpDown, ChevronRight, MapPin, ParkingSquare } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { getDifficultyIcon, getDifficultyLabel, getDistance } from '@/lib/geo-utils'
 import type { ParkingLot, SortMode } from '@/types/parking'
@@ -140,12 +140,13 @@ export function ParkingSidebar({
 
               return (
                 <button
+                  type="button"
                   key={lot.id}
                   ref={(el) => {
                     if (el) itemRefs.current.set(lot.id, el)
                     else itemRefs.current.delete(lot.id)
                   }}
-                  className={`w-full text-left px-4 py-3 border-b border-gray-100 hover:bg-blue-50 transition-colors cursor-pointer ${
+                  className={`w-full text-left px-4 py-3 border-b border-gray-100 hover:bg-blue-50 transition-colors cursor-pointer flex items-center gap-2 ${
                     selected
                       ? 'bg-blue-50 border-l-2 border-l-blue-500'
                       : hovered
@@ -155,50 +156,56 @@ export function ParkingSidebar({
                   onClick={() => onSelect(lot)}
                   onMouseEnter={() => onHover(lot.id)}
                   onMouseLeave={() => onHover(null)}
+                  aria-label={selected ? `${lot.name} 자세히 보기` : `${lot.name} 선택`}
                 >
-                  <div className="flex items-center gap-2 mb-1">
-                    <div
-                      className={`size-2.5 rounded-full shrink-0 ${difficultyColor(lot.difficulty.score)}`}
-                    />
-                    <span className="font-medium text-base truncate flex-1">{lot.name}</span>
-                    <span className="text-sm shrink-0">{icon}</span>
-                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <div
+                        className={`size-2.5 rounded-full shrink-0 ${difficultyColor(lot.difficulty.score)}`}
+                      />
+                      <span className="font-medium text-base truncate flex-1">{lot.name}</span>
+                      <span className="text-sm shrink-0">{icon}</span>
+                    </div>
 
-                  <div className="flex items-center gap-1.5 mb-1.5">
-                    <MapPin className="size-3 text-muted-foreground shrink-0" />
-                    <span className="text-sm text-muted-foreground truncate">{lot.address}</span>
-                  </div>
+                    <div className="flex items-center gap-1.5 mb-1.5">
+                      <MapPin className="size-3 text-muted-foreground shrink-0" />
+                      <span className="text-sm text-muted-foreground truncate">{lot.address}</span>
+                    </div>
 
-                  <div className="flex items-center gap-2 text-sm">
-                    <span
-                      className={`px-1.5 py-0.5 rounded ${
-                        lot.difficulty.score !== null
-                          ? 'bg-gray-100 text-gray-700'
-                          : 'bg-gray-50 text-gray-400'
-                      }`}
-                    >
-                      {label}
-                    </span>
-                    <span
-                      className={`px-1.5 py-0.5 rounded ${
-                        lot.pricing.isFree
-                          ? 'bg-green-50 text-green-700'
-                          : 'bg-gray-100 text-gray-600'
-                      }`}
-                    >
-                      {lot.pricing.isFree ? '무료' : '유료'}
-                    </span>
-                    {lot.totalSpaces > 0 && (
-                      <span className="text-muted-foreground">{lot.totalSpaces}면</span>
-                    )}
-                    {distance !== null && (
-                      <span className="text-muted-foreground ml-auto">
-                        {distance < 1
-                          ? `${Math.round(distance * 1000)}m`
-                          : `${distance.toFixed(1)}km`}
+                    <div className="flex items-center gap-2 text-sm">
+                      <span
+                        className={`px-1.5 py-0.5 rounded ${
+                          lot.difficulty.score !== null
+                            ? 'bg-gray-100 text-gray-700'
+                            : 'bg-gray-50 text-gray-400'
+                        }`}
+                      >
+                        {label}
                       </span>
-                    )}
+                      <span
+                        className={`px-1.5 py-0.5 rounded ${
+                          lot.pricing.isFree
+                            ? 'bg-green-50 text-green-700'
+                            : 'bg-gray-100 text-gray-600'
+                        }`}
+                      >
+                        {lot.pricing.isFree ? '무료' : '유료'}
+                      </span>
+                      {lot.totalSpaces > 0 && (
+                        <span className="text-muted-foreground">{lot.totalSpaces}면</span>
+                      )}
+                      {distance !== null && (
+                        <span className="text-muted-foreground ml-auto">
+                          {distance < 1
+                            ? `${Math.round(distance * 1000)}m`
+                            : `${distance.toFixed(1)}km`}
+                        </span>
+                      )}
+                    </div>
                   </div>
+                  {selected && (
+                    <ChevronRight aria-hidden="true" className="size-5 shrink-0 text-blue-500" />
+                  )}
                 </button>
               )
             })}

@@ -7,6 +7,7 @@ import type { ParkingLot } from '@/types/parking'
 interface DesktopMapPanelProps {
   parkingLots: ParkingLot[]
   selectedLot: ParkingLot | null
+  viewMode: 'list' | 'detail'
   hoveredLotId: string | null
   onSelect: (lot: ParkingLot) => void
   onHover: (id: string | null) => void
@@ -23,6 +24,7 @@ const SLIDE_EASE = [0.16, 1, 0.3, 1] as const
 export function DesktopMapPanel({
   parkingLots,
   selectedLot,
+  viewMode,
   hoveredLotId,
   onSelect,
   onHover,
@@ -34,16 +36,17 @@ export function DesktopMapPanel({
 }: DesktopMapPanelProps) {
   const reduced = useReducedMotion()
   const dur = reduced ? 0 : SLIDE_DURATION
+  const showDetail = viewMode === 'detail' && selectedLot !== null
 
   // ESC로 detail에서 list로 pop
   useEffect(() => {
-    if (!selectedLot) return
+    if (!showDetail) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onCloseDetail()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [selectedLot, onCloseDetail])
+  }, [showDetail, onCloseDetail])
 
   return (
     <aside
@@ -51,7 +54,7 @@ export function DesktopMapPanel({
       aria-label="주차장 패널"
     >
       <AnimatePresence mode="wait" initial={false}>
-        {selectedLot ? (
+        {showDetail && selectedLot ? (
           <motion.div
             key="detail"
             className="absolute inset-0"
@@ -79,7 +82,7 @@ export function DesktopMapPanel({
           >
             <ParkingSidebar
               parkingLots={parkingLots}
-              selectedLotId={null}
+              selectedLotId={selectedLot?.id ?? null}
               hoveredLotId={hoveredLotId}
               onSelect={onSelect}
               onHover={onHover}
