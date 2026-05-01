@@ -1,6 +1,6 @@
 # Architecture
 
-> 최종 업데이트: 2026-04-30
+> 최종 업데이트: 2026-05-01
 
 ## Overview
 
@@ -13,6 +13,7 @@ TanStack Start full-stack React app deployed to Cloudflare Workers.
 |-------|-----------|
 | Framework | TanStack Start (TanStack Router 기반, SSR) |
 | Styling | Tailwind CSS v4 + shadcn/ui (new-york, zinc) |
+| Animation | motion (Framer Motion v12 리브랜드) — 데스크톱 패널 슬라이드 |
 | Map | Naver Maps (react-naver-maps) |
 | Database | Cloudflare D1 (SQLite) |
 | Deployment | Cloudflare Workers + wrangler |
@@ -35,11 +36,11 @@ TanStack Start full-stack React app deployed to Cloudflare Workers.
 
 ```
 src/
-  components/         # 공유 컴포넌트 (Header, MapView)
+  components/         # 공유 컴포넌트 (Header, MapView, DesktopMapPanel, ParkingCard)
   components/parking-reputation/  # 위키 상세 평판 섹션 (Carousel, Star*, ReviewForm)
   components/ui/      # shadcn/ui (자동 생성, 수동 편집 금지)
   hooks/              # React 훅 (useGeolocation, useSuperCluster, useParkingFilters)
-  lib/                # 유틸리티 (cn, geo-utils, parking-display)
+  lib/                # 유틸리티 (cn, geo-utils, parking-display, sheet-snap)
   routes/             # 파일 기반 라우팅 (TanStack Router)
   routes/wiki/$slug.{reviews,media,blog}.tsx # 위키 상세 전체 보기 sub-routes (noindex)
   routes/event/       # 이벤트 페이지 (반값여행 등)
@@ -60,6 +61,44 @@ docs/                 # 프로젝트 문서 (design-docs/exec-plans/product-spec
 - `src/routes/__root.tsx` — 루트 레이아웃 (`shellComponent` 패턴)
 
 Path alias: `@/*` -> `./src/*`
+
+## Desktop Map UI (`/`)
+
+데스크톱 지도 페이지는 `DesktopMapPanel` 단일 컨테이너 안에서 List ↔ Detail
+뷰를 iOS 네비게이션 컨트롤러 스타일로 push/pop 슬라이드한다.
+
+```
+DesktopMapPanel (360px, 좌측 island)
+├─ Persistent header (h-12)              ← 슬라이드 안 됨
+│   ├─ list 모드: ParkingSquare + "주차장 목록" + 개수
+│   └─ detail 모드: ◀ "목록" 뒤로가기
+│   (모드 전환 시 헤더 콘텐츠는 cross-fade 150ms)
+└─ Body (flex-1, overflow-hidden)
+    ├─ list 뷰: ParkingSidebar (거리순 정렬)
+    └─ detail 뷰: ParkingDetailPanel (위키 톤)
+    (motion AnimatePresence mode="sync"로 동시 진행 슬라이드 250ms)
+```
+
+### 인터랙션 모델
+- 첫 클릭 (사이드바/마커) → highlight + 지도 센터 이동 (디테일 안 띄움)
+- 같은 항목 재클릭 → detail로 push 슬라이드
+- 선택된 사이드바 항목 우측 ChevronRight 아이콘이 시각적 어포던스
+- 헤더 검색 / `?lotId=` deep link → detail 직행 (명시적 의도)
+- ◀ "목록" 또는 ESC → list로 pop, 직전 선택은 highlight 유지
+
+### 상태 모델
+- `selectedLot` — highlight 대상. 데스크톱/모바일 공유.
+- `viewMode: 'list' | 'detail'` — 데스크톱 슬라이드 토글 전용.
+- 모바일은 `viewMode` 무시. `selectedLot != null`이면 `ParkingCard` 자동 노출.
+
+## Mobile Map UI (`/`)
+
+- `MobileBottomPanel` — 지도 위 짧은 미리보기 패널 (선택 전).
+- `ParkingCard` — 선택 시 바텀시트. 2-stop 스냅 (`mid=320` / `full=85vh`).
+  - 드래그 종료 시 `nearestSnap()` (`src/lib/sheet-snap.ts`)으로 가까운 스냅으로 이동.
+  - mid에서 추가 120px 아래로 드래그 시 close.
+  - sticky 헤더에 `touch-none` 적용, 드래그 중 `overflow-hidden`으로 콘텐츠 스크롤 충돌 방지.
+- viewport-fit=cover + `pb-safe` 유틸로 노치 기기 대응.
 
 ## Database (2-Table Pipeline)
 
