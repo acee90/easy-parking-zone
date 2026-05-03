@@ -1,6 +1,6 @@
-# 구현 계획: filter + relevance v2 — full_text 기반 재평가 (#148)
+# 구현 계획: filter + relevance v2 — full_text 기반 재평가 (#148 — Phase C)
 
-> Parent: #138 — Phase C0 (선행)
+> Parent: #138 — Phase C (선행, #141 직전)
 > Milestone: M9 콘텐츠 보강을 위한 크롤링 파이프라인 개선
 > Predecessor: #140 (full_text 22K 보강 완료)
 > Successor: #141 (본 이슈 통과 subset 만 ai_summary 재생성 대상)
@@ -36,7 +36,7 @@
 
 ## 구현 단계
 
-### Phase C0-1 — Schema migration
+### Phase C-1 — Schema migration
 
 `migrations/00XX_web_sources_filter_v2.sql`:
 - `web_sources.relevance_score_v2 INTEGER`
@@ -47,7 +47,7 @@
 
 기존 `relevance_score` / 라우 분류 결과는 보존. v2 컬럼은 부가 정보. Drizzle schema 동기화.
 
-### Phase C0-2 — relevance v2 algorithm
+### Phase C-2 — relevance v2 algorithm
 
 `src/server/crawlers/lib/scoring.ts` 에 신규:
 
@@ -70,7 +70,7 @@ export function scoreBlogRelevanceFull(
 
 단위 테스트: `eval-scoring.ts` 패턴 차용 → `eval/scoring-v2/answer-key.json` 신규 30~50 케이스 (snippet vs full_text 동일 row 매핑)
 
-### Phase C0-3 — filter v2 prompt
+### Phase C-3 — filter v2 prompt
 
 `src/server/crawlers/lib/ai-summary-prompt.ts` 또는 신규 `ai-filter-v2-prompt.ts` 에 `FILTER_V2_SYSTEM_PROMPT`:
 
@@ -86,7 +86,7 @@ export function scoreBlogRelevanceFull(
 
 PR #137 reject 패턴 그대로 계승.
 
-### Phase C0-4 — Re-run script
+### Phase C-4 — Re-run script
 
 신규: `scripts/refilter-matched.ts` (#140 패턴 차용)
 
@@ -116,7 +116,7 @@ LIMIT N
 4. SQL UPDATE 생성 → chunk emit (1000 row/file)
 5. `wrangler d1 execute --file` 일괄 적용
 
-### Phase C0-5 — A/B eval
+### Phase C-5 — A/B eval
 
 신규: `scripts/eval-filter-v2.ts`
 
@@ -131,7 +131,7 @@ LIMIT N
 - 수동 검수 샘플 10 row → `eval/filter-v2/report.md`
 - hallucination 의심 0건
 
-### Phase C0-6 — 단계적 실행
+### Phase C-6 — 단계적 실행
 
 | 단계 | 대상 | 게이트 |
 |---|---|---|
