@@ -51,6 +51,12 @@ export const Route = createFileRoute('/wiki/$slug')({
   head: ({ loaderData }) => {
     const lot = loaderData?.lot
     if (!lot) return {}
+    const tabCounts = loaderData?.tabCounts
+    const isThin =
+      !tabCounts || (tabCounts.blog === 0 && tabCounts.reviews === 0 && tabCounts.media === 0)
+    const robotsContent = isThin
+      ? 'noindex, follow, max-image-preview:large'
+      : 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1'
     const slug = makeParkingSlug(lot.name, lot.id)
     const title = `${lot.name} - 주차 난이도/요금/정보 | 쉬운주차장`
     const desc = `${lot.name} (${lot.address}) 주차 난이도 ${getDifficultyLabel(lot.difficulty.score)}, ${lot.pricing.isFree ? '무료' : `기본 ${lot.pricing.baseTime}분 ${lot.pricing.baseFee.toLocaleString()}원`}. 리뷰 ${lot.difficulty.reviewCount}개.`
@@ -92,10 +98,7 @@ export const Route = createFileRoute('/wiki/$slug')({
       meta: [
         { title },
         { name: 'description', content: desc },
-        {
-          name: 'robots',
-          content: 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1',
-        },
+        { name: 'robots', content: robotsContent },
         { property: 'og:title', content: title },
         { property: 'og:description', content: desc },
         { property: 'og:type', content: 'article' },
