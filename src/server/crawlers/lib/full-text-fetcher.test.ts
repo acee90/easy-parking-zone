@@ -261,4 +261,14 @@ describe('fetchFullText — ddg_search', () => {
     expect(r.status).toBe('error')
     expect(r.reason).toContain('ECONNRESET')
   })
+
+  it('reports error:binary_document when given a PDF response', async () => {
+    const pdfBody = '%PDF-1.4\n1 0 obj\n<<>>\nendobj\nxref\n0 1\n%%EOF'
+    const fetchImpl = buildFetch({
+      'https://example.com/doc.pdf': { body: pdfBody },
+    })
+    const r = await fetchFullText('https://example.com/doc.pdf', 'ddg_search', { fetchImpl })
+    expect(r.status).toBe('error')
+    expect(r.reason).toBe('binary_document')
+  })
 })
