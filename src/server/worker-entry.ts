@@ -5,7 +5,7 @@
  * Cloudflare Workers Cron용 scheduled 핸들러를 추가.
  */
 
-import { createStartHandler, defaultStreamHandler } from '@tanstack/react-start/server'
+import { createStartHandler, defaultRenderHandler } from '@tanstack/react-start/server'
 import { NodeHtmlMarkdown } from 'node-html-markdown'
 import { handleDdgScheduled, handleScheduled } from './scheduled'
 
@@ -19,11 +19,10 @@ interface Env {
   ANTHROPIC_API_KEY: string
 }
 
-const startHandler = createStartHandler(defaultStreamHandler)
+const startHandler = createStartHandler(defaultRenderHandler)
 
 const API_CATALOG_PROFILE = 'https://www.rfc-editor.org/info/rfc9727'
 const MARKDOWN_CONTENT_TYPE = 'text/markdown; charset=utf-8'
-const HTML_ACCEPT_HEADER = 'text/html,application/xhtml+xml;q=1.0,*/*;q=0.8'
 
 const HOMEPAGE_DISCOVERY_LINKS = [
   `</.well-known/api-catalog>; rel="api-catalog"; type="application/linkset+json"; profile="${API_CATALOG_PROFILE}"`,
@@ -129,13 +128,7 @@ function requestAcceptsMarkdown(request: Request) {
 }
 
 function canNegotiateMarkdown(pathname: string) {
-  return !pathname.startsWith('/api/') && pathname !== '/.well-known/api-catalog'
-}
-
-function cloneRequestForHtmlRendering(request: Request) {
-  const headers = new Headers(request.headers)
-  headers.set('Accept', HTML_ACCEPT_HEADER)
-  return new Request(request, { headers })
+  return pathname === '/docs/api'
 }
 
 function appendVaryHeader(headers: Headers, value: string) {
@@ -177,23 +170,19 @@ async function convertHtmlResponseToMarkdown(response: Response) {
 }
 
 export async function withMarkdownNegotiation(request: Request, response: Response) {
-  const headers = new Headers(response.headers)
-  const contentType = headers.get('Content-Type')?.toLowerCase() ?? ''
+  const contentType = response.headers.get('Content-Type')?.toLowerCase() ?? ''
 
   if (!contentType.startsWith('text/html')) {
     return response
   }
 
-  appendVaryHeader(headers, 'Accept')
+  appendVaryHeader(response.headers, 'Accept')
 
-  if (!requestAcceptsMarkdown(request)) {
-    return new Response(response.body, {
-      status: response.status,
-      statusText: response.statusText,
-      headers,
-    })
+  if (!requestAcceptsMarkdown(request) || !canNegotiateMarkdown(new URL(request.url).pathname)) {
+    return response
   }
 
+  const headers = new Headers(response.headers)
   if (request.method === 'HEAD') {
     headers.set('Content-Type', MARKDOWN_CONTENT_TYPE)
     headers.delete('Content-Length')
@@ -218,12 +207,11 @@ export function withHomepageDiscoveryHeaders(request: Request, response: Respons
     return response
   }
 
-  const nextResponse = new Response(response.body, response)
   for (const linkValue of HOMEPAGE_DISCOVERY_LINKS) {
-    nextResponse.headers.append('Link', linkValue)
+    response.headers.append('Link', linkValue)
   }
 
-  return nextResponse
+  return response
 }
 
 export default {
@@ -288,12 +276,7 @@ export default {
       return buildDiscoveryResponse(body, 'application/json; charset=utf-8')
     }
 
-    const renderRequest =
-      requestAcceptsMarkdown(request) && canNegotiateMarkdown(url.pathname)
-        ? cloneRequestForHtmlRendering(request)
-        : request
-
-    const response = await startHandler(renderRequest, env)
+    const response = await startHandler(request, env)
     const discoveredResponse = withHomepageDiscoveryHeaders(request, response)
     return withMarkdownNegotiation(request, discoveredResponse)
   },

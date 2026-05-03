@@ -27,7 +27,7 @@ describe('withHomepageDiscoveryHeaders', () => {
 
 describe('withMarkdownNegotiation', () => {
   it('returns markdown for html responses when requested by agents', async () => {
-    const request = new Request('https://easy-parking.xyz/', {
+    const request = new Request('https://easy-parking.xyz/docs/api', {
       headers: { Accept: 'text/markdown' },
     })
     const response = await withMarkdownNegotiation(
