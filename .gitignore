@@ -72,3 +72,10 @@ web_sources_dump.sql
 
 # DB backups (local only)
 backups/
+
+# 이슈 #135 long-form 재생성 임시 산출물
+data/top-sources-by-lot*.json
+data/top-sources-by-lot*.sql
+data/regen-applied.sql
+data/regen-rejected.json
+tmp/
