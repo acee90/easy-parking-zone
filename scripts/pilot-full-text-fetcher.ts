@@ -13,8 +13,8 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import {
   type FetchResult,
-  type SourceType,
   fetchFullText,
+  type SourceType,
 } from '../src/server/crawlers/lib/full-text-fetcher'
 import { d1Query, isRemote } from './lib/d1'
 
@@ -155,7 +155,9 @@ function buildReport(entries: PilotEntry[]): string {
     lines.push('')
     lines.push(`### Success rates`)
     lines.push('')
-    lines.push(`- Raw URL success (ok / total): **${((ok / total) * 100).toFixed(1)}%** (${ok}/${total})`)
+    lines.push(
+      `- Raw URL success (ok / total): **${((ok / total) * 100).toFixed(1)}%** (${ok}/${total})`,
+    )
     lines.push(
       `- Public-only success (ok / (total - blocked - not_found)): **${
         accessible > 0 ? ((ok / accessible) * 100).toFixed(1) : '0.0'
