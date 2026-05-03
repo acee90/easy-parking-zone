@@ -3,6 +3,17 @@
 > **갱신 이력**
 > - 2026-04: v1 (30~60자 한줄, 단순 한줄 재생성)
 > - 2026-05: v2 (200~600자 long-form, lot당 top-N 후보군, lot-specific) — 이슈 #135
+> - 2026-05: v3 (#140 풀텍스트 보강 → web_sources.full_text 1,400~2,000자 입력) — 이슈 #141 진행 중
+
+## v2 한계 + v3 방향성
+
+v2 의 본질적 한계: 입력으로 받는 `web_sources.content` 가 121자 snippet (Naver/DDG 검색 API description). 200~600자 long-form 을 합성적으로 만들면 hallucination 위험. PR #137 회고에서 6.7% 수율 (45→3) 확인.
+
+v3 (#140 + #141) 가 해결하는 것:
+- **#140**: `web_sources.full_text` 컬럼 도입. matched 22K row 의 source_url 을 다시 fetch 해 본문 풀텍스트 (avg 1,400~2,000자) 저장.
+- **#141**: ai_summary 재생성 시 `full_text` 를 입력으로 사용 → 진짜 long-form 가능, hallucination 위험 대폭 축소.
+
+본 문서의 v2 절차는 여전히 유효하지만 입력 컬럼이 `content` → `full_text` 로 이동한다. v3 변경은 #141 완료 후 갱신 예정.
 
 ## 배경
 

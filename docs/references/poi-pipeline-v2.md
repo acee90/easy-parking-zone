@@ -1,6 +1,6 @@
 # 크롤링 파이프라인 v2 — 현행 아키텍처
 
-> 최초 작성: 2026-03-13 | 현행화: 2026-04-02
+> 최초 작성: 2026-03-13 | 현행화: 2026-05-03 (#140 풀텍스트 보강 단계 추가)
 
 ## 목적
 
@@ -10,13 +10,14 @@
 ## 2-테이블 구조
 
 ```
-web_sources_raw (원본 + 필터링)
+web_sources_raw (원본 + 필터링, content = snippet 121자)
   ↓ AI 필터 통과 + 주차장 매칭 완료
-web_sources (검증된 데이터만)
+web_sources (검증된 데이터만, full_text 1,400~2,000자 — #140 이후)
 ```
 
-- **`web_sources_raw`**: 크롤링 원본 저장. `filter_passed`, `matched_at` 등 파이프라인 상태 관리
-- **`web_sources`**: 필터 + 매칭 통과분만 존재. `is_ad`, `filter_passed` 컬럼 없음 (2026-04-02 제거)
+- **`web_sources_raw`**: 크롤링 원본 저장. `filter_passed`, `matched_at` 등 파이프라인 상태 관리. `content` = Naver/DDG 검색 API 의 `description` 스니펫 (~120자).
+- **`web_sources`**: 필터 + 매칭 통과분. `full_text` (#140 풀텍스트 fetcher 로 보강), `full_text_status` (pending/ok/blocked/not_found/too_short/timeout/error), `full_text_fetched_at` 컬럼 보유.
+- **풀텍스트 보강 (#140, 2026-05-03)**: matched 22K row 의 `full_text` 를 batch fetch로 채움. naver_blog 9,078 ok (avg 1,980자), ddg_search 7,244 ok (avg 1,336자), naver_cafe 3,014 blocked:spa_shell. 신규 매칭 row 는 자동 `pending` 으로 큐잉, 주기적 batch 가 픽업.
 
 ---
 
@@ -52,6 +53,18 @@ web_sources (검증된 데이터만)
 │                                                   │
 │  DDG 크롤링 (duckduckgo-search.ts)                │
 │  └ subrequest 한도 분리 위해 별도 cron              │
+└─────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────┐
+│ 외부 (수동/cron host) — #140 추가                  │
+│                                                   │
+│  5. 풀텍스트 보강 (fetch-matched-fulltext.ts)      │
+│     └ web_sources WHERE full_text_status='pending' │
+│       → fetchFullText() 호출 (naver_blog/cafe/ddg) │
+│       → 결과를 SQL 파일로 emit (1000건/file)        │
+│       → wrangler d1 execute --file 로 일괄 적용     │
+│                                                   │
+│  Worker 비호환 (jsdom/readability) → Cron 외부 실행 │
 └─────────────────────────────────────────────────┘
 ```
 
@@ -108,6 +121,30 @@ raw 소스 1건
 - `web_sources` INSERT 시 `raw_source_id`로 원본 연결
 - 1 source → N 주차장 관계 지원 (source_id에 lot_id 접미사)
 
+### 4.5. 풀텍스트 보강 (#140, 외부 batch)
+
+**파일**: `scripts/fetch-matched-fulltext.ts` + `src/server/crawlers/lib/full-text-fetcher.ts`
+
+기존 `web_sources_raw.content` 와 그로부터 복사된 `web_sources.content` 는 검색 API의 description 스니펫 (~120자) — AI 필터/요약/SEO에 부족한 길이. 본 단계에서 **matched row 의 source_url을 다시 fetch 해 본문 풀텍스트를 `web_sources.full_text` 에 저장**.
+
+| source | 추출기 | 평균 본문 | 성공률 (public) |
+|---|---|---:|---:|
+| naver_blog | iframe → `.se-main-container` / `.post-view` / `#postViewArea` (cheerio) | 1,980자 | 96.7% |
+| naver_cafe | SPA 전환됨 → `blocked:spa_shell` 분류 | n/a | 0% |
+| ddg_search | jsdom + Mozilla Readability + cheerio fallback | 1,336자 | 83.4% |
+
+가드:
+- `MIN_TEXT_LENGTH=200` 미만 → `too_short`
+- PDF / binary 응답 (`%PDF-`, `%%EOF`) → `error:binary_document`
+- 단일 UPDATE > 50KB → `error` (D1 SQLITE_TOOBIG 회피)
+
+운영:
+- 신규 매칭 row 는 자동 `full_text_status='pending'` (스키마 default)
+- 주기적으로 외부 host 또는 수동으로 batch 실행
+- 멀티-shard 병렬화: `--shards=N --shard=K` (모듈로 분할)
+
+문서: `docs/exec-plans/issue-140-fulltext-batch.md`, `data/fulltext-batch-report.md`
+
 ### 4. 스코어링 재계산
 
 **파일**: `src/server/crawlers/lib/scoring-engine.ts`
@@ -127,11 +164,17 @@ Bayesian 통합: structural_prior(3.0) 기반, n_effective로 신뢰도 산출.
 ## 데이터 흐름 요약
 
 ```
-[크롤러] → web_sources_raw (INSERT OR IGNORE)
+[크롤러]   → web_sources_raw  (snippet 121자, INSERT OR IGNORE)
               ↓
-[AI 필터] → filter_passed=1/0, sentiment_score 등 업데이트
+[AI 필터]  → filter_passed=1/0, sentiment_score, ai_summary(~21자) 업데이트
               ↓ (filter_passed=1 & matched_at IS NULL)
-[매칭]   → web_sources INSERT (검증된 데이터만)
+[매칭]     → web_sources INSERT (raw_source_id FK, ai_summary 복사)
+              ↓ (외부 batch — #140)
+[풀텍스트] → web_sources.full_text (1,400~2,000자, ok rows)
+              ↓ (#148 — 예정)
+[재필터]   → filter_passed_v2 / relevance_score_v2 (full_text 입력 재평가)
+              ↓ (#141 — 예정)
+[재요약]   → web_sources.ai_summary 재생성 (full_text 입력, 200자+)
               ↓ (최근 매칭 주차장)
 [스코어링] → parking_lot_stats UPSERT
 ```
@@ -149,10 +192,13 @@ Bayesian 통합: structural_prior(3.0) 기반, n_effective로 신뢰도 산출.
 | `src/server/crawlers/duckduckgo-search.ts` | DDG 크롤러 (별도 cron) |
 | `src/server/crawlers/ai-filter-batch.ts` | AI 필터 배치 |
 | `src/server/crawlers/lib/ai-filter.ts` | AI 필터 모듈 (Haiku 프롬프트) |
+| `src/server/crawlers/lib/full-text-fetcher.ts` | **#139** 풀텍스트 fetcher (naver_blog/cafe/ddg) |
 | `src/server/crawlers/match-to-lots.ts` | 주차장 하이브리드 매칭 |
 | `src/server/crawlers/lib/scoring.ts` | 관련도 채점 + 신뢰도 판정 |
 | `src/server/crawlers/lib/scoring-engine.ts` | 통합 스코어링 엔진 |
 | `src/server/crawlers/lib/sentiment.ts` | 감성 분석 (룰 기반) |
+| `scripts/fetch-matched-fulltext.ts` | **#140** 풀텍스트 batch (외부 실행) |
+| `scripts/clean-pdf-updates.ts` | #140 1회용 PDF UPDATE cleaner |
 | `scripts/compute-parking-stats.ts` | 전체 배치 스코어링 재계산 |
 
 ---
