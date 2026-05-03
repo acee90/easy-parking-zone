@@ -171,6 +171,8 @@ Bayesian 통합: structural_prior(3.0) 기반, n_effective로 신뢰도 산출.
 [매칭]     → web_sources INSERT (raw_source_id FK, ai_summary 복사)
               ↓ (외부 batch — #140)
 [풀텍스트] → web_sources.full_text (1,400~2,000자, ok rows)
+              ↓ (#148 — 예정)
+[재필터]   → filter_passed_v2 / relevance_score_v2 (full_text 입력 재평가)
               ↓ (#141 — 예정)
 [재요약]   → web_sources.ai_summary 재생성 (full_text 입력, 200자+)
               ↓ (최근 매칭 주차장)
