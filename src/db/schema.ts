@@ -208,6 +208,13 @@ export const webSources = sqliteTable('web_sources', {
   fullTextStatus: text('full_text_status').default('pending'),
   fullTextFetchedAt: text('full_text_fetched_at'),
 
+  // v2 filter + relevance (migration 0038, #148).
+  // Re-evaluation of raw-stage filter/relevance using the full_text body.
+  relevanceScoreV2: integer('relevance_score_v2'),
+  filterPassedV2: integer('filter_passed_v2'),
+  filterV2Reason: text('filter_v2_reason'),
+  filterV2EvaluatedAt: text('filter_v2_evaluated_at'),
+
   crawledAt: text('crawled_at').notNull().default(now),
 })
 

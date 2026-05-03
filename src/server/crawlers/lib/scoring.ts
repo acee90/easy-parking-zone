@@ -78,16 +78,50 @@ export async function hashUrl(url: string): Promise<string> {
  */
 const NOISE_PATTERNS = [
   // 부동산/분양/경매 강화
-  /모델하우스/, /분양가/, /분양정보/, /분양조건/, /잔여세대/, /견본주택/,
-  /입주자모집/, /입주예정/, /공급조건/, /시행사/, /시공사/, /투자수익/,
-  /프리미엄분양/, /빌라\s*매매/, /아파트\s*매매/, /매물/, /전세\s*모/, /월세\s*모/,
-  /원룸\s*\d/, /투룸/, /쓰리룸/, /상가\s*임대/, /사무실\s*임대/, /오피스텔\s*임대/,
-  /신축빌라/, /신축원룸/, /경매물건/, /경매\s*정보/, /사건번호/, /법원경매/,
-  /감정평가/, /최저가/, /낙찰/, /유찰/, /임장\s*(기록|후기|보고)/,
-  /지구\s*임장/, /청약/, /재개발/, /재건축/,
+  /모델하우스/,
+  /분양가/,
+  /분양정보/,
+  /분양조건/,
+  /잔여세대/,
+  /견본주택/,
+  /입주자모집/,
+  /입주예정/,
+  /공급조건/,
+  /시행사/,
+  /시공사/,
+  /투자수익/,
+  /프리미엄분양/,
+  /빌라\s*매매/,
+  /아파트\s*매매/,
+  /매물/,
+  /전세\s*모/,
+  /월세\s*모/,
+  /원룸\s*\d/,
+  /투룸/,
+  /쓰리룸/,
+  /상가\s*임대/,
+  /사무실\s*임대/,
+  /오피스텔\s*임대/,
+  /신축빌라/,
+  /신축원룸/,
+  /경매물건/,
+  /경매\s*정보/,
+  /사건번호/,
+  /법원경매/,
+  /감정평가/,
+  /최저가/,
+  /낙찰/,
+  /유찰/,
+  /임장\s*(기록|후기|보고)/,
+  /지구\s*임장/,
+  /청약/,
+  /재개발/,
+  /재건축/,
   // 광고/홍보
-  /체험단.*모집/, /업체\s*추천\s*(깔끔|꼼꼼)/, /메디컬빌딩/,
-];
+  /체험단.*모집/,
+  /업체\s*추천\s*(깔끔|꼼꼼)/,
+  /메디컬빌딩/,
+]
 
 /** 카테고리성 제네릭 단어 — 주차장 유형/속성을 나타내지만 특정 장소를 식별하지 않음 */
 const GENERIC_KEYWORDS = new Set([
@@ -103,8 +137,7 @@ const GENERIC_KEYWORDS = new Set([
   '인근',
   '마을공동',
   '마을',
-]);
-
+])
 
 /** 지역명 접미사 — 행정구역을 나타내는 단어 */
 function isLocationWord(word: string): boolean {
@@ -303,6 +336,132 @@ export function scoreBlogRelevance(
 
   return Math.min(100, score)
 }
+
+/**
+ * 풀텍스트 기반 관련도 점수 (#148 Phase C — v2).
+ *
+ * `scoreBlogRelevance` 와 동일 시그너처지만 두 번째 인자가 `description` 대신 `fullText` 다.
+ * snippet 기반 v1 의 한계를 보완:
+ *   - lot 이름 등장 빈도 가중치 (1회 vs 3회 vs 10회)
+ *   - 본문 길이 정규화 (긴 본문에서 키워드 1회 등장은 가중치 낮춤)
+ *   - 풀텍스트 보일러플레이트 패턴 추가
+ *   - 주차 키워드 밀도 (한 번 언급 vs 여러 번 언급)
+ */
+export function scoreBlogRelevanceFull(
+  title: string,
+  fullText: string,
+  parkingName: string,
+  address: string,
+): number {
+  const titleLower = stripHtml(title).toLowerCase()
+  const bodyLower = stripHtml(fullText).toLowerCase()
+  const combined = `${titleLower} ${bodyLower}`
+  const bodyLength = bodyLower.length
+
+  // 게이트: 주차 키워드 없으면 0점
+  const parkingMentions = countOccurrences(combined, '주차')
+  if (parkingMentions === 0 && !combined.includes('parking')) {
+    return 0
+  }
+
+  // 노이즈 필터링 (강화: full_text 보일러플레이트)
+  if (NOISE_PATTERNS.some((p) => p.test(combined))) {
+    return 0
+  }
+  if (FULLTEXT_BOILERPLATE_PATTERNS.some((p) => p.test(bodyLower))) {
+    return 0
+  }
+
+  let score = 0
+  let nameMatched = false
+
+  const nameKeywords = extractNameKeywords(parkingName)
+  const hasSpecific = hasSpecificIdentifier(parkingName)
+
+  // 지역 매칭
+  const region = extractRegion(address).toLowerCase()
+  const regionWords = region.split(/\s+/).filter((w) => w.length >= 2)
+  const regionMatched = regionWords.some((rw) => titleLower.includes(rw) || bodyLower.includes(rw))
+  const city = extractCity(address)
+  const cityMatched = city ? combined.includes(city) : false
+  const locationMatched = regionMatched || cityMatched
+
+  if (regionMatched) score += 20
+
+  // 이름 매칭 — body 등장 빈도 가중치
+  const nameInTitle = nameKeywords.some((kw) => titleLower.includes(kw))
+  const nameInBody = nameKeywords.some((kw) => bodyLower.includes(kw))
+  const nameBodyFreq = nameKeywords.reduce((sum, kw) => sum + countOccurrences(bodyLower, kw), 0)
+
+  if (hasSpecific) {
+    if (nameInTitle) {
+      score += 40
+      nameMatched = true
+    }
+    if (nameInBody) {
+      score += 20
+      nameMatched = true
+    }
+    // 본문 등장 빈도 보너스 (3회 이상 +5, 10회 이상 +10)
+    if (nameBodyFreq >= 10) score += 10
+    else if (nameBodyFreq >= 3) score += 5
+  } else {
+    // 고유 식별자 없음 — 이름 + 지역 동시 매칭 필요
+    if ((nameInTitle || nameInBody) && locationMatched) {
+      if (nameInTitle) score += 40
+      if (nameInBody) score += 20
+      nameMatched = true
+      if (nameBodyFreq >= 5) score += 5
+    }
+  }
+
+  // 주차 키워드 보너스 (밀도 기반)
+  if (parkingMentions >= 5) score += 25
+  else if (parkingMentions >= 1) score += 20
+
+  // 보정 — 이름 매칭 없으면 최대 40점
+  if (!nameMatched) {
+    score = Math.min(score, 40)
+  }
+
+  // 광역 지역 불일치 감점 (동명이인)
+  if (nameMatched && !regionMatched) {
+    const province = extractProvince(address)
+    if (province && !combined.includes(province)) {
+      score = Math.max(0, score - 30)
+    }
+  }
+
+  // 본문 길이 정규화: 너무 길고 키워드 밀도 낮으면 감점
+  // (본문 5000자인데 lot 이름 1회만 등장 = 의심)
+  if (bodyLength >= 3000 && nameBodyFreq <= 1 && nameMatched) {
+    score = Math.max(0, score - 10)
+  }
+
+  return Math.min(100, score)
+}
+
+function countOccurrences(haystack: string, needle: string): number {
+  if (needle.length === 0) return 0
+  let count = 0
+  let pos = 0
+  while ((pos = haystack.indexOf(needle, pos)) !== -1) {
+    count++
+    pos += needle.length
+  }
+  return count
+}
+
+// 풀텍스트 보일러플레이트 패턴 (#148 추가)
+// snippet 에서는 잡히지 않지만 본문에 들어가면 재활용 가치 없는 글
+const FULLTEXT_BOILERPLATE_PATTERNS = [
+  /이\s*포스팅은\s*쿠팡\s*파트너스/,
+  /일정액의\s*수수료를\s*제공받습니다/,
+  /본\s*포스팅은.*?원고료/,
+  /상기\s*업체로부터.*?제공받아/,
+  /Top\s*\d+\s*저렴한.*?주차장/i,
+  /주차장\s*위치.*?영업시간.*?주차비\s*총정리/,
+]
 
 /**
  * 매칭 신뢰도를 판정한다.
