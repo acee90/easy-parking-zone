@@ -6,9 +6,24 @@
 
 ## 요구사항 정리
 
-`web_sources.ai_summary` 22K row 평균 20자 → **full_text 1,400~2,000자 입력으로 재생성하여 평균 200자+ 달성**. 이 ai_summary 가 다운스트림 `parking_lot_stats.ai_summary` 와 wiki SSR 콘텐츠의 입력이 된다.
+`web_sources.ai_summary` 22K row 평균 20자 → **full_text 1,400~2,000자 입력으로 재생성**. 이 ai_summary 가 다운스트림 `parking_lot_stats.ai_summary` 와 wiki SSR 콘텐츠의 입력이 된다.
 
 본 이슈는 raw 단계 (`web_sources_raw.ai_summary`) 는 손대지 않는다 — 필터링 결정은 이미 끝났고, 본 이슈는 SEO/콘텐츠 가치 향상이 목적.
+
+### 길이 정책 (2026-05-04 변경)
+
+⚠️ **ai_summary 글자수 하한 가드 제거**. `MIN_SUMMARY_LENGTH=200` 같은 강제 reject 안 함.
+
+이유:
+- 길이 압박이 hallucination/패딩 유발 (PR #137 lessons)
+- 진짜 양질 후기는 자연스럽게 200~500자 범위. 풀텍스트가 짧거나 정보가 얇은 경우 강제로 200자 채우면 메타 표현/일반론 추가 → SEO 가치 음수.
+- #148 필터링이 입력 품질을 이미 보장 (서포터즈/공식 톤 / 본인 경험 없음 = reject)
+- 길이는 입력 품질에 자연스럽게 종속 — 양질 입력 → 풍부한 summary, 얇은 입력 → 짧은 summary (그대로 유지)
+
+대신 다음만 강제:
+- 본문에 없는 정보 출력 금지 (인용 규율)
+- generic safety filler 금지 ("확인 바랍니다", "정보 안내" 등)
+- 메타 표현 금지
 
 ## 현재 상태 파악
 
@@ -25,12 +40,13 @@
 - naver_cafe 3,014 row blocked (입력 불가)
 - 차단/실패 5,463 row → ai_summary 재생성 대상 아님 (snippet 그대로 유지)
 
-### 살아있는 가드 (PR #137 도입, 본 이슈에서 그대로 활용)
+### 살아있는 가드 (PR #137 도입, 본 이슈에서 일부 활용)
 
-- `MIN_SUMMARY_LENGTH=200` (`src/server/crawlers/lib/ai-filter.ts:18`)
-- short_summary reject 후처리
-- 보일러플레이트 reject 패턴
-- `scripts/apply-summaries.ts` c안 정책 (new>old AND new≥200)
+- ~~`MIN_SUMMARY_LENGTH=200`~~ → **본 이슈에서 제거** (위 길이 정책 참조)
+- 보일러플레이트 reject 패턴 (계속 사용)
+- 인용 규율 / 메타 표현 금지 (계속 사용)
+- ~~c안 정책 (new>old AND new≥200)~~ → 길이 비교 기준 제거. 단순히 "agent 가 새로 생성한 summary 로 덮어쓰기"
+- 본 이슈에서 #148 의 v2 filter 가 reject 한 row 는 ai_summary 재생성 대상에서 제외 (입력 풀 자체에서 빠짐)
 
 ## 구현 단계
 

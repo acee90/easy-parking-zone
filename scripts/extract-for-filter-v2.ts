@@ -114,20 +114,25 @@ function main(): void {
 
   // Stats summary
   const v2Stats = all.map((a) => a.relevance_score_v2)
-  const avg = v2Stats.length > 0 ? Math.round(v2Stats.reduce((a, b) => a + b, 0) / v2Stats.length) : 0
+  const avg =
+    v2Stats.length > 0 ? Math.round(v2Stats.reduce((a, b) => a + b, 0) / v2Stats.length) : 0
   const above40 = v2Stats.filter((s) => s >= 40).length
   const above60 = v2Stats.filter((s) => s >= 60).length
 
   console.log(`\n✅ wrote ${jsonPath} (${all.length} records)`)
   console.log(`✅ wrote ${sqlPath} (${relevanceSqls.length} UPDATEs)`)
-  console.log(`   relevance_v2 avg: ${avg}, ≥40: ${above40} (${((above40 / all.length) * 100).toFixed(1)}%), ≥60: ${above60} (${((above60 / all.length) * 100).toFixed(1)}%)`)
+  console.log(
+    `   relevance_v2 avg: ${avg}, ≥40: ${above40} (${((above40 / all.length) * 100).toFixed(1)}%), ≥60: ${above60} (${((above60 / all.length) * 100).toFixed(1)}%)`,
+  )
   console.log(`\n다음 단계:`)
   console.log(`   1. relevance UPDATE 적용:`)
   console.log(`      bunx wrangler d1 execute parking-db --remote --file=${sqlPath}`)
   console.log(`   2. filter-v2-evaluator 에이전트 호출 (Task 도구)`)
   console.log(`      입력: ${jsonPath}`)
   console.log(`   3. agent 출력 SQL 적용:`)
-  console.log(`      bunx wrangler d1 execute parking-db --remote --file=${jsonPath.replace('.json', '.sql')}`)
+  console.log(
+    `      bunx wrangler d1 execute parking-db --remote --file=${jsonPath.replace('.json', '.sql')}`,
+  )
 }
 
 main()

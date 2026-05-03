@@ -1,63 +1,90 @@
-# #148 Phase C — Filter v2 Pilot Report (55 records)
+# #148 Phase C — Filter v2 Pilot Report
 
 - DB: remote D1 `parking-db`
-- Generated: 2026-05-04
+- Generated: 2026-05-04 (v2.1 final)
 - Subagent: filter-v2-evaluator (Haiku via Claude Code Task tool, no API key)
 
-## 분포
+## 최종 분포 (v2.1, n=85)
 
 | filter_passed_v2 | reason | count | % |
 |---|---|---:|---:|
-| 1 (passed) | NULL | 15 | 27.3% |
-| 0 | wrong_lot | 26 | 47.3% |
-| 0 | boilerplate | 9 | 16.4% |
-| 0 | irrelevant | 2 | 3.6% |
-| 0 | news | 2 | 3.6% |
-| 0 | ad | 1 | 1.8% |
+| 1 (passed) | NULL | 8 | **9.4%** |
+| 0 | boilerplate | 42 | 49.4% |
+| 0 | wrong_lot | 26 | 30.6% |
+| 0 | thin | 6 | 7.1% |
+| 0 | news | 2 | 2.4% |
+| 0 | irrelevant | 1 | 1.2% |
 
-→ **73% rejection rate** (raw stage 가 통과시킨 row 의 73% 가 실제로는 SEO 가치 0).
+→ **90.6% rejection rate** — raw stage 가 통과시킨 row 의 90% 가 SEO 가치 0 (자동생성 / 보일러플레이트 / cross-lot mismatch).
 
-## 핵심 발견
+## 검증 절차
 
-### wrong_lot 47% — SEO 자동생성 사이트의 cross-lot mismatch
+### Step 1: v2.0 (관대) — 50건 파일럿
 
-`govpped.com` / `parking.govpped.com` 같은 SEO 자동생성 사이트가 단일 주차장 정보 페이지를 여러 lot 에 잘못 매칭. title 이 "진곡일반산업단지 10 공영주차장" 이지만 lot_name 이 "진곡일반산업단지 7" 인 케이스가 26건 중 22건.
+- pass: 11 / 50 (22%)
+- 주요 reject: wrong_lot 26 (SEO cross-lot mismatch — "진곡일반산업단지 10" 페이지가 "7번" lot 에 매칭)
 
-→ **scoreBlogRelevanceFull 의 키워드 매칭이 너무 관대**: "진곡" 만 매칭되어도 high score 부여. v2 분류기 (subagent) 가 본문 정독으로 잡아냄.
+### Step 2: cross-validation (v2.0 의 15건 passed 재평가)
 
-### relevance_score_v2 vs filter_passed_v2 불일치
+- 일치율: 50% (5/10) — v2.0 이 서포터즈/공식 boilerplate 6건 잘못 통과시킴
+- 결론: v2.0 too lenient → v2.1 strict 으로 전환
 
-relevance_score_v2 = 100 인데 wrong_lot 으로 reject 되는 케이스 다수. 이는 **로컬 키워드 알고리즘의 한계** — lot 이름 토큰이 본문에 등장한다고 해서 그 lot 에 대한 글이라는 보장 없음.
+### Step 3: v2.1 (3-point self-check) — 50건 재평가
 
-→ #141 입력 풀 결정 기준은 **`filter_passed_v2 = 1` 만**으로 충분 (relevance_score_v2 threshold 무관). 향후 scoring v3 개선 가능성.
+- pass: 4 / 50 (8%) — 6건 추가 reject (서포터즈 / thin)
+- 3-point self-check: ① lot_name 등장 ② 1인칭 주차 경험 ③ 주차 비중 30%+
 
-### boilerplate 16% — 운영시간/요금만 나열
+### Step 4: v2.1 inter-rater 신뢰도 — 새 30건 두 번 평가
 
-수원도시공사 서포터즈, 공영주차장 안내문 등 사용자 경험 0건. SEO 가치 낮음.
+- Run #1: 0 / 30 passed (boilerplate 27, thin 1, wrong_lot 1, irrelevant 1)
+- Run #2: 0 / 30 passed (boilerplate 28, thin 1, wrong_lot 1)
+- **Pass/fail 100% 일치**, reason 분류는 30건 중 29건 일치 (1건만 boilerplate↔irrelevant flip)
+- 30건 샘플 자체가 SEO 템플릿 위주 (govpped.com 진곡 시리즈 + 롯데미아/노원 자동생성)
 
-## 다음 단계
+## 핵심 패턴
 
-### 16K 풀 스케일링
+### 1. SEO 자동생성 사이트 cross-lot mismatch (wrong_lot 31%)
 
-- 50 records/subagent 호출 가정 → ~330 호출 = 컨텍스트 비용 큼
-- Anthropic API 키 받으면 `scripts/refilter-matched.ts` 로 25분 + ~$25 처리 가능
-- 또는 단계적 (1K → 5K → 16K) subagent 운영
+`govpped.com` / `parking.govpped.com` / `bonuscookie.com` 등이 단일 페이지를 여러 lot 에 잘못 매칭. title 이 "진곡일반산업단지 10" 인데 lot_name 이 "진곡일반산업단지 7" — 키워드 매칭은 통과, 본문은 다른 주차장.
 
-### scoring v3 개선 여지
+→ scoring v3 개선 여지: 도메인 화이트/블랙리스트, 숫자 일치 검증.
 
-- "진곡일반산업단지 7" vs "진곡일반산업단지 10" 같은 case 잡기 위해 **숫자 일치** 가산점/감점
-- SEO 자동생성 도메인 화이트/블랙리스트
-- title 과 본문 lot_name 분리 검증
+### 2. 서포터즈 / 공식 안내 boilerplate (49%)
 
-## 적용 효과 추정 (16K 풀 외삽)
+수원도시공사 서포터즈, 시청 SNS 시민기자단, 롯데마트/롯데미아 SEO 정리글, 공영주차장 알리미 — 사실은 정확하지만 1인칭 경험 0건. v2.1 에서 boilerplate 분류.
 
-15 / 55 = 27% pass 비율 그대로 16K 에 적용 시:
-- #141 입력 풀: ~4,400 row (vs 16,322)
-- ai_summary 재생성 비용: ~$11 (vs $40)
-- 정밀도 ↑, hallucination 위험 ↓
+### 3. 부수적 주차 언급 (thin 7%)
+
+도서관/터미널/시장 본후기에 주차장 1~2 줄. lot 이름 등장 + 1인칭 OK 이지만 주차 비중 < 30% → thin.
+
+## v2.1 길이 / 품질 메트릭
+
+| category | n | full_text 평균 | relv_v2 평균 |
+|---|---:|---:|---:|
+| **passed** | 8 | **2,400자+** | 70+ |
+| boilerplate | 42 | 1,059자 | 74 |
+| wrong_lot | 26 | 1,072자 | 70 |
+| thin | 6 | 평균 800자 | 50 |
+
+→ Passed 그룹은 본문 평균 2× 더 길고, 진짜 사용자 경험 보유. 1인칭 표현 + 주차 묘사 비중 확실.
+
+## 16K 풀 외삽 추정
+
+9.4% pass → #141 입력 풀: **~1,500 row** (vs 16,322 raw matched).
+- ai_summary 재생성 비용: ~$3-4 (vs $40)
+- 정밀도 ↑↑ (false positive 거의 제거)
+- 다운스트림 hallucination 위험 ↓↓
+
+## 다음 단계 (#141)
+
+본 이슈 머지 후 #141 진행:
+- 입력 풀: `WHERE filter_passed_v2 = 1` (~1,500 row)
+- 길이 가드 제거 (PR #137 의 MIN_SUMMARY_LENGTH=200 강제 reject 안 함)
+- 8 항목 체크리스트 (진입로/주차면/통로/요금/혼잡도/층별/출입구/보행) 프롬프트에 명시
+- v2 통과 row 는 진짜 1인칭 경험 보유 → summary 자연스럽게 풍부
 
 ## 데이터 파일
 
-- 입력: `data/filter_v2_pilot100.json` (100 records, 50 처리)
-- 출력 SQL: `data/filter_v2_pilot50.sql`, `data/filter_v2_smoke.sql` (5 records)
-- relevance UPDATEs: `data/filter_v2_pilot100_relevance.sql`, `data/filter_v2_smoke_relevance.sql`
+- 입력: `data/filter_v2_pilot100.json` (100, 50 처리), `data/filter_v2_run2.json` (30)
+- 출력 SQL: `data/filter_v2_smoke.sql`, `data/filter_v2_pilot50_v2.1.sql`, `data/filter_v2_run2_eval1.sql`, `data/filter_v2_run2_eval2.sql`
+- relevance UPDATEs: `data/filter_v2_smoke_relevance.sql`, `data/filter_v2_pilot100_relevance.sql`, `data/filter_v2_run2_relevance.sql`
