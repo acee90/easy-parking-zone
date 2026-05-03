@@ -284,10 +284,12 @@ export const fetchBlogPosts = createServerFn({ method: 'GET' })
         author: schema.webSources.author,
         published_at: schema.webSources.publishedAt,
         relevance_score: schema.webSources.relevanceScore,
+        // INSTR 사용: LIKE의 우변이 컬럼 참조로 동적 구성될 때 D1/SQLite가
+        // "LIKE or GLOB pattern too complex" (SQLITE_ERROR 7500)를 던지는 경우가 있어 회피.
         boost_score: sql<number>`
-          CASE 
-            WHEN ${schema.webSources.title} LIKE '%' || ${schema.parkingLots.name} || '%' THEN 30
-            ELSE 0 
+          CASE
+            WHEN INSTR(${schema.webSources.title}, ${schema.parkingLots.name}) > 0 THEN 30
+            ELSE 0
           END`.as('boost_score'),
       })
       .from(schema.webSources)
@@ -299,9 +301,9 @@ export const fetchBlogPosts = createServerFn({ method: 'GET' })
         ),
       )
       .orderBy(
-        desc(sql`${schema.webSources.relevanceScore} + CASE 
-            WHEN ${schema.webSources.title} LIKE '%' || ${schema.parkingLots.name} || '%' THEN 30
-            ELSE 0 
+        desc(sql`${schema.webSources.relevanceScore} + CASE
+            WHEN INSTR(${schema.webSources.title}, ${schema.parkingLots.name}) > 0 THEN 30
+            ELSE 0
           END`),
         desc(schema.webSources.publishedAt),
       )
