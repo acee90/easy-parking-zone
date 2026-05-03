@@ -1,8 +1,8 @@
-# 구현 계획: web_sources(matched) ai_summary 재생성 (#141)
+# 구현 계획: web_sources(matched) ai_summary 재생성 (#141 — Phase D)
 
-> Parent: #138 — Phase C
+> Parent: #138 — Phase D
 > Milestone: M9 콘텐츠 보강을 위한 크롤링 파이프라인 개선
-> Depends on: #140 (full_text 22K 보강 완료)
+> Depends on: #140 (full_text 보강 완료), #148 (filter + relevance v2 통과 subset)
 
 ## 요구사항 정리
 
@@ -34,7 +34,7 @@
 
 ## 구현 단계
 
-### Phase C-1 — AI summary 생성기 (matched 전용)
+### Phase D-1 — AI summary 생성기 (matched 전용)
 
 **결정 포인트**: 기존 `ai-filter.ts` SYSTEM_PROMPT 를 재사용 vs 새 프롬프트 작성
 
@@ -59,7 +59,7 @@ summarizeMatched(input: {
 
 `filter_passed=false` 케이스: 본문이 200자 미만 또는 보일러플레이트로 판정되면 ai_summary 갱신 안 함 (기존 snippet 기반 ai_summary 유지).
 
-### Phase C-2 — 재생성 스크립트
+### Phase D-2 — 재생성 스크립트
 
 신규: `scripts/regen-matched-summaries.ts`
 
@@ -90,14 +90,14 @@ LIMIT N
 4. 결과로 SQL UPDATE 생성 (`scripts/fetch-matched-fulltext.ts` 패턴 차용)
 5. SQL 파일 chunk emit → 별도 apply 단계
 
-### Phase C-3 — c안 정책 적용
+### Phase D-3 — c안 정책 적용
 
 기존 `scripts/apply-summaries.ts` 를 활용하되 **`web_sources` 대상으로 변형 필요**:
 - 기존 SQL 패턴: `UPDATE web_sources SET ai_summary = '...' WHERE id = N;` — 본 이슈에서도 그대로 매치
 - 신규 옵션: `--target=matched_summary` (단순 라벨링)
 - c안 정책: `new.length >= 200 AND (new > old OR old < 200)` — 그대로
 
-### Phase C-4 — A/B 비교 eval
+### Phase D-4 — A/B 비교 eval
 
 신규 또는 `scripts/eval-` 패턴 차용: `scripts/eval-matched-summaries.ts`
 
@@ -111,7 +111,7 @@ LIMIT N
 - 인용 위반 의심 비율 (full_text 에 없는 한글 명사 N개 이상 등장)
 - 수동 검수용 샘플 10 row 출력 → `eval/matched-summary-v2/report.md`
 
-### Phase C-5 — 단계적 실행
+### Phase D-5 — 단계적 실행
 
 | 단계 | 대상 |
 |---|---|
