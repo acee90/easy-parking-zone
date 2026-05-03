@@ -1,14 +1,21 @@
 /**
- * AI 필터링 모듈 (Anthropic Haiku)
+ * AI 필터링 모듈 (Anthropic Haiku) — raw 단계 진입점
  *
- * 크롤링된 검색 결과를 Haiku로 분류:
+ * 신규 크롤링된 검색 결과(`web_sources_raw`)를 Haiku로 분류:
  * 1. 광고/무관 콘텐츠 필터 → filter_passed / filter_removed_by
  * 2. 난이도 관련 키워드 추출 → ai_difficulty_keywords
- * 3. 감성 점수 산출 → sentiment_score (기존 컬럼 재활용)
- * 4. 한줄 요약 → ai_summary
+ * 3. 감성 점수 산출 → sentiment_score
+ * 4. long-form 요약 → ai_summary (200~600자)
+ *
+ * SYSTEM_PROMPT 사양은 `./ai-summary-prompt.ts`에 single source of truth로 분리.
+ * 매칭 후 재생성(`ai-summary-generator` agent)도 동일 사양 따름 (SKILL.md 참조).
  *
  * Workers 환경 + 로컬 스크립트 모두 호환.
  */
+
+import { AI_SUMMARY_SYSTEM_PROMPT, MIN_SUMMARY_LENGTH } from './ai-summary-prompt'
+
+export { MIN_SUMMARY_LENGTH }
 
 const HAIKU_MODEL = 'claude-haiku-4-5-20251001'
 const API_URL = 'https://api.anthropic.com/v1/messages'
@@ -22,8 +29,14 @@ export interface AiFilterResult {
   difficultyKeywords: string[]
   /** 감성 점수 1.0(매우 어려움) ~ 5.0(매우 쉬움) */
   sentimentScore: number
-  /** 한줄 요약 */
+  /** 주차장 종합 가이드 요약 (200~600자 권장) */
   summary: string
+  /** 요금 관련 꿀팁 */
+  tipPricing: string | null
+  /** 방문 및 이용 팁 */
+  tipVisit: string | null
+  /** 만차 시 대안 정보 */
+  tipAlternative: string | null
 }
 
 export interface AiFilterInput {
@@ -32,37 +45,7 @@ export interface AiFilterInput {
   description: string
 }
 
-const SYSTEM_PROMPT = `주차장 검색 결과를 분류하는 JSON 분류기입니다.
-
-출력 형식 (JSON 객체만, 설명 없이):
-{
-  "filter_passed": true/false,
-  "removed_by": null 또는 "ad"/"realestate"/"irrelevant"/"news",
-  "difficulty_keywords": ["좁다", "기계식"],
-  "sentiment_score": 3.0,
-  "summary": "주차면 좁고 기둥 많음"
-}
-
-판단 기준:
-- filter_passed: 주차장에 대한 유용한 정보가 있으면 true. 아래 경우만 false:
-  - "ad": 제품/서비스 홍보, 마케팅 글
-  - "realestate": 부동산 분양/매매/임대 글
-  - "irrelevant": 주차와 완전히 무관한 글
-  - "news": 사건/사고 뉴스
-  - "monthly": 월주차/월정액/정기주차 요금/계약 정보
-  - "wedding": 결혼식장/웨딩홀 주차 안내
-- 주차장 요금, 위치, 운영시간, 혼잡도 등 정보 정리 글은 true (경험 후기가 아니어도 통과).
-- "Top5 주차장", "저렴한 주차장 정보" 같은 정보 정리/비교 글은 true.
-- 단, 월주차/정기주차 요금만 다루는 글, 결혼식장 주차 안내 글은 false (난이도 정보 없음).
-- difficulty_keywords: 주차 난이도 관련 표현만 추출 (좁다, 넓다, 기계식, 경사, 회전, 기둥, 복잡, 편하다, 여유, 만차, 헬, 초보추천 등). 없으면 빈 배열.
-- sentiment_score: 초보 운전자 관점 주차 용이성. 1.0=매우어려움, 3.0=보통, 5.0=매우쉬움. 판단 불가 시 3.0.
-- summary: 주차 관련 구체적 한줄 (30~60자). 아래 우선순위로 작성:
-  1) 개인 경험 기반 혼잡도: "평일 여유, 주말 오후 만차", "점심시간 30분 대기"
-  2) 구체적 수치/특이사항: 층수, 요금, 입구 너비, 기둥·경사 여부
-  3) 실용적 팁: 진입 경로, 추천/비추천 이유
-  주차장 이름이 명시된 경우, 그 주차장에 해당하는 내용만 추출할 것 (여러 주차장 나열 글인 경우).
-  금지: "~정보", "~안내", "~확인 가능", "~이용 가능", "~기록", "~소개" 같은 메타 표현.
-  주차 관련 구체 정보가 없으면 빈 문자열.`
+const SYSTEM_PROMPT = AI_SUMMARY_SYSTEM_PROMPT
 
 /**
  * 여러 검색 결과를 한번에 분류 (배치 프롬프트, 최대 10건)
@@ -76,7 +59,7 @@ export async function classifyBatch(
   const itemsText = inputs
     .map(
       (input, i) =>
-        `[${i + 1}] 주차장: ${input.parkingName} | 제목: ${input.title} | 설명: ${input.description.slice(0, 200)}`,
+        `[${i + 1}] 주차장: ${input.parkingName} | 제목: ${input.title} | 설명: ${input.description.slice(0, 500)}`, // 분석을 위해 설명 길이를 500자로 늘림
     )
     .join('\n')
 
@@ -94,11 +77,11 @@ export async function classifyBatch(
     },
     body: JSON.stringify({
       model: HAIKU_MODEL,
-      max_tokens: 200 * inputs.length,
+      max_tokens: 1200 * inputs.length, // long-form summary(200~600자) + tip 3개 출력 여유
       system: systemPrompt,
       messages: [{ role: 'user', content: itemsText }],
     }),
-    signal: AbortSignal.timeout(30_000),
+    signal: AbortSignal.timeout(45_000), // 타임아웃 약간 상향
   })
 
   if (!res.ok) {
@@ -140,16 +123,30 @@ function parseBatch(text: string, count: number): AiFilterResult[] {
   }
 }
 
-function toResult(p: Record<string, unknown>): AiFilterResult {
-  const passed = Boolean(p.filter_passed)
+export function toResult(p: Record<string, unknown>): AiFilterResult {
+  const llmPassed = Boolean(p.filter_passed)
+  const summary = String(p.summary ?? '')
+  // summary가 MIN_SUMMARY_LENGTH 미만이면 filter_passed=false 강제 적용
+  // (LLM이 200자 이상 지시를 무시하고 짧게 출력하는 회귀 방지)
+  const tooShort = summary.length < MIN_SUMMARY_LENGTH
+  const passed = llmPassed && !tooShort
+  const removedBy = tooShort
+    ? 'short_summary'
+    : llmPassed
+      ? null
+      : String(p.removed_by ?? 'unknown')
+
   return {
     filterPassed: passed,
-    filterRemovedBy: passed ? null : String(p.removed_by ?? 'unknown'),
+    filterRemovedBy: removedBy,
     difficultyKeywords: Array.isArray(p.difficulty_keywords)
       ? (p.difficulty_keywords as string[])
       : [],
     sentimentScore: clamp(Number(p.sentiment_score) || 3.0),
-    summary: String(p.summary ?? '').slice(0, 80),
+    summary,
+    tipPricing: p.tip_pricing ? String(p.tip_pricing) : null,
+    tipVisit: p.tip_visit ? String(p.tip_visit) : null,
+    tipAlternative: p.tip_alternative ? String(p.tip_alternative) : null,
   }
 }
 
@@ -160,6 +157,9 @@ function defaultResult(): AiFilterResult {
     difficultyKeywords: [],
     sentimentScore: 3.0,
     summary: '분류 실패',
+    tipPricing: null,
+    tipVisit: null,
+    tipAlternative: null,
   }
 }
 
