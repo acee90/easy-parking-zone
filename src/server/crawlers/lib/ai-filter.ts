@@ -1,20 +1,24 @@
 /**
- * AI 필터링 모듈 (Anthropic Haiku)
+ * AI 필터링 모듈 (Anthropic Haiku) — raw 단계 진입점
  *
- * 크롤링된 검색 결과를 Haiku로 분류:
+ * 신규 크롤링된 검색 결과(`web_sources_raw`)를 Haiku로 분류:
  * 1. 광고/무관 콘텐츠 필터 → filter_passed / filter_removed_by
  * 2. 난이도 관련 키워드 추출 → ai_difficulty_keywords
- * 3. 감성 점수 산출 → sentiment_score (기존 컬럼 재활용)
- * 4. 한줄 요약 → ai_summary
+ * 3. 감성 점수 산출 → sentiment_score
+ * 4. long-form 요약 → ai_summary (200~600자)
+ *
+ * SYSTEM_PROMPT 사양은 `./ai-summary-prompt.ts`에 single source of truth로 분리.
+ * 매칭 후 재생성(`ai-summary-generator` agent)도 동일 사양 따름 (SKILL.md 참조).
  *
  * Workers 환경 + 로컬 스크립트 모두 호환.
  */
 
+import { AI_SUMMARY_SYSTEM_PROMPT, MIN_SUMMARY_LENGTH } from './ai-summary-prompt'
+
+export { MIN_SUMMARY_LENGTH }
+
 const HAIKU_MODEL = 'claude-haiku-4-5-20251001'
 const API_URL = 'https://api.anthropic.com/v1/messages'
-
-/** summary 최소 길이. 미만이면 filter_passed=false 강제 적용 */
-export const MIN_SUMMARY_LENGTH = 200
 
 export interface AiFilterResult {
   /** 광고/무관 콘텐츠 필터 통과 (true=주차 후기, false=광고/무관) */
@@ -41,35 +45,7 @@ export interface AiFilterInput {
   description: string
 }
 
-const SYSTEM_PROMPT = `주차장 검색 결과를 분석하여 초보 운전자를 위한 '독창적인 주차 가이드'를 생성하는 JSON 분류기입니다.
-
-출력 형식 (JSON 객체만, 설명 없이):
-{
-  "filter_passed": true/false,
-  "removed_by": null 또는 "ad"/"realestate"/"irrelevant"/"news",
-  "difficulty_keywords": ["좁다", "기계식"],
-  "sentiment_score": 3.0,
-  "summary": "종합 분석 (200~600자)",
-  "tip_pricing": "요금 절약 방법이나 무료 조건",
-  "tip_visit": "가장 쾌적한 방문 시간이나 진입로 주의점",
-  "tip_alternative": "만차 시 근처 추천 주차장"
-}
-
-판단 기준:
-- filter_passed: 주차장에 대한 유용한 정보가 있으면 true. 광고, 부동산, 단순 뉴스 등은 false.
-- summary: 본문에서 주차 관련 정보를 최대한 추출하여 200~600자 범위로 작성하세요.
-  - 다음 항목 중 본문에 있는 것은 모두 포함하세요: 진입로(폭/회전반경/일방통행 여부), 주차면(크기/기둥/경사), 통로(너비/회전 여유), 요금(시간당/일일/할인 조건), 혼잡도(시간대별/요일별), 층별 특징, 출입구 위치, 보행 동선.
-  - "이곳은 ~합니다" 식의 3인칭 관찰자 시점보다는 "주차 공간이 좁아 초보자는 주의가 필요합니다" 같은 실용적 정보를 담으세요.
-  - 단순히 "주차하기 좋습니다"가 아니라 "통로가 넓어 회전 시 여유가 있습니다"처럼 이유를 설명하세요.
-  - 단순 한 줄 요약 금지. "~정보", "~안내", "~확인 가능", "~이용 가능" 같은 메타 표현 금지.
-  - 본문에 없는 내용 추측·창작 금지. 본문 텍스트를 그대로 잘라붙이는 것도 금지(이해 후 재작성).
-- tip_pricing: 모두가 아는 기본 요금보다는 '유료 결제 시 할인 방법', '주변 상가 이용 시 무료 혜택', '공영주차장 할인 대상' 등을 적으세요.
-- tip_visit: "평일 오후 2시 이후에는 자리가 많습니다", "입구 진입 시 좌회전 신호가 짧으니 미리 차선을 변경하세요" 등 실전 팁을 적으세요.
-- tip_alternative: 해당 주차장이 만차이거나 너무 좁을 때 이용할 수 있는 '도보 5분 이내'의 대안 주차장을 언급하세요.
-
-주의:
-- 각 팁 필드는 본문에 구체 정보가 없으면 null로 설정.
-- summary는 반드시 200자 이상의 충분한 정보를 담아야 합니다. 본문에 주차 관련 구체 정보가 부족하면 filter_passed를 false로 설정하세요.`
+const SYSTEM_PROMPT = AI_SUMMARY_SYSTEM_PROMPT
 
 /**
  * 여러 검색 결과를 한번에 분류 (배치 프롬프트, 최대 10건)
