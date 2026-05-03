@@ -1,0 +1,902 @@
+[
+  {
+    "id": "362-2-000002",
+    "name": "동서2길 1주차장",
+    "address": "경상북도 의성군 의성읍 후죽리 720",
+    "ai_summary_len": 0,
+    "web_count": 2,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "154-4-000203",
+    "name": "대현",
+    "address": "대구광역시 북구 신암로 99",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "260-1-000058",
+    "name": "남산로 노상주차장",
+    "address": "강원도 평창군 대화면 대화중앙로 112",
+    "ai_summary_len": 43,
+    "web_count": 2,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "KA-25620403",
+    "name": "해저터널공영주차장",
+    "address": "경남 통영시 봉평동 446-20",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "161-2-000132",
+    "name": "보각선원아래공영주차장",
+    "address": "인천광역시 중구 도원동 15-3",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "KA-1640326787",
+    "name": "옥포중앙공원 주차장",
+    "address": "경남 거제시 옥포동 산 71-27",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "398-1-000010",
+    "name": "합천철공소~연호장여관 뒤",
+    "address": "경상남도 합천군 합천읍 합천리 893-8",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "178-2-000071",
+    "name": "본촌동 공영주차장",
+    "address": "광주광역시 북구 용두택지로 66(본촌동)",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "327-2-000038",
+    "name": "영산나루카페앞주차장",
+    "address": "전라남도 나주시 영산동 306-30번지",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "326-1-000023",
+    "name": "의료원R 공영주차장",
+    "address": "전라남도 순천시 매곡동 127-9",
+    "ai_summary_len": 0,
+    "web_count": 2,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "351-1-000048",
+    "name": "죽도동 노상14",
+    "address": "경상북도 포항시 북구 포스코대로314",
+    "ai_summary_len": 0,
+    "web_count": 2,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "KA-1530278618",
+    "name": "공용주차장",
+    "address": "제주특별자치도 제주시 애월읍 고내리 834-4",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "152-2-000044",
+    "name": "서대구역남편 공영주차장",
+    "address": "대구광역시 서구 북비산로 55",
+    "ai_summary_len": 54,
+    "web_count": 4,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "145-2-000042",
+    "name": "일광해수욕장 공영주차장",
+    "address": "부산광역시 기장군 일광읍 삼성리 712",
+    "ai_summary_len": 10,
+    "web_count": 6,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "289-2-000127",
+    "name": "센트럴코아루아파트주변임시공영주차장",
+    "address": "충청남도 서산시 석림동 725-9",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "115-2-000013",
+    "name": "가로공원로지하",
+    "address": "서울특별시 강서구 화곡동 662-15",
+    "ai_summary_len": 15,
+    "web_count": 1,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "KA-1296997585",
+    "name": "남천해변시장 주차장",
+    "address": "부산 수영구 광안해변로15번길 77",
+    "ai_summary_len": 0,
+    "web_count": 1,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "150-4-000098",
+    "name": "포정유료주차장",
+    "address": "대구광역시 중구 중앙대로 432-13",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "KA-574534528",
+    "name": "거멍국수 주차장",
+    "address": "제주특별자치도 서귀포시 안덕면 사계로114번길 53-14",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "KA-17570598",
+    "name": "관음사 주차장",
+    "address": "제주특별자치도 제주시 아라일동 산 387-2",
+    "ai_summary_len": 0,
+    "web_count": 1,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "314-3-000018",
+    "name": "안성면사무소 주차장",
+    "address": "전북특별자치도 무주군 안성면 안성로 246-17",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "KA-17580689",
+    "name": "금능석물원주차장",
+    "address": "제주특별자치도 제주시 한림읍 한림로 176",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "305-2-000044",
+    "name": "태평동",
+    "address": "전북특별자치도 전주시 완산구 태진로 16",
+    "ai_summary_len": 0,
+    "web_count": 1,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "KA-305579529",
+    "name": "완도농협하나로마트 본점 주차장",
+    "address": "전남 완도군 완도읍 가용리 1040-8",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "185-2-000002",
+    "name": "갈마도서관공영주차장",
+    "address": "대전광역시 서구 갈마동 427-20",
+    "ai_summary_len": 0,
+    "web_count": 2,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "KA-245139478",
+    "name": "동해농협 본점 주차장",
+    "address": "경북 포항시 남구 동해면 일월로 63-1",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "KA-617536943",
+    "name": "고서창평국밥 주차장",
+    "address": "전남 담양군 고서면 성월리 2-89",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "KA-1712694688",
+    "name": "용지면 주차장",
+    "address": "전북특별자치도 김제시 용지면 부교리 57",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "KA-200312175",
+    "name": "3산업단지내 제2주차장",
+    "address": "전북특별자치도 익산시 삼기면 오룡리 1145",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "KA-423032786",
+    "name": "예산역전시장주차장",
+    "address": "충남 예산군 예산읍 산성리 358-2",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "KA-17583514",
+    "name": "옥계리산촌생태마을 주차장",
+    "address": "경북 영덕군 달산면 팔각산로 737",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "KA-488289624",
+    "name": "NH농협은행 함안군지부 주차장",
+    "address": "경남 함안군 가야읍 가야로 25",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "KA-17571117",
+    "name": "울산과학대학교 주차장4",
+    "address": "울산 동구 봉수로 101",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "KA-1640031888",
+    "name": "파인파크 AT 군산파3 507코스 주차장",
+    "address": "전북특별자치도 군산시 오식도동 507",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "KA-1988987925",
+    "name": "전북삼락로컬마켓 혁신점 주차장",
+    "address": "전북특별자치도 전주시 덕진구 중동 853",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "KA-20593700",
+    "name": "가야산포천계곡주차장",
+    "address": "경북 성주군 가천면 용사리 산 161",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "KA-6672365",
+    "name": "산막이옛길 주차장",
+    "address": "충북 괴산군 칠성면 사은리 517",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "KA-1777935949",
+    "name": "갈기산 주차장",
+    "address": "충북 영동군 양산면 가선리 3-1",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "KA-17576912",
+    "name": "KODENSHIAUK광전자 주차장",
+    "address": "전북특별자치도 부안군 변산면 도청리 1083-2",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "KA-20593754",
+    "name": "공설주차장",
+    "address": "경남 창녕군 고암면 중대리 275-5",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "KA-20514949",
+    "name": "대원지주차장",
+    "address": "경북 구미시 옥성면 대원리 155-1",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "KA-713400944",
+    "name": "팔공유료주차장",
+    "address": "대구 동구 불로동 772-2",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "KA-1297270294",
+    "name": "나릿재마을5단지한신더휴리저브아파트 상가 주차장",
+    "address": "세종특별자치시 나성북1로 23",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "KA-1677355081",
+    "name": "대흥동 제1노상공영주차장",
+    "address": "대전 중구 대흥동 630",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "KA-85062633",
+    "name": "진산골프랜드 주차장",
+    "address": "경남 산청군 단성면 길리 829-3",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "KA-1639693241",
+    "name": "파인파크 AT 군산파3 506코스 주차장",
+    "address": "전북특별자치도 군산시 가도로 279",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "KA-1351028848",
+    "name": "객주문학마을 주차장",
+    "address": "경북 청송군 진보면 진안리 150-8",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "KA-1697308901",
+    "name": "G마트 혁신도시점 주차장",
+    "address": "충북 음성군 맹동면 두성리 1486",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "KA-20514830",
+    "name": "대승지주차장",
+    "address": "경북 영천시 금호읍 어은리 127-2",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "KA-47028514",
+    "name": "온양온천역 제1공영주차장",
+    "address": "충남 아산시 온천동 134-23",
+    "ai_summary_len": 15,
+    "web_count": 2,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "367-2-000015",
+    "name": "문화의거리 공영주차장",
+    "address": "경상북도 고령군 대가야읍 지산리 232-6",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "KA-27108547",
+    "name": "잠실한강공원 제3주차장",
+    "address": "서울 송파구 잠실동 1-1",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "KA-382984623",
+    "name": "중원유스센터 주차장",
+    "address": "경기 성남시 중원구 둔촌대로 332",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "KA-589087609",
+    "name": "제너두펜션 주차장",
+    "address": "강원특별자치도 횡성군 둔내면 산촌2길 60",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "297-2-000033",
+    "name": "장애인종합복지관 앞 주차장",
+    "address": "충청남도 홍성군 홍성읍 오관리 647-7",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "KA-1109150760",
+    "name": "마평동 공영 주차장",
+    "address": "경기 용인시 처인구 마평동 735-12",
+    "ai_summary_len": 10,
+    "web_count": 1,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "228-3-000100",
+    "name": "죽전도서관",
+    "address": "경기도 용인시 수지구 대지로 89",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "KA-1592425318",
+    "name": "구리한강시민공원 주차장",
+    "address": "경기 구리시 토평동 480-43",
+    "ai_summary_len": 31,
+    "web_count": 1,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "228-1-000089",
+    "name": "기흥중학교 주변",
+    "address": "경기도 용인시 기흥구 신갈동 82",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "KA-3176407",
+    "name": "소노벨비발디파크 유스호스텔 주차장",
+    "address": "강원특별자치도 홍천군 서면 한치골길 262",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "KA-1106714874",
+    "name": "불당리주차장",
+    "address": "경기 광주시 남한산성면 불당리 26-7",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "KA-113792195",
+    "name": "가톨릭대학교 성심교정 주차장",
+    "address": "경기 부천시 원미구 지봉로 43",
+    "ai_summary_len": 0,
+    "web_count": 1,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "KA-20514350",
+    "name": "냉정지주차장",
+    "address": "경기 포천시 관인면 냉정리 232-38",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "NV-1283740866_385837434",
+    "name": "금강산휴게소주차장",
+    "address": "강원특별자치도 고성군 현내면 통일전망대로 453",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "NV-1273018182_356317524",
+    "name": "임실치즈테마파크승용차주차장",
+    "address": "전북특별자치도 임실군 성수면 도인2길 42",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "KA-1247281026",
+    "name": "한반도농협하나로마트 주차장",
+    "address": "강원특별자치도 영월군 주천면 주천리 888-6",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "164-1-000049",
+    "name": "청학동 안골마을 주변 주차장",
+    "address": "인천광역시 연수구 비류대로 239번길 55",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "KA-797963079",
+    "name": "강동웨딩홀 제3주차장",
+    "address": "서울 강동구 성내동 199-16",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "KA-20564990",
+    "name": "황지동 제1공영주차장",
+    "address": "강원특별자치도 태백시 황지동 270-33",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "KA-20594629",
+    "name": "삼악산 등선폭포주차장",
+    "address": "강원특별자치도 춘천시 서면 덕두원리 115-4",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "350-4-000017",
+    "name": "주차빌딩",
+    "address": "경상북도 포항시 남구 대이로 111번길 5",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "KA-271903838",
+    "name": "팽현숙의옛날순대국 주차장",
+    "address": "경기 남양주시 와부읍 월문천로 174",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "KA-950241073",
+    "name": "버거킹 영종하늘도시DT점 주차장",
+    "address": "인천 중구 자연대로 55",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "KA-439760648",
+    "name": "인스파이어 주차장E",
+    "address": "인천 중구 운서동 2955-74",
+    "ai_summary_len": 0,
+    "web_count": 1,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "KA-20576733",
+    "name": "망원1-1공영주차장",
+    "address": "서울 마포구 망원로 28",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "KA-17990804",
+    "name": "장성군민회관 주차장",
+    "address": "전남 장성군 장성읍 청운7길 10",
+    "ai_summary_len": 0,
+    "web_count": 1,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "112-2-000017",
+    "name": "연희동 제6공영",
+    "address": "서울특별시 서대문구 홍연길 16",
+    "ai_summary_len": 0,
+    "web_count": 2,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "KA-18119274",
+    "name": "서울월드컵경기장 서쪽주차장",
+    "address": "서울 마포구 성산동 511-1",
+    "ai_summary_len": 0,
+    "web_count": 4,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "KA-1699899125",
+    "name": "철산동 상업지역 공영주차장",
+    "address": "경기 광명시 철산동 430",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "353-2-000018",
+    "name": "중앙시장",
+    "address": "경상북도 김천시 중앙시장3길 12",
+    "ai_summary_len": 0,
+    "web_count": 1,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "KA-1925273737",
+    "name": "음성읍 공영주차장",
+    "address": "충북 음성군 음성읍 읍내리 619-4",
+    "ai_summary_len": 33,
+    "web_count": 3,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "165-2-000110",
+    "name": "남동공단1(정기차량전용)",
+    "address": "인천광역시 남동구 함박뫼로347번길 60 (남촌동)",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "299-2-000005",
+    "name": "동부시장 앞 주차장",
+    "address": "충청남도 태안군 태안읍 동문리 283-1",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "232-2-000005",
+    "name": "대곶 공영주차장",
+    "address": "경기도 김포시 대곶면 율생리 520",
+    "ai_summary_len": 0,
+    "web_count": 4,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "KA-27204660",
+    "name": "서2동 공영주차장",
+    "address": "부산 금정구 서동중심로 60-14",
+    "ai_summary_len": 68,
+    "web_count": 2,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "KA-911146776",
+    "name": "해운대온천센터주차장",
+    "address": "부산 해운대구 중동 1370-4",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "KA-321432332",
+    "name": "심곡서곶누리 공영주차장",
+    "address": "인천 서구 대평로 43",
+    "ai_summary_len": 16,
+    "web_count": 2,
+    "review_count": 0,
+    "nearby_count": 1
+  },
+  {
+    "id": "KA-17572704",
+    "name": "우리장례식장 주차장2",
+    "address": "전북특별자치도 고창군 고창읍 읍내리 768",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "KA-20589814",
+    "name": "마니산국민관광지 주차장",
+    "address": "인천 강화군 화도면 상방리 401-1",
+    "ai_summary_len": 34,
+    "web_count": 2,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "177-2-000008",
+    "name": "효덕IC 공영주차장",
+    "address": "광주광역시 남구 서문대로 551",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 1
+  },
+  {
+    "id": "NV-1268011999_364479849",
+    "name": "청양읍 공영주차장",
+    "address": "충청남도 청양군 청양읍 읍내리 324-3",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "KA-79253630",
+    "name": "고성공룡시장 공영주차장",
+    "address": "경남 고성군 고성읍 성내리 239",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "254-2-000014",
+    "name": "문곡소도동주민센터옆",
+    "address": "강원특별자치도 태백시 용담1길 9-4",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "329-2-000008",
+    "name": "천변2지구공영주차장",
+    "address": "전라남도 담양군 담양읍 천변리 21(삭제)",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "KA-1397501529",
+    "name": "월촌공원 공영주차장",
+    "address": "대구 달서구 상인로 68-4",
+    "ai_summary_len": 0,
+    "web_count": 1,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "195-2-000042",
+    "name": "울산아파트형공장",
+    "address": "울산광역시 북구 효문동 818",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "290-1-000003",
+    "name": "반월2 노상주차장",
+    "address": "충청남도 논산시 반월동 33-131",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "357-3-000056",
+    "name": "중앙동행정복지센터 부설주차장",
+    "address": "경상북도 영천시 천문로 402-4",
+    "ai_summary_len": 45,
+    "web_count": 4,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "266-2-000006",
+    "name": "거진읍사무소 광장",
+    "address": "강원특별자치도 고성군 거진읍 자산천로 240",
+    "ai_summary_len": 0,
+    "web_count": 2,
+    "review_count": 0,
+    "nearby_count": 0
+  },
+  {
+    "id": "163-2-000025",
+    "name": "용현2동제2노외주차장",
+    "address": "인천광역시 미추홀구 용현동 536-1",
+    "ai_summary_len": 0,
+    "web_count": 0,
+    "review_count": 0,
+    "nearby_count": 0
+  }
+]
