@@ -79,3 +79,9 @@ data/top-sources-by-lot*.sql
 data/regen-applied.sql
 data/regen-rejected.json
 tmp/
+
+# .claude — agents/commands/skills는 추적, 개인/메타 파일은 제외
+.claude/settings.local.json
+.claude/agent-memory/
+.claude/worktrees/
+.claude/scheduled_tasks.lock
