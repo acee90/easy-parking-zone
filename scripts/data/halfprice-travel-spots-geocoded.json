@@ -341,17 +341,6 @@
             "isFree": false,
             "totalSpaces": 0,
             "finalScore": 3.03
-          },
-          {
-            "id": "KA-17582523",
-            "name": "평창파크밸리 주차장5",
-            "address": "강원특별자치도 평창군 봉평면 무이리 1126-16",
-            "lat": 37.5884365327258,
-            "lng": 128.309660543282,
-            "distanceM": 2596,
-            "isFree": true,
-            "totalSpaces": 0,
-            "finalScore": 3.07
           }
         ],
         "imageUrl": "https://ilyo.co.kr/contents/article/images/2023/1019/1697695272370575.jpg",
@@ -437,17 +426,6 @@
         "address": "강원특별자치도 평창군 봉평면 원길리 262-6",
         "nearbyParking": [
           {
-            "id": "260-2-000038",
-            "name": "효석문학관 (소형)",
-            "address": "강원도 평창군 봉평면 효석문학길 73-25",
-            "lat": 37.61317497,
-            "lng": 128.3701153,
-            "distanceM": 230,
-            "isFree": true,
-            "totalSpaces": 23,
-            "finalScore": 3.06
-          },
-          {
             "id": "260-2-000039",
             "name": "효석문학관 (대형)",
             "address": "강원도 평창군 봉평면 효석문학길 73-25",
@@ -518,17 +496,6 @@
             "isFree": false,
             "totalSpaces": 0,
             "finalScore": 3.03
-          },
-          {
-            "id": "NV-1287548782_376847999",
-            "name": "대관령 마을휴게소주차장",
-            "address": "강원특별자치도 평창군 대관령면 대관령마루길 506 강원특별자치도도로관리사무소",
-            "lat": 37.6847999,
-            "lng": 128.7548782,
-            "distanceM": 578,
-            "isFree": true,
-            "totalSpaces": 0,
-            "finalScore": 3.07
           },
           {
             "id": "KA-20514621",
@@ -669,17 +636,6 @@
             "address": "강원특별자치도 평창군 대관령면 횡계리 470-5",
             "lat": 37.7056869701595,
             "lng": 128.719519353515,
-            "distanceM": 2065,
-            "isFree": false,
-            "totalSpaces": 0,
-            "finalScore": 3.03
-          },
-          {
-            "id": "KA-24855638",
-            "name": "하늘목장 주차장",
-            "address": "강원특별자치도 평창군 대관령면 횡계리 470-5",
-            "lat": 37.7056816659621,
-            "lng": 128.719512427632,
             "distanceM": 2065,
             "isFree": false,
             "totalSpaces": 0,
@@ -839,17 +795,6 @@
             "isFree": true,
             "totalSpaces": 45,
             "finalScore": 2.99
-          },
-          {
-            "id": "259-2-000076",
-            "name": "청령포주차장",
-            "address": "강원특별자치도 영월군 영월읍 청령포로 111",
-            "lat": 37.1785033,
-            "lng": 128.4493522,
-            "distanceM": 569,
-            "isFree": true,
-            "totalSpaces": 151,
-            "finalScore": 3.07
           },
           {
             "id": "KA-17569218",
@@ -1066,17 +1011,6 @@
             "isFree": true,
             "totalSpaces": 9,
             "finalScore": 3.07
-          },
-          {
-            "id": "259-2-000054",
-            "name": "영월고등학교 정문 맞은편",
-            "address": "강원특별자치도 영월군 영월읍 오무개길 51",
-            "lat": 37.19059443,
-            "lng": 128.4711874,
-            "distanceM": 1619,
-            "isFree": true,
-            "totalSpaces": 10,
-            "finalScore": 3.07
           }
         ],
         "imageUrl": "https://blog.kakaocdn.net/dn/WMnRI/btrwhT2UGpo/XG34em1WeynqlzWw72IVkK/img.jpg",
@@ -1138,17 +1072,6 @@
             "isFree": true,
             "totalSpaces": 0,
             "finalScore": 3.07
-          },
-          {
-            "id": "NV-1284618500_371837740",
-            "name": "영월군청 주차장",
-            "address": "강원특별자치도 영월군 영월읍 하송로 64 영월군청 주차장",
-            "lat": 37.183774,
-            "lng": 128.46185,
-            "distanceM": 198,
-            "isFree": true,
-            "totalSpaces": 0,
-            "finalScore": 3.07
           }
         ],
         "imageUrl": "https://postfiles.pstatic.net/20140716_128/gangwonin_1405497644155NTWJ6_JPEG/01.jpg?type=w2",
@@ -1187,17 +1110,6 @@
             "distanceM": 153,
             "isFree": true,
             "totalSpaces": 9,
-            "finalScore": 3.07
-          },
-          {
-            "id": "259-2-000050",
-            "name": "향교 앞",
-            "address": "강원특별자치도 영월군 영월읍 영월향교길 64",
-            "lat": 37.18555076,
-            "lng": 128.4751665,
-            "distanceM": 153,
-            "isFree": true,
-            "totalSpaces": 18,
             "finalScore": 3.07
           },
           {
@@ -1760,17 +1672,6 @@
             "finalScore": 3.18
           },
           {
-            "id": "397-2-000028",
-            "name": "위천 수승대 주차장",
-            "address": "경상남도 거창군 위천면 은하리길 2",
-            "lat": 35.76092327,
-            "lng": 127.8336769,
-            "distanceM": 166,
-            "isFree": false,
-            "totalSpaces": 866,
-            "finalScore": 3.18
-          },
-          {
             "id": "KA-17582464",
             "name": "수승대관광지 주차장2",
             "address": "경남 거창군 위천면 송계로 428",
@@ -2263,17 +2164,6 @@
             "finalScore": 3.03
           },
           {
-            "id": "NV-1279841081_354868665",
-            "name": "은행나무주차장",
-            "address": "경상남도 합천군 가회면 황매산공원길 263",
-            "lat": 35.4868665,
-            "lng": 127.9841081,
-            "distanceM": 1171,
-            "isFree": true,
-            "totalSpaces": 240,
-            "finalScore": 3.22
-          },
-          {
             "id": "KA-26154031",
             "name": "황매산 은행나무주차장",
             "address": "경남 합천군 가회면 황매산공원길 263",
@@ -2283,17 +2173,6 @@
             "isFree": false,
             "totalSpaces": 240,
             "finalScore": 3.12
-          },
-          {
-            "id": "NV-1279842234_354866108",
-            "name": "황매산군립공원주차장",
-            "address": "경상남도 합천군 가회면 황매산공원길 263",
-            "lat": 35.4866108,
-            "lng": 127.9842234,
-            "distanceM": 1198,
-            "isFree": false,
-            "totalSpaces": 0,
-            "finalScore": 3.03
           }
         ],
         "imageUrl": "http://www.gndomin.com/news/photo/202109/291826_283652_3135.jpg",
@@ -2313,45 +2192,12 @@
         "address": "경남 합천군 쌍책면 성산리 산 29-1",
         "nearbyParking": [
           {
-            "id": "398-3-000118",
-            "name": "합천박물관",
-            "address": "경상남도 합천군 쌍책면 성산리 504",
-            "lat": 35.58042227,
-            "lng": 128.2829415,
-            "distanceM": 329,
-            "isFree": true,
-            "totalSpaces": 77,
-            "finalScore": 3.21
-          },
-          {
             "id": "KA-20570432",
             "name": "합천박물관 주차장1",
             "address": "경남 합천군 쌍책면 황강옥전로 1558",
             "lat": 35.5801257053566,
             "lng": 128.283074331609,
             "distanceM": 353,
-            "isFree": true,
-            "totalSpaces": 77,
-            "finalScore": 3.12
-          },
-          {
-            "id": "KA-24412748",
-            "name": "합천박물관 주차장3",
-            "address": "경남 합천군 쌍책면 황강옥전로 1558",
-            "lat": 35.5802792332572,
-            "lng": 128.283213575971,
-            "distanceM": 357,
-            "isFree": true,
-            "totalSpaces": 77,
-            "finalScore": 3.12
-          },
-          {
-            "id": "KA-24412747",
-            "name": "합천박물관 주차장2",
-            "address": "경남 합천군 쌍책면 성산리 507",
-            "lat": 35.5799256715523,
-            "lng": 128.283578604572,
-            "distanceM": 403,
             "isFree": true,
             "totalSpaces": 77,
             "finalScore": 3.12
@@ -2399,17 +2245,6 @@
             "isFree": true,
             "totalSpaces": 158,
             "finalScore": 3.31
-          },
-          {
-            "id": "318-2-000014",
-            "name": "모양성 서문 앞",
-            "address": "전라북도 고창군 고창읍 동리로 117",
-            "lat": 35.4329159615,
-            "lng": 126.7052478356,
-            "distanceM": 355,
-            "isFree": true,
-            "totalSpaces": 17,
-            "finalScore": 3.32
           },
           {
             "id": "KA-1946861279",
@@ -2842,17 +2677,6 @@
             "isFree": false,
             "totalSpaces": 0,
             "finalScore": 3.03
-          },
-          {
-            "id": "KA-17570739",
-            "name": "광주여자대학교 학생수련원 주차장1",
-            "address": "전남 무안군 해제면 송석리 419",
-            "lat": 35.1424766646429,
-            "lng": 126.336234274341,
-            "distanceM": 3593,
-            "isFree": false,
-            "totalSpaces": 0,
-            "finalScore": 3.03
           }
         ],
         "imageUrl": "https://www.webeconomy.co.kr/news/photo/202511/2031816_839142_2244.jpg",
@@ -2943,17 +2767,6 @@
         "lng": 126.446586727849,
         "address": "전남 영광군 법성면 법성리 1127-1",
         "nearbyParking": [
-          {
-            "id": "KA-1980472110",
-            "name": "나이스파크 법성포해수랜드24시 주차장",
-            "address": "전남 영광군 법성면 법성리 649",
-            "lat": 35.360560647054285,
-            "lng": 126.4465067983137,
-            "distanceM": 173,
-            "isFree": false,
-            "totalSpaces": 0,
-            "finalScore": 3.03
-          },
           {
             "id": "KA-944868704",
             "name": "법성포해수랜드24시 주차장",
@@ -3203,17 +3016,6 @@
             "finalScore": 3.07
           },
           {
-            "id": "386-1-000007",
-            "name": "내일동시장통",
-            "address": "경상남도 밀양시 내일동 207-1",
-            "lat": 35.4927683,
-            "lng": 128.7541148,
-            "distanceM": 158,
-            "isFree": false,
-            "totalSpaces": 54,
-            "finalScore": 3.15
-          },
-          {
             "id": "KA-1469303761",
             "name": "내일동시장통도로 공영주차장",
             "address": "경남 밀양시 내일동 207-1",
@@ -3430,17 +3232,6 @@
             "finalScore": 3.17
           },
           {
-            "id": "338-4-000013",
-            "name": "월출산 천황사 주차장",
-            "address": "전라남도 영암군 영암읍 개신리 484-47",
-            "lat": 34.77763888,
-            "lng": 126.722181,
-            "distanceM": 355,
-            "isFree": true,
-            "totalSpaces": 250,
-            "finalScore": 3.22
-          },
-          {
             "id": "KA-20886116",
             "name": "월출산 천황대형주차장",
             "address": "전남 영암군 영암읍 개신리 484-59",
@@ -3480,17 +3271,6 @@
         "address": "전남 영암군 군서면 동구림리 산 17",
         "nearbyParking": [
           {
-            "id": "KA-1501564182",
-            "name": "성기동국민관광지 공영주차장",
-            "address": "전남 영암군 군서면 왕인로 440",
-            "lat": 34.7562279135265,
-            "lng": 126.630500999638,
-            "distanceM": 61,
-            "isFree": true,
-            "totalSpaces": 163,
-            "finalScore": 3.12
-          },
-          {
             "id": "KA-17580753",
             "name": "왕인학당 주차장1",
             "address": "전남 영암군 군서면 왕인로 440",
@@ -3511,17 +3291,6 @@
             "isFree": true,
             "totalSpaces": 550,
             "finalScore": 3.19
-          },
-          {
-            "id": "338-2-000038",
-            "name": "성기동군민관광지",
-            "address": "전라남도 영암군 군서면 왕인로 440",
-            "lat": 34.75653201,
-            "lng": 126.6291224,
-            "distanceM": 153,
-            "isFree": true,
-            "totalSpaces": 163,
-            "finalScore": 3.12
           },
           {
             "id": "KA-17582274",
@@ -3594,17 +3363,6 @@
             "isFree": true,
             "totalSpaces": 550,
             "finalScore": 3.19
-          },
-          {
-            "id": "338-2-000038",
-            "name": "성기동군민관광지",
-            "address": "전라남도 영암군 군서면 왕인로 440",
-            "lat": 34.75653201,
-            "lng": 126.6291224,
-            "distanceM": 492,
-            "isFree": true,
-            "totalSpaces": 163,
-            "finalScore": 3.12
           }
         ],
         "imageUrl": "https://www.webeconomy.co.kr/data/photos/portnews/202411/20241113111617-82238.jpg",
@@ -3989,34 +3747,12 @@
             "finalScore": 3.07
           },
           {
-            "id": "NV-1267909536_345365316",
-            "name": "가우도저두출렁다리주차장",
-            "address": "전라남도 강진군 대구면 저두리 312-2",
-            "lat": 34.5365316,
-            "lng": 126.7909536,
-            "distanceM": 850,
-            "isFree": true,
-            "totalSpaces": 0,
-            "finalScore": 3.07
-          },
-          {
             "id": "KA-27503530",
             "name": "저두출렁다리 주차장",
             "address": "전남 강진군 대구면 중저길 31-27",
             "lat": 34.5365962963704,
             "lng": 126.79105424625,
             "distanceM": 861,
-            "isFree": false,
-            "totalSpaces": 0,
-            "finalScore": 3.03
-          },
-          {
-            "id": "NV-1267716665_345286296",
-            "name": "가우도망호출렁다리주차장",
-            "address": "전라남도 강진군 도암면 월곶로 469 강진만",
-            "lat": 34.5286296,
-            "lng": 126.7716665,
-            "distanceM": 1086,
             "isFree": false,
             "totalSpaces": 0,
             "finalScore": 3.03
@@ -4067,17 +3803,6 @@
             "lat": 34.5285856162075,
             "lng": 126.771699220389,
             "distanceM": 3387,
-            "isFree": false,
-            "totalSpaces": 0,
-            "finalScore": 3.03
-          },
-          {
-            "id": "NV-1267716665_345286296",
-            "name": "가우도망호출렁다리주차장",
-            "address": "전라남도 강진군 도암면 월곶로 469 강진만",
-            "lat": 34.5286296,
-            "lng": 126.7716665,
-            "distanceM": 3392,
             "isFree": false,
             "totalSpaces": 0,
             "finalScore": 3.03
@@ -4393,17 +4118,6 @@
             "finalScore": 3.03
           },
           {
-            "id": "KA-1949737094",
-            "name": "올돌목해양에너지공원 주차장2",
-            "address": "전남 진도군 군내면 녹진리 산 5-3",
-            "lat": 34.5709688031692,
-            "lng": 126.300397026067,
-            "distanceM": 838,
-            "isFree": true,
-            "totalSpaces": 0,
-            "finalScore": 3.07
-          },
-          {
             "id": "KA-1343199382",
             "name": "올돌목해양에너지공원 주차장1",
             "address": "전남 진도군 군내면 녹진리 산 5-3",
@@ -4551,17 +4265,6 @@
             "isFree": true,
             "totalSpaces": 25,
             "finalScore": 2.99
-          },
-          {
-            "id": "343-1-000017",
-            "name": "완도군 공용주차장",
-            "address": "전라남도 완도군 완도읍 군내리 319(담배인삼공사~천주교)",
-            "lat": 34.3133974,
-            "lng": 126.761013,
-            "distanceM": 569,
-            "isFree": true,
-            "totalSpaces": 36,
-            "finalScore": 3.04
           },
           {
             "id": "343-2-000034",
@@ -4869,17 +4572,6 @@
             "finalScore": 3.03
           },
           {
-            "id": "NV-1271308627_345275984",
-            "name": "고흥 녹동항 공영주차장(건어물판매장) 전기차충전소",
-            "address": "전라남도 고흥군 도양읍 목넘가는길 35",
-            "lat": 34.5275984,
-            "lng": 127.1308627,
-            "distanceM": 2169,
-            "isFree": false,
-            "totalSpaces": 0,
-            "finalScore": 3.03
-          },
-          {
             "id": "KA-228052440",
             "name": "녹동항 주차장",
             "address": "전남 고흥군 도양읍 봉암리 3950",
@@ -5123,17 +4815,6 @@
             "finalScore": 3.12
           },
           {
-            "id": "393-1-000015",
-            "name": "가천다랭이마을 주차장",
-            "address": "경상남도 남해군 남면 홍현리 840-4",
-            "lat": 34.72797292,
-            "lng": 127.8911214,
-            "distanceM": 262,
-            "isFree": true,
-            "totalSpaces": 33,
-            "finalScore": 3.04
-          },
-          {
             "id": "393-1-000026",
             "name": "가천주차장",
             "address": "경상남도 남해군 남면 홍현리 744-1",
@@ -5323,17 +5004,6 @@
             "lat": 34.80058793195105,
             "lng": 128.03804857266562,
             "distanceM": 72,
-            "isFree": true,
-            "totalSpaces": 0,
-            "finalScore": 3.07
-          },
-          {
-            "id": "KA-1169710314",
-            "name": "파독전시관 주차장",
-            "address": "경남 남해군 삼동면 봉화리 2572-1",
-            "lat": 34.8006131580428,
-            "lng": 128.03804998164,
-            "distanceM": 74,
             "isFree": true,
             "totalSpaces": 0,
             "finalScore": 3.07
@@ -5753,17 +5423,6 @@
         "lng": 127.70425573771925,
         "address": "경남 하동군 청암면 묵계리 1738-2",
         "nearbyParking": [
-          {
-            "id": "394-4-000029",
-            "name": "삼성궁주차장",
-            "address": "경상남도 하동군 청암면 묵계리 1738-9",
-            "lat": 35.23861465,
-            "lng": 127.7051806,
-            "distanceM": 94,
-            "isFree": true,
-            "totalSpaces": 78,
-            "finalScore": 3.12
-          },
           {
             "id": "KA-1823524498",
             "name": "지리산삼성궁 주차장",
