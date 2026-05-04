@@ -116,7 +116,7 @@ function WikiDetailPage() {
           </div>
         </div>
         <Link
-          to="/"
+          to="/wiki"
           className="absolute left-4 top-4 rounded-lg bg-white/90 p-2 shadow-sm transition-colors hover:bg-white"
           aria-label="지도로 돌아가기"
         >
@@ -212,14 +212,13 @@ function WikiDetailPage() {
 
                 {/* 전화번호 */}
                 {phoneLabel && (
-                  <div className="flex items-center gap-2.5">
-                    <Phone className="size-4 shrink-0 text-muted-foreground" />
-                    <span className="min-w-0 flex-1">{phoneLabel}</span>
+                  <div>
                     <a
                       href={`tel:${phoneLabel}`}
-                      className="inline-flex h-8 shrink-0 items-center rounded-full bg-gray-100 px-3 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-200"
+                      className="inline-flex h-8 items-center justify-center gap-2 rounded-full bg-gray-100 px-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200"
                     >
-                      전화
+                      <Phone className="size-3.5 shrink-0" />
+                      <span>{phoneLabel}</span>
                     </a>
                   </div>
                 )}
