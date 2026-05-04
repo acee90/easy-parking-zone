@@ -58,7 +58,7 @@ export function WikiMiniMap({ lat, lng, name }: WikiMiniMapProps) {
           onError={() => setError(true)}
         >
           <MapDiv style={{ width: '100%', height: '100%' }}>
-            <MiniMapInner lat={lat} lng={lng} name={name} />
+            <MiniMapInner key={`${lat}:${lng}`} lat={lat} lng={lng} name={name} />
           </MapDiv>
         </NavermapsProvider>
       )}

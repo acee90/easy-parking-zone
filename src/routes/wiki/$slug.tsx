@@ -15,7 +15,7 @@ import { ParkingReputationSections } from '@/components/ParkingReputationSection
 import { PublicDataAttribution } from '@/components/PublicDataAttribution'
 import { Badge } from '@/components/ui/badge'
 import { WikiMiniMap } from '@/components/WikiMiniMap'
-import { getDifficultyLabel, getReliabilityBadge } from '@/lib/geo-utils'
+import { getDifficultyLabel, getDistance, getReliabilityBadge } from '@/lib/geo-utils'
 import {
   formatOperatingHours,
   formatPhone,
@@ -205,7 +205,12 @@ function NearbyPlacesSection({ places }: { places: NearbyPlaceInfo[] }) {
   )
 }
 
-function RelatedParkingLotsSection({ lots }: { lots: ParkingLot[] }) {
+function formatDistanceLabel(distanceKm: number): string {
+  if (distanceKm < 1) return `${Math.round(distanceKm * 1000)}m`
+  return `${distanceKm.toFixed(1)}km`
+}
+
+function RelatedParkingLotsSection({ lot, lots }: { lot: ParkingLot; lots: ParkingLot[] }) {
   if (lots.length === 0) return null
 
   return (
@@ -217,23 +222,29 @@ function RelatedParkingLotsSection({ lots }: { lots: ParkingLot[] }) {
         </Badge>
       </div>
       <div className="divide-y">
-        {lots.map((related) => (
-          <Link
-            key={related.id}
-            to="/wiki/$slug"
-            params={{ slug: makeParkingSlug(related.name, related.id) }}
-            className="flex items-center gap-2 py-2.5 text-sm transition-colors hover:text-blue-600"
-          >
-            <ParkingSquare className="size-4 shrink-0 text-muted-foreground" />
-            <span className="min-w-0 flex-1 truncate font-medium">{related.name}</span>
-            {related.totalSpaces > 0 && (
+        {lots.map((related) => {
+          const distance = getDistance(lot.lat, lot.lng, related.lat, related.lng)
+          return (
+            <Link
+              key={related.id}
+              to="/wiki/$slug"
+              params={{ slug: makeParkingSlug(related.name, related.id) }}
+              className="flex items-center gap-2 py-2.5 text-sm transition-colors hover:text-blue-600"
+            >
+              <ParkingSquare className="size-4 shrink-0 text-muted-foreground" />
+              <span className="min-w-0 flex-1 truncate font-medium">{related.name}</span>
               <span className="shrink-0 text-xs text-muted-foreground">
-                {related.totalSpaces}면
+                {formatDistanceLabel(distance)}
               </span>
-            )}
-            <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
-          </Link>
-        ))}
+              {related.totalSpaces > 0 && (
+                <span className="shrink-0 text-xs text-muted-foreground">
+                  {related.totalSpaces}면
+                </span>
+              )}
+              <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+            </Link>
+          )
+        })}
       </div>
     </section>
   )
@@ -458,7 +469,7 @@ function WikiDetailPage() {
 
           <div className="space-y-4">
             {/* 내부 링크 */}
-            <RelatedParkingLotsSection lots={relatedLots} />
+            <RelatedParkingLotsSection lot={lot} lots={relatedLots} />
 
             {/* 주변 갈만한 곳 */}
             {nearbyPlaces.length > 0 && <NearbyPlacesSection places={nearbyPlaces} />}
