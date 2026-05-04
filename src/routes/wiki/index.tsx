@@ -6,7 +6,7 @@ import {
   Clock,
   CreditCard,
   MapPin,
-  MessageCircle,
+  MapPinPen,
   ParkingSquare,
   Star,
 } from 'lucide-react'
