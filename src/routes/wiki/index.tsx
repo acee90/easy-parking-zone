@@ -347,6 +347,12 @@ function WikiHomePage() {
             </CriteriaItem>
           </div>
         </section>
+
+        {/* 공공데이터 출처 표기 */}
+        <div className="pt-8 pb-4 text-center text-xs text-muted-foreground">
+          본 서비스의 일부 주차장 기본 정보는 공공데이터포털(data.go.kr)의
+          전국주차장정보표준데이터를 활용하였습니다.
+        </div>
       </div>
     </div>
   )
