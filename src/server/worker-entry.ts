@@ -127,10 +127,6 @@ function requestAcceptsMarkdown(request: Request) {
   return accept.includes('text/markdown')
 }
 
-function canNegotiateMarkdown(pathname: string) {
-  return pathname === '/docs/api'
-}
-
 function appendVaryHeader(headers: Headers, value: string) {
   const existing = headers.get('Vary')
   if (!existing) {
@@ -176,13 +172,17 @@ export async function withMarkdownNegotiation(request: Request, response: Respon
     return response
   }
 
-  appendVaryHeader(response.headers, 'Accept')
+  const headers = new Headers(response.headers)
+  appendVaryHeader(headers, 'Accept')
 
-  if (!requestAcceptsMarkdown(request) || !canNegotiateMarkdown(new URL(request.url).pathname)) {
-    return response
+  if (!requestAcceptsMarkdown(request)) {
+    return new Response(response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers,
+    })
   }
 
-  const headers = new Headers(response.headers)
   if (request.method === 'HEAD') {
     headers.set('Content-Type', MARKDOWN_CONTENT_TYPE)
     headers.delete('Content-Length')
@@ -207,11 +207,16 @@ export function withHomepageDiscoveryHeaders(request: Request, response: Respons
     return response
   }
 
+  const headers = new Headers(response.headers)
   for (const linkValue of HOMEPAGE_DISCOVERY_LINKS) {
-    response.headers.append('Link', linkValue)
+    headers.append('Link', linkValue)
   }
 
-  return response
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  })
 }
 
 export default {
