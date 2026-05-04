@@ -1,5 +1,5 @@
 import { createFileRoute, Link, notFound } from '@tanstack/react-router'
-import { ChevronLeft, Loader2 } from 'lucide-react'
+import { ChevronLeft, FileText, Loader2 } from 'lucide-react'
 import { useState } from 'react'
 import { BlogPostCard } from '@/components/parking-reputation/BlogPostCard'
 import { makeParkingSlug, parseIdFromSlug } from '@/lib/slug'
@@ -55,55 +55,84 @@ function BlogListPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-zinc-50/50">
       <header className="sticky top-0 z-10 border-b bg-white/95 backdrop-blur">
-        <div className="mx-auto flex max-w-3xl items-center gap-3 px-4 py-3">
-          <Link
-            to="/wiki/$slug"
-            params={{ slug }}
-            className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-            aria-label="주차장 상세로 돌아가기"
-          >
-            <ChevronLeft className="size-4" />
-            돌아가기
-          </Link>
+        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
+          <div className="flex items-center gap-3">
+            <Link
+              to="/wiki/$slug"
+              params={{ slug }}
+              className="flex size-9 items-center justify-center rounded-full border bg-white text-zinc-600 transition-colors hover:bg-zinc-50 hover:text-zinc-900"
+              aria-label="주차장 상세로 돌아가기"
+            >
+              <ChevronLeft className="size-5" />
+            </Link>
+            <div className="flex flex-col">
+              <h1 className="text-base font-bold text-zinc-900 line-clamp-1">{lot.name}</h1>
+              <p className="text-xs text-zinc-500">관련 웹사이트 {posts.length}건</p>
+            </div>
+          </div>
         </div>
       </header>
-      <div className="mx-auto max-w-3xl px-4 py-6">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold">{lot.name}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">관련 웹사이트 {posts.length}건</p>
-        </div>
+
+      <main className="mx-auto max-w-5xl px-4 py-8">
+        {/* 요약 섹션 */}
+        <section className="mb-10 rounded-3xl border bg-white p-8 shadow-sm">
+          <div className="flex flex-col items-center gap-6 text-center md:flex-row md:text-left">
+            <div className="flex size-20 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
+              <FileText className="size-10" />
+            </div>
+            <div className="flex flex-1 flex-col gap-1">
+              <div className="flex items-center gap-2 text-xl font-bold text-zinc-900">
+                <span>웹상의 다양한 정보를 모아보았습니다</span>
+              </div>
+              <p className="text-sm leading-relaxed text-zinc-500">
+                블로그, 카페, 커뮤니티 등 인터넷 곳곳에 흩어져 있는 이 주차장에 대한 생생한 후기와
+                꿀팁들을 한눈에 확인해보세요.
+              </p>
+            </div>
+          </div>
+        </section>
+
         {posts.length > 0 ? (
           <>
-            <div className="space-y-3">
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
               {posts.map((post) => (
                 <BlogPostCard key={post.sourceUrl} post={post} lotId={lot.id} />
               ))}
             </div>
             {hasMore && (
-              <button
-                type="button"
-                onClick={loadMore}
-                disabled={loadingMore}
-                className="mt-6 w-full rounded-lg border bg-white py-3 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
-              >
-                {loadingMore ? (
-                  <span className="flex items-center justify-center gap-1.5">
-                    <Loader2 className="size-3.5 animate-spin" /> 불러오는 중...
-                  </span>
-                ) : (
-                  <span>더보기</span>
-                )}
-              </button>
+              <div className="mt-10 flex justify-center">
+                <button
+                  type="button"
+                  onClick={loadMore}
+                  disabled={loadingMore}
+                  className="inline-flex h-12 items-center justify-center rounded-2xl border bg-white px-10 text-sm font-bold text-zinc-900 shadow-sm transition-all hover:bg-zinc-50 hover:shadow-md disabled:opacity-50 active:scale-95"
+                >
+                  {loadingMore ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <Loader2 className="size-4 animate-spin text-blue-600" />
+                      불러오는 중...
+                    </span>
+                  ) : (
+                    <span>정보 더보기</span>
+                  )}
+                </button>
+              </div>
             )}
           </>
         ) : (
-          <p className="py-12 text-center text-sm text-muted-foreground">
-            관련 웹사이트 글이 없습니다
-          </p>
+          <div className="flex flex-col items-center justify-center py-20 text-center">
+            <div className="mb-4 flex size-16 items-center justify-center rounded-full bg-zinc-100">
+              <FileText className="size-8 text-zinc-300" />
+            </div>
+            <p className="text-lg font-bold text-zinc-900">관련 정보가 없습니다</p>
+            <p className="mt-1 text-sm text-zinc-500">
+              아직 이 주차장에 대한 웹 정보를 찾지 못했습니다.
+            </p>
+          </div>
         )}
-      </div>
+      </main>
     </div>
   )
 }

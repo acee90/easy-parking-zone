@@ -98,7 +98,17 @@ export function ParkingDetailPanel({ lot }: ParkingDetailPanelProps) {
 
             <div className="grid grid-cols-2 gap-3">
               <div className="rounded-lg border bg-white p-3">
-                <div className="text-xs font-medium text-muted-foreground">쉬움 점수</div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-medium text-muted-foreground">쉬움 점수</span>
+                  {reliabilityBadge && (
+                    <Badge
+                      variant="outline"
+                      className={`text-[10px] ${reliabilityBadge.className}`}
+                    >
+                      {reliabilityBadge.label}
+                    </Badge>
+                  )}
+                </div>
                 <div className="mt-2 flex items-end gap-2">
                   <span className="text-3xl font-black leading-none">
                     {score === null ? '-' : score.toFixed(1)}
@@ -124,11 +134,6 @@ export function ParkingDetailPanel({ lot }: ParkingDetailPanelProps) {
                 <ChevronRight className="size-3" />
               </Link>
             </div>
-            {reliabilityBadge && (
-              <Badge variant="outline" className={reliabilityBadge.className}>
-                {reliabilityBadge.label}
-              </Badge>
-            )}
           </div>
         </section>
 

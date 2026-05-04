@@ -18,6 +18,7 @@ import { Route as AdminWebSourcesRouteImport } from './routes/admin/web-sources'
 import { Route as AdminToolsRouteImport } from './routes/admin/tools'
 import { Route as AdminReviewsRouteImport } from './routes/admin/reviews'
 import { Route as AdminReportsRouteImport } from './routes/admin/reports'
+import { Route as WikiSlugIndexRouteImport } from './routes/wiki/$slug.index'
 import { Route as EventHalfpriceTravelIndexRouteImport } from './routes/event/halfprice-travel/index'
 import { Route as WikiSlugReviewsRouteImport } from './routes/wiki/$slug.reviews'
 import { Route as WikiSlugMediaRouteImport } from './routes/wiki/$slug.media'
@@ -70,6 +71,11 @@ const AdminReportsRoute = AdminReportsRouteImport.update({
   path: '/reports',
   getParentRoute: () => AdminRoute,
 } as any)
+const WikiSlugIndexRoute = WikiSlugIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => WikiSlugRoute,
+} as any)
 const EventHalfpriceTravelIndexRoute =
   EventHalfpriceTravelIndexRouteImport.update({
     id: '/event/halfprice-travel/',
@@ -119,6 +125,7 @@ export interface FileRoutesByFullPath {
   '/wiki/$slug/media': typeof WikiSlugMediaRoute
   '/wiki/$slug/reviews': typeof WikiSlugReviewsRoute
   '/event/halfprice-travel/': typeof EventHalfpriceTravelIndexRoute
+  '/wiki/$slug/': typeof WikiSlugIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -126,7 +133,6 @@ export interface FileRoutesByTo {
   '/admin/reviews': typeof AdminReviewsRoute
   '/admin/tools': typeof AdminToolsRoute
   '/admin/web-sources': typeof AdminWebSourcesRoute
-  '/wiki/$slug': typeof WikiSlugRouteWithChildren
   '/admin': typeof AdminIndexRoute
   '/wiki': typeof WikiIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -135,6 +141,7 @@ export interface FileRoutesByTo {
   '/wiki/$slug/media': typeof WikiSlugMediaRoute
   '/wiki/$slug/reviews': typeof WikiSlugReviewsRoute
   '/event/halfprice-travel': typeof EventHalfpriceTravelIndexRoute
+  '/wiki/$slug': typeof WikiSlugIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -153,6 +160,7 @@ export interface FileRoutesById {
   '/wiki/$slug/media': typeof WikiSlugMediaRoute
   '/wiki/$slug/reviews': typeof WikiSlugReviewsRoute
   '/event/halfprice-travel/': typeof EventHalfpriceTravelIndexRoute
+  '/wiki/$slug/': typeof WikiSlugIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -172,6 +180,7 @@ export interface FileRouteTypes {
     | '/wiki/$slug/media'
     | '/wiki/$slug/reviews'
     | '/event/halfprice-travel/'
+    | '/wiki/$slug/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -179,7 +188,6 @@ export interface FileRouteTypes {
     | '/admin/reviews'
     | '/admin/tools'
     | '/admin/web-sources'
-    | '/wiki/$slug'
     | '/admin'
     | '/wiki'
     | '/api/auth/$'
@@ -188,6 +196,7 @@ export interface FileRouteTypes {
     | '/wiki/$slug/media'
     | '/wiki/$slug/reviews'
     | '/event/halfprice-travel'
+    | '/wiki/$slug'
   id:
     | '__root__'
     | '/'
@@ -205,6 +214,7 @@ export interface FileRouteTypes {
     | '/wiki/$slug/media'
     | '/wiki/$slug/reviews'
     | '/event/halfprice-travel/'
+    | '/wiki/$slug/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -282,6 +292,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminReportsRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/wiki/$slug/': {
+      id: '/wiki/$slug/'
+      path: '/'
+      fullPath: '/wiki/$slug/'
+      preLoaderRoute: typeof WikiSlugIndexRouteImport
+      parentRoute: typeof WikiSlugRoute
+    }
     '/event/halfprice-travel/': {
       id: '/event/halfprice-travel/'
       path: '/event/halfprice-travel'
@@ -349,12 +366,14 @@ interface WikiSlugRouteChildren {
   WikiSlugBlogRoute: typeof WikiSlugBlogRoute
   WikiSlugMediaRoute: typeof WikiSlugMediaRoute
   WikiSlugReviewsRoute: typeof WikiSlugReviewsRoute
+  WikiSlugIndexRoute: typeof WikiSlugIndexRoute
 }
 
 const WikiSlugRouteChildren: WikiSlugRouteChildren = {
   WikiSlugBlogRoute: WikiSlugBlogRoute,
   WikiSlugMediaRoute: WikiSlugMediaRoute,
   WikiSlugReviewsRoute: WikiSlugReviewsRoute,
+  WikiSlugIndexRoute: WikiSlugIndexRoute,
 }
 
 const WikiSlugRouteWithChildren = WikiSlugRoute._addFileChildren(

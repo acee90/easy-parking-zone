@@ -17,55 +17,74 @@ export function UserReviewCard({
   onDelete?: () => void
 }) {
   return (
-    <div className="relative flex h-full flex-col rounded-xl bg-muted px-4 py-4">
+    <div className="group relative flex h-full flex-col rounded-2xl border bg-white p-5 transition-all hover:shadow-md">
       {!review.isMine && (
-        <div className="absolute right-2 top-2">
+        <div className="absolute right-3 top-3 opacity-0 transition-opacity group-hover:opacity-100">
           <ReportButton targetType="review" targetId={review.id} parkingLotId={lotId} />
         </div>
       )}
-      <div className="mb-3 flex items-start justify-between gap-3 pr-20">
-        <div className="flex min-w-0 items-center gap-2">
-          {review.author.profileImage ? (
-            <img src={review.author.profileImage} alt="" className="size-7 rounded-full" />
-          ) : (
-            <User className="size-5 text-muted-foreground" />
-          )}
-          <span className="truncate text-base font-semibold">{review.author.nickname}</span>
-          {review.sourceType &&
-            (review.sourceUrl ? (
+
+      <div className="mb-4 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            {review.author.profileImage ? (
+              <img
+                src={review.author.profileImage}
+                alt=""
+                className="size-10 rounded-full border object-cover"
+              />
+            ) : (
+              <div className="flex size-10 items-center justify-center rounded-full bg-zinc-100 text-zinc-400">
+                <User className="size-6" />
+              </div>
+            )}
+          </div>
+          <div className="flex flex-col">
+            <span className="text-base font-bold text-zinc-900">{review.author.nickname}</span>
+            <div className="flex items-center gap-2">
+              <StarDisplay score={review.scores.overall} />
+              <span className="text-xs text-zinc-400">{review.createdAt.slice(0, 10)}</span>
+            </div>
+          </div>
+        </div>
+
+        {review.sourceType && (
+          <div className="shrink-0">
+            {review.sourceUrl ? (
               <a
                 href={review.sourceUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-orange-50 px-2 py-0.5 text-xs font-medium text-orange-600 transition-colors hover:bg-orange-100"
+                className="inline-flex items-center gap-1 rounded-lg bg-orange-50 px-2.5 py-1 text-xs font-bold text-orange-600 transition-colors hover:bg-orange-100"
               >
                 {REVIEW_SOURCE_LABELS[review.sourceType] ?? review.sourceType}
-                <ExternalLink className="size-2.5" />
+                <ExternalLink className="size-3" />
               </a>
             ) : (
-              <span className="inline-flex shrink-0 items-center rounded-full bg-orange-50 px-2 py-0.5 text-xs font-medium text-orange-600">
+              <span className="inline-flex items-center rounded-lg bg-orange-50 px-2.5 py-1 text-xs font-bold text-orange-600">
                 {REVIEW_SOURCE_LABELS[review.sourceType] ?? review.sourceType}
               </span>
-            ))}
-        </div>
+            )}
+          </div>
+        )}
       </div>
-      <div className="mb-3 flex items-center justify-between">
-        <StarDisplay score={review.scores.overall} />
-        <div className="text-xs text-muted-foreground">{review.createdAt.slice(0, 10)}</div>
-      </div>
+
       {review.comment && (
-        <p className="line-clamp-3 min-h-[3.75rem] text-sm leading-relaxed text-gray-700">
-          {review.comment}
-        </p>
+        <div className="flex-1">
+          <p className="text-sm leading-relaxed text-zinc-700 whitespace-pre-line">
+            {review.comment}
+          </p>
+        </div>
       )}
+
       {review.isMine && onDelete && (
-        <div className="mt-auto flex items-center justify-end pt-3">
+        <div className="mt-4 flex items-center justify-end border-t pt-3">
           <button
             type="button"
             onClick={onDelete}
-            className="cursor-pointer text-xs text-red-400 hover:text-red-600"
+            className="text-xs font-medium text-red-500 hover:text-red-700 hover:underline"
           >
-            삭제
+            삭제하기
           </button>
         </div>
       )}

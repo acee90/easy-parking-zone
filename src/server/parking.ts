@@ -260,9 +260,6 @@ export const fetchRelatedParkingLots = createServerFn({ method: 'GET' })
     const north = data.lat + delta
     const west = data.lng - delta
     const east = data.lng + delta
-    const areaPrefix = data.address.split(/\s+/).slice(0, 2).join(' ')
-    const areaLike = `${areaPrefix}%`
-
     const rows = await db.all(
       sql`WITH source_counts AS (
           SELECT
@@ -282,18 +279,12 @@ export const fetchRelatedParkingLots = createServerFn({ method: 'GET' })
         LEFT JOIN parking_lot_stats s ON s.parking_lot_id = p.id
         LEFT JOIN source_counts sc ON sc.parking_lot_id = p.id
         WHERE p.id != ${data.excludeId}
-          AND (
-            (p.lat BETWEEN ${south} AND ${north} AND p.lng BETWEEN ${west} AND ${east})
-            OR p.address LIKE ${areaLike}
-          )
+          AND p.lat BETWEEN ${south} AND ${north}
+          AND p.lng BETWEEN ${west} AND ${east}
         ORDER BY
-          CASE WHEN p.address LIKE ${areaLike} THEN 30 ELSE 0 END DESC,
-          CASE WHEN COALESCE(sc.web_count, 0) > 0 THEN 30 ELSE 0 END DESC,
-          CASE WHEN p.curation_reason IS NOT NULL THEN 15 ELSE 0 END DESC,
-          COALESCE(sc.high_source_count, 0) DESC,
+          ((p.lat - ${data.lat}) * (p.lat - ${data.lat}) + (p.lng - ${data.lng}) * (p.lng - ${data.lng})) ASC,
           COALESCE(sc.web_count, 0) DESC,
-          COALESCE(s.user_review_count, 0) DESC,
-          ABS(p.lat - ${data.lat}) + ABS(p.lng - ${data.lng}) ASC
+          COALESCE(s.user_review_count, 0) DESC
         LIMIT ${lim}`,
     )
 

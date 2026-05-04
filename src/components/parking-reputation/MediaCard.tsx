@@ -1,3 +1,4 @@
+import { Play } from 'lucide-react'
 import { ReportButton } from '@/components/ReportDialog'
 import type { ParkingMedia } from '@/types/parking'
 import { decodeHtmlEntities } from './utils'
@@ -7,33 +8,42 @@ export function MediaCard({ media, lotId }: { media: ParkingMedia; lotId: string
   const description = media.description ? decodeHtmlEntities(media.description) : ''
 
   return (
-    <div className="relative flex h-full w-full flex-col overflow-hidden rounded-xl bg-muted transition-colors hover:bg-muted/80">
+    <div className="group relative flex h-full w-full flex-col overflow-hidden rounded-2xl border bg-white transition-all hover:shadow-md">
       <a
         href={media.url}
         target="_blank"
         rel="noopener noreferrer"
         className="flex h-full min-w-0 flex-col"
       >
-        {media.thumbnailUrl ? (
-          <img
-            src={media.thumbnailUrl}
-            alt=""
-            className="aspect-video w-full shrink-0 scale-105 object-cover"
-            loading="lazy"
-          />
-        ) : (
-          <div className="aspect-video w-full shrink-0 bg-zinc-100" />
-        )}
+        <div className="relative aspect-video w-full overflow-hidden bg-zinc-100">
+          {media.thumbnailUrl ? (
+            <img
+              src={media.thumbnailUrl}
+              alt=""
+              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+              loading="lazy"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center">
+              <Play className="size-10 text-zinc-300" />
+            </div>
+          )}
+          <div className="absolute inset-0 flex items-center justify-center bg-black/10 opacity-0 transition-opacity group-hover:opacity-100">
+            <div className="flex size-12 items-center justify-center rounded-full bg-red-600 text-white shadow-lg">
+              <Play className="ml-0.5 size-6 fill-current" />
+            </div>
+          </div>
+        </div>
         <div className="flex min-w-0 flex-1 flex-col p-4">
-          <p className="mb-2 line-clamp-2 min-h-[2.75rem] pr-5 text-base font-semibold leading-snug text-gray-900">
+          <p className="mb-2 line-clamp-2 text-base font-bold leading-snug text-zinc-900">
             {title}
           </p>
-          <p className="line-clamp-2 min-h-[2.5rem] text-sm leading-relaxed text-muted-foreground">
-            {description}
-          </p>
+          {description && (
+            <p className="line-clamp-2 text-sm leading-relaxed text-zinc-500">{description}</p>
+          )}
         </div>
       </a>
-      <div className="absolute right-2 top-2">
+      <div className="absolute right-2 top-2 opacity-0 transition-opacity group-hover:opacity-100">
         <ReportButton targetType="media" targetId={media.id} parkingLotId={lotId} />
       </div>
     </div>
