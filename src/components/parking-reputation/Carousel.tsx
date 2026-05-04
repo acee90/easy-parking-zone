@@ -1,19 +1,24 @@
 import useEmblaCarousel from 'embla-carousel-react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useCallback, useEffect, useState } from 'react'
 
 export function Carousel({ children }: { children: ReactNode }) {
   const [emblaRef, emblaApi] = useEmblaCarousel({
-    align: 'center',
+    align: 'start',
     containScroll: 'trimSnaps',
     dragFree: false,
   })
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [scrollSnaps, setScrollSnaps] = useState<number[]>([])
+  const [canScrollPrev, setCanScrollPrev] = useState(false)
+  const [canScrollNext, setCanScrollNext] = useState(false)
 
   const onSelect = useCallback(() => {
     if (!emblaApi) return
     setSelectedIndex(emblaApi.selectedScrollSnap())
+    setCanScrollPrev(emblaApi.canScrollPrev())
+    setCanScrollNext(emblaApi.canScrollNext())
   }, [emblaApi])
 
   useEffect(() => {
@@ -29,12 +34,35 @@ export function Carousel({ children }: { children: ReactNode }) {
   }, [emblaApi, onSelect])
 
   return (
-    <div>
+    <div className="relative">
       <div className="-mx-4 overflow-hidden px-[6vw] sm:mx-0 sm:px-0" ref={emblaRef}>
         <div className="flex items-stretch gap-3">{children}</div>
       </div>
+
+      {/* Desktop Arrows */}
+      {canScrollPrev && (
+        <button
+          type="button"
+          onClick={() => emblaApi?.scrollPrev()}
+          className="absolute left-2 top-1/2 -translate-y-1/2 hidden sm:flex size-9 items-center justify-center rounded-full bg-white border shadow-sm text-gray-600 hover:bg-gray-50 z-10 cursor-pointer"
+          aria-label="이전"
+        >
+          <ChevronLeft className="size-5" />
+        </button>
+      )}
+      {canScrollNext && (
+        <button
+          type="button"
+          onClick={() => emblaApi?.scrollNext()}
+          className="absolute right-2 top-1/2 -translate-y-1/2 hidden sm:flex size-9 items-center justify-center rounded-full bg-white border shadow-sm text-gray-600 hover:bg-gray-50 z-10 cursor-pointer"
+          aria-label="다음"
+        >
+          <ChevronRight className="size-5" />
+        </button>
+      )}
+
       {scrollSnaps.length > 1 && (
-        <div className="mt-2 flex items-center justify-center gap-1.5 sm:hidden" aria-hidden="true">
+        <div className="mt-3 flex items-center justify-center gap-1.5 sm:hidden" aria-hidden="true">
           {scrollSnaps.map((snap, index) => (
             <span
               key={snap}
@@ -54,11 +82,13 @@ export function CarouselSlide({
   size = 'review',
 }: {
   children: ReactNode
-  size?: 'review' | 'media'
+  size?: 'review' | 'media' | 'ranking'
 }) {
-  // review/media 모두 동일 basis로 통일 (이슈 #115 Phase 5)
-  void size
-  const sizeClass = 'basis-[85vw] sm:basis-[380px] md:basis-[400px]'
+  let sizeClass = 'basis-[85vw] sm:basis-[380px] md:basis-[400px]'
+
+  if (size === 'ranking') {
+    sizeClass = 'basis-[75vw] sm:basis-[280px] md:basis-[300px]'
+  }
 
   return <div className={`flex min-w-0 shrink-0 grow-0 ${sizeClass}`}>{children}</div>
 }

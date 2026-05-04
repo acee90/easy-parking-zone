@@ -12,7 +12,7 @@ export function RelatedParkingLotsSection({ lot, lots }: { lot: ParkingLot; lots
   return (
     <section className="rounded-xl border bg-white p-5">
       <div className="mb-3 flex items-center justify-between gap-2">
-        <h2 className="text-base font-bold">주변 주차장</h2>
+        <h2 className="text-xl font-bold">주변 주차장</h2>
         <Badge variant="secondary" className="text-xs">
           {lots.length}곳
         </Badge>

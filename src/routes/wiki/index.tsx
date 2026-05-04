@@ -275,11 +275,20 @@ function WikiHomePage() {
         </Link>
 
         {/* 전국 랭킹 */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-12">
           <RankingSection
             title="초보 추천 주차장"
             description="넓고 여유로워 초보도 편한 주차장"
             lots={easy}
+            layout="carousel"
+            className="md:col-span-2"
+          />
+          <RankingSection
+            title="웹에서 많이 언급된 주차장"
+            description="블로그/커뮤니티에서 자주 언급되는 주차장"
+            lots={popular}
+            layout="carousel"
+            className="md:col-span-2"
           />
           <RankingSection
             title="넓은 주차장 TOP"
@@ -295,19 +304,14 @@ function WikiHomePage() {
             title="최근 정보 보강"
             description="요약, 팁, 특이사항이 보강된 주차장"
             lots={recentlyUpdated}
-          />
-          <RankingSection
-            title="웹에서 많이 언급된 주차장"
-            description="블로그/커뮤니티에서 자주 언급되는 주차장"
-            lots={popular}
             className="md:col-span-2"
           />
         </div>
 
-        <section className="rounded-xl border bg-white p-5">
-          <div className="mb-4 space-y-1">
+        <section>
+          <div className="mb-4 px-1 space-y-1">
             <h2 className="text-xl font-bold">지역별 대표 주차장</h2>
-            <p className="text-base leading-relaxed text-muted-foreground">
+            <p className="text-sm leading-relaxed text-muted-foreground">
               지역별 목록은 주차면 수, 난이도, 큐레이션 사유, 웹 언급량이 있는 주차장을 우선합니다.
             </p>
           </div>
@@ -320,23 +324,23 @@ function WikiHomePage() {
           </div>
         </section>
 
-        <section className="rounded-xl border bg-white p-5">
-          <div className="mb-4 space-y-1">
+        <section>
+          <div className="mb-4 px-1 space-y-1">
             <h2 className="text-xl font-bold">주차 전에 확인할 기준</h2>
-            <p className="text-base leading-relaxed text-muted-foreground">
+            <p className="text-sm leading-relaxed text-muted-foreground">
               같은 목적지라도 요금, 운영시간, 주차면 수, 진입 난이도에 따라 체감이 크게 달라집니다.
               쉬운주차장은 이 기준을 페이지별로 모아 비교할 수 있게 정리합니다.
             </p>
           </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <CriteriaItem icon={<CreditCard className="size-4" />} title="요금">
               무료 여부, 기본요금, 추가요금, 할인 메모를 먼저 확인합니다.
             </CriteriaItem>
             <CriteriaItem icon={<Clock className="size-4" />} title="운영시간">
               평일, 토요일, 공휴일 운영시간이 다른 주차장을 구분합니다.
             </CriteriaItem>
-            <CriteriaItem icon={<ParkingSquare className="size-4" />} title="근거 수">
-              리뷰, 영상, 웹사이트 수가 충분한 곳은 방문 전 확인할 정보가 더 많습니다.
+            <CriteriaItem icon={<ParkingSquare className="size-4" />} title="주차면 수">
+              주차면 수가 큰 곳은 만차 위험과 회차 부담이 상대적으로 낮습니다.
             </CriteriaItem>
             <CriteriaItem icon={<Star className="size-4" />} title="난이도">
               진입로, 통로, 주차면, 출차 후기를 함께 보고 초보 운전 부담을 줄입니다.
@@ -351,17 +355,17 @@ function WikiHomePage() {
 function RegionList({ region }: { region: RegionGroup }) {
   return (
     <div>
-      <div className="mb-2 flex items-center gap-1.5 text-sm font-bold">
+      <div className="mb-3 px-1 flex items-center gap-1.5 text-sm font-bold">
         <MapPin className="size-4 text-muted-foreground" />
         {region.label}
       </div>
-      <div className="divide-y rounded-lg border">
+      <div className="divide-y rounded-xl border bg-white overflow-hidden shadow-xs">
         {region.lots.map((lot) => (
           <Link
             key={lot.id}
             to="/wiki/$slug"
             params={{ slug: makeParkingSlug(lot.name, lot.id) }}
-            className="flex items-center gap-2 px-3 py-2.5 text-base transition-colors hover:bg-gray-50"
+            className="flex items-center gap-2 px-4 py-3.5 text-base transition-colors hover:bg-gray-50"
           >
             <span className="min-w-0 flex-1 truncate font-medium">{lot.name}</span>
             <LotEvidence lot={lot} />
@@ -409,7 +413,7 @@ function CriteriaItem({
   children: ReactNode
 }) {
   return (
-    <div className="rounded-lg border bg-gray-50 p-4">
+    <div className="rounded-xl border bg-white p-5 shadow-xs">
       <div className="mb-2 flex items-center gap-2 text-sm font-bold">
         <span className="text-muted-foreground">{icon}</span>
         {title}
