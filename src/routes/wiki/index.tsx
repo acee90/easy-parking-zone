@@ -1,10 +1,40 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
 import { sql } from 'drizzle-orm'
-import { ChevronRight } from 'lucide-react'
+import { ChevronRight, Clock, CreditCard, MapPin, ParkingSquare, Star } from 'lucide-react'
+import type { ReactNode } from 'react'
 import { RankingSection } from '@/components/wiki/RankingSection'
 import { getDb } from '@/db'
+import { makeParkingSlug } from '@/lib/slug'
 import { type ParkingLotRow, rowToParkingLot } from '@/server/transforms'
+import type { ParkingLot } from '@/types/parking'
+
+interface RegionGroup {
+  label: string
+  prefix: string
+  lots: ParkingLot[]
+}
+
+const REGIONS = [
+  { label: '서울', prefix: '서울' },
+  { label: '경기', prefix: '경기' },
+  { label: '부산', prefix: '부산' },
+  { label: '인천', prefix: '인천' },
+  { label: '대구', prefix: '대구' },
+  { label: '대전', prefix: '대전' },
+  { label: '광주', prefix: '광주' },
+  { label: '울산', prefix: '울산' },
+  { label: '제주', prefix: '제주' },
+]
+
+const LOT_SELECT = `SELECT p.*,
+  s.final_score as avg_score,
+  COALESCE(s.user_review_count, 0) + COALESCE(s.community_count, 0) as review_count,
+  s.reliability`
+
+function toLots(rows: unknown[]): ParkingLot[] {
+  return (rows as unknown as ParkingLotRow[]).map(rowToParkingLot)
+}
 
 const fetchWikiHome = createServerFn({ method: 'GET' }).handler(async () => {
   const db = getDb()
@@ -12,30 +42,44 @@ const fetchWikiHome = createServerFn({ method: 'GET' }).handler(async () => {
   // 넓은 주차장 TOP (주차면 수 기준)
   const spaciousRows = await db.all(
     sql.raw(
-      `SELECT p.*,
-        s.final_score as avg_score,
-        COALESCE(s.user_review_count, 0) + COALESCE(s.community_count, 0) as review_count,
-        s.reliability
+      `${LOT_SELECT}
       FROM parking_lots p
       LEFT JOIN parking_lot_stats s ON s.parking_lot_id = p.id
       WHERE p.total_spaces >= 200
-      ORDER BY p.total_spaces DESC
-      LIMIT 10`,
+      ORDER BY p.total_spaces DESC, COALESCE(s.final_score, 0) DESC
+      LIMIT 12`,
     ),
   )
 
   // 초보 추천 TOP
   const easyRows = await db.all(
     sql.raw(
-      `SELECT p.*,
-        s.final_score as avg_score,
-        COALESCE(s.user_review_count, 0) + COALESCE(s.community_count, 0) as review_count,
-        s.reliability
+      `${LOT_SELECT}
       FROM parking_lots p
       LEFT JOIN parking_lot_stats s ON s.parking_lot_id = p.id
       WHERE p.curation_tag = 'easy'
-      ORDER BY s.final_score DESC
-      LIMIT 10`,
+      ORDER BY COALESCE(s.final_score, 0) DESC, p.total_spaces DESC
+      LIMIT 12`,
+    ),
+  )
+
+  // 무료 주차장
+  const freeRows = await db.all(
+    sql.raw(
+      `${LOT_SELECT}
+      FROM parking_lots p
+      LEFT JOIN parking_lot_stats s ON s.parking_lot_id = p.id
+      WHERE p.is_free = 1
+        AND (
+          p.total_spaces >= 100
+          OR p.curation_reason IS NOT NULL
+          OR EXISTS (SELECT 1 FROM web_sources ws WHERE ws.parking_lot_id = p.id)
+        )
+      ORDER BY
+        CASE WHEN p.curation_reason IS NOT NULL THEN 1 ELSE 0 END DESC,
+        COALESCE(s.final_score, 0) DESC,
+        p.total_spaces DESC
+      LIMIT 12`,
     ),
   )
 
@@ -52,14 +96,60 @@ const fetchWikiHome = createServerFn({ method: 'GET' }).handler(async () => {
       WHERE (SELECT COUNT(*) FROM web_sources ws
              WHERE ws.parking_lot_id = p.id) > 0
       ORDER BY review_count DESC
-      LIMIT 10`,
+      LIMIT 16`,
     ),
   )
 
+  // 최근 보강된 주차장
+  const recentlyUpdatedRows = await db.all(
+    sql.raw(
+      `${LOT_SELECT}
+      FROM parking_lots p
+      LEFT JOIN parking_lot_stats s ON s.parking_lot_id = p.id
+      WHERE p.curation_reason IS NOT NULL
+        OR p.notes IS NOT NULL
+        OR s.ai_summary IS NOT NULL
+        OR s.ai_tip_pricing IS NOT NULL
+        OR s.ai_tip_visit IS NOT NULL
+        OR s.ai_tip_alternative IS NOT NULL
+      ORDER BY
+        COALESCE(s.ai_summary_updated_at, p.updated_at, p.created_at) DESC,
+        COALESCE(s.final_score, 0) DESC
+      LIMIT 12`,
+    ),
+  )
+
+  const regions = await Promise.all(
+    REGIONS.map(async (region): Promise<RegionGroup> => {
+      const rows = await db.all(
+        sql.raw(
+          `${LOT_SELECT}
+          FROM parking_lots p
+          LEFT JOIN parking_lot_stats s ON s.parking_lot_id = p.id
+          WHERE p.address LIKE '${region.prefix}%'
+            AND (
+              p.curation_reason IS NOT NULL
+              OR p.total_spaces >= 100
+              OR EXISTS (SELECT 1 FROM web_sources ws WHERE ws.parking_lot_id = p.id)
+            )
+          ORDER BY
+            CASE WHEN p.curation_reason IS NOT NULL THEN 1 ELSE 0 END DESC,
+            COALESCE(s.final_score, 0) DESC,
+            p.total_spaces DESC
+          LIMIT 8`,
+        ),
+      )
+      return { ...region, lots: toLots(rows) }
+    }),
+  )
+
   return {
-    spacious: (spaciousRows as unknown as ParkingLotRow[]).map(rowToParkingLot),
-    easy: (easyRows as unknown as ParkingLotRow[]).map(rowToParkingLot),
-    popular: (popularRows as unknown as ParkingLotRow[]).map(rowToParkingLot),
+    spacious: toLots(spaciousRows),
+    easy: toLots(easyRows),
+    free: toLots(freeRows),
+    popular: toLots(popularRows),
+    recentlyUpdated: toLots(recentlyUpdatedRows),
+    regions,
   }
 })
 
@@ -100,11 +190,40 @@ export const Route = createFileRoute('/wiki/')({
 })
 
 function WikiHomePage() {
-  const { spacious, easy, popular } = Route.useLoaderData()
+  const { spacious, easy, free, popular, recentlyUpdated, regions } = Route.useLoaderData()
+  const totalHubLinks =
+    spacious.length +
+    easy.length +
+    free.length +
+    popular.length +
+    recentlyUpdated.length +
+    regions.reduce((sum, region) => sum + region.lots.length, 0)
 
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-6xl mx-auto px-4 py-6 space-y-6">
+        <section className="space-y-4">
+          <div className="space-y-2">
+            <h1 className="text-2xl font-bold tracking-normal md:text-3xl">전국 주차장 둘러보기</h1>
+            <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">
+              차 대기 전에 한 번 확인해보세요. 요금, 운영시간, 주차면 수, 초보 운전 난이도, 블로그와
+              영상 후기를 모아 비교하기 쉽게 정리했습니다. 아래 목록은 정보가 비교적 잘 모인
+              주차장을 먼저 보여줍니다.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2 text-xs">
+            <span className="rounded-full border bg-white px-3 py-1 font-medium">
+              내부 링크 {totalHubLinks}개
+            </span>
+            <span className="rounded-full border bg-white px-3 py-1 font-medium">
+              지역 {regions.filter((region) => region.lots.length > 0).length}개
+            </span>
+            <span className="rounded-full border bg-white px-3 py-1 font-medium">
+              요금·시간·난이도 기준
+            </span>
+          </div>
+        </section>
+
         {/* 반값여행 이벤트 배너 */}
         <Link
           to="/event/halfprice-travel"
@@ -130,23 +249,120 @@ function WikiHomePage() {
         {/* 전국 랭킹 */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <RankingSection
-            title="😊 초보 추천 주차장"
+            title="초보 추천 주차장"
             description="넓고 여유로워 초보도 편한 주차장"
             lots={easy}
           />
           <RankingSection
-            title="🅿️ 넓은 주차장 TOP"
+            title="넓은 주차장 TOP"
             description="주차면 수 200면 이상, 여유롭게 주차"
             lots={spacious}
           />
           <RankingSection
-            title="🔥 웹에서 많이 언급된 주차장"
+            title="무료 주차장"
+            description="무료이면서 정보 신호가 있는 주차장"
+            lots={free}
+          />
+          <RankingSection
+            title="최근 정보 보강"
+            description="요약, 팁, 특이사항이 보강된 주차장"
+            lots={recentlyUpdated}
+          />
+          <RankingSection
+            title="웹에서 많이 언급된 주차장"
             description="블로그/커뮤니티에서 자주 언급되는 주차장"
             lots={popular}
             className="md:col-span-2"
           />
         </div>
+
+        <section className="rounded-xl border bg-white p-5">
+          <div className="mb-4 space-y-1">
+            <h2 className="text-lg font-bold">지역별 대표 주차장</h2>
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              지역별 목록은 주차면 수, 난이도, 큐레이션 사유, 웹 언급량이 있는 주차장을 우선합니다.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+            {regions
+              .filter((region) => region.lots.length > 0)
+              .map((region) => (
+                <RegionList key={region.prefix} region={region} />
+              ))}
+          </div>
+        </section>
+
+        <section className="rounded-xl border bg-white p-5">
+          <div className="mb-4 space-y-1">
+            <h2 className="text-lg font-bold">주차 전에 확인할 기준</h2>
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              같은 목적지라도 요금, 운영시간, 주차면 수, 진입 난이도에 따라 체감이 크게 달라집니다.
+              쉬운주차장은 이 기준을 페이지별로 모아 비교할 수 있게 정리합니다.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <CriteriaItem icon={<CreditCard className="size-4" />} title="요금">
+              무료 여부, 기본요금, 추가요금, 할인 메모를 먼저 확인합니다.
+            </CriteriaItem>
+            <CriteriaItem icon={<Clock className="size-4" />} title="운영시간">
+              평일, 토요일, 공휴일 운영시간이 다른 주차장을 구분합니다.
+            </CriteriaItem>
+            <CriteriaItem icon={<ParkingSquare className="size-4" />} title="주차면 수">
+              주차면 수가 큰 곳은 만차 위험과 회차 부담이 상대적으로 낮습니다.
+            </CriteriaItem>
+            <CriteriaItem icon={<Star className="size-4" />} title="난이도">
+              진입로, 통로, 주차면, 출차 후기를 함께 보고 초보 운전 부담을 줄입니다.
+            </CriteriaItem>
+          </div>
+        </section>
       </div>
+    </div>
+  )
+}
+
+function RegionList({ region }: { region: RegionGroup }) {
+  return (
+    <div>
+      <div className="mb-2 flex items-center gap-1.5 text-sm font-bold">
+        <MapPin className="size-4 text-muted-foreground" />
+        {region.label}
+      </div>
+      <div className="divide-y rounded-lg border">
+        {region.lots.map((lot) => (
+          <Link
+            key={lot.id}
+            to="/wiki/$slug"
+            params={{ slug: makeParkingSlug(lot.name, lot.id) }}
+            className="flex items-center gap-2 px-3 py-2 text-sm transition-colors hover:bg-gray-50"
+          >
+            <span className="min-w-0 flex-1 truncate font-medium">{lot.name}</span>
+            {lot.totalSpaces > 0 && (
+              <span className="shrink-0 text-xs text-muted-foreground">{lot.totalSpaces}면</span>
+            )}
+            <ChevronRight className="size-3.5 shrink-0 text-muted-foreground" />
+          </Link>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function CriteriaItem({
+  icon,
+  title,
+  children,
+}: {
+  icon: ReactNode
+  title: string
+  children: ReactNode
+}) {
+  return (
+    <div className="rounded-lg border bg-gray-50 p-4">
+      <div className="mb-2 flex items-center gap-2 text-sm font-bold">
+        <span className="text-muted-foreground">{icon}</span>
+        {title}
+      </div>
+      <p className="text-sm leading-relaxed text-muted-foreground">{children}</p>
     </div>
   )
 }
