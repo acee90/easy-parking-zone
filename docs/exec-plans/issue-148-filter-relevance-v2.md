@@ -7,163 +7,129 @@
 
 ## 요구사항 정리
 
-기존 `relevance_score` / 라우 단계 `filter_passed` 는 모두 **snippet 121자** 입력으로 계산됨. #140 으로 16K row 의 full_text 가 확보된 지금, **풀텍스트 기반으로 재평가하여 false positive 를 제거하고 #141 입력 풀을 정제**한다.
+기존 `relevance_score` / raw 단계 `filter_passed` 는 모두 **snippet 121자** 입력으로 계산됨. #140 으로 16K row 의 full_text 가 확보된 지금, **풀텍스트 기반으로 재평가하여 false positive 를 제거하고 #141 입력 풀을 정제**한다.
 
 본 이슈는 raw 단계는 손대지 않고, matched `web_sources` 만 대상으로 한다.
 
-## 현재 상태 파악
+## 구현 단계 (확정 아키텍처)
 
-### relevance_score (snippet 기반)
+### Phase C-1 — Schema migration ✅ 완료
 
-`src/server/crawlers/lib/scoring.ts` `scoreBlogRelevance(title, description, parkingName, address)`:
-- 키워드 매칭 (lot 이름 + 주차 + 지역)
-- noise pattern 차감
-- 0~100 점, 매칭 threshold 기본 60
-- 모든 입력이 snippet (title + description, 둘 다 짧음)
+`web_sources` 에 v2 컬럼 추가 완료:
+- `relevance_score_v2 INTEGER`
+- `filter_passed_v2 INTEGER`
+- `filter_v2_reason TEXT`
+- `filter_v2_evaluated_at TEXT`
 
-### filter_passed (snippet 기반)
+### Phase C-2 — relevance v2 algorithm ✅ 완료
 
-`src/server/crawlers/lib/ai-filter.ts` + `ai-summary-prompt.ts`:
-- raw 단계 SYSTEM_PROMPT 가 snippet content 입력으로 분류
-- `filter_passed`, `removed_by`, `sentiment_score`, `summary` (~21자) 출력
-- match-to-lots 가 raw → web_sources 승격 시 결과 그대로 복사
+`src/server/crawlers/lib/scoring.ts`:
+- `scoreBlogRelevanceFull(title, fullText, parkingName, address): number`
+- 본문 길이 정규화, lot 이름 빈도 가중치, 풀텍스트 보일러플레이트 패턴 추가
 
-### 한계
+### Phase C-3 — filter v2 prompt ✅ 완료
 
-- snippet 만 보고 매칭됐으나 본문은 무관한 false positive 가능 (e.g. "스타필드 위례" 검색 결과에 "위례 카페" 글 매칭)
-- 광고/보일러플레이트가 짧은 snippet 에서는 통과했으나 본문은 99% 광고
-- #141 ai_summary 재생성 시 이런 row 가 입력에 섞이면 hallucination/filler 위험
+`src/server/crawlers/lib/ai-filter-v2-prompt.ts`:
+- FILTER_V2_SYSTEM_PROMPT, FilterV2Input, FilterV2Output
 
-## 구현 단계
+### Phase C-4 — filter-web-sources.ts (구 refilter-matched.ts) ✅ 구현 완료
 
-### Phase C-1 — Schema migration
+`scripts/filter-web-sources.ts` — 크롤링 파이프라인 공식 필터 단계. 기존 `ai-filter-sources.ts` 대체.
 
-`migrations/00XX_web_sources_filter_v2.sql`:
-- `web_sources.relevance_score_v2 INTEGER`
-- `web_sources.filter_passed_v2 INTEGER`
-- `web_sources.filter_v2_reason TEXT`
-- `web_sources.filter_v2_evaluated_at TEXT`
-- 인덱스: `idx_ws_filter_v2 ON web_sources(filter_passed_v2, relevance_score_v2)`
+#### 3-tier 모델 (풀텍스트 calibrated)
 
-기존 `relevance_score` / 라우 분류 결과는 보존. v2 컬럼은 부가 정보. Drizzle schema 동기화.
+| tier | 조건 | 처리 | 비용 |
+|------|------|------|------|
+| **high** | score ≥ 75 AND len ≥ 2000 | auto-pass (filter_passed_v2=1) | 무료 |
+| **none** | score = 0 OR score < 25 OR 광고패턴 | auto-fail (filter_passed_v2=0) | 무료 |
+| **medium** | 나머지 | AI filter (Haiku) | 유료 |
 
-### Phase C-2 — relevance v2 algorithm
+#### 광고 패턴 (스크립트 감지, AI 불필요)
 
-`src/server/crawlers/lib/scoring.ts` 에 신규:
+- `#협찬`, `협찬 받았어/받은`, `서포터즈 활동/후기/선정`
+- `체험단 선정/후기/글/이벤트`, `홍보/광고 포스팅입니다`
+- `원고료를 받아`
+- + `scoreBlogRelevanceFull` 내부 NOISE_PATTERNS, FULLTEXT_BOILERPLATE_PATTERNS (score=0 처리)
 
-```ts
-export function scoreBlogRelevanceFull(
-  title: string,
-  fullText: string,
-  parkingName: string,
-  address: string,
-): number
+#### CLI
+
+```bash
+# 1차: 스크립트 분류만 (API key 불필요)
+bun run scripts/filter-web-sources.ts \
+  --source=all --limit=2000 --classify-only \
+  --output-dir=data/filter-out
+
+# 2차: 전체 실행 (medium → Haiku AI)
+ANTHROPIC_API_KEY=sk-... bun run scripts/filter-web-sources.ts \
+  --remote --source=all --limit=2000 \
+  --concurrency=4 --batch-size=5 \
+  --output-dir=data/filter-out
+
+# apply
+for f in data/filter-out/*.sql; do
+  bunx wrangler d1 execute parking-db --remote --file="$f"
+done
 ```
 
-기존 `scoreBlogRelevance` 와 동일 시그너처 (description → fullText). 차이점:
+#### --classify-only 출력물
 
-- **본문 길이 정규화**: 본문 길수록 키워드 1회 등장의 가중치 ↓ (밀도 기반)
-- **lot 이름 빈도 가중치**: 1회 vs 3회 vs 10회 등장에 따른 stepwise 보너스
-- **본문 vs 제목 가중치 재조정**: 본문이 풍부하므로 본문 매칭 가중치 ↑
-- **NOISE_PATTERNS** 강화: 풀텍스트 보일러플레이트 패턴 추가
-- 기존 0~100 범위 유지 (downstream 호환)
+- `data/filter-out/[source]-NNNN.sql` — high/none 자동분류 UPDATE SQL
+- `data/filter-out/medium.json` — AI 필요 레코드 (id, lot_name, lot_address, title, full_text)
 
-단위 테스트: `eval-scoring.ts` 패턴 차용 → `eval/scoring-v2/answer-key.json` 신규 30~50 케이스 (snippet vs full_text 동일 row 매핑)
+### Phase C-5 — 실행 플로우 (현행)
 
-### Phase C-3 — filter v2 prompt
+```
+1. wrangler d1 export --remote --output=data/parking-db.sqlite
+   (로컬 덤프 — 스크립트 고속 실행용)
 
-`src/server/crawlers/lib/ai-summary-prompt.ts` 또는 신규 `ai-filter-v2-prompt.ts` 에 `FILTER_V2_SYSTEM_PROMPT`:
+2. bun run scripts/filter-web-sources.ts --classify-only
+   → [source]-NNNN.sql (high/none)
+   → medium.json
 
-- 입력: full_text + lot meta (name, address)
-- 출력 JSON: `{ filter_passed, removed_by, sentiment_score, ai_difficulty_keywords }`
-- **summary 출력 안 함** (별도 #141 에서 처리, 책임 분리)
-- 판정 강화:
-  - 본문 200자 미만 → filter_passed=false
-  - lot 이름 등장 0회 → filter_passed=false (본문이 다른 주차장 얘기)
-  - 광고/협찬 명시 ("쿠팡 파트너스", "체험단" 등) → filter_passed=false
-  - SEO 보일러플레이트 패턴 ("Top5 저렴한 주변 주차장 정리") → filter_passed=false
-  - "운영 시간을 확인하시기 바랍니다" 류 generic safety filler 만 → filter_passed=false
+3. filter-v2-evaluator subagent on medium.json
+   → medium.sql
 
-PR #137 reject 패턴 그대로 계승.
+4. wrangler d1 execute --remote --file (bulk apply)
 
-### Phase C-4 — Re-run script
-
-신규: `scripts/refilter-matched.ts` (#140 패턴 차용)
-
-CLI:
-- `--remote --source=naver_blog|ddg_search|all`
-- `--limit=N --concurrency=4 --batch-size=10`
-- `--shards=N --shard=K` (모듈로 분할)
-- `--output-dir=/tmp/refilter-out`
-- `--dry-run`
-
-대상 쿼리:
-```sql
-SELECT id, source, parking_lot_id, title, full_text
-FROM web_sources
-WHERE full_text_status = 'ok'
-  AND LENGTH(full_text) >= 200
-  AND filter_passed_v2 IS NULL
-  AND source IN ('naver_blog','ddg_search')
-  ${shardClause}
-LIMIT N
+5. 중간 파일 정리
 ```
 
-처리:
-1. lot 메타 lookup (parking_lots JOIN)
-2. **로컬**: `scoreBlogRelevanceFull()` 호출 → relevance_score_v2 계산 (AI 호출 없음, 무료)
-3. **AI**: Anthropic Haiku 배치 10건/호출 → filter_passed_v2 + sentiment + reason
-4. SQL UPDATE 생성 → chunk emit (1000 row/file)
-5. `wrangler d1 execute --file` 일괄 적용
-
-### Phase C-5 — A/B eval
-
-신규: `scripts/eval-filter-v2.ts`
-
-같은 30~50 row 에 대해:
-- (v1) 기존 relevance_score, raw 단계 filter_passed
-- (v2) full_text 기반 재평가
-
-비교 메트릭:
-- relevance: avg/p25/p50 분포 변화
-- filter_passed flip 카운트 (v1=1 → v2=0 = false positive 발견; v1=0 → v2=1 = 미주류)
-  - 기대: 1→0 ≤ 25% (false positive 정밀도 향상), 0→1 ≤ 5% (raw 단계도 이미 잘 거름)
-- 수동 검수 샘플 10 row → `eval/filter-v2/report.md`
-- hallucination 의심 0건
-
-### Phase C-6 — 단계적 실행
+### Phase C-6 — 단계적 실행 게이트
 
 | 단계 | 대상 | 게이트 |
-|---|---|---|
-| C0-1~C0-4 구현 + 단위 테스트 | — | scoring v2 회귀 통과 |
-| Pilot | 100 row (소스 50/50 mixed) | 수동 검수 OK |
-| Eval | 30 row v1 vs v2 비교 | flip 분포 합리적 |
-| Stage 1 | 1,000 row | over-rejection 없음 |
-| Stage 2 | 16,322 row 전체 | — |
+|------|------|--------|
+| ✅ Pilot | Wave 1~9 (3,235건) | 수동 검수 통과 |
+| 진행 중 | 잔여 ~13K건 | pass율 8~25% 범위 |
+| 대기 | 전체 완료 | filter_passed_v2 IS NULL = 0 |
+
+## 현재 진행 상황 (2026-05-04)
+
+| 항목 | 수치 |
+|------|------|
+| evaluated | 3,235건 |
+| passed (filter_passed_v2=1) | 382건 |
+| failed (filter_passed_v2=0) | 2,853건 |
+| pending (IS NULL) | ~13K건 |
+
+Wave 1~9 완료. 중간 산출물(wave*.json, wave*.sql) 정리 완료.
+이후 작업은 `filter-web-sources.ts` 로 처리.
 
 ## 검증
 
 - v2 평가 16K 완료
 - 정밀도 향상: 수동 검수 false positive ≥ 50% 감소
 - #141 입력 풀 결정 기준: `filter_passed_v2 = 1 AND relevance_score_v2 >= THRESHOLD`
-- 다운스트림: #141 가 정제된 ~12K row 입력으로 ai_summary 재생성
 
-## 비용
+## 비용 (3-tier 이후 추정)
 
-- relevance v2: 로컬, 무료
-- filter v2: Haiku batch 10건/호출, 16K row × ~$0.0015 = **~$25**
+- high/none tier: 무료 (스크립트)
+- medium tier: Haiku batch, 전체의 ~70% 해당
+- 13K × 70% × ~$0.0015 ≈ **~$14** (기존 $25 대비 절감)
 
 ## 의존
 
-- `ANTHROPIC_API_KEY` (`.dev.vars`)
 - #140 머지된 main (full_text + 22K 보강)
-- bun 런타임
-
-## 리스크
-
-- **MED** — over-filtering: v2 가 너무 엄격하면 진짜 가치 있는 row 도 reject. → eval 게이트 + 보수적 threshold + 수동 검수 의무.
-- **MED** — relevance threshold 결정: 기존 60 점 기준. v2 분포가 다르면 재조정 필요. eval 결과 보고 결정.
-- **LOW** — Anthropic rate limit: Haiku 빠른 모델, 동시성 4~8 안전.
+- `ANTHROPIC_API_KEY` (medium tier 처리 시)
 
 ## 후속
 
@@ -172,6 +138,8 @@ LIMIT N
 
 ## 관련 파일
 
-- 기존: `src/server/crawlers/lib/scoring.ts`, `src/server/crawlers/lib/ai-filter.ts`, `src/server/crawlers/lib/ai-summary-prompt.ts`
-- 신규: `migrations/00XX_web_sources_filter_v2.sql`, `scripts/refilter-matched.ts`, `scripts/eval-filter-v2.ts`
-- 변경: `src/db/schema.ts` (4 컬럼 추가)
+- `scripts/filter-web-sources.ts` — 메인 실행 스크립트 (구 refilter-matched.ts)
+- `scripts/lib/d1.ts` — D1 쿼리 유틸 (multiline SQL 이스케이프 수정 완료)
+- `src/server/crawlers/lib/scoring.ts` — scoreBlogRelevanceFull
+- `src/server/crawlers/lib/ai-filter-v2-prompt.ts` — FILTER_V2_SYSTEM_PROMPT
+- `.claude/agents/filter-v2-evaluator.md` — medium tier AI 평가 agent

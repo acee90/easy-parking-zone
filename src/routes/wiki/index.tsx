@@ -193,7 +193,7 @@ export const Route = createFileRoute('/wiki/')({
   loader: () => fetchWikiHome(),
   head: () => ({
     meta: [
-      { title: '주차장 둘러보기 | 쉽주' },
+      { title: '전국 주차장 난이도·요금·운영시간 비교 | 쉬운주차장' },
       {
         name: 'description',
         content: '초보 추천부터 넓은 주차장 TOP까지. 실제 데이터 기반 전국 주차장 큐레이션.',
@@ -203,7 +203,7 @@ export const Route = createFileRoute('/wiki/')({
         content: 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1',
       },
       { httpEquiv: 'content-language', content: 'ko' },
-      { property: 'og:title', content: '주차장 둘러보기 | 쉽주' },
+      { property: 'og:title', content: '전국 주차장 난이도·요금·운영시간 비교 | 쉬운주차장' },
       {
         property: 'og:description',
         content: '초보 추천부터 넓은 주차장 TOP까지. 실제 데이터 기반 전국 주차장 큐레이션.',
@@ -216,7 +216,7 @@ export const Route = createFileRoute('/wiki/')({
       },
       { property: 'og:site_name', content: '쉽주' },
       { name: 'twitter:card', content: 'summary_large_image' },
-      { name: 'twitter:title', content: '주차장 둘러보기 | 쉽주' },
+      { name: 'twitter:title', content: '전국 주차장 난이도·요금·운영시간 비교 | 쉬운주차장' },
       {
         name: 'twitter:description',
         content: '초보 추천부터 넓은 주차장 TOP까지. 실제 데이터 기반 전국 주차장 큐레이션.',
