@@ -60,7 +60,7 @@ function RankingList({
           key={lot.id}
           to="/wiki/$slug"
           params={{ slug: makeParkingSlug(lot.name, lot.id) }}
-          className="flex items-center gap-4 px-5 py-4 transition-colors hover:bg-gray-50"
+          className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-gray-50"
         >
           <span className="w-5 shrink-0 text-right text-sm font-medium text-muted-foreground">
             {startIndex + i + 1}

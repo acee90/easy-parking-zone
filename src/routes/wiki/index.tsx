@@ -351,21 +351,21 @@ function WikiHomePage() {
 function RegionList({ region }: { region: RegionGroup }) {
   return (
     <div>
-      <div className="mb-3 flex items-center gap-1.5 text-base font-bold">
+      <div className="mb-2 flex items-center gap-1.5 text-sm font-bold">
         <MapPin className="size-4 text-muted-foreground" />
         {region.label}
       </div>
-      <div className="divide-y rounded-xl border">
+      <div className="divide-y rounded-lg border">
         {region.lots.map((lot) => (
           <Link
             key={lot.id}
             to="/wiki/$slug"
             params={{ slug: makeParkingSlug(lot.name, lot.id) }}
-            className="flex items-center gap-3 px-4 py-3.5 text-base transition-colors hover:bg-gray-50"
+            className="flex items-center gap-2 px-3 py-2.5 text-base transition-colors hover:bg-gray-50"
           >
             <span className="min-w-0 flex-1 truncate font-medium">{lot.name}</span>
             <LotEvidence lot={lot} />
-            <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+            <ChevronRight className="size-3.5 shrink-0 text-muted-foreground" />
           </Link>
         ))}
       </div>
