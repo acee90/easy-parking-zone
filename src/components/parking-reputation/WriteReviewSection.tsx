@@ -10,7 +10,7 @@ interface WriteReviewSectionProps {
 export function WriteReviewSection({ lotId, onSubmitted, className }: WriteReviewSectionProps) {
   return (
     <section className={className}>
-      <h3 className="mb-4 text-xl font-bold tracking-normal text-zinc-950">내 평가 남기기</h3>
+      <h2 className="mb-4 text-xl font-bold tracking-normal text-zinc-950">내 평가 남기기</h2>
       <ReviewForm parkingLotId={lotId} onSubmitted={onSubmitted} />
     </section>
   )
