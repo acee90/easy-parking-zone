@@ -14,6 +14,7 @@
     "crawl-blogs": "bun run scripts/crawl-blogs.ts",
     "curate-hell": "bun run scripts/curate-hell-parking.ts",
     "crawl-youtube": "bun run scripts/crawl-youtube.ts",
+    "seo-audit": "bun run scripts/seo-audit.ts",
     "sync-public-data": "bun run scripts/sync-public-data.ts",
     "postinstall": "lefthook install",
     "lint": "biome check src/",
