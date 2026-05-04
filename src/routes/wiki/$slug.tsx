@@ -10,10 +10,10 @@ import {
   Tag,
   ThumbsUp,
 } from 'lucide-react'
-import { NavigationButton } from '@/components/NavigationButton'
+import { ParkingActionGroup } from '@/components/ParkingActionGroup'
 import { ParkingReputationSections } from '@/components/ParkingReputationSections'
+import { PublicDataAttribution } from '@/components/PublicDataAttribution'
 import { Badge } from '@/components/ui/badge'
-import { VoteBookmarkBar } from '@/components/VoteBookmarkBar'
 import { WikiMiniMap } from '@/components/WikiMiniMap'
 import { getDifficultyLabel, getReliabilityBadge } from '@/lib/geo-utils'
 import {
@@ -307,15 +307,7 @@ function WikiDetailPage() {
                 </div>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2">
-                <NavigationButton
-                  lat={lot.lat}
-                  lng={lot.lng}
-                  name={lot.name}
-                  buttonClassName="px-4 py-2 text-sm"
-                />
-                <VoteBookmarkBar lotId={lot.id} />
-              </div>
+              <ParkingActionGroup lotId={lot.id} lat={lot.lat} lng={lot.lng} name={lot.name} />
               {reliabilityBadge && (
                 <Badge variant="outline" className={reliabilityBadge.className}>
                   {reliabilityBadge.label}
@@ -423,8 +415,12 @@ function WikiDetailPage() {
                 {phoneLabel && (
                   <div className="flex items-center gap-2.5">
                     <Phone className="size-4 shrink-0 text-muted-foreground" />
-                    <a href={`tel:${phoneLabel}`} className="text-blue-500 underline">
-                      {phoneLabel}
+                    <span className="min-w-0 flex-1">{phoneLabel}</span>
+                    <a
+                      href={`tel:${phoneLabel}`}
+                      className="inline-flex h-8 shrink-0 items-center rounded-full bg-gray-100 px-3 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-200"
+                    >
+                      전화
                     </a>
                   </div>
                 )}
@@ -442,6 +438,7 @@ function WikiDetailPage() {
                     </div>
                   </div>
                 )}
+                <PublicDataAttribution />
               </div>
             </section>
 

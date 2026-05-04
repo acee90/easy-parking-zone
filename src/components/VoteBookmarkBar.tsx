@@ -49,31 +49,34 @@ export function VoteBookmarkBar({ lotId }: { lotId: string }) {
   }
 
   return (
-    <div className="flex items-center gap-1">
+    <fieldset className="inline-flex h-10 shrink-0 overflow-hidden rounded-full border bg-background shadow-xs">
+      <legend className="sr-only">주차 난이도 투표</legend>
       <button
+        type="button"
         onClick={() => handleVote('up')}
         title="주차 쉬워요"
-        className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer ${
+        className={`inline-flex min-w-12 items-center justify-center gap-1 border-r px-3 text-sm font-medium transition-colors cursor-pointer ${
           summary.myVote === 'up'
             ? 'bg-green-100 text-green-700'
-            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            : 'bg-background text-gray-600 hover:bg-gray-50'
         }`}
       >
-        <ThumbsUp className={`size-3.5 ${summary.myVote === 'up' ? 'fill-green-500' : ''}`} />
+        <ThumbsUp className={`size-4 ${summary.myVote === 'up' ? 'fill-green-500' : ''}`} />
         {summary.upCount > 0 && <span>{summary.upCount}</span>}
       </button>
       <button
+        type="button"
         onClick={() => handleVote('down')}
         title="주차 어려워요"
-        className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer ${
+        className={`inline-flex min-w-12 items-center justify-center gap-1 px-3 text-sm font-medium transition-colors cursor-pointer ${
           summary.myVote === 'down'
             ? 'bg-red-100 text-red-700'
-            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            : 'bg-background text-gray-600 hover:bg-gray-50'
         }`}
       >
-        <ThumbsDown className={`size-3.5 ${summary.myVote === 'down' ? 'fill-red-500' : ''}`} />
+        <ThumbsDown className={`size-4 ${summary.myVote === 'down' ? 'fill-red-500' : ''}`} />
         {summary.downCount > 0 && <span>{summary.downCount}</span>}
       </button>
-    </div>
+    </fieldset>
   )
 }

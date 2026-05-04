@@ -1,13 +1,14 @@
-# 후속 이슈: 액션 그룹 재배치 + 공공데이터 API 출처 표기
+# 구현 계획: 주차장 상세 액션 그룹 재배치 + 공공데이터 API 출처 표기 (#116)
 
 > 분리 출처: #115 Phase 8 + Phase 9
-> 본 문서: 두 항목 모두 사이트 전반 정보 구조 결정이 필요하므로 별도 이슈로 분리하여 논의 후 진행
+> 이슈: <https://github.com/acee90/easy-parking-zone/issues/116>
+> 결정: 이 이슈에서는 최소 적용 범위를 확정하고 바로 구현한다.
 
 ## 배경
 
 이슈 #115 작업 중 다음 두 항목이 단일 상세 페이지 범위를 넘어 사이트 전반 IA(Information Architecture) 결정이 필요한 것으로 확인됨:
 
-1. **길찾기 / up-down / bookmark / 전화** 액션 그룹 재배치 — 액션 우선순위·그룹화 결정 후 모든 surface(메인 카드, 상세, 모바일 시트)에 일관 적용 필요
+1. **길찾기 / up-down / 전화** 액션 그룹 재배치 — 액션 우선순위·그룹화 결정 후 모든 surface(메인 카드, 상세, 모바일 시트)에 일관 적용 필요
 2. **공공데이터 API 출처 표기** — wiki 상세에만 표시할지, 메인 지도/footer/about 등 어디에 둘지 사이트 전반 결정
 
 ---
@@ -35,14 +36,16 @@
 | A | 길찾기+전화 (primary) / up-down+bookmark (secondary) | 명확한 위계 | 영역 2개로 분할되어 공간 차지 |
 | B | 길찾기 단독 hero / 보조 액션 묶음 | 최강 우선순위 | 전화/up-down 발견성 저하 |
 | C | 모바일 sticky 액션 바 (#114 시도된 패턴) | 항상 노출 | 콘텐츠 영역 좁아짐 |
-| D | 길찾기 hero + 행 단위 보조 (up-down·bookmark·전화) | hero 명확 + 보조 동등 | 행 폭 부담 |
+| D | 길찾기 hero + 행 단위 보조 (up-down) + 전화번호 행 CTA | hero 명확 + 전화 맥락 직접 | 정보 섹션까지 내려가야 전화 발견 |
 
-### 결정 필요 사항
+### 결정
 
-- 가장 중요한 액션은? (길찾기 vs up-down 피드백)
-- 모바일/데스크톱에서 동일 그룹화 vs 분리?
-- 메인 카드(`ParkingCard`)와 상세(`$slug.tsx`)의 액션 일관성 요구 수준?
-- bookmark는 vote와 같은 그룹? 별도?
+- 가장 중요한 액션은 **길찾기**로 둔다.
+- 모바일/데스크톱 모두 같은 위계를 쓴다.
+  - 1행: 길찾기 primary + 주차 쉬워요 / 어려워요 button group
+  - 전화는 기본 정보의 전화번호 행 옆 CTA로 배치한다.
+- 메인 지도에서 선택한 주차장 시트(`ParkingCard`), 데스크톱 상세 패널(`ParkingDetailPanel`), 위키 상세(`$slug.tsx`)에 같은 공용 컴포넌트를 적용한다.
+- 이 이슈의 up/down은 현재 `VoteBookmarkBar`의 thumbs up/down 투표를 뜻한다. 서버에 북마크 테이블과 API가 있지만 UI 노출은 이번 범위에서 제외한다.
 
 ### 영향 범위
 
@@ -50,13 +53,18 @@
 - `src/components/MobileBottomPanel.tsx` — 모바일 시트
 - `src/components/ParkingCard.tsx` — 메인 지도 카드
 - `src/components/ParkingDetailPanel.tsx` — 데스크톱 상세 패널
-- `src/components/VoteBookmarkBar.tsx` — 컴포넌트 자체 (bookmark 통합 여부)
+- `src/components/VoteBookmarkBar.tsx` — thumbs up/down 보조 액션
 
-### 진행 방식
+### 구현 단계
 
-1. 디자인 옵션 시안 (Figma 또는 텍스트 와이어프레임) 작성
-2. 사용자(@junhee)와 옵션 선택
-3. 단일 PR로 전 surface 동시 적용 (일관성 보장)
+1. `ParkingActionGroup` 공용 컴포넌트를 추가한다.
+   - `NavigationButton`을 primary CTA로 사용
+   - `VoteBookmarkBar`의 thumbs up/down을 shadcn button group 스타일로 같은 row에 배치
+2. 기존 액션 행을 공용 컴포넌트로 교체한다.
+   - `src/routes/wiki/$slug.tsx`
+   - `src/components/ParkingCard.tsx`
+   - `src/components/ParkingDetailPanel.tsx`
+3. 상세 패널의 `자세히` 링크은 보조 탐색이므로 액션 그룹 밖에 유지한다.
 
 ---
 
@@ -121,20 +129,31 @@
 
 ### 법적 의무 검토
 
-- 공공데이터포털 이용허락 표시 정책 정독 필요 (구체 문구·로고 규정)
-- 위치 자유라 한 곳이라도 충족되면 무방
+- 공공데이터포털 정책 페이지 확인일: 2026-05-04
+- 공공데이터포털 정책은 공공누리 제1~4유형에서 출처표시 조건을 안내한다.
 - 권장: 데이터 노출 맥락에 가까운 위치
 
 ---
 
-## 우선순위 / 진행 순서 제안
+## 구현 단계
 
-1. **Section B 즉시 진행 (C+D 최소안)** — 법적 의무 측면, 작은 변경
-2. **Section A 시안 작성 후 결정** — IA 결정 필요, 영향 범위 큼
-3. **별도 후속 이슈**: Footer/`about` 페이지 신설, 다른 출처 정리
+1. 공용 컴포넌트 추가
+   - `ParkingActionGroup`
+   - `PublicDataAttribution`
+2. 위키 상세와 지도 선택 패널에 공용 컴포넌트 적용
+3. 지도 우하단 attribution 추가
+4. 타입체크/테스트 실행
 
-## 미해결 질문
+## 이번 이슈에서 하지 않는 것
 
-- A의 옵션 4개 중 선호?
-- B의 즉시 적용 범위(C만 / C+D / C+D+B)?
-- 두 항목을 단일 PR로 묶을지, 분리할지?
+- `/about` 페이지 신설
+- 전역 footer 신설
+- 네이버 블로그/카페, YouTube, Clien 등 전체 출처 목록화
+- 북마크 UI 노출
+
+## 리스크와 대응
+
+- 지도 attribution이 내 위치 버튼과 겹칠 수 있음
+  - 우하단 버튼 위쪽에 작은 라인으로 배치하고 모바일 bottom offset을 더 크게 둠
+- 액션 그룹 높이가 모바일 시트 첫 화면을 압박할 수 있음
+  - primary/secondary 2행 구조로 하되 버튼 높이는 작게 유지

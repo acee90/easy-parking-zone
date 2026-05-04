@@ -1,6 +1,7 @@
 import { Loader2, Locate } from 'lucide-react'
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react'
 import { Container as MapDiv, Marker, NaverMap, useNavermaps } from 'react-naver-maps'
+import { PublicDataAttribution } from '@/components/PublicDataAttribution'
 import type { ClusterFeature, MapFeature } from '@/hooks/useSuperCluster'
 import { DEFAULT_CENTER, DEFAULT_ZOOM } from '@/lib/geo-utils'
 import type { MapBounds, ParkingLot } from '@/types/parking'
@@ -270,7 +271,7 @@ export function MapView({
   }, [onMapReady])
 
   return (
-    <MapDiv style={{ width: '100%', height: '100%' }}>
+    <MapDiv style={{ width: '100%', height: '100%', position: 'relative' }}>
       <NaverMap
         ref={mapRef}
         defaultCenter={new navermaps.LatLng(DEFAULT_CENTER.lat, DEFAULT_CENTER.lng)}
@@ -392,6 +393,7 @@ export function MapView({
       )}
 
       <button
+        type="button"
         className="absolute bottom-16 md:bottom-6 right-4 z-10 flex size-10 items-center justify-center rounded-full bg-white shadow-lg border border-border hover:bg-gray-50 transition-colors"
         onClick={onRequestLocation}
         disabled={locationLoading}
@@ -403,6 +405,10 @@ export function MapView({
           <Locate className="size-5 text-blue-500" />
         )}
       </button>
+
+      <div className="absolute bottom-28 right-4 z-10 rounded bg-white/90 px-2 py-1 shadow-sm md:bottom-20">
+        <PublicDataAttribution compact />
+      </div>
     </MapDiv>
   )
 }

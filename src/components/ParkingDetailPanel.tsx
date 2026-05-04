@@ -11,10 +11,9 @@ import {
   ThumbsUp,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { NavigationButton } from '@/components/NavigationButton'
+import { ParkingActionGroup } from '@/components/ParkingActionGroup'
 import { ParkingReputationSections } from '@/components/ParkingReputationSections'
 import { Badge } from '@/components/ui/badge'
-import { VoteBookmarkBar } from '@/components/VoteBookmarkBar'
 import { getReliabilityBadge } from '@/lib/geo-utils'
 import {
   formatOperatingHours,
@@ -114,18 +113,12 @@ export function ParkingDetailPanel({ lot }: ParkingDetailPanelProps) {
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
-              <NavigationButton
-                lat={lot.lat}
-                lng={lot.lng}
-                name={lot.name}
-                buttonClassName="px-3 py-2 text-sm"
-              />
-              <VoteBookmarkBar lotId={lot.id} />
+            <div className="space-y-2">
+              <ParkingActionGroup lotId={lot.id} lat={lot.lat} lng={lot.lng} name={lot.name} />
               <Link
                 to="/wiki/$slug"
                 params={{ slug }}
-                className="ml-auto inline-flex items-center gap-1 px-2.5 py-2 text-sm font-medium rounded-lg border hover:bg-gray-50 transition-colors"
+                className="inline-flex items-center gap-1 px-2.5 py-2 text-sm font-medium rounded-lg border hover:bg-gray-50 transition-colors"
               >
                 자세히
                 <ChevronRight className="size-3" />
@@ -223,8 +216,12 @@ export function ParkingDetailPanel({ lot }: ParkingDetailPanelProps) {
               {phoneLabel && (
                 <div className="flex items-center gap-2.5">
                   <Phone className="size-4 shrink-0 text-muted-foreground" />
-                  <a href={`tel:${phoneLabel}`} className="text-blue-500 underline">
-                    {phoneLabel}
+                  <span className="min-w-0 flex-1">{phoneLabel}</span>
+                  <a
+                    href={`tel:${phoneLabel}`}
+                    className="inline-flex h-8 shrink-0 items-center rounded-full bg-gray-100 px-3 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-200"
+                  >
+                    전화
                   </a>
                 </div>
               )}
