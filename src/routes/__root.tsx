@@ -6,7 +6,7 @@ import {
   useMatches,
   useNavigate,
 } from '@tanstack/react-router'
-import { useCallback } from 'react'
+import { useCallback, useEffect } from 'react'
 import { Toaster } from 'sonner'
 import { Header } from '@/components/Header'
 import { makeParkingSlug } from '@/lib/slug'
@@ -159,6 +159,12 @@ export const Route = createRootRoute({
 })
 
 function RootComponent() {
+  useEffect(() => {
+    if (import.meta.env.DEV) {
+      void import('react-grab')
+    }
+  }, [])
+
   const siteStats = Route.useLoaderData()
   const navigate = useNavigate()
   // 현재 라우트 경로로 active 탭 결정

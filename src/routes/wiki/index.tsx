@@ -10,7 +10,7 @@ import {
   ParkingSquare,
   Star,
 } from 'lucide-react'
-import type { ReactNode } from 'react'
+import { type ReactNode, useState } from 'react'
 import { RankingSection } from '@/components/wiki/RankingSection'
 import { getDb } from '@/db'
 import { makeParkingSlug } from '@/lib/slug'
@@ -235,6 +235,9 @@ function WikiHomePage() {
   const { spacious, easy, free, popular, recentlyUpdated, regions, siteStats } =
     Route.useLoaderData()
 
+  const validRegions = regions.filter((region) => region.lots.length > 0)
+  const [activeRegionPrefix, setActiveRegionPrefix] = useState(validRegions[0]?.prefix || '')
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-6xl mx-auto px-4 py-6 space-y-6">
@@ -315,12 +318,39 @@ function WikiHomePage() {
               지역별 목록은 주차면 수, 난이도, 큐레이션 사유, 웹 언급량이 있는 주차장을 우선합니다.
             </p>
           </div>
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
-            {regions
-              .filter((region) => region.lots.length > 0)
-              .map((region) => (
-                <RegionList key={region.prefix} region={region} />
-              ))}
+
+          <div className="mb-6 px-1 flex flex-wrap gap-2">
+            {validRegions.map((region) => (
+              <button
+                key={region.prefix}
+                type="button"
+                onClick={() => setActiveRegionPrefix(region.prefix)}
+                className={`px-4 py-2 rounded-full text-sm font-semibold transition-colors border cursor-pointer ${
+                  activeRegionPrefix === region.prefix
+                    ? 'bg-zinc-900 text-white border-zinc-900'
+                    : 'bg-white text-zinc-600 hover:bg-gray-50 border-gray-200 shadow-sm'
+                }`}
+              >
+                {region.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {validRegions.map((region) => (
+              <div
+                key={region.prefix}
+                className={
+                  activeRegionPrefix === region.prefix
+                    ? 'col-span-1 md:col-span-2 lg:col-span-3'
+                    : 'hidden'
+                }
+              >
+                <div className="md:w-1/2 lg:w-1/3">
+                  <RegionList region={region} />
+                </div>
+              </div>
+            ))}
           </div>
         </section>
 
