@@ -232,6 +232,74 @@ export const fetchNearbyParkingLots = createServerFn({ method: 'GET' })
     return (rows as unknown as ParkingLotRow[]).map(rowToParkingLot)
   })
 
+/** 위키 상세 내부 링크용 관련 주차장 */
+export const fetchRelatedParkingLots = createServerFn({ method: 'GET' })
+  .inputValidator(
+    (input: {
+      lat: number
+      lng: number
+      address: string
+      excludeId: string
+      limit?: number
+    }): { lat: number; lng: number; address: string; excludeId: string; limit?: number } => {
+      if (!Number.isFinite(input.lat) || Math.abs(input.lat) > 90) throw new Error('invalid lat')
+      if (!Number.isFinite(input.lng) || Math.abs(input.lng) > 180) throw new Error('invalid lng')
+      if (!input.address || typeof input.address !== 'string') throw new Error('invalid address')
+      if (!input.excludeId || typeof input.excludeId !== 'string')
+        throw new Error('invalid excludeId')
+      if (input.limit !== undefined && (input.limit < 1 || input.limit > 20))
+        throw new Error('invalid limit')
+      return input
+    },
+  )
+  .handler(async ({ data }) => {
+    const db = getDb()
+    const lim = data.limit ?? 8
+    const delta = 0.04 // 대략 4km 내외 후보
+    const south = data.lat - delta
+    const north = data.lat + delta
+    const west = data.lng - delta
+    const east = data.lng + delta
+    const areaPrefix = data.address.split(/\s+/).slice(0, 2).join(' ')
+    const areaLike = `${areaPrefix}%`
+
+    const rows = await db.all(
+      sql`WITH source_counts AS (
+          SELECT
+            parking_lot_id,
+            COUNT(*) AS web_count,
+            SUM(CASE WHEN relevance_score >= 70 THEN 1 ELSE 0 END) AS high_source_count
+          FROM web_sources
+          GROUP BY parking_lot_id
+        )
+        SELECT p.*,
+          s.final_score as avg_score,
+          COALESCE(s.user_review_count, 0) + COALESCE(s.community_count, 0) as review_count,
+          s.reliability,
+          COALESCE(sc.web_count, 0) as web_count,
+          COALESCE(sc.high_source_count, 0) as high_source_count
+        FROM parking_lots p
+        LEFT JOIN parking_lot_stats s ON s.parking_lot_id = p.id
+        LEFT JOIN source_counts sc ON sc.parking_lot_id = p.id
+        WHERE p.id != ${data.excludeId}
+          AND (
+            (p.lat BETWEEN ${south} AND ${north} AND p.lng BETWEEN ${west} AND ${east})
+            OR p.address LIKE ${areaLike}
+          )
+        ORDER BY
+          CASE WHEN p.address LIKE ${areaLike} THEN 30 ELSE 0 END DESC,
+          CASE WHEN COALESCE(sc.web_count, 0) > 0 THEN 30 ELSE 0 END DESC,
+          CASE WHEN p.curation_reason IS NOT NULL THEN 15 ELSE 0 END DESC,
+          COALESCE(sc.high_source_count, 0) DESC,
+          COALESCE(sc.web_count, 0) DESC,
+          COALESCE(s.user_review_count, 0) DESC,
+          ABS(p.lat - ${data.lat}) + ABS(p.lng - ${data.lng}) ASC
+        LIMIT ${lim}`,
+    )
+
+    return (rows as unknown as ParkingLotRow[]).map(rowToParkingLot)
+  })
+
 /** 주차장 탭 카운트 (리뷰/블로그/영상) 한번에 조회 */
 export const fetchTabCounts = createServerFn({ method: 'GET' })
   .inputValidator((input: { parkingLotId: string }): { parkingLotId: string } => input)

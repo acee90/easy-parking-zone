@@ -28,25 +28,35 @@ import {
   fetchNearbyPlaces,
   fetchParkingDetail,
   fetchParkingMedia,
+  fetchRelatedParkingLots,
   fetchTabCounts,
 } from '@/server/parking'
 import { fetchUserReviews } from '@/server/reviews'
-import type { NearbyPlaceInfo } from '@/types/parking'
+import type { NearbyPlaceInfo, ParkingLot } from '@/types/parking'
 
 export const Route = createFileRoute('/wiki/$slug')({
   loader: async ({ params }) => {
     const id = parseIdFromSlug(params.slug)
     if (!id) throw notFound()
-    const [lot, nearbyPlaces, blogPosts, media, reviews, tabCounts] = await Promise.all([
-      fetchParkingDetail({ data: { id } }),
+    const lot = await fetchParkingDetail({ data: { id } })
+    if (!lot) throw notFound()
+    const [nearbyPlaces, blogPosts, media, reviews, tabCounts, relatedLots] = await Promise.all([
       fetchNearbyPlaces({ data: { parkingLotId: id } }),
       fetchBlogPosts({ data: { parkingLotId: id, limit: 7 } }),
       fetchParkingMedia({ data: { parkingLotId: id, limit: 7 } }),
       fetchUserReviews({ data: { parkingLotId: id, limit: 7 } }),
       fetchTabCounts({ data: { parkingLotId: id } }),
+      fetchRelatedParkingLots({
+        data: {
+          lat: lot.lat,
+          lng: lot.lng,
+          address: lot.address,
+          excludeId: lot.id,
+          limit: 8,
+        },
+      }),
     ])
-    if (!lot) throw notFound()
-    return { lot, nearbyPlaces, blogPosts, media, reviews, tabCounts }
+    return { lot, nearbyPlaces, blogPosts, media, reviews, tabCounts, relatedLots }
   },
   head: ({ loaderData }) => {
     const lot = loaderData?.lot
@@ -195,8 +205,43 @@ function NearbyPlacesSection({ places }: { places: NearbyPlaceInfo[] }) {
   )
 }
 
+function RelatedParkingLotsSection({ lots }: { lots: ParkingLot[] }) {
+  if (lots.length === 0) return null
+
+  return (
+    <section className="rounded-xl border bg-white p-5">
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <h2 className="text-base font-bold">주변 주차장</h2>
+        <Badge variant="secondary" className="text-xs">
+          {lots.length}곳
+        </Badge>
+      </div>
+      <div className="divide-y">
+        {lots.map((related) => (
+          <Link
+            key={related.id}
+            to="/wiki/$slug"
+            params={{ slug: makeParkingSlug(related.name, related.id) }}
+            className="flex items-center gap-2 py-2.5 text-sm transition-colors hover:text-blue-600"
+          >
+            <ParkingSquare className="size-4 shrink-0 text-muted-foreground" />
+            <span className="min-w-0 flex-1 truncate font-medium">{related.name}</span>
+            {related.totalSpaces > 0 && (
+              <span className="shrink-0 text-xs text-muted-foreground">
+                {related.totalSpaces}면
+              </span>
+            )}
+            <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+          </Link>
+        ))}
+      </div>
+    </section>
+  )
+}
+
 function WikiDetailPage() {
-  const { lot, nearbyPlaces, blogPosts, media, reviews, tabCounts } = Route.useLoaderData()
+  const { lot, nearbyPlaces, blogPosts, media, reviews, tabCounts, relatedLots } =
+    Route.useLoaderData()
   const score = lot.difficulty.score
   const reliabilityBadge = getReliabilityBadge(lot.difficulty.reliability)
   const sourceCount = tabCounts.reviews + tabCounts.blog + tabCounts.media
@@ -415,6 +460,9 @@ function WikiDetailPage() {
           </div>
 
           <div className="space-y-4">
+            {/* 내부 링크 */}
+            <RelatedParkingLotsSection lots={relatedLots} />
+
             {/* 주변 갈만한 곳 */}
             {nearbyPlaces.length > 0 && <NearbyPlacesSection places={nearbyPlaces} />}
           </div>
