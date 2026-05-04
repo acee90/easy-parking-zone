@@ -1,18 +1,35 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
 import { sql } from 'drizzle-orm'
-import { ChevronRight, Clock, CreditCard, MapPin, ParkingSquare, Star } from 'lucide-react'
+import {
+  ChevronRight,
+  Clock,
+  CreditCard,
+  MapPin,
+  MessageCircle,
+  ParkingSquare,
+  Star,
+} from 'lucide-react'
 import type { ReactNode } from 'react'
 import { RankingSection } from '@/components/wiki/RankingSection'
 import { getDb } from '@/db'
 import { makeParkingSlug } from '@/lib/slug'
+import { fetchSiteStats } from '@/server/parking'
 import { type ParkingLotRow, rowToParkingLot } from '@/server/transforms'
 import type { ParkingLot } from '@/types/parking'
 
 interface RegionGroup {
   label: string
   prefix: string
-  lots: ParkingLot[]
+  lots: WikiParkingLot[]
+}
+
+type WikiParkingLot = ParkingLot & {
+  contentCounts: {
+    reviews: number
+    media: number
+    web: number
+  }
 }
 
 const REGIONS = [
@@ -30,10 +47,24 @@ const REGIONS = [
 const LOT_SELECT = `SELECT p.*,
   s.final_score as avg_score,
   COALESCE(s.user_review_count, 0) + COALESCE(s.community_count, 0) as review_count,
-  s.reliability`
+  s.reliability,
+  (SELECT COUNT(*) FROM parking_media pm WHERE pm.parking_lot_id = p.id) as media_count,
+  (SELECT COUNT(*) FROM web_sources ws WHERE ws.parking_lot_id = p.id AND ws.relevance_score >= 40) as web_count`
 
-function toLots(rows: unknown[]): ParkingLot[] {
-  return (rows as unknown as ParkingLotRow[]).map(rowToParkingLot)
+type WikiParkingLotRow = ParkingLotRow & {
+  media_count?: number | null
+  web_count?: number | null
+}
+
+function toLots(rows: unknown[]): WikiParkingLot[] {
+  return (rows as unknown as WikiParkingLotRow[]).map((row) => ({
+    ...rowToParkingLot(row),
+    contentCounts: {
+      reviews: Number(row.review_count ?? 0),
+      media: Number(row.media_count ?? 0),
+      web: Number(row.web_count ?? 0),
+    },
+  }))
 }
 
 const fetchWikiHome = createServerFn({ method: 'GET' }).handler(async () => {
@@ -88,14 +119,16 @@ const fetchWikiHome = createServerFn({ method: 'GET' }).handler(async () => {
     sql.raw(
       `SELECT p.*,
         s.final_score as avg_score,
+        COALESCE(s.user_review_count, 0) + COALESCE(s.community_count, 0) as review_count,
+        s.reliability,
+        (SELECT COUNT(*) FROM parking_media pm WHERE pm.parking_lot_id = p.id) as media_count,
         (SELECT COUNT(*) FROM web_sources ws
-         WHERE ws.parking_lot_id = p.id) as review_count,
-        s.reliability
+         WHERE ws.parking_lot_id = p.id AND ws.relevance_score >= 40) as web_count
       FROM parking_lots p
       JOIN parking_lot_stats s ON s.parking_lot_id = p.id
       WHERE (SELECT COUNT(*) FROM web_sources ws
-             WHERE ws.parking_lot_id = p.id) > 0
-      ORDER BY review_count DESC
+             WHERE ws.parking_lot_id = p.id AND ws.relevance_score >= 40) > 0
+      ORDER BY web_count DESC
       LIMIT 16`,
     ),
   )
@@ -143,6 +176,8 @@ const fetchWikiHome = createServerFn({ method: 'GET' }).handler(async () => {
     }),
   )
 
+  const siteStats = await fetchSiteStats()
+
   return {
     spacious: toLots(spaciousRows),
     easy: toLots(easyRows),
@@ -150,6 +185,7 @@ const fetchWikiHome = createServerFn({ method: 'GET' }).handler(async () => {
     popular: toLots(popularRows),
     recentlyUpdated: toLots(recentlyUpdatedRows),
     regions,
+    siteStats,
   }
 })
 
@@ -174,7 +210,10 @@ export const Route = createFileRoute('/wiki/')({
       },
       { property: 'og:type', content: 'website' },
       { property: 'og:url', content: 'https://easy-parking.xyz/wiki' },
-      { property: 'og:image', content: 'https://easy-parking.xyz/og-image.png' },
+      {
+        property: 'og:image',
+        content: 'https://easy-parking.xyz/og-image.png',
+      },
       { property: 'og:site_name', content: '쉽주' },
       { name: 'twitter:card', content: 'summary_large_image' },
       { name: 'twitter:title', content: '주차장 둘러보기 | 쉽주' },
@@ -182,7 +221,10 @@ export const Route = createFileRoute('/wiki/')({
         name: 'twitter:description',
         content: '초보 추천부터 넓은 주차장 TOP까지. 실제 데이터 기반 전국 주차장 큐레이션.',
       },
-      { name: 'twitter:image', content: 'https://easy-parking.xyz/og-image.png' },
+      {
+        name: 'twitter:image',
+        content: 'https://easy-parking.xyz/og-image.png',
+      },
     ],
     links: [{ rel: 'canonical', href: 'https://easy-parking.xyz/wiki' }],
   }),
@@ -190,44 +232,30 @@ export const Route = createFileRoute('/wiki/')({
 })
 
 function WikiHomePage() {
-  const { spacious, easy, free, popular, recentlyUpdated, regions } = Route.useLoaderData()
-  const totalHubLinks =
-    spacious.length +
-    easy.length +
-    free.length +
-    popular.length +
-    recentlyUpdated.length +
-    regions.reduce((sum, region) => sum + region.lots.length, 0)
+  const { spacious, easy, free, popular, recentlyUpdated, regions, siteStats } =
+    Route.useLoaderData()
 
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-6xl mx-auto px-4 py-6 space-y-6">
         <section className="space-y-4">
           <div className="space-y-2">
-            <h1 className="text-2xl font-bold tracking-normal md:text-3xl">전국 주차장 둘러보기</h1>
-            <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">
-              차 대기 전에 한 번 확인해보세요. 요금, 운영시간, 주차면 수, 초보 운전 난이도, 블로그와
-              영상 후기를 모아 비교하기 쉽게 정리했습니다. 아래 목록은 정보가 비교적 잘 모인
-              주차장을 먼저 보여줍니다.
+            <h1 className="text-3xl font-bold leading-tight tracking-normal md:text-4xl">
+              전국 주차장 둘러보기
+            </h1>
+            <p className="max-w-3xl text-base leading-relaxed text-muted-foreground">
+              주차 전에 미리 확인하세요. 요금, 운영시간, 주차면 수, 초보 운전자 난이도까지 한눈에
+              비교할 수 있습니다. 실제 블로그·유튜브 후기를 모아 정리했으며, 아래 목록은 정보가 가장
+              잘 정리된 주차장부터 보여드립니다.
             </p>
           </div>
-          <div className="flex flex-wrap gap-2 text-xs">
-            <span className="rounded-full border bg-white px-3 py-1 font-medium">
-              내부 링크 {totalHubLinks}개
-            </span>
-            <span className="rounded-full border bg-white px-3 py-1 font-medium">
-              지역 {regions.filter((region) => region.lots.length > 0).length}개
-            </span>
-            <span className="rounded-full border bg-white px-3 py-1 font-medium">
-              요금·시간·난이도 기준
-            </span>
-          </div>
+          <SiteStatsBar siteStats={siteStats} />
         </section>
 
         {/* 반값여행 이벤트 배너 */}
         <Link
           to="/event/halfprice-travel"
-          className="block bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-100 p-5 hover:border-blue-300 transition-all"
+          className="block bg-linear-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-100 p-5 hover:border-blue-300 transition-all"
         >
           <div className="flex items-center justify-between">
             <div>
@@ -237,8 +265,8 @@ function WikiHomePage() {
                 </span>
                 <span className="text-xs text-muted-foreground">4~6월 · 여행비 50% 환급</span>
               </div>
-              <h2 className="font-bold text-base">16개 지역 관광지 + 주차 가이드</h2>
-              <p className="text-xs text-muted-foreground mt-0.5">
+              <h2 className="text-lg font-bold">16개 지역 관광지 + 주차 가이드</h2>
+              <p className="mt-0.5 text-sm text-muted-foreground">
                 관광지별 주변 주차장 안내 · 1인 최대 10만원 환급
               </p>
             </div>
@@ -278,8 +306,8 @@ function WikiHomePage() {
 
         <section className="rounded-xl border bg-white p-5">
           <div className="mb-4 space-y-1">
-            <h2 className="text-lg font-bold">지역별 대표 주차장</h2>
-            <p className="text-sm leading-relaxed text-muted-foreground">
+            <h2 className="text-xl font-bold">지역별 대표 주차장</h2>
+            <p className="text-base leading-relaxed text-muted-foreground">
               지역별 목록은 주차면 수, 난이도, 큐레이션 사유, 웹 언급량이 있는 주차장을 우선합니다.
             </p>
           </div>
@@ -294,8 +322,8 @@ function WikiHomePage() {
 
         <section className="rounded-xl border bg-white p-5">
           <div className="mb-4 space-y-1">
-            <h2 className="text-lg font-bold">주차 전에 확인할 기준</h2>
-            <p className="text-sm leading-relaxed text-muted-foreground">
+            <h2 className="text-xl font-bold">주차 전에 확인할 기준</h2>
+            <p className="text-base leading-relaxed text-muted-foreground">
               같은 목적지라도 요금, 운영시간, 주차면 수, 진입 난이도에 따라 체감이 크게 달라집니다.
               쉬운주차장은 이 기준을 페이지별로 모아 비교할 수 있게 정리합니다.
             </p>
@@ -307,8 +335,8 @@ function WikiHomePage() {
             <CriteriaItem icon={<Clock className="size-4" />} title="운영시간">
               평일, 토요일, 공휴일 운영시간이 다른 주차장을 구분합니다.
             </CriteriaItem>
-            <CriteriaItem icon={<ParkingSquare className="size-4" />} title="주차면 수">
-              주차면 수가 큰 곳은 만차 위험과 회차 부담이 상대적으로 낮습니다.
+            <CriteriaItem icon={<ParkingSquare className="size-4" />} title="근거 수">
+              리뷰, 영상, 웹사이트 수가 충분한 곳은 방문 전 확인할 정보가 더 많습니다.
             </CriteriaItem>
             <CriteriaItem icon={<Star className="size-4" />} title="난이도">
               진입로, 통로, 주차면, 출차 후기를 함께 보고 초보 운전 부담을 줄입니다.
@@ -323,26 +351,50 @@ function WikiHomePage() {
 function RegionList({ region }: { region: RegionGroup }) {
   return (
     <div>
-      <div className="mb-2 flex items-center gap-1.5 text-sm font-bold">
+      <div className="mb-3 flex items-center gap-1.5 text-base font-bold">
         <MapPin className="size-4 text-muted-foreground" />
         {region.label}
       </div>
-      <div className="divide-y rounded-lg border">
+      <div className="divide-y rounded-xl border">
         {region.lots.map((lot) => (
           <Link
             key={lot.id}
             to="/wiki/$slug"
             params={{ slug: makeParkingSlug(lot.name, lot.id) }}
-            className="flex items-center gap-2 px-3 py-2 text-sm transition-colors hover:bg-gray-50"
+            className="flex items-center gap-3 px-4 py-3.5 text-base transition-colors hover:bg-gray-50"
           >
             <span className="min-w-0 flex-1 truncate font-medium">{lot.name}</span>
-            {lot.totalSpaces > 0 && (
-              <span className="shrink-0 text-xs text-muted-foreground">{lot.totalSpaces}면</span>
-            )}
-            <ChevronRight className="size-3.5 shrink-0 text-muted-foreground" />
+            <LotEvidence lot={lot} />
+            <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
           </Link>
         ))}
       </div>
+    </div>
+  )
+}
+
+function formatCount(n: number): string {
+  if (n >= 10000) return `${(n / 10000).toFixed(1)}만`
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}천`
+  return n.toLocaleString()
+}
+
+function SiteStatsBar({
+  siteStats,
+}: {
+  siteStats: { parkingLots: number; reviews: number; mediaPosts: number }
+}) {
+  return (
+    <div className="flex flex-wrap gap-2 text-sm">
+      <span className="rounded-full border bg-white px-3 py-1 font-medium">
+        주차장 <strong className="text-foreground">{formatCount(siteStats.parkingLots)}</strong>
+      </span>
+      <span className="rounded-full border bg-white px-3 py-1 font-medium">
+        리뷰 <strong className="text-foreground">{formatCount(siteStats.reviews)}</strong>
+      </span>
+      <span className="rounded-full border bg-white px-3 py-1 font-medium">
+        영상/포스팅 <strong className="text-foreground">{formatCount(siteStats.mediaPosts)}</strong>
+      </span>
     </div>
   )
 }
@@ -363,6 +415,28 @@ function CriteriaItem({
         {title}
       </div>
       <p className="text-sm leading-relaxed text-muted-foreground">{children}</p>
+    </div>
+  )
+}
+
+function LotEvidence({ lot }: { lot: WikiParkingLot }) {
+  const score = lot.difficulty.score
+  const totalSources = lot.contentCounts.reviews + lot.contentCounts.media + lot.contentCounts.web
+
+  return (
+    <div className="flex shrink-0 items-center gap-3 text-sm font-semibold text-muted-foreground">
+      <span className="flex w-12 items-center gap-1.5">
+        <Star className="size-3.5 fill-yellow-400 text-yellow-400 shrink-0" />
+        <span className="tabular-nums">{score === null ? '-' : score.toFixed(1)}</span>
+      </span>
+      <span className="flex w-10 items-center gap-1.5 font-medium">
+        {totalSources > 0 && (
+          <>
+            <MapPinPen className="size-3.5 shrink-0" />
+            <span className="tabular-nums">{totalSources}</span>
+          </>
+        )}
+      </span>
     </div>
   )
 }
