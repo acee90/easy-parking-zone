@@ -1,11 +1,6 @@
 import { ArrowUpDown, ChevronUp } from 'lucide-react'
 import { useCallback, useMemo, useRef, useState } from 'react'
-import {
-  getDifficultyColor,
-  getDifficultyIcon,
-  getDifficultyLabel,
-  getDistance,
-} from '@/lib/geo-utils'
+import { getDifficultyColor, getDifficultyLabel, getDistance } from '@/lib/geo-utils'
 import type { ParkingLot, SortMode } from '@/types/parking'
 
 interface MobileBottomPanelProps {
@@ -66,6 +61,7 @@ export function MobileBottomPanel({
   // 선택된 주차장이 있거나, 데스크톱이면 숨김
   // (md: breakpoint는 CSS로 처리)
   if (selectedLotId || parkingLots.length === 0) return null
+  const nearestDistance = sortedLots[0]?.distance ?? null
 
   return (
     <div
@@ -75,6 +71,7 @@ export function MobileBottomPanel({
     >
       {/* 접힌 상태: 피크 바 */}
       <button
+        type="button"
         onClick={() => setExpanded(!expanded)}
         className="w-full flex items-center justify-between px-4 py-3 bg-white border-t border-border shadow-[0_-2px_10px_rgba(0,0,0,0.08)] cursor-pointer"
       >
@@ -89,12 +86,12 @@ export function MobileBottomPanel({
             ))}
           </div>
           <span className="text-base font-medium">주차장 {parkingLots.length}개</span>
-          {sortedLots[0]?.distance !== null && userLocated && (
+          {nearestDistance !== null && userLocated && (
             <span className="text-sm text-muted-foreground">
               · 가장 가까운{' '}
-              {sortedLots[0].distance! < 1
-                ? `${Math.round(sortedLots[0].distance! * 1000)}m`
-                : `${sortedLots[0].distance?.toFixed(1)}km`}
+              {nearestDistance < 1
+                ? `${Math.round(nearestDistance * 1000)}m`
+                : `${nearestDistance.toFixed(1)}km`}
             </span>
           )}
         </div>
@@ -133,6 +130,7 @@ export function MobileBottomPanel({
           </div>
           {sortedLots.slice(0, 30).map(({ lot, distance }) => (
             <button
+              type="button"
               key={lot.id}
               onClick={() => {
                 onSelect(lot)
@@ -140,9 +138,9 @@ export function MobileBottomPanel({
               }}
               className="w-full flex items-center gap-3 px-4 py-2.5 border-b border-gray-50 active:bg-blue-50 transition-colors cursor-pointer"
             >
-              <span className="text-lg leading-none shrink-0">
-                {getDifficultyIcon(lot.difficulty.score)}
-              </span>
+              <span
+                className={`size-2.5 shrink-0 rounded-full ${getDifficultyColor(lot.difficulty.score)}`}
+              />
               <div className="flex-1 min-w-0 text-left">
                 <div className="flex items-center gap-1.5">
                   <span className="text-sm font-medium truncate">{lot.name}</span>
@@ -154,6 +152,14 @@ export function MobileBottomPanel({
                   )}
                 </div>
                 <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                  {lot.difficulty.score !== null && (
+                    <>
+                      <span className="font-medium tabular-nums text-foreground">
+                        {lot.difficulty.score.toFixed(1)}
+                      </span>
+                      <span>·</span>
+                    </>
+                  )}
                   <span>{getDifficultyLabel(lot.difficulty.score)}</span>
                   <span>·</span>
                   <span>{lot.pricing.isFree ? '무료' : '유료'}</span>

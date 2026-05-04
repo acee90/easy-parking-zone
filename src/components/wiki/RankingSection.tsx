@@ -140,7 +140,7 @@ function LotEvidence({ lot }: { lot: RankingLot }) {
   const totalSources = counts ? counts.reviews + counts.media + counts.web : 0
 
   return (
-    <div className="flex shrink-0 items-center gap-3 text-sm font-semibold text-muted-foreground">
+    <div className="flex w-[6.5rem] shrink-0 items-center justify-end gap-3 text-sm font-semibold text-muted-foreground">
       <span className="flex w-12 items-center gap-1.5">
         <Star className="size-3.5 shrink-0 fill-yellow-400 text-yellow-400" />
         <span className="tabular-nums">{score === null ? '-' : score.toFixed(1)}</span>
