@@ -1,4 +1,5 @@
 import { createFileRoute, Link, notFound, Outlet } from '@tanstack/react-router'
+import { shouldIndexParkingDetail } from '@/lib/seo-indexing'
 import { makeParkingSlug, parseIdFromSlug } from '@/lib/slug'
 import {
   fetchBlogPosts,
@@ -38,11 +39,10 @@ export const Route = createFileRoute('/wiki/$slug')({
     const lot = loaderData?.lot
     if (!lot) return {}
     const tabCounts = loaderData?.tabCounts
-    const isThin =
-      !tabCounts || (tabCounts.blog === 0 && tabCounts.reviews === 0 && tabCounts.media === 0)
-    const robotsContent = isThin
-      ? 'noindex, follow, max-image-preview:large'
-      : 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1'
+    const shouldIndex = shouldIndexParkingDetail(lot, tabCounts)
+    const robotsContent = shouldIndex
+      ? 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1'
+      : 'noindex, follow, max-image-preview:large'
     const slug = makeParkingSlug(lot.name, lot.id)
     const title = `${lot.name} - 주차 난이도/요금/정보 | 쉬운주차장`
     const desc = `${lot.name} (${lot.address}) 주차 난이도 ${lot.difficulty.score ? lot.difficulty.score.toFixed(1) : '정보없음'}, ${lot.pricing.isFree ? '무료' : `기본 ${lot.pricing.baseTime}분 ${lot.pricing.baseFee.toLocaleString()}원`}. 리뷰 ${lot.difficulty.reviewCount}개.`
