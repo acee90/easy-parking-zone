@@ -48,7 +48,7 @@ export const Route = createFileRoute('/wiki/$slug')({
     const desc = `${lot.name} (${lot.address}) 주차 난이도 ${lot.difficulty.score ? lot.difficulty.score.toFixed(1) : '정보없음'}, ${lot.pricing.isFree ? '무료' : `기본 ${lot.pricing.baseTime}분 ${lot.pricing.baseFee.toLocaleString()}원`}. 리뷰 ${lot.difficulty.reviewCount}개.`
     const jsonLd = {
       '@context': 'https://schema.org',
-      '@type': 'ParkingFacility',
+      '@type': ['LocalBusiness', 'ParkingFacility'],
       name: lot.name,
       address: {
         '@type': 'PostalAddress',
