@@ -135,7 +135,7 @@ export const Route = createRootRoute({
         href: appCss,
       },
     ],
-    headScripts: [
+    scripts: [
       {
         type: 'application/ld+json',
         children: JSON.stringify({

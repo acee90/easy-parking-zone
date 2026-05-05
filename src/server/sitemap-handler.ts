@@ -2,7 +2,9 @@
  * 사이트맵 핸들러 — Worker에서 직접 D1 쿼리하여 XML 응답
  * TanStack Start의 서버 핸들러 문제(Content-Type 덮어쓰기, 동적 라우트 404) 우회
  *
- * sitemap-N.xml : web_sources 있는 주차장 (메인 인덱스에 포함, 구글 제출)
+ * sitemap.xml : 핵심 URL만 담은 단순 urlset (Google 재처리용)
+ * sitemap-index.xml : 기존 sitemap index 구조 유지
+ * sitemap-N.xml : web_sources 있는 주차장
  *
  * 참고: web_sources 없는 thin 주차장은 sitemap에서 완전 제외 (#126).
  *      해당 페이지는 wiki/$slug.tsx에서 noindex 메타로 색인 차단.
@@ -64,11 +66,8 @@ async function sitemapIndex(db: D1Database): Promise<Response> {
   return xmlResponse(xml)
 }
 
-async function sitemapStatic(): Promise<Response> {
-  const now = new Date().toISOString().split('T')[0]
-  const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url>
+function staticUrlEntries(now: string): string {
+  return `  <url>
     <loc>${BASE}/</loc>
     <lastmod>${now}</lastmod>
     <changefreq>daily</changefreq>
@@ -79,7 +78,104 @@ async function sitemapStatic(): Promise<Response> {
     <lastmod>${now}</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.9</priority>
-  </url>
+  </url>`
+}
+
+function parkingUrlEntry(id: string, name: string, now: string, priority = '0.7'): string {
+  const slug = encodeURI(makeParkingSlug(name, id))
+  return `  <url>
+    <loc>${BASE}/wiki/${slug}</loc>
+    <lastmod>${now}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>${priority}</priority>
+  </url>`
+}
+
+async function getPriorityParkingRows(
+  db: D1Database,
+  limit: number,
+): Promise<Array<{ id: string; name: string }>> {
+  const rows = await db
+    .prepare(
+      `SELECT p.id, p.name
+       FROM parking_lots p
+       LEFT JOIN parking_lot_stats s ON s.parking_lot_id = p.id
+       WHERE p.curation_tag = 'easy'
+          OR p.curation_reason IS NOT NULL
+          OR s.ai_summary IS NOT NULL
+          OR s.ai_tip_pricing IS NOT NULL
+          OR s.ai_tip_visit IS NOT NULL
+          OR s.ai_tip_alternative IS NOT NULL
+          OR COALESCE(s.user_review_count, 0) > 0
+          OR EXISTS (
+            SELECT 1 FROM web_sources ws
+            WHERE ws.parking_lot_id = p.id AND ws.relevance_score >= 40
+          )
+       ORDER BY
+         CASE WHEN p.curation_tag = 'easy' THEN 1 ELSE 0 END DESC,
+         CASE
+           WHEN s.ai_summary IS NOT NULL
+             OR s.ai_tip_pricing IS NOT NULL
+             OR s.ai_tip_visit IS NOT NULL
+             OR s.ai_tip_alternative IS NOT NULL
+           THEN 1 ELSE 0
+         END DESC,
+         COALESCE(s.user_review_count, 0) DESC,
+         (SELECT COUNT(*) FROM web_sources ws
+          WHERE ws.parking_lot_id = p.id AND ws.relevance_score >= 40) DESC,
+         COALESCE(s.final_score, 0) DESC,
+         p.total_spaces DESC
+       LIMIT ?`,
+    )
+    .bind(limit)
+    .all<{ id: string; name: string }>()
+
+  return rows.results ?? []
+}
+
+async function sitemapMain(db: D1Database): Promise<Response> {
+  const now = new Date().toISOString().split('T')[0]
+  const rows = await getPriorityParkingRows(db, 1000)
+
+  let xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${staticUrlEntries(now)}`
+
+  for (const row of rows) {
+    xml += `
+${parkingUrlEntry(row.id, row.name, now, '0.8')}`
+  }
+
+  xml += `
+</urlset>`
+
+  return xmlResponse(xml)
+}
+
+async function sitemapPriority(db: D1Database): Promise<Response> {
+  const now = new Date().toISOString().split('T')[0]
+  const rows = await getPriorityParkingRows(db, 200)
+
+  let xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${staticUrlEntries(now)}`
+
+  for (const row of rows) {
+    xml += `
+${parkingUrlEntry(row.id, row.name, now, '0.8')}`
+  }
+
+  xml += `
+</urlset>`
+
+  return xmlResponse(xml)
+}
+
+async function sitemapStatic(): Promise<Response> {
+  const now = new Date().toISOString().split('T')[0]
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${staticUrlEntries(now)}
 </urlset>`
 
   return xmlResponse(xml)
@@ -108,14 +204,8 @@ async function sitemapPage(db: D1Database, pageId: number): Promise<Response> {
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">`
 
   for (const row of rows.results) {
-    const slug = encodeURI(makeParkingSlug(row.name, row.id))
     xml += `
-  <url>
-    <loc>${BASE}/wiki/${slug}</loc>
-    <lastmod>${now}</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.6</priority>
-  </url>`
+${parkingUrlEntry(row.id, row.name, now, '0.6')}`
   }
 
   xml += `
@@ -134,14 +224,8 @@ async function sitemapTest(db: D1Database): Promise<Response> {
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">`
 
   for (const row of rows.results) {
-    const slug = encodeURI(makeParkingSlug(row.name, row.id))
     xml += `
-  <url>
-    <loc>${BASE}/wiki/${slug}</loc>
-    <lastmod>${now}</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.6</priority>
-  </url>`
+${parkingUrlEntry(row.id, row.name, now, '0.6')}`
   }
 
   xml += `
@@ -151,7 +235,9 @@ async function sitemapTest(db: D1Database): Promise<Response> {
 }
 
 export async function handleSitemap(pathname: string, db: D1Database): Promise<Response> {
-  if (pathname === '/sitemap.xml') return sitemapIndex(db)
+  if (pathname === '/sitemap.xml') return sitemapMain(db)
+  if (pathname === '/sitemap-index.xml') return sitemapIndex(db)
+  if (pathname === '/sitemap-priority.xml') return sitemapPriority(db)
   if (pathname === '/sitemap-static.xml') return sitemapStatic()
   if (pathname === '/sitemap-test.xml') return sitemapTest(db)
 

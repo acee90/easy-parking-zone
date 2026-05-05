@@ -94,7 +94,7 @@ export const Route = createFileRoute('/wiki/$slug')({
         },
       ],
       links: [{ rel: 'canonical', href: `https://easy-parking.xyz/wiki/${slug}` }],
-      headScripts: [
+      scripts: [
         {
           type: 'application/ld+json',
           children: JSON.stringify(jsonLd),
