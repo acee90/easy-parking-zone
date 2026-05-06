@@ -69,6 +69,8 @@ scripts/poi-run-*-checkpoint.json
 data/dump-*.sql
 web_sources.db
 web_sources_dump.sql
+local-db-dump.sql
+parking-lot-stats-dump.sql
 
 # DB backups (local only)
 backups/
@@ -78,6 +80,10 @@ data/top-sources-by-lot*.json
 data/top-sources-by-lot*.sql
 data/regen-applied.sql
 data/regen-rejected.json
+data/ai-summary-*.sql
+data/filter-out/
+data/filter-v2-recheck/
+web-sources-dump.sql
 tmp/
 
 # .claude — agents/commands/skills는 추적, 개인/메타 파일은 제외

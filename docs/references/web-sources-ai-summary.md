@@ -3,7 +3,27 @@
 > **갱신 이력**
 > - 2026-04: v1 (30~60자 한줄, 단순 한줄 재생성)
 > - 2026-05: v2 (200~600자 long-form, lot당 top-N 후보군, lot-specific) — 이슈 #135
-> - 2026-05: v3 (#140 풀텍스트 보강 → web_sources.full_text 1,400~2,000자 입력) — 이슈 #141 진행 중
+> - 2026-05: v3 (#140 풀텍스트 보강 → web_sources.full_text 1,400~2,000자 입력) — 이슈 #141 완료
+
+## #141 Phase D 완료 (2026-05-06)
+
+| 항목 | 수치 |
+|------|------|
+| filter_passed_v2=1 전체 | 3,636건 |
+| ai_summary 非空 (Phase D 후) | 3,296건 (90.7%) |
+| 이번 Phase에서 신규 채운 건수 | 1,553건 (기본) + 425건 (relaxed) |
+| 최종 빈 항목 | 340건 (주차장명 없거나 광고성) |
+
+**처리 방법**:
+1. filter_passed_v2=1인 4,133건 → 20행 청크(207개) → Haiku 병렬 subagent → `data/ai-summary-regen-v2.sql` (1,553건)
+2. 빈 765건 재처리: RELAXED 규칙 (lot_name 불일치 허용) → `data/ai-summary-relaxed.sql` (425건)
+3. 두 SQL 순차 적용 → `bunx wrangler d1 execute parking-db --remote --file`
+
+**RELAXED 규칙**: lot 매칭 오류로 헤더 lot_name과 블로그 본문 주차장명이 다른 경우에도 블로그 기준 주차장명으로 요약 생성. 매칭 수정은 별도 이슈로.
+
+프롬프트 사양: `docs/references/ai-summary-prompt.md`
+
+---
 
 ## v2 한계 + v3 방향성
 
@@ -30,8 +50,8 @@ v3 (#140 + #141) 가 해결하는 것:
 ```
 [크롤링]
 web_sources_raw (URL 단위, 주차장 미매칭)
-    ↓ ai-filter-sources.ts (필터 + 단순 lot-agnostic 요약)
-    filter_passed=1 만 web_sources로 승격
+    ↓ filter-web-sources.ts (high/medium/low 3-tier + medium은 Haiku AI 평가)
+    filter_passed_v2=1 만 web_sources로 승격
 
 [v2 재생성]
 web_sources (parking_lot_id 부여됨)
@@ -153,7 +173,7 @@ bunx wrangler d1 execute parking-db --remote --file data/regen-applied.sql
 - `src/server/crawlers/lib/ai-filter.test.ts` — toResult 후처리 단위 테스트
 - `scripts/extract-top-sources-by-lot.ts` — 후보군 추출
 - `scripts/apply-summaries.ts` — c안 정책 적용
-- `scripts/ai-filter-sources.ts` — 신규 web_sources_raw 배치 필터링 러너
+- `scripts/filter-web-sources.ts` — 신규 web_sources 배치 필터링 (3-tier: high auto-pass / medium AI / none auto-fail)
 - `scripts/generate-lot-summary.ts` — `parking_lot_stats` 통합 요약 (별도 파이프라인)
 - `.claude/agents/ai-summary-generator.md` — long-form 재생성 agent 사양
 - `.claude/commands/regen-web-summary.md` — slash command
