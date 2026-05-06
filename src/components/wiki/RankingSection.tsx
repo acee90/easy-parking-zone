@@ -76,12 +76,6 @@ function RankingCard({ lot }: { lot: RankingLot }) {
       </div>
       <p className="line-clamp-1 text-sm text-muted-foreground">{lot.address}</p>
 
-      {lot.curationReason && (
-        <p className="line-clamp-2 rounded-lg bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700">
-          {lot.curationReason}
-        </p>
-      )}
-
       <div className="mt-auto flex items-end justify-between pt-2">
         <div className="flex flex-wrap gap-2 text-xs">
           {lot.totalSpaces > 0 && (

@@ -39,7 +39,7 @@ function WikiDetailPage() {
   const score = lot.difficulty.score
   const reliabilityBadge = getReliabilityBadge(lot.difficulty.reliability)
   const sourceCount = tabCounts.reviews + tabCounts.blog + tabCounts.media
-  const summary = lot.curationReason ?? lot.aiSummary
+  const summary = lot.aiSummary
   const operatingHours = formatOperatingHours(lot.operatingHours)
   const pricing = formatPricing(lot.pricing)
   const totalSpacesLabel = formatTotalSpaces(lot.totalSpaces)
