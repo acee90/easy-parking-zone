@@ -1,4 +1,5 @@
 import { createFileRoute, Link, notFound, Outlet } from '@tanstack/react-router'
+import { generateFaqItems } from '@/lib/faq-generator'
 import { shouldIndexParkingDetail } from '@/lib/seo-indexing'
 import { makeParkingSlug, parseIdFromSlug } from '@/lib/slug'
 import {
@@ -10,6 +11,26 @@ import {
   fetchTabCounts,
 } from '@/server/parking'
 import { fetchUserReviews } from '@/server/reviews'
+import type { ParkingLot } from '@/types/parking'
+
+function buildFaqJsonLd(lot: ParkingLot, relatedLots: ParkingLot[]) {
+  const faqItems = generateFaqItems(lot, relatedLots)
+  if (faqItems.length < 3) return []
+  return [
+    {
+      type: 'application/ld+json' as const,
+      children: JSON.stringify({
+        '@context': 'https://schema.org',
+        '@type': 'FAQPage',
+        mainEntity: faqItems.map((item) => ({
+          '@type': 'Question',
+          name: item.question,
+          acceptedAnswer: { '@type': 'Answer', text: item.answer },
+        })),
+      }),
+    },
+  ]
+}
 
 export const Route = createFileRoute('/wiki/$slug')({
   loader: async ({ params }) => {
@@ -39,13 +60,24 @@ export const Route = createFileRoute('/wiki/$slug')({
     const lot = loaderData?.lot
     if (!lot) return {}
     const tabCounts = loaderData?.tabCounts
+    const relatedLots = loaderData?.relatedLots ?? []
     const shouldIndex = shouldIndexParkingDetail(lot, tabCounts)
     const robotsContent = shouldIndex
       ? 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1'
       : 'noindex, follow, max-image-preview:large'
     const slug = makeParkingSlug(lot.name, lot.id)
     const title = `${lot.name} - 주차 난이도/요금/정보 | 쉬운주차장`
-    const desc = `${lot.name} (${lot.address}) 주차 난이도 ${lot.difficulty.score ? lot.difficulty.score.toFixed(1) : '정보없음'}, ${lot.pricing.isFree ? '무료' : `기본 ${lot.pricing.baseTime}분 ${lot.pricing.baseFee.toLocaleString()}원`}. 리뷰 ${lot.difficulty.reviewCount}개.`
+    const pricingDesc = lot.pricing.isFree
+      ? '무료'
+      : `기본 ${lot.pricing.baseTime}분 ${lot.pricing.baseFee.toLocaleString()}원`
+    const scoreDesc = lot.difficulty.score ? lot.difficulty.score.toFixed(1) : '정보없음'
+    const curationPrefix =
+      lot.curationTag === 'hell'
+        ? '헬파킹 인증 주차장. '
+        : lot.curationTag === 'easy'
+          ? '초보 추천 주차장. '
+          : ''
+    const desc = `${curationPrefix}${lot.name} (${lot.address}) 주차 난이도 ${scoreDesc}, ${pricingDesc}. 리뷰 ${lot.difficulty.reviewCount}개.`
     const jsonLd = {
       '@context': 'https://schema.org',
       '@type': ['LocalBusiness', 'ParkingFacility'],
@@ -99,6 +131,7 @@ export const Route = createFileRoute('/wiki/$slug')({
           type: 'application/ld+json',
           children: JSON.stringify(jsonLd),
         },
+        ...buildFaqJsonLd(lot, relatedLots),
       ],
     }
   },

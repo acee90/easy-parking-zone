@@ -15,6 +15,7 @@ import { ParkingReputationSections } from '@/components/ParkingReputationSection
 import { PublicDataAttribution } from '@/components/PublicDataAttribution'
 import { Badge } from '@/components/ui/badge'
 import { WikiMiniMap } from '@/components/WikiMiniMap'
+import { FaqSection } from '@/components/wiki/FaqSection'
 import { NearbyPlacesSection } from '@/components/wiki/NearbyPlacesSection'
 import { RelatedParkingLotsSection } from '@/components/wiki/RelatedParkingLotsSection'
 import { getReliabilityBadge } from '@/lib/geo-utils'
@@ -142,21 +143,29 @@ function WikiDetailPage() {
               <section className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                 {lot.aiTipPricing && (
                   <div className="rounded-lg border bg-white px-4 py-3 text-sm leading-relaxed text-gray-700">
-                    <span className="mb-1 block text-base font-semibold text-gray-900">요금</span>
+                    <span className="mb-1 block text-base font-semibold text-gray-900">
+                      {lot.pricing.isFree ? '요금 (무료)' : '요금 (유료)'}
+                    </span>
                     {lot.aiTipPricing}
                   </div>
                 )}
                 {lot.aiTipVisit && (
                   <div className="rounded-lg border bg-white px-4 py-3 text-sm leading-relaxed text-gray-700">
                     <span className="mb-1 block text-base font-semibold text-gray-900">
-                      방문 팁
+                      {lot.difficulty.score !== null && lot.difficulty.score >= 4.0
+                        ? '방문 팁 (초보 추천)'
+                        : lot.difficulty.score !== null && lot.difficulty.score < 2.0
+                          ? '방문 팁 (주의 필요)'
+                          : '방문 팁'}
                     </span>
                     {lot.aiTipVisit}
                   </div>
                 )}
                 {lot.aiTipAlternative && (
                   <div className="rounded-lg border bg-white px-4 py-3 text-sm leading-relaxed text-gray-700">
-                    <span className="mb-1 block text-base font-semibold text-gray-900">대안</span>
+                    <span className="mb-1 block text-base font-semibold text-gray-900">
+                      주변 주차장 대안
+                    </span>
                     {lot.aiTipAlternative}
                   </div>
                 )}
@@ -239,6 +248,8 @@ function WikiDetailPage() {
                 <PublicDataAttribution />
               </div>
             </section>
+
+            <FaqSection lot={lot} relatedLots={relatedLots} />
 
             {/* 리뷰/블로그/영상 섹션 (loader에서 prefetch → SSR로 봇 노출) */}
             <section className="pt-2">

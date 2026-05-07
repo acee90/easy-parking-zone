@@ -67,6 +67,7 @@ export interface BlogPost {
   id: number
   title: string
   snippet: string // 네이버 검색 스니펫 (원문 일부)
+  summary?: string // AI 가공 요약 (있을 때 snippet 대신 사용)
   sourceUrl: string
   source: 'naver_blog' | 'naver_cafe' | 'youtube_comment' | 'google_search' | 'clien'
   author: string

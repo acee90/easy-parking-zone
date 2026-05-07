@@ -169,6 +169,7 @@ export interface BlogPostRow {
   id: number
   title: string
   content: string
+  summary?: string | null
   source_url: string
   source: string
   author: string
@@ -181,6 +182,7 @@ export function rowToBlogPost(row: BlogPostRow): BlogPost {
     id: row.id,
     title: row.title,
     snippet: row.content,
+    summary: row.summary ?? undefined,
     sourceUrl: row.source_url,
     source: row.source as BlogPost['source'],
     author: row.author,

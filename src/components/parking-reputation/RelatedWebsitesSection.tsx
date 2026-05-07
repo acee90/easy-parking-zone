@@ -49,7 +49,7 @@ export function RelatedWebsitesSection({
     <section className={className}>
       {showTitle && (
         <SectionTitle
-          title="관련 웹사이트"
+          title="방문자 후기"
           count={count}
           viewAll={hasMore && viewAllSlug ? { slug: viewAllSlug, tab: 'blog' } : undefined}
         />

@@ -18,7 +18,7 @@ export function BlogPostCard({ post, lotId }: { post: BlogPost; lotId: string })
 
   return (
     <div className="group relative rounded-2xl border bg-white p-5 transition-all hover:shadow-md">
-      <a href={post.sourceUrl} target="_blank" rel="noopener noreferrer" className="block">
+      <a href={post.sourceUrl} target="_blank" rel="nofollow noopener noreferrer" className="block">
         <div className="mb-3 flex items-start justify-between gap-4">
           <div className="flex-1">
             <span
@@ -35,8 +35,17 @@ export function BlogPostCard({ post, lotId }: { post: BlogPost; lotId: string })
           </div>
         </div>
 
-        {post.snippet && (
-          <p className="mb-4 line-clamp-3 text-sm leading-relaxed text-zinc-600">{post.snippet}</p>
+        {(post.summary ?? post.snippet) && (
+          <div className="mb-4">
+            {post.summary && (
+              <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
+                핵심 요약
+              </span>
+            )}
+            <p className="line-clamp-3 text-sm leading-relaxed text-zinc-600">
+              {post.summary ?? post.snippet}
+            </p>
+          </div>
         )}
 
         <div className="flex items-center gap-2 text-xs font-medium text-zinc-400">

@@ -338,6 +338,7 @@ export const fetchBlogPosts = createServerFn({ method: 'GET' })
         id: schema.webSources.id,
         title: schema.webSources.title,
         content: schema.webSources.content,
+        summary: schema.webSources.summary,
         source_url: schema.webSources.sourceUrl,
         source: schema.webSources.source,
         author: schema.webSources.author,

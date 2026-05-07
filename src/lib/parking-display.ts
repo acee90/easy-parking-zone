@@ -24,9 +24,17 @@ export function formatOperatingHours(hours: ParkingLot['operatingHours']): Opera
     return { primary: `운영시간 ${NO_INFO}`, isUnknown: true }
   }
 
+  const satPart = isUnsetTimeRange(hours.saturday)
+    ? null
+    : `토 ${hours.saturday.start}-${hours.saturday.end}`
+  const holPart = isUnsetTimeRange(hours.holiday)
+    ? null
+    : `공휴일 ${hours.holiday.start}-${hours.holiday.end}`
+  const secondary = [satPart, holPart].filter(Boolean).join(' · ') || undefined
+
   return {
     primary: `평일 ${hours.weekday.start}-${hours.weekday.end}`,
-    secondary: `토 ${hours.saturday.start}-${hours.saturday.end} · 공휴일 ${hours.holiday.start}-${hours.holiday.end}`,
+    secondary,
     isUnknown: false,
   }
 }
