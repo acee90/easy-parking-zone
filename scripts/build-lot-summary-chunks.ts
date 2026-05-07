@@ -50,6 +50,10 @@ const MIN_WEB_SUMMARIES = parseInt(
   args.find((a) => a.startsWith('--min-web='))?.split('=')[1] ?? '5',
   10,
 )
+const MAX_WEB_SUMMARIES = parseInt(
+  args.find((a) => a.startsWith('--max-web='))?.split('=')[1] ?? '999',
+  10,
+)
 
 interface LotInput {
   id: string
@@ -84,7 +88,10 @@ function buildChunkPrompt(lots: LotInput[]): string {
 function main() {
   const lots: LotInput[] = JSON.parse(readFileSync(resolve(inputPath), 'utf-8'))
 
-  const filteredLots = lots.filter((l) => l.web_summaries.length >= MIN_WEB_SUMMARIES)
+  const filteredLots = lots.filter(
+    (l) =>
+      l.web_summaries.length >= MIN_WEB_SUMMARIES && l.web_summaries.length <= MAX_WEB_SUMMARIES,
+  )
   const targetLots = evalMode ? filteredLots.slice(0, chunkSize) : filteredLots
   const totalChunks = Math.ceil(targetLots.length / chunkSize)
 
@@ -92,7 +99,10 @@ function main() {
 
   console.log(`=== lot summary 청크 빌드 ===`)
   console.log(`입력: ${inputPath} (${lots.length}개 lots)`)
-  console.log(`필터: web_summaries >= ${MIN_WEB_SUMMARIES} → ${filteredLots.length}개 lots`)
+  const maxLabel = MAX_WEB_SUMMARIES === 999 ? '' : ` ~ ${MAX_WEB_SUMMARIES}`
+  console.log(
+    `필터: web_summaries >= ${MIN_WEB_SUMMARIES}${maxLabel} → ${filteredLots.length}개 lots`,
+  )
   console.log(`모드: ${evalMode ? 'EVAL (첫 1개 청크)' : `전체 (${totalChunks}개 청크)`}`)
   console.log(`청크 크기: ${chunkSize} lots/청크`)
   console.log(`출력 디렉토리: ${outputDir}`)
