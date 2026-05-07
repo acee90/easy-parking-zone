@@ -40,26 +40,24 @@ export function Carousel({ children }: { children: ReactNode }) {
       </div>
 
       {/* Desktop Arrows */}
-      {canScrollPrev && (
-        <button
-          type="button"
-          onClick={() => emblaApi?.scrollPrev()}
-          className="absolute left-2 top-1/2 -translate-y-1/2 hidden sm:flex size-9 items-center justify-center rounded-full bg-white border shadow-sm text-gray-600 hover:bg-gray-50 z-10 cursor-pointer"
-          aria-label="이전"
-        >
-          <ChevronLeft className="size-5" />
-        </button>
-      )}
-      {canScrollNext && (
-        <button
-          type="button"
-          onClick={() => emblaApi?.scrollNext()}
-          className="absolute right-2 top-1/2 -translate-y-1/2 hidden sm:flex size-9 items-center justify-center rounded-full bg-white border shadow-sm text-gray-600 hover:bg-gray-50 z-10 cursor-pointer"
-          aria-label="다음"
-        >
-          <ChevronRight className="size-5" />
-        </button>
-      )}
+      <button
+        type="button"
+        onClick={() => emblaApi?.scrollPrev()}
+        disabled={!canScrollPrev}
+        className="absolute left-2 top-1/2 -translate-y-1/2 hidden sm:flex size-9 items-center justify-center rounded-full bg-white border shadow-sm z-10 transition-opacity disabled:opacity-30 disabled:cursor-default cursor-pointer text-gray-600 hover:enabled:bg-gray-50"
+        aria-label="이전"
+      >
+        <ChevronLeft className="size-5" />
+      </button>
+      <button
+        type="button"
+        onClick={() => emblaApi?.scrollNext()}
+        disabled={!canScrollNext}
+        className="absolute right-2 top-1/2 -translate-y-1/2 hidden sm:flex size-9 items-center justify-center rounded-full bg-white border shadow-sm z-10 transition-opacity disabled:opacity-30 disabled:cursor-default cursor-pointer text-gray-600 hover:enabled:bg-gray-50"
+        aria-label="다음"
+      >
+        <ChevronRight className="size-5" />
+      </button>
 
       {scrollSnaps.length > 1 && (
         <div className="mt-3 flex items-center justify-center gap-1.5 sm:hidden" aria-hidden="true">
@@ -84,10 +82,10 @@ export function CarouselSlide({
   children: ReactNode
   size?: 'review' | 'media' | 'ranking'
 }) {
-  let sizeClass = 'basis-[85vw] sm:basis-[380px] md:basis-[400px]'
+  let sizeClass = 'basis-[82%] sm:basis-[340px]'
 
   if (size === 'ranking') {
-    sizeClass = 'basis-[75vw] sm:basis-[280px] md:basis-[300px]'
+    sizeClass = 'basis-[72%] sm:basis-[260px]'
   }
 
   return <div className={`flex min-w-0 shrink-0 grow-0 ${sizeClass}`}>{children}</div>
