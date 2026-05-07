@@ -73,7 +73,7 @@ export const Route = createFileRoute('/wiki/$slug')({
     const scoreDesc = lot.difficulty.score ? lot.difficulty.score.toFixed(1) : '정보없음'
     const curationPrefix =
       lot.curationTag === 'hell'
-        ? '헬파킹 인증 주차장. '
+        ? '헬난이도 주차장. '
         : lot.curationTag === 'easy'
           ? '초보 추천 주차장. '
           : ''
