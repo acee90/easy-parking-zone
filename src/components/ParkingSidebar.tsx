@@ -43,9 +43,9 @@ export function ParkingSidebar({
     setVisibleCount(PAGE_SIZE)
   }, [])
 
-  // 거리 기준점: 유저 위치 > 지도 중심
-  const refLat = userLocated && userLat != null ? userLat : mapCenter?.lat
-  const refLng = userLocated && userLng != null ? userLng : mapCenter?.lng
+  // 거리 기준점: 지도 중심 > 유저 위치 (지도를 이동하면 목록도 재정렬)
+  const refLat = mapCenter?.lat ?? (userLocated ? userLat : undefined)
+  const refLng = mapCenter?.lng ?? (userLocated ? userLng : undefined)
 
   // 거리순 정렬 (유저/지도 중심 기준). 거리 정보 없으면 난이도 점수로 폴백.
   const sortedLots = useMemo(() => {

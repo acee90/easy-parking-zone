@@ -36,8 +36,9 @@ export function MobileBottomPanel({
     if (dy < -40) setExpanded(false)
   }, [])
 
-  const refLat = userLocated && userLat != null ? userLat : mapCenter?.lat
-  const refLng = userLocated && userLng != null ? userLng : mapCenter?.lng
+  // 거리 기준점: 지도 중심 > 유저 위치 (지도를 이동하면 목록도 재정렬)
+  const refLat = mapCenter?.lat ?? (userLocated ? userLat : undefined)
+  const refLng = mapCenter?.lng ?? (userLocated ? userLng : undefined)
 
   const sortedLots = useMemo(() => {
     const withDistance = parkingLots.map((lot) => ({
@@ -86,7 +87,7 @@ export function MobileBottomPanel({
             ))}
           </div>
           <span className="text-base font-medium">주차장 {parkingLots.length}개</span>
-          {nearestDistance !== null && userLocated && (
+          {nearestDistance !== null && (
             <span className="text-sm text-muted-foreground">
               · 가장 가까운{' '}
               {nearestDistance < 1
@@ -114,7 +115,7 @@ export function MobileBottomPanel({
                   : 'text-muted-foreground hover:bg-gray-100'
               }`}
             >
-              {userLocated ? '가까운 순' : '지도 중심 순'}
+              거리 순
             </button>
             <button
               type="button"

@@ -17,7 +17,7 @@ export function UserReviewCard({
   onDelete?: () => void
 }) {
   return (
-    <div className="group relative flex h-full flex-col rounded-2xl border bg-white p-5 transition-all hover:shadow-md">
+    <div className="group relative flex h-[228px] flex-col rounded-2xl border bg-white p-5 transition-all hover:shadow-md">
       {!review.isMine && (
         <div className="absolute right-3 top-3 opacity-0 transition-opacity group-hover:opacity-100">
           <ReportButton targetType="review" targetId={review.id} parkingLotId={lotId} />
@@ -70,10 +70,8 @@ export function UserReviewCard({
       </div>
 
       {review.comment && (
-        <div className="flex-1">
-          <p className="text-sm leading-relaxed text-zinc-700 whitespace-pre-line">
-            {review.comment}
-          </p>
+        <div className="min-h-0 flex-1 overflow-hidden">
+          <p className="line-clamp-5 text-sm leading-relaxed text-zinc-700">{review.comment}</p>
         </div>
       )}
 
