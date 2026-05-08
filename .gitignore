@@ -91,3 +91,4 @@ tmp/
 .claude/agent-memory/
 .claude/worktrees/
 .claude/scheduled_tasks.lock
+.claude/projects/
