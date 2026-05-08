@@ -1,22 +1,40 @@
 /**
  * Full-text batch fetcher (Workers Cron용)
  *
- * web_sources에서 full_text_status='pending'인 brave_search/ddg_search 항목을
- * crawl4ai로 본문 추출 후 업데이트.
- *
- * 처리 대상: 매칭 완료(web_sources) + full_text_status='pending' + 비네이버 소스
- * Workers Cron 제한: subrequest 1,000개/invocation (각 URL = 1 crawl4ai 호출)
+ * web_sources에서 full_text_status='pending'인 항목을 crawl4ai로 본문 추출.
+ * 모든 소스(brave_search, ddg_search, naver_blog, naver_cafe)를 crawl4ai 경유:
+ *   - crawl4ai 서버 IP로 요청 → Cloudflare Workers IP 차단 우회
+ *   - naver_blog: m.blog.naver.com 모바일 URL로 변환 (iframe 없는 단순 구조)
+ *   - naver_cafe: m.cafe.naver.com 모바일 URL로 변환
  */
 
 const BATCH_LIMIT = 25
-const FETCH_TIMEOUT = 20_000
+const FETCH_TIMEOUT = 30_000
 const MIN_TEXT_LENGTH = 200
 
 type FullTextStatus = 'ok' | 'blocked' | 'not_found' | 'too_short' | 'error'
 
 interface PendingRow {
   id: number
+  source: string
   source_url: string
+}
+
+function toMobileUrl(url: string, source: string): string {
+  try {
+    const u = new URL(url)
+    if (source === 'naver_blog' && u.hostname === 'blog.naver.com') {
+      u.hostname = 'm.blog.naver.com'
+      return u.toString()
+    }
+    if (source === 'naver_cafe' && u.hostname === 'cafe.naver.com') {
+      u.hostname = 'm.cafe.naver.com'
+      return u.toString()
+    }
+  } catch {
+    // URL 파싱 실패 시 원본 사용
+  }
+  return url
 }
 
 async function fetchViaC4ai(
@@ -62,9 +80,9 @@ export async function runFullTextBatch(
 ): Promise<{ processed: number; ok: number; skipped: number }> {
   const rows = await db
     .prepare(
-      `SELECT id, source_url FROM web_sources
+      `SELECT id, source, source_url FROM web_sources
        WHERE full_text_status = 'pending'
-         AND source IN ('brave_search', 'ddg_search')
+         AND source IN ('brave_search', 'ddg_search', 'naver_blog', 'naver_cafe')
        LIMIT ?1`,
     )
     .bind(BATCH_LIMIT)
@@ -77,7 +95,9 @@ export async function runFullTextBatch(
   let skipped = 0
 
   for (const row of pending) {
-    const { text, status } = await fetchViaC4ai(row.source_url, env.CRAWL4AI_URL)
+    const targetUrl = toMobileUrl(row.source_url, row.source)
+    const { text, status } = await fetchViaC4ai(targetUrl, env.CRAWL4AI_URL)
+
     if (status === 'ok') ok++
     else skipped++
 
