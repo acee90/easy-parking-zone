@@ -26,6 +26,9 @@ interface RawRow {
   sentiment_score: number | null
   ai_difficulty_keywords: string | null
   ai_summary: string | null
+  full_text: string | null
+  full_text_status: string | null
+  full_text_fetched_at: string | null
 }
 
 interface LotRow {
@@ -136,7 +139,8 @@ export async function runMatchBatch(
   const rows = await db
     .prepare(
       `SELECT id, source, source_id, source_url, title, content, author, published_at,
-              sentiment_score, ai_difficulty_keywords, ai_summary
+              sentiment_score, ai_difficulty_keywords, ai_summary,
+              full_text, full_text_status, full_text_fetched_at
        FROM web_sources_raw
        WHERE filter_passed = 1 AND matched_at IS NULL
        ORDER BY id
@@ -237,8 +241,9 @@ function buildInsert(db: D1Database, raw: RawRow, lot: LotRow, score: number): D
       `INSERT OR IGNORE INTO web_sources
        (parking_lot_id, source, source_id, title, content, source_url,
         author, published_at, relevance_score, raw_source_id,
-        sentiment_score, ai_difficulty_keywords, ai_summary)
-       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)`,
+        sentiment_score, ai_difficulty_keywords, ai_summary,
+        full_text, full_text_length, full_text_status, full_text_fetched_at)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)`,
     )
     .bind(
       lot.lot_id,
@@ -254,5 +259,9 @@ function buildInsert(db: D1Database, raw: RawRow, lot: LotRow, score: number): D
       raw.sentiment_score,
       raw.ai_difficulty_keywords,
       raw.ai_summary,
+      raw.full_text,
+      raw.full_text ? raw.full_text.length : 0,
+      raw.full_text_status ?? 'pending',
+      raw.full_text_fetched_at,
     )
 }

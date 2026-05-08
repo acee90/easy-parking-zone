@@ -1,7 +1,11 @@
 ---
-description: 로컬 DB에서 미분류된 주차 데이터를 추출하여 AI 분석 후 리모트 DB에 일괄 업데이트하는 워크플로우
+description: "[DEPRECATED #149] /run-pipeline filter 로 대체됨"
 model: claude-haiku-4-5-20251001
 ---
+
+> **Deprecated**: #149 fulltext-first 파이프라인으로 교체됨.
+> AI 필터는 이제 `runAiFilterBatch` (Cron) 또는 `/run-pipeline filter` 로 실행.
+> 이 커맨드는 스니펫 기반 구파이프라인 문서이므로 사용하지 말 것.
 
 # Batch AI Filtering
 

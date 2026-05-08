@@ -1,34 +1,37 @@
 /**
  * AI 필터링 배치 처리 (Workers Cron용)
  *
- * 미분류 web_sources_raw를 Haiku로 10건씩 배치 분류.
- * CONCURRENCY개 배치를 병렬로 처리하여 처리량 향상.
- * filter_passed / sentiment_score / ai_difficulty_keywords 등 업데이트.
+ * #149: fulltext-first 파이프라인 적용.
+ * 1. full_text_status='ok'인 미분류 raw만 처리
+ * 2. rule filter로 high/low를 AI 없이 즉시 판정
+ * 3. medium만 Haiku 호출 (fulltext 입력)
  */
 import { type AiFilterInput, classifyBatch } from './lib/ai-filter'
+import { classifyByRule, type RuleFilterInput } from './lib/rule-filter'
 
-/** 1회 cron에서 처리할 최대 건수 (Free plan 30초 wall time 제한) */
 const MAX_PER_RUN = 100
 const BATCH_SIZE = 10
-/** 동시 API 호출 수 — 10건 배치 × 5 병렬 = 50건/라운드 */
 const CONCURRENCY = 5
 
 interface UnfilteredRow {
   id: number
   title: string
   content: string
+  full_text: string | null
+  full_text_status: string | null
 }
 
 export async function runAiFilterBatch(
   db: D1Database,
   env: { ANTHROPIC_API_KEY: string },
 ): Promise<{ filtered: number; passed: number; removed: number }> {
-  // 미분류 raw 소스 조회
+  // fulltext 준비된 미분류 raw만 조회
   const rows = await db
     .prepare(
-      `SELECT id, title, content
+      `SELECT id, title, content, full_text, full_text_status
        FROM web_sources_raw
        WHERE ai_filtered_at IS NULL
+         AND full_text_status = 'ok'
        ORDER BY id ASC
        LIMIT ?1`,
     )
@@ -42,13 +45,64 @@ export async function runAiFilterBatch(
   let passed = 0
   let removed = 0
 
-  // BATCH_SIZE 단위로 청크 분할
-  const chunks: UnfilteredRow[][] = []
-  for (let i = 0; i < sources.length; i += BATCH_SIZE) {
-    chunks.push(sources.slice(i, i + BATCH_SIZE))
+  // rule filter 선적용: high/low는 AI 없이 즉시 처리
+  const ruleBatch: D1PreparedStatement[] = []
+  const mediumSources: UnfilteredRow[] = []
+
+  for (const source of sources) {
+    const ruleInput: RuleFilterInput = {
+      fullText: source.full_text,
+      fullTextStatus: source.full_text_status,
+      title: source.title,
+    }
+    const tier = classifyByRule(ruleInput)
+
+    if (tier === 'high') {
+      ruleBatch.push(
+        db
+          .prepare(
+            `UPDATE web_sources_raw SET
+              filter_passed = 1,
+              filter_tier = 'high',
+              ai_filtered_at = datetime('now')
+            WHERE id = ?1`,
+          )
+          .bind(source.id),
+      )
+      filtered++
+      passed++
+    } else if (tier === 'low') {
+      ruleBatch.push(
+        db
+          .prepare(
+            `UPDATE web_sources_raw SET
+              filter_passed = 0,
+              filter_removed_by = 'rule_low',
+              filter_tier = 'low',
+              ai_filtered_at = datetime('now')
+            WHERE id = ?1`,
+          )
+          .bind(source.id),
+      )
+      filtered++
+      removed++
+    } else {
+      mediumSources.push(source)
+    }
   }
 
-  // CONCURRENCY개씩 병렬 처리
+  if (ruleBatch.length > 0) {
+    await db.batch(ruleBatch)
+  }
+
+  if (mediumSources.length === 0) return { filtered, passed, removed }
+
+  // medium: Haiku 배치 처리 (fulltext 입력)
+  const chunks: UnfilteredRow[][] = []
+  for (let i = 0; i < mediumSources.length; i += BATCH_SIZE) {
+    chunks.push(mediumSources.slice(i, i + BATCH_SIZE))
+  }
+
   for (let i = 0; i < chunks.length; i += CONCURRENCY) {
     const batch = chunks.slice(i, i + CONCURRENCY)
 
@@ -57,7 +111,7 @@ export async function runAiFilterBatch(
         const inputs: AiFilterInput[] = chunk.map((s) => ({
           parkingName: '',
           title: s.title,
-          description: s.content,
+          description: (s.full_text ?? s.content).slice(0, 2000),
         }))
 
         const aiResults = await classifyBatch(inputs, env.ANTHROPIC_API_KEY)
@@ -85,6 +139,7 @@ export async function runAiFilterBatch(
               `UPDATE web_sources_raw SET
                 filter_passed = ?1,
                 filter_removed_by = ?2,
+                filter_tier = 'medium',
                 sentiment_score = ?3,
                 ai_difficulty_keywords = ?4,
                 ai_summary = ?5,

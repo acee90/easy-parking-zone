@@ -1,15 +1,16 @@
 /**
  * Cloudflare Workers Scheduled (Cron) 핸들러
  *
- * 매시간 실행. 파이프라인:
- *   1. 크롤링 → web_sources_raw (URL 단위)
- *   2. AI 필터 → filter_passed 업데이트
- *   3. 주차장 매칭 → filter_passed=1 → web_sources (parking_lot_id 연결)
- *   4. 스코어링 재계산
+ * 매시간 실행. 파이프라인 (#149 fulltext-first):
+ *   1. 크롤링 → web_sources_raw (URL 단위, full_text_status='pending')
+ *   2. raw fulltext batch → web_sources_raw.full_text 채움
+ *   3. AI 필터 → rule(high/low 즉시) + Haiku(medium만), fulltext 입력
+ *   4. 주차장 매칭 → filter_passed=1 → web_sources (full_text 복사)
+ *   5. 스코어링 재계산
  *
  * DDG cron (매시 30분):
  *   1. DDG 크롤링
- *   2. fulltext 추출 (brave_search/ddg_search 한정, crawl4ai 경유)
+ *   2. raw fulltext batch (DDG raw rows)
  */
 
 import { runAiFilterBatch } from './crawlers/ai-filter-batch'
@@ -19,6 +20,7 @@ import { runFullTextBatch } from './crawlers/fulltext-batch'
 import { recomputeStats } from './crawlers/lib/scoring-engine'
 import { runMatchBatch } from './crawlers/match-to-lots'
 import { runNaverBlogsBatch } from './crawlers/naver-blogs'
+import { runRawFullTextBatch } from './crawlers/raw-fulltext-batch'
 import { runYoutubeBatch } from './crawlers/youtube'
 
 interface Env {
@@ -78,7 +80,20 @@ export async function handleScheduled(env: Env): Promise<void> {
 
   // DDG는 별도 cron (매시 30분) — subrequest 한도 분리
 
-  // ── 2. AI 필터 (미분류 raw → Haiku 분류) ──
+  // ── 2. raw fulltext batch (pending raw rows → crawl4ai) ──
+
+  if (env.CRAWL4AI_URL) {
+    try {
+      const r = await runRawFullTextBatch(env.DB, { CRAWL4AI_URL: env.CRAWL4AI_URL })
+      if (r.processed > 0) {
+        results.push(`raw-fulltext: ${r.processed} processed, ${r.ok} ok, ${r.skipped} skipped`)
+      }
+    } catch (err) {
+      results.push(`raw-fulltext: error - ${(err as Error).message}`)
+    }
+  }
+
+  // ── 3. AI 필터 (full_text_status='ok' & 미분류 → rule + Haiku medium) ──
 
   if (env.ANTHROPIC_API_KEY) {
     try {
@@ -93,7 +108,7 @@ export async function handleScheduled(env: Env): Promise<void> {
     }
   }
 
-  // ── 3. 주차장 매칭 (filter_passed=1 & 미매칭 → web_sources) ──
+  // ── 4. 주차장 매칭 (filter_passed=1 & 미매칭 → web_sources, full_text 복사) ──
 
   try {
     const r = await runMatchBatch(env.DB, { ANTHROPIC_API_KEY: env.ANTHROPIC_API_KEY })
@@ -106,7 +121,7 @@ export async function handleScheduled(env: Env): Promise<void> {
     results.push(`match: error - ${(err as Error).message}`)
   }
 
-  // ── 4. 스코어링 재계산 (crawl_progress 기반 — last_run_at 이후 매칭 건) ──
+  // ── 5. 스코어링 재계산 (crawl_progress 기반 — last_run_at 이후 매칭 건) ──
   const scoringProgress = await env.DB.prepare(
     "SELECT last_run_at FROM crawl_progress WHERE crawler_id = 'scoring'",
   ).first<{ last_run_at: string | null }>()
@@ -164,12 +179,12 @@ export async function handleDdgScheduled(env: Env): Promise<void> {
     }
 
     try {
-      const r = await runFullTextBatch(env.DB, { CRAWL4AI_URL: env.CRAWL4AI_URL })
+      const r = await runRawFullTextBatch(env.DB, { CRAWL4AI_URL: env.CRAWL4AI_URL })
       if (r.processed > 0) {
-        results.push(`fulltext: ${r.processed} processed, ${r.ok} ok, ${r.skipped} skipped`)
+        results.push(`raw-fulltext: ${r.processed} processed, ${r.ok} ok, ${r.skipped} skipped`)
       }
     } catch (err) {
-      results.push(`fulltext: error - ${(err as Error).message}`)
+      results.push(`raw-fulltext: error - ${(err as Error).message}`)
     }
   }
 
