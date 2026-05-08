@@ -82,10 +82,10 @@ export function CarouselSlide({
   children: ReactNode
   size?: 'review' | 'media' | 'ranking'
 }) {
-  let sizeClass = 'basis-[82%] sm:basis-[340px]'
+  let sizeClass = 'basis-[80%] sm:basis-[300px]'
 
   if (size === 'ranking') {
-    sizeClass = 'basis-[72%] sm:basis-[260px]'
+    sizeClass = 'basis-[70%] sm:basis-[240px]'
   }
 
   return <div className={`flex min-w-0 shrink-0 grow-0 ${sizeClass}`}>{children}</div>
