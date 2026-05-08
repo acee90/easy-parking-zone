@@ -222,18 +222,22 @@ export const webSources = sqliteTable('web_sources', {
 // 미디어 (YouTube 등)
 // ============================================================
 
-export const parkingMedia = sqliteTable('parking_media', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  parkingLotId: text('parking_lot_id')
-    .notNull()
-    .references(() => parkingLots.id),
-  mediaType: text('media_type').notNull(),
-  url: text('url').notNull(),
-  title: text('title'),
-  thumbnailUrl: text('thumbnail_url'),
-  description: text('description'),
-  createdAt: text('created_at').notNull().default(now),
-})
+export const parkingMedia = sqliteTable(
+  'parking_media',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    parkingLotId: text('parking_lot_id')
+      .notNull()
+      .references(() => parkingLots.id),
+    mediaType: text('media_type').notNull(),
+    url: text('url').notNull(),
+    title: text('title'),
+    thumbnailUrl: text('thumbnail_url'),
+    description: text('description'),
+    createdAt: text('created_at').notNull().default(now),
+  },
+  (t) => [uniqueIndex('uq_parking_media_lot_url').on(t.parkingLotId, t.url)],
+)
 
 // ============================================================
 // 투표 / 북마크
