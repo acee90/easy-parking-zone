@@ -6,28 +6,21 @@ import type { ClusterFeature, MapFeature } from '@/hooks/useSuperCluster'
 import { DEFAULT_CENTER, DEFAULT_ZOOM } from '@/lib/geo-utils'
 import type { MapBounds, ParkingLot } from '@/types/parking'
 
-/** 사이드바/상세패널 너비를 고려하여 panTo 좌표를 보정 */
+/** 모바일 하단 시트(320px)를 고려하여 panTo 좌표를 보정 */
 function getPanToAdjusted(
   map: naver.maps.Map,
   navermaps: typeof naver.maps,
   coord: { lat: number; lng: number },
   hasDetailPanel: boolean,
 ): naver.maps.LatLng {
-  const proj = map.getProjection()
   const latLng = new navermaps.LatLng(coord.lat, coord.lng)
-  const pixel = proj.fromCoordToOffset(latLng)
-
   const isMobile = window.innerWidth < 768
-  if (isMobile) {
-    // 모바일: 하단 시트(320px)가 마커를 가리므로 위쪽으로 보정
-    const bottomSheetOffset = hasDetailPanel ? 320 / 2 : 0
-    return proj.fromOffsetToCoord(new navermaps.Point(pixel.x, pixel.y + bottomSheetOffset))
-  }
+  if (!isMobile || !hasDetailPanel) return latLng
 
-  // 데스크톱: 사이드바 280px 항상 + 상세패널 360px은 열려있을 때만
-  const panelWidth = hasDetailPanel ? 280 + 360 : 280
-  const panelOffset = panelWidth / 2
-  return proj.fromOffsetToCoord(new navermaps.Point(pixel.x - panelOffset, pixel.y))
+  // 모바일: 하단 시트(320px)가 마커를 가리므로 위쪽으로 보정
+  const proj = map.getProjection()
+  const pixel = proj.fromCoordToOffset(latLng)
+  return proj.fromOffsetToCoord(new navermaps.Point(pixel.x, pixel.y + 160))
 }
 
 interface MapViewProps {
