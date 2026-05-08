@@ -6,11 +6,16 @@
  *   2. AI 필터 → filter_passed 업데이트
  *   3. 주차장 매칭 → filter_passed=1 → web_sources (parking_lot_id 연결)
  *   4. 스코어링 재계산
+ *
+ * DDG cron (매시 30분):
+ *   1. DDG 크롤링
+ *   2. fulltext 추출 (brave_search/ddg_search 한정, crawl4ai 경유)
  */
 
 import { runAiFilterBatch } from './crawlers/ai-filter-batch'
 import { runBraveSearchBatch } from './crawlers/brave-search'
 import { runDuckDuckGoBatch } from './crawlers/duckduckgo-search'
+import { runFullTextBatch } from './crawlers/fulltext-batch'
 import { recomputeStats } from './crawlers/lib/scoring-engine'
 import { runMatchBatch } from './crawlers/match-to-lots'
 import { runNaverBlogsBatch } from './crawlers/naver-blogs'
@@ -156,6 +161,15 @@ export async function handleDdgScheduled(env: Env): Promise<void> {
       results.push(`ddg: ${r.queriesUsed} queries, ${r.saved} saved`)
     } catch (err) {
       results.push(`ddg: error - ${(err as Error).message}`)
+    }
+
+    try {
+      const r = await runFullTextBatch(env.DB, { CRAWL4AI_URL: env.CRAWL4AI_URL })
+      if (r.processed > 0) {
+        results.push(`fulltext: ${r.processed} processed, ${r.ok} ok, ${r.skipped} skipped`)
+      }
+    } catch (err) {
+      results.push(`fulltext: error - ${(err as Error).message}`)
     }
   }
 
