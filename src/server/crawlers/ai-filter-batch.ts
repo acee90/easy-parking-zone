@@ -20,7 +20,7 @@ interface UnfilteredRow {
 
 export async function runAiFilterBatch(
   db: D1Database,
-  env?: { ANTHROPIC_API_KEY?: string },
+  _env?: { ANTHROPIC_API_KEY?: string },
 ): Promise<{ filtered: number; passed: number; removed: number }> {
   const rows = await db
     .prepare(

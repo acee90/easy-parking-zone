@@ -16,7 +16,6 @@
 import { runAiFilterBatch } from './crawlers/ai-filter-batch'
 import { runBraveSearchBatch } from './crawlers/brave-search'
 import { runDuckDuckGoBatch } from './crawlers/duckduckgo-search'
-import { runFullTextBatch } from './crawlers/fulltext-batch'
 import { recomputeStats } from './crawlers/lib/scoring-engine'
 import { runMatchBatch } from './crawlers/match-to-lots'
 import { runNaverBlogsBatch } from './crawlers/naver-blogs'
