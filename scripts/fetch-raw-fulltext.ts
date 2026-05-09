@@ -11,6 +11,7 @@
  *   for f in /tmp/raw-ft-out/*.sql; do bunx wrangler d1 execute parking-db --remote --file="$f"; done
  */
 
+import { Database } from 'bun:sqlite'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
@@ -18,7 +19,9 @@ import {
   fetchFullText,
   type SourceType,
 } from '../src/server/crawlers/lib/full-text-fetcher'
-import { d1Query, isRemote } from './lib/d1'
+import { d1Query, isRemote, localDbPath } from './lib/d1'
+
+const localDb = localDbPath ? new Database(localDbPath) : null
 
 const args = process.argv.slice(2)
 const LIMIT = parseInt(args.find((a) => a.startsWith('--limit='))?.split('=')[1] ?? '100', 10)
@@ -32,8 +35,8 @@ const OUTPUT_DIR =
 const ROWS_PER_FILE = 500
 const MAX_FULLTEXT_BYTES = 50_000
 
-if (!isRemote) {
-  console.error('⚠️  web_sources_raw는 remote D1 전용. --remote 플래그를 추가하세요.')
+if (!isRemote && !localDbPath) {
+  console.error('⚠️  --remote 또는 --db PATH 플래그가 필요합니다.')
   process.exit(1)
 }
 
@@ -72,9 +75,11 @@ async function main(): Promise<void> {
 
   const flushBuf = (): void => {
     if (buf.length === 0) return
+    const sql = buf.join('\n')
     const path = join(OUTPUT_DIR, `raw-ft-${String(chunkIdx++).padStart(4, '0')}.sql`)
-    writeFileSync(path, buf.join('\n'), 'utf-8')
-    console.log(`  → ${path} (${buf.length}건)`)
+    writeFileSync(path, sql, 'utf-8')
+    if (localDb) localDb.exec(sql)
+    console.log(`  → ${path} (${buf.length}건)${localDb ? ' [local DB 적용됨]' : ''}`)
     buf.length = 0
   }
 

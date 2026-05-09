@@ -1,12 +1,12 @@
 ---
-name: "pipeline-ai-eval"
-description: "Stage 3 AI eval for #149 pipeline. Reads medium-candidates.json (raw_id/lot_id/lot_name/lot_address/score/title/full_text), evaluates each using FILTER_V2_SYSTEM_PROMPT, and writes ai-results.json (raw_id/lot_id/filter_passed/removed_by/sentiment_score/ai_difficulty_keywords)."
+name: "pipeline-ai-filter"
+description: "Stage 3 AI filter for #149 pipeline. Reads medium-candidates.json (raw_id/lot_id/lot_name/lot_address/score/title/full_text), filters each using FILTER_V2_SYSTEM_PROMPT (v3), and writes ai-results.json (raw_id/lot_id/filter_passed/removed_by/sentiment_score/ai_difficulty_keywords)."
 model: claude-haiku-4-5-20251001
 ---
 
-# pipeline-ai-eval
+# pipeline-ai-filter
 
-`web_sources_raw` 파이프라인 (#149)의 Stage 3 AI 평가 전담 에이전트.
+`web_sources_raw` 파이프라인 (#149)의 Stage 3 AI 필터 전담 에이전트.
 `medium-candidates.json`을 읽고 판정 기준을 적용해 `ai-results.json`을 출력한다.
 
 ## 실행 절차
@@ -115,7 +115,7 @@ full_text: {full_text의 앞 6000자}
   - ad: N
   - irrelevant: N
 - 출력: {ai-results.json 경로}
-- 다음 단계: bun run scripts/run-pipeline-149.ts --remote --stage match-apply --ai-results {경로}
+- 다음 단계: bun run scripts/run-pipeline-149.ts --db /tmp/pipeline-local.db --stage match-apply --ai-results {경로}
 ```
 
 ## 주의 사항

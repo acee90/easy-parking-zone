@@ -112,6 +112,13 @@ export function classifyByRule(input: RuleFilterInput): FilterTier {
   const narrativeMatches = (text.match(NARRATIVE_RE) ?? []).length
   const hasConcreteParking = CONCRETE_PARKING_RE.test(text)
 
+  // 제목에 주차 키워드 없으면 → 주차 경험 콘텐츠 최소 기준 확인
+  // 여행기·맛집·관광지 방문기에서 "주차장 있음" 한 줄 언급 수준은 low로 처리
+  const hasParkingInTitle = /주차/.test(input.title)
+  if (!hasParkingInTitle && (narrativeMatches < 2 || !hasConcreteParking)) {
+    return 'low'
+  }
+
   // high: 충분한 길이 + 1인칭 서술 2회 이상 + 구체적 주차 경험 표현
   if (text.length >= HIGH_FULLTEXT_MIN_LENGTH && narrativeMatches >= 2 && hasConcreteParking) {
     return 'high'

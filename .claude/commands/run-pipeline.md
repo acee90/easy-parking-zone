@@ -1,19 +1,19 @@
 ---
-description: "#149 크롤링 파이프라인 실행 — rule filter → match-dump → AI eval (subagent) → match-apply → SQL apply"
+description: "#149 크롤링 파이프라인 실행 — rule filter → match-dump → AI filter (subagent) → match-apply → SQL apply"
 ---
 
 # run-pipeline
 
 `scripts/run-pipeline-149.ts`로 파이프라인을 4단계로 실행한다.
-AI 평가는 ANTHROPIC_API_KEY 없이 **Claude subagent (haiku)** 가 처리한다.
+AI 필터는 ANTHROPIC_API_KEY 없이 **Claude subagent (haiku)** 가 처리한다.
 
 ## 파이프라인 설계 (#149)
 
 ```
 Stage 1: filter      — rule-only 3tier (high/medium/low) → filter-chunk-NN.sql
-Stage 2: match-dump  — FTS 매칭 → high-high: match-direct-chunk-NN.sql
-                                  medium:     medium-candidates.json
-Stage 3: AI eval     — haiku subagent → medium-candidates.json → ai-results.json
+Stage 2: match-dump  — 제목 "X 주차장" 패턴 FTS 매칭 → high-high: match-direct-chunk-NN.sql
+                                                       medium:     medium-candidates.json
+Stage 3: AI filter   — haiku subagent (FILTER_V2_SYSTEM_PROMPT v3) → ai-results.json
 Stage 4: match-apply — AI 결과 반영 → match-ai-chunk-NN.sql
 Stage 5: apply       — wrangler d1 execute --file
 ```
@@ -59,17 +59,17 @@ bun run scripts/run-pipeline-149.ts --remote --stage match-dump --limit 500 --ou
 - `match-direct-chunk-01.sql` — high-high 직접 INSERT
 - `medium-candidates.json` — AI 평가 대기 후보
 
-### Stage 3 — AI 평가 (`pipeline-ai-eval` subagent)
+### Stage 3 — AI 필터 (`pipeline-ai-filter` subagent)
 
-**`pipeline-ai-eval` 에이전트를 spawn한다 (haiku 모델, API 키 불필요).**
+**`pipeline-ai-filter` 에이전트를 spawn한다 (haiku 모델, API 키 불필요).**
 
 에이전트에 `medium-candidates.json` 경로를 전달하면:
-1. `src/server/crawlers/lib/ai-filter-v2-prompt.ts`의 `FILTER_V2_SYSTEM_PROMPT` (v3) 기준으로 배치 평가
+1. `src/server/crawlers/lib/ai-filter-v2-prompt.ts`의 `FILTER_V2_SYSTEM_PROMPT` (v3) 기준으로 배치 필터링
 2. 같은 디렉토리에 `ai-results.json` 출력
 
 spawn 예시:
 ```
-Agent(pipeline-ai-eval): {DIR}/medium-candidates.json 파일을 평가하고 ai-results.json을 생성해줘.
+Agent(pipeline-ai-filter): {DIR}/medium-candidates.json 파일을 필터링하고 ai-results.json을 생성해줘.
 ```
 
 `ai-results.json` 출력 형식:

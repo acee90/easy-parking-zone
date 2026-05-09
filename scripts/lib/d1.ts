@@ -18,6 +18,11 @@ const DB_NAME = 'parking-db'
 
 export const isRemote = process.argv.includes('--remote')
 
+// --db PATH: 로컬 SQLite 파일 직접 지정 (remote 대신 사용)
+const _dbArgIdx = process.argv.indexOf('--db')
+export const localDbPath: string | null =
+  _dbArgIdx >= 0 ? (process.argv[_dbArgIdx + 1] ?? null) : null
+
 const target = isRemote ? '--remote' : '--local'
 
 // 로컬 SQLite DB 인스턴스 (lazy init)
@@ -25,6 +30,13 @@ let _localDb: InstanceType<typeof Database> | null = null
 
 function getLocalDb(): InstanceType<typeof Database> {
   if (_localDb) return _localDb
+
+  // --db PATH 플래그로 직접 지정된 파일 사용
+  if (localDbPath) {
+    _localDb = new Database(localDbPath)
+    return _localDb
+  }
+
   const stateDir = resolve(import.meta.dir, '../../.wrangler/state/v3/d1')
   const subDirs = readdirSync(stateDir)
 
@@ -43,7 +55,7 @@ function getLocalDb(): InstanceType<typeof Database> {
   }
 
   throw new Error(
-    '로컬 D1 SQLite 파일을 찾을 수 없습니다. wrangler dev를 먼저 실행하거나 .wrangler 폴더를 확인하세요.',
+    '로컬 D1 SQLite 파일을 찾을 수 없습니다. --db PATH 또는 wrangler dev를 먼저 실행하세요.',
   )
 }
 

@@ -24,8 +24,12 @@
 import { execSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { classifyByRule, type RuleFilterInput } from '../src/server/crawlers/lib/rule-filter'
-import { getMatchConfidence, stripHtml } from '../src/server/crawlers/lib/scoring'
-import { d1Query, isRemote } from './lib/d1'
+import {
+  extractNameKeywords,
+  getMatchConfidence,
+  stripHtml,
+} from '../src/server/crawlers/lib/scoring'
+import { d1Query, isRemote, localDbPath } from './lib/d1'
 import { esc, sqlVal } from './lib/sql-flush'
 
 // ── 인자 파싱 ─────────────────────────────────────────────────────
@@ -42,8 +46,8 @@ const LIMIT = parseInt(argVal('--limit') ?? '300', 10)
 const AI_RESULTS_FILE = argVal('--ai-results')
 const APPLY = argVal('--apply') // 'local' | 'remote' | 'both'
 
-if (!isRemote) {
-  console.error('⚠️  web_sources_raw는 remote D1 전용입니다. --remote 플래그를 추가하세요.')
+if (!isRemote && !localDbPath) {
+  console.error('⚠️  --remote 또는 --db PATH 플래그가 필요합니다.')
   process.exit(1)
 }
 
@@ -59,7 +63,7 @@ if (STAGE === 'match-apply' && !AI_RESULTS_FILE) {
 
 // ── 상수 ──────────────────────────────────────────────────────────
 
-const FTS_LIMIT = 20
+const FTS_LIMIT = 5
 const SQL_CHUNK_SIZE = 300
 const DB_NAME = 'parking-db'
 
@@ -75,7 +79,7 @@ function emitSqlChunk(prefix: string, statements: string[]): void {
   if (statements.length === 0) return
   const name = `${prefix}-chunk-${String(++chunkIdx).padStart(2, '0')}.sql`
   const path = `${tmpDir}/${name}`
-  const sql = isRemote ? statements.join('\n') : 'BEGIN;\n' + statements.join('\n') + '\nCOMMIT;'
+  const sql = statements.join('\n')
   writeFileSync(path, sql, 'utf-8')
   emittedFiles.push(path)
   console.log(`  → ${name} (${statements.length} rows)`)
@@ -125,6 +129,14 @@ export interface AiResult {
   ai_difficulty_keywords: string[]
 }
 
+// ── full_text 기반 lot_name 존재 여부 체크 ─────────────────────────
+
+function lotNameInFullText(lotName: string, fullText: string): boolean {
+  const keywords = extractNameKeywords(lotName)
+  const text = fullText.toLowerCase()
+  return keywords.some((kw) => kw.length >= 3 && text.includes(kw))
+}
+
 // ── 키워드 + FTS ───────────────────────────────────────────────────
 
 const STOP_WORDS = new Set([
@@ -135,6 +147,7 @@ const STOP_WORDS = new Set([
   '공유',
   '추천',
   '이용',
+  '이용후기',
   '요금',
   '무료',
   '저렴',
@@ -157,17 +170,49 @@ const STOP_WORDS = new Set([
   '유튜브',
   '플레이스',
   '리뷰',
+  // 장소 유형 제네릭 명사 — 단독 키워드로는 너무 범용적
+  '축구장',
+  '야구장',
+  '수영장',
+  '운동장',
+  '경기장',
+  '공연장',
+  '박물관',
+  '미술관',
+  '도서관',
+  '터미널',
+  '입장',
+  '관람',
+  '가볼만한곳',
 ])
 
-function extractSearchKeywords(title: string, content: string): string[] {
-  const text = `${title} ${content}`.slice(0, 500)
-  const words = text
+function extractSearchKeywords(title: string, _content: string): string[] {
+  // 제목에 "주차장"이 없으면 → 주차 관련 콘텐츠가 아닐 가능성 높음
+  const parkingIdx = title.indexOf('주차장')
+  if (parkingIdx < 0) return []
+
+  // 주차장 앞 전체 텍스트에서 단어 추출 → 뒤쪽(주차장에 가까운) 단어가 더 특정적
+  const beforeParking = title.slice(0, parkingIdx).trim()
+  const words = beforeParking
     .replace(/[^\p{L}\p{N}\s]/gu, ' ')
     .split(/\s+/)
-    .filter((w) => w.length >= 2 && w.length <= 15)
-    .filter((w) => !STOP_WORDS.has(w))
-    .filter((w) => !/^\d+$/.test(w))
-  return [...new Set(words)].slice(0, 5)
+    .filter((w) => w.length >= 2 && !STOP_WORDS.has(w) && !/^\d+$/.test(w))
+  const unique = [...new Set(words)]
+
+  // 마지막 3개 (주차장 바로 앞 = 가장 특정적인 명칭)
+  const candidates = unique.slice(-3)
+
+  // 3자 미만 단어만 남으면 너무 generic → 후보 생성 안함 (예: "CGV" 3자는 허용)
+  if (candidates.length === 0 || !candidates.some((w) => w.length >= 3)) return []
+
+  return candidates
+}
+
+// 추출한 키워드가 lot name에 포함돼야 지리적으로 연관있는 후보
+function isCandidateLocationCompatible(keywords: string[], lot: LotRow): boolean {
+  if (keywords.length === 0) return false
+  const lotName = lot.name.toLowerCase()
+  return keywords.some((kw) => kw.length >= 3 && lotName.includes(kw.toLowerCase()))
 }
 
 function searchCandidateLots(keywords: string[]): LotRow[] {
@@ -175,7 +220,8 @@ function searchCandidateLots(keywords: string[]): LotRow[] {
   const seen = new Set<string>()
   const results: LotRow[] = []
 
-  const ftsQuery = keywords.map((kw) => `"${kw}" OR ${kw}*`).join(' OR ')
+  // 정확 phrase 매칭만 사용 — wildcard(kw*) 제거로 "갤러리" → "갤러리아" 오매칭 방지
+  const ftsQuery = keywords.map((kw) => `"${kw}"`).join(' OR ')
   try {
     const rows = d1Query<LotRow>(
       `SELECT lot_id, name, address FROM parking_lots_fts WHERE parking_lots_fts MATCH '${esc(ftsQuery)}' LIMIT ${FTS_LIMIT}`,
@@ -187,24 +233,9 @@ function searchCandidateLots(keywords: string[]): LotRow[] {
       }
     }
   } catch {
-    /* FTS 실패 시 LIKE 폴백 */
+    /* FTS 오류 시 빈 결과 반환 */
   }
 
-  if (results.length < 3) {
-    for (const kw of keywords.slice(0, 3)) {
-      if (kw.length < 2) continue
-      const rows = d1Query<LotRow>(
-        `SELECT id as lot_id, name, address FROM parking_lots WHERE name LIKE '%${esc(kw)}%' LIMIT ${FTS_LIMIT - results.length}`,
-      )
-      for (const r of rows) {
-        if (!seen.has(r.lot_id)) {
-          seen.add(r.lot_id)
-          results.push(r)
-        }
-      }
-      if (results.length >= FTS_LIMIT) break
-    }
-  }
   return results
 }
 
@@ -326,9 +357,11 @@ async function runMatchDumpStage() {
      ORDER BY id LIMIT ${LIMIT}`,
   )
   console.log(`  대상: ${rows.length}건`)
-  if (rows.length === 0) return { processed: 0, directLinks: 0, mediumCandidates: 0 }
+  if (rows.length === 0)
+    return { processed: 0, directLinks: 0, wrongLotSkipped: 0, mediumCandidates: 0 }
 
   let directLinks = 0
+  let wrongLotSkipped = 0
   const directInserts: string[] = []
   const directUpdates: string[] = []
   const mediumCandidates: MediumCandidate[] = []
@@ -338,6 +371,8 @@ async function runMatchDumpStage() {
     const raw = rows[i]
     const title = stripHtml(raw.title)
     const content = stripHtml(raw.content)
+    const fullText = raw.full_text ?? content
+    const isRuleHigh = raw.filter_tier === 'high'
 
     const keywords = extractSearchKeywords(title, content)
     const candidates = searchCandidateLots(keywords)
@@ -346,26 +381,36 @@ async function runMatchDumpStage() {
     const mediumMatches: Array<{ lot: LotRow; score: number }> = []
 
     for (const lot of candidates) {
+      // 키워드가 lot name에 없으면 지역 불일치 → skip (e.g. 관악구 글 → 남해 축구장)
+      if (!isCandidateLocationCompatible(keywords, lot)) {
+        wrongLotSkipped++
+        continue
+      }
+
       const { score, confidence } = getMatchConfidence(title, content, lot.name, lot.address)
+      if (confidence === 'none') continue
+
+      // full_text에 lot_name 키워드 없으면 wrong_lot skip (AI 불필요)
+      if (!lotNameInFullText(lot.name, fullText)) {
+        wrongLotSkipped++
+        continue
+      }
+
       if (confidence === 'high') highMatches.push({ lot, score })
-      else if (confidence === 'medium') mediumMatches.push({ lot, score })
+      else mediumMatches.push({ lot, score })
     }
 
-    const isRuleHigh = raw.filter_tier === 'high'
-    let hasDirectInsert = false
-
-    // rule=high & match=high → 직접 INSERT (AI 불필요)
+    // rule=high & match=high → 직접 INSERT
     for (const { lot, score } of highMatches) {
       if (isRuleHigh) {
         directInserts.push(buildInsertSql(raw, lot, score, null))
         directLinks++
-        hasDirectInsert = true
       } else {
         mediumMatches.push({ lot, score })
       }
     }
 
-    // medium 후보 → AI 평가용 JSON 저장
+    // medium → AI 평가용
     for (const { lot, score } of mediumMatches) {
       mediumCandidates.push({
         raw_id: raw.id,
@@ -374,13 +419,12 @@ async function runMatchDumpStage() {
         lot_address: lot.address,
         score,
         title,
-        full_text: (raw.full_text ?? content).slice(0, 6000),
+        full_text: fullText.slice(0, 6000),
       })
     }
 
-    // matched_at: medium 후보 없는 경우만 즉시 처리
     const attempted = candidates.length > 0 || keywords.length > 0
-    if (attempted && mediumMatches.length === 0) {
+    if (attempted && mediumMatches.length === 0 && highMatches.length === 0) {
       directUpdates.push(
         `UPDATE web_sources_raw SET matched_at = datetime('now') WHERE id = ${raw.id};`,
       )
@@ -389,7 +433,7 @@ async function runMatchDumpStage() {
 
     if ((i + 1) % 50 === 0 || i === rows.length - 1) {
       process.stdout.write(
-        `\r  진행: ${i + 1}/${rows.length}  직접링크: ${directLinks}  medium: ${mediumCandidates.length}  `,
+        `\r  진행: ${i + 1}/${rows.length}  직접: ${directLinks}  medium: ${mediumCandidates.length}  skip: ${wrongLotSkipped}  `,
       )
     }
 
@@ -403,7 +447,6 @@ async function runMatchDumpStage() {
   }
   console.log()
 
-  // medium 후보 JSON emit
   const candidatesFile = `${tmpDir}/medium-candidates.json`
   writeFileSync(
     candidatesFile,
@@ -419,6 +462,7 @@ async function runMatchDumpStage() {
   return {
     processed: rows.length,
     directLinks,
+    wrongLotSkipped,
     mediumCandidates: mediumCandidates.length,
     candidatesFile,
   }
@@ -557,14 +601,21 @@ async function main() {
   }
 
   if (dumpStats?.processed) {
-    const { processed: p, directLinks, mediumCandidates, candidatesFile } = dumpStats
+    const {
+      processed: p,
+      directLinks,
+      wrongLotSkipped,
+      mediumCandidates,
+      candidatesFile,
+    } = dumpStats
     console.log(`\n[Match Dump]  ${p}건`)
-    console.log(`  직접 링크   ${directLinks}건`)
-    console.log(`  medium 후보 ${mediumCandidates}건 → ${candidatesFile}`)
+    console.log(`  직접 INSERT   ${directLinks}건  (rule=high & match=high)`)
+    console.log(`  wrong_lot skip ${wrongLotSkipped}건  (lot name not in full_text)`)
+    console.log(`  medium → AI   ${mediumCandidates}건 → ${candidatesFile}`)
     if (mediumCandidates > 0) {
-      console.log(`\n  → 다음 단계: /run-pipeline 커맨드에서 haiku subagent로 AI 평가 후`)
+      console.log(`\n  → 다음: haiku subagent로 AI 평가 후`)
       console.log(
-        `    bun run scripts/run-pipeline-149.ts --remote --stage match-apply --ai-results {FILE} --out ${tmpDir}`,
+        `    bun run scripts/run-pipeline-149.ts --remote --stage match-apply --ai-results ${candidatesFile} --out ${tmpDir}`,
       )
     }
   }
