@@ -2,12 +2,17 @@
  * 주차장 하이브리드 매칭 모듈 (Workers Cron용)
  *
  * filter_passed=1인 web_sources_raw를 FTS5로 후보 검색 후:
- *   - high 신뢰도: 바로 web_sources에 저장 (AI 불필요)
- *   - medium 신뢰도: AI 검증 후 저장 (Haiku 1건씩)
+ *   - rule=high & match=high: AI 없이 바로 저장
+ *   - 그 외 (rule=medium 또는 match=medium): lot_name + full_text로 AI 품질 판정 후 저장
  *   - low/none: 스킵
  */
 
-import { type AiFilterInput, classifyBatch } from './lib/ai-filter'
+import {
+  buildFilterV2UserPrompt,
+  FILTER_V2_SYSTEM_PROMPT,
+  type FilterV2Input,
+  type FilterV2Output,
+} from './lib/ai-filter-v2-prompt'
 import { getMatchConfidence, stripHtml } from './lib/scoring'
 
 const MAX_PER_RUN = 50
@@ -29,6 +34,7 @@ interface RawRow {
   full_text: string | null
   full_text_status: string | null
   full_text_fetched_at: string | null
+  filter_tier: string | null
 }
 
 interface LotRow {
@@ -140,7 +146,7 @@ export async function runMatchBatch(
     .prepare(
       `SELECT id, source, source_id, source_url, title, content, author, published_at,
               sentiment_score, ai_difficulty_keywords, ai_summary,
-              full_text, full_text_status, full_text_fetched_at
+              full_text, full_text_status, full_text_fetched_at, filter_tier
        FROM web_sources_raw
        WHERE filter_passed = 1 AND matched_at IS NULL
        ORDER BY id
@@ -180,28 +186,35 @@ export async function runMatchBatch(
       }
     }
 
-    // 3. high → 바로 저장
+    // 3. rule=high & match=high → AI 없이 바로 저장
+    const isRuleHigh = raw.filter_tier === 'high'
     for (const { lot, score } of highMatches) {
-      insertBatch.push(buildInsert(db, raw, lot, score))
-      lotLinks++
-      thisItemLinked++
+      if (isRuleHigh) {
+        insertBatch.push(buildInsert(db, raw, lot, score, null))
+        lotLinks++
+        thisItemLinked++
+      } else {
+        mediumMatches.push({ lot, score })
+      }
     }
 
-    // 4. medium → AI 검증 (API 키가 있을 때만)
+    // 4. rule=medium 또는 match=medium → lot_name + full_text로 AI 판정
     if (mediumMatches.length > 0 && env?.ANTHROPIC_API_KEY) {
-      const inputs: AiFilterInput[] = mediumMatches.map(({ lot }) => ({
-        parkingName: lot.name,
+      const inputs: FilterV2Input[] = mediumMatches.map(({ lot }) => ({
+        id: raw.id,
+        lot_name: lot.name,
+        lot_address: lot.address,
         title,
-        description: content,
+        full_text: (raw.full_text ?? content).slice(0, 6000),
       }))
 
       try {
-        const results = await classifyBatch(inputs, env.ANTHROPIC_API_KEY)
+        const results = await callPostMatchFilter(inputs, env.ANTHROPIC_API_KEY)
         for (let j = 0; j < mediumMatches.length; j++) {
           const { lot, score } = mediumMatches[j]
           const aiResult = results[j]
-          if (aiResult?.filterPassed) {
-            insertBatch.push(buildInsert(db, raw, lot, score))
+          if (aiResult?.filter_passed) {
+            insertBatch.push(buildInsert(db, raw, lot, score, aiResult))
             lotLinks++
             thisItemLinked++
             aiVerified++
@@ -235,7 +248,18 @@ export async function runMatchBatch(
   return { matched, lotLinks, aiVerified }
 }
 
-function buildInsert(db: D1Database, raw: RawRow, lot: LotRow, score: number): D1PreparedStatement {
+function buildInsert(
+  db: D1Database,
+  raw: RawRow,
+  lot: LotRow,
+  score: number,
+  aiResult: FilterV2Output | null,
+): D1PreparedStatement {
+  const sentimentScore = aiResult?.sentiment_score ?? raw.sentiment_score
+  const difficultyKeywords = aiResult?.ai_difficulty_keywords
+    ? JSON.stringify(aiResult.ai_difficulty_keywords)
+    : raw.ai_difficulty_keywords
+
   return db
     .prepare(
       `INSERT OR IGNORE INTO web_sources
@@ -256,12 +280,82 @@ function buildInsert(db: D1Database, raw: RawRow, lot: LotRow, score: number): D
       raw.published_at,
       score,
       raw.id,
-      raw.sentiment_score,
-      raw.ai_difficulty_keywords,
-      raw.ai_summary,
+      sentimentScore,
+      difficultyKeywords,
+      null, // ai_summary는 post-match ai-summary-generator에서 별도 생성
       raw.full_text,
       raw.full_text ? raw.full_text.length : 0,
       raw.full_text_status ?? 'pending',
       raw.full_text_fetched_at,
     )
+}
+
+const HAIKU_MODEL = 'claude-haiku-4-5-20251001'
+const API_URL = 'https://api.anthropic.com/v1/messages'
+
+async function callPostMatchFilter(
+  inputs: FilterV2Input[],
+  apiKey: string,
+): Promise<FilterV2Output[]> {
+  if (inputs.length === 0) return []
+
+  const res = await fetch(API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: HAIKU_MODEL,
+      max_tokens: 150 * inputs.length,
+      system: FILTER_V2_SYSTEM_PROMPT,
+      messages: [
+        {
+          role: 'user',
+          content: `Process the following ${inputs.length} record(s). Return a JSON array, one element per record in the same order. Include the input id in each element.\n\n${buildFilterV2UserPrompt(inputs)}`,
+        },
+      ],
+    }),
+    signal: AbortSignal.timeout(30_000),
+  })
+
+  if (!res.ok) {
+    throw new Error(`Haiku API ${res.status}: ${await res.text()}`)
+  }
+
+  const data = (await res.json()) as { content: Array<{ type: string; text: string }> }
+  const text = data.content[0]?.text ?? ''
+
+  try {
+    const jsonText = text
+      .replace(/^```(?:json)?\n?/, '')
+      .replace(/\n?```$/, '')
+      .trim()
+    // 단일 객체일 경우 배열로 감싸기
+    const parsed = JSON.parse(
+      jsonText.startsWith('[') ? jsonText : `[${jsonText}]`,
+    ) as FilterV2Output[]
+
+    const byId = new Map(parsed.map((p) => [p.id, p]))
+    return inputs.map((input, idx) => {
+      const matched = byId.get(input.id) ?? parsed[idx]
+      if (matched) return { ...matched, id: input.id }
+      return {
+        id: input.id,
+        filter_passed: false,
+        removed_by: 'ai_error',
+        sentiment_score: 3.0,
+        ai_difficulty_keywords: [],
+      }
+    })
+  } catch {
+    return inputs.map((input) => ({
+      id: input.id,
+      filter_passed: false,
+      removed_by: 'ai_error',
+      sentiment_score: 3.0,
+      ai_difficulty_keywords: [],
+    }))
+  }
 }

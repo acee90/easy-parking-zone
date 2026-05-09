@@ -93,7 +93,7 @@ export async function handleScheduled(env: Env): Promise<void> {
     }
   }
 
-  // ── 3. AI 필터 (full_text_status='ok' & 미분류 → rule + Haiku medium) ──
+  // ── 3. rule 필터 (full_text_status='ok' & 미분류 → high/low 즉시 판정, medium은 match로) ──
 
   if (env.ANTHROPIC_API_KEY) {
     try {
@@ -108,7 +108,7 @@ export async function handleScheduled(env: Env): Promise<void> {
     }
   }
 
-  // ── 4. 주차장 매칭 (filter_passed=1 & 미매칭 → web_sources, full_text 복사) ──
+  // ── 4. 주차장 매칭 + post-match AI 품질 판정 (filter_passed=1 & 미매칭 → web_sources) ──
 
   try {
     const r = await runMatchBatch(env.DB, { ANTHROPIC_API_KEY: env.ANTHROPIC_API_KEY })
