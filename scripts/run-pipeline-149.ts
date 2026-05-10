@@ -447,17 +447,24 @@ async function runMatchDumpStage() {
   }
   console.log()
 
-  const candidatesFile = `${tmpDir}/medium-candidates.json`
-  writeFileSync(
-    candidatesFile,
-    JSON.stringify(
-      { candidates: mediumCandidates, generated_at: new Date().toISOString() },
-      null,
-      2,
-    ),
-    'utf-8',
-  )
-  console.log(`  → medium-candidates.json (${mediumCandidates.length}건)`)
+  const CHUNK_SIZE = 50
+  const chunkCount = Math.ceil(mediumCandidates.length / CHUNK_SIZE)
+  const candidatesFiles: string[] = []
+
+  for (let i = 0; i < chunkCount; i++) {
+    const chunk = mediumCandidates.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE)
+    const suffix = chunkCount > 1 ? `-${String(i + 1).padStart(2, '0')}` : ''
+    const chunkFile = `${tmpDir}/medium-candidates${suffix}.json`
+    writeFileSync(
+      chunkFile,
+      JSON.stringify({ candidates: chunk, generated_at: new Date().toISOString() }, null, 2),
+      'utf-8',
+    )
+    candidatesFiles.push(chunkFile)
+    console.log(`  → ${chunkFile.split('/').pop()} (${chunk.length}건)`)
+  }
+
+  const candidatesFile = candidatesFiles[0]
 
   return {
     processed: rows.length,
@@ -465,6 +472,7 @@ async function runMatchDumpStage() {
     wrongLotSkipped,
     mediumCandidates: mediumCandidates.length,
     candidatesFile,
+    candidatesFiles,
   }
 }
 
@@ -478,9 +486,27 @@ async function runMatchApplyStage() {
     process.exit(1)
   }
 
-  const { results }: { results: AiResult[] } = JSON.parse(readFileSync(AI_RESULTS_FILE, 'utf-8'))
-  console.log(`  AI 결과: ${results.length}건`)
+  // 같은 디렉토리에 있는 모든 ai-results*.json 병합
+  const resultsDir = AI_RESULTS_FILE.replace(/\/[^/]+$/, '')
+  const { readdirSync } = await import('node:fs')
+  const allResultFiles = readdirSync(resultsDir)
+    .filter((f) => f.startsWith('ai-results') && f.endsWith('.json'))
+    .sort()
+    .map((f) => `${resultsDir}/${f}`)
 
+  const allResults: AiResult[] = []
+  for (const file of allResultFiles) {
+    const { results } = JSON.parse(readFileSync(file, 'utf-8')) as { results: AiResult[] }
+    allResults.push(...results)
+  }
+
+  if (allResultFiles.length > 1) {
+    console.log(`  AI 결과 파일 ${allResultFiles.length}개 병합: ${allResults.length}건`)
+  } else {
+    console.log(`  AI 결과: ${allResults.length}건`)
+  }
+
+  const results = allResults
   const passingIds = results.filter((r) => r.filter_passed).map((r) => r.raw_id)
   if (passingIds.length === 0) {
     console.log('  통과 항목 없음.')
@@ -497,14 +523,18 @@ async function runMatchApplyStage() {
   )
   const rawById = new Map(rawRows.map((r) => [r.id, r]))
 
-  // medium-candidates.json에서 원래 score 복원
+  // medium-candidates*.json에서 원래 score 복원 (청크 파일 모두 스캔)
   const scoreMap = new Map<string, number>()
-  const candidatesFile = AI_RESULTS_FILE!.replace(/\/[^/]+$/, '') + '/medium-candidates.json'
-  if (existsSync(candidatesFile)) {
-    const { candidates }: { candidates: MediumCandidate[] } = JSON.parse(
-      readFileSync(candidatesFile, 'utf-8'),
-    )
-    for (const c of candidates) scoreMap.set(`${c.raw_id}:${c.lot_id}`, c.score)
+  const candidateFiles = readdirSync(resultsDir)
+    .filter((f) => f.startsWith('medium-candidates') && f.endsWith('.json'))
+    .map((f) => `${resultsDir}/${f}`)
+  for (const cf of candidateFiles) {
+    if (existsSync(cf)) {
+      const { candidates }: { candidates: MediumCandidate[] } = JSON.parse(
+        readFileSync(cf, 'utf-8'),
+      )
+      for (const c of candidates) scoreMap.set(`${c.raw_id}:${c.lot_id}`, c.score)
+    }
   }
 
   const inserts: string[] = []
@@ -607,13 +637,17 @@ async function main() {
       wrongLotSkipped,
       mediumCandidates,
       candidatesFile,
+      candidatesFiles,
     } = dumpStats
+    const chunkCount = candidatesFiles?.length ?? 1
     console.log(`\n[Match Dump]  ${p}건`)
     console.log(`  직접 INSERT   ${directLinks}건  (rule=high & match=high)`)
     console.log(`  wrong_lot skip ${wrongLotSkipped}건  (lot name not in full_text)`)
-    console.log(`  medium → AI   ${mediumCandidates}건 → ${candidatesFile}`)
+    console.log(
+      `  medium → AI   ${mediumCandidates}건 (${chunkCount}개 청크, 각 최대 50건) → ${candidatesFile}`,
+    )
     if (mediumCandidates > 0) {
-      console.log(`\n  → 다음: haiku subagent로 AI 평가 후`)
+      console.log(`\n  → 다음: haiku subagent ${chunkCount}개 병렬 실행 후`)
       console.log(
         `    bun run scripts/run-pipeline-149.ts --remote --stage match-apply --ai-results ${candidatesFile} --out ${tmpDir}`,
       )

@@ -61,16 +61,28 @@ bun run scripts/run-pipeline-149.ts --remote --stage match-dump --limit 500 --ou
 
 ### Stage 3 — AI 필터 (`pipeline-ai-filter` subagent)
 
-**`pipeline-ai-filter` 에이전트를 spawn한다 (haiku 모델, API 키 불필요).**
+**Stage 2 출력: `medium-candidates.json` (50건 이하) 또는 `medium-candidates-01.json`, `medium-candidates-02.json`, ... (50건 초과 시 자동 분할)**
 
-에이전트에 `medium-candidates.json` 경로를 전달하면:
-1. `src/server/crawlers/lib/ai-filter-v2-prompt.ts`의 `FILTER_V2_SYSTEM_PROMPT` (v3) 기준으로 배치 필터링
-2. 같은 디렉토리에 `ai-results.json` 출력
+청크 수만큼 `pipeline-ai-filter` 서브에이전트를 **병렬로** spawn한다.
 
-spawn 예시:
+**청크가 1개일 때:**
 ```
 Agent(pipeline-ai-filter): {DIR}/medium-candidates.json 파일을 필터링하고 ai-results.json을 생성해줘.
 ```
+
+**청크가 여러 개일 때 (병렬 spawn):**
+```
+Agent(pipeline-ai-filter, 동시): {DIR}/medium-candidates-01.json → ai-results-01.json
+Agent(pipeline-ai-filter, 동시): {DIR}/medium-candidates-02.json → ai-results-02.json
+Agent(pipeline-ai-filter, 동시): {DIR}/medium-candidates-03.json → ai-results-03.json
+```
+
+각 에이전트 프롬프트 예시:
+```
+{DIR}/medium-candidates-01.json 파일을 필터링하고 {DIR}/ai-results-01.json을 생성해줘.
+```
+
+Stage 4 match-apply는 같은 디렉토리의 `ai-results*.json` 파일을 자동으로 병합한다.
 
 `ai-results.json` 출력 형식:
 ```json

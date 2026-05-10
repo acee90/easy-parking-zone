@@ -33,7 +33,7 @@ const SLEEP_MS = parseInt(args.find((a) => a.startsWith('--sleep='))?.split('=')
 const OUTPUT_DIR =
   args.find((a) => a.startsWith('--output-dir='))?.split('=')[1] ?? '/tmp/raw-ft-out'
 const ROWS_PER_FILE = 500
-const MAX_FULLTEXT_BYTES = 50_000
+const MAX_FULLTEXT_BYTES = 30_000
 
 if (!isRemote && !localDbPath) {
   console.error('⚠️  --remote 또는 --db PATH 플래그가 필요합니다.')
