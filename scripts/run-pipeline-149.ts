@@ -447,7 +447,7 @@ async function runMatchDumpStage() {
   }
   console.log()
 
-  const CHUNK_SIZE = 50
+  const CHUNK_SIZE = 20
   const chunkCount = Math.ceil(mediumCandidates.length / CHUNK_SIZE)
   const candidatesFiles: string[] = []
 

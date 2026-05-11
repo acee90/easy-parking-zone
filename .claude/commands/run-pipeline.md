@@ -61,9 +61,11 @@ bun run scripts/run-pipeline-149.ts --remote --stage match-dump --limit 500 --ou
 
 ### Stage 3 — AI 필터 (`pipeline-ai-filter` subagent)
 
-**Stage 2 출력: `medium-candidates.json` (50건 이하) 또는 `medium-candidates-01.json`, `medium-candidates-02.json`, ... (50건 초과 시 자동 분할)**
+**Stage 2 출력: `medium-candidates.json` (20건 이하) 또는 `medium-candidates-01.json`, `medium-candidates-02.json`, ... (20건 초과 시 자동 분할, CHUNK_SIZE=20)**
 
 청크 수만큼 `pipeline-ai-filter` 서브에이전트를 **병렬로** spawn한다.
+
+> **주의**: `pipeline-ai-filter` 에이전트 파일이 `.claude/agents/pipeline-ai-filter.md`에 있으나, 세션 시작 시 로드 안 될 경우 `general-purpose` 에이전트에 판정 규칙을 내장해 실행한다. 판정 규칙은 `src/server/crawlers/lib/ai-filter-v2-prompt.ts`의 `FILTER_V2_SYSTEM_PROMPT` 기준.
 
 **청크가 1개일 때:**
 ```
