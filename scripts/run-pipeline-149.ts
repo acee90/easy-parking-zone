@@ -400,7 +400,7 @@ async function runMatchDumpStage() {
       else mediumMatches.push({ lot, score })
     }
 
-    // rule=high & match=high → 직접 INSERT
+    // match=high: rule=high → direct, rule!=high → AI
     for (const { lot, score } of highMatches) {
       if (isRuleHigh) {
         directInserts.push(buildInsertSql(raw, lot, score, null))
@@ -410,17 +410,22 @@ async function runMatchDumpStage() {
       }
     }
 
-    // medium → AI 평가용
+    // match=medium: rule=high → direct (AI 불필요), rule!=high → AI
     for (const { lot, score } of mediumMatches) {
-      mediumCandidates.push({
-        raw_id: raw.id,
-        lot_id: lot.lot_id,
-        lot_name: lot.name,
-        lot_address: lot.address,
-        score,
-        title,
-        full_text: fullText.slice(0, 6000),
-      })
+      if (isRuleHigh) {
+        directInserts.push(buildInsertSql(raw, lot, score, null))
+        directLinks++
+      } else {
+        mediumCandidates.push({
+          raw_id: raw.id,
+          lot_id: lot.lot_id,
+          lot_name: lot.name,
+          lot_address: lot.address,
+          score,
+          title,
+          full_text: fullText.slice(0, 6000),
+        })
+      }
     }
 
     const attempted = candidates.length > 0 || keywords.length > 0
