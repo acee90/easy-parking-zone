@@ -142,9 +142,9 @@ export interface AiResult {
 
 // ── full_text 기반 lot_name 존재 여부 체크 ─────────────────────────
 
-function lotNameInFullText(lotName: string, fullText: string): boolean {
+function lotNameInFullText(lotName: string, fullText: string, title: string = ''): boolean {
   const keywords = extractNameKeywords(lotName)
-  const text = fullText.toLowerCase()
+  const text = (title + ' ' + fullText).toLowerCase()
   return keywords.some((kw) => kw.length >= 3 && text.includes(kw))
 }
 
@@ -198,24 +198,33 @@ const STOP_WORDS = new Set([
 ])
 
 function extractSearchKeywords(title: string, _content: string): string[] {
-  // 제목에 "주차장"이 없으면 → 주차 관련 콘텐츠가 아닐 가능성 높음
-  const parkingIdx = title.indexOf('주차장')
-  if (parkingIdx < 0) return []
+  const hasParkingJang = title.includes('주차장')
+  const hasParking = title.includes('주차')
+  if (!hasParkingJang && !hasParking) return []
 
-  // 주차장 앞 전체 텍스트에서 단어 추출 → 뒤쪽(주차장에 가까운) 단어가 더 특정적
-  const beforeParking = title.slice(0, parkingIdx).trim()
-  const words = beforeParking
+  // Primary: "주차장" 앞 단어 추출 (기존 로직)
+  if (hasParkingJang) {
+    const parkingIdx = title.indexOf('주차장')
+    const beforeParking = title.slice(0, parkingIdx).trim()
+    const words = beforeParking
+      .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+      .split(/\s+/)
+      .filter((w) => w.length >= 2 && !STOP_WORDS.has(w) && !/^\d+$/.test(w))
+    const unique = [...new Set(words)]
+    const candidates = unique.slice(-3)
+    if (candidates.length > 0 && candidates.some((w) => w.length >= 3)) return candidates
+  }
+
+  // Fallback: 제목 전체에서 주차 관련 단어 제거 후 추출
+  // "[주차장] 강남구청", "강남 주차 요금" 등 커버
+  const cleaned = title
+    .replace(/주차장|주차/g, '')
     .replace(/[^\p{L}\p{N}\s]/gu, ' ')
     .split(/\s+/)
     .filter((w) => w.length >= 2 && !STOP_WORDS.has(w) && !/^\d+$/.test(w))
-  const unique = [...new Set(words)]
-
-  // 마지막 3개 (주차장 바로 앞 = 가장 특정적인 명칭)
-  const candidates = unique.slice(-3)
-
-  // 3자 미만 단어만 남으면 너무 generic → 후보 생성 안함 (예: "CGV" 3자는 허용)
+  const unique = [...new Set(cleaned)]
+  const candidates = unique.slice(0, 4)
   if (candidates.length === 0 || !candidates.some((w) => w.length >= 3)) return []
-
   return candidates
 }
 
@@ -491,6 +500,9 @@ async function runMatchDumpStage() {
 
   let directLinks = 0
   let wrongLotSkipped = 0
+  let keywordsEmptySkipped = 0
+  let confidenceNoneSkipped = 0
+  let lotNameMissingSkipped = 0
   const directInserts: string[] = []
   const directUpdates: string[] = []
   const mediumCandidates: MediumCandidate[] = []
@@ -504,6 +516,7 @@ async function runMatchDumpStage() {
     const isRuleHigh = raw.filter_tier === 'high'
 
     const keywords = extractSearchKeywords(title, content)
+    if (keywords.length === 0) keywordsEmptySkipped++
     const candidates = searchCandidateLots(keywords)
 
     const highMatches: Array<{ lot: LotRow; score: number }> = []
@@ -517,10 +530,14 @@ async function runMatchDumpStage() {
       }
 
       const { score, confidence } = getMatchConfidence(title, content, lot.name, lot.address)
-      if (confidence === 'none') continue
+      if (confidence === 'none') {
+        confidenceNoneSkipped++
+        continue
+      }
 
-      // full_text에 lot_name 키워드 없으면 wrong_lot skip (AI 불필요)
-      if (!lotNameInFullText(lot.name, fullText)) {
+      // title + full_text에 lot_name 키워드 없으면 wrong_lot skip (AI 불필요)
+      if (!lotNameInFullText(lot.name, fullText, title)) {
+        lotNameMissingSkipped++
         wrongLotSkipped++
         continue
       }
@@ -567,7 +584,7 @@ async function runMatchDumpStage() {
 
     if ((i + 1) % 50 === 0 || i === rows.length - 1) {
       process.stdout.write(
-        `\r  진행: ${i + 1}/${rows.length}  직접: ${directLinks}  medium: ${mediumCandidates.length}  skip: ${wrongLotSkipped}  `,
+        `\r  진행: ${i + 1}/${rows.length}  직접: ${directLinks}  medium: ${mediumCandidates.length}  noKw: ${keywordsEmptySkipped}  noConf: ${confidenceNoneSkipped}  noLot: ${lotNameMissingSkipped}  locSkip: ${wrongLotSkipped}  `,
       )
     }
 

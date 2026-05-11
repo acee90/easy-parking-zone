@@ -1,7 +1,7 @@
 ---
 name: "pipeline-ai-filter"
 description: "Stage 3 AI filter for #149 pipeline. Reads medium-candidates.json (raw_id/lot_id/lot_name/lot_address/score/title/full_text), filters each using FILTER_V2_SYSTEM_PROMPT (v3), and writes ai-results.json (raw_id/lot_id/filter_passed/removed_by/sentiment_score/ai_difficulty_keywords)."
-model: claude-haiku-4-5-20251001
+model: haiku
 ---
 
 # pipeline-ai-filter
