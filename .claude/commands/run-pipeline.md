@@ -1,25 +1,27 @@
 ---
-description: "#149 크롤링 파이프라인 실행 — rule filter → match-dump → AI filter (subagent) → match-apply → SQL apply"
+description: "#149 크롤링 파이프라인 실행 — fulltext-fetch → rule filter → match-dump → AI filter (subagent) → match-apply → SQL apply"
 ---
 
 # run-pipeline
 
-`scripts/run-pipeline-149.ts`로 파이프라인을 4단계로 실행한다.
+`scripts/run-pipeline-149.ts`로 파이프라인을 5단계로 실행한다.
 AI 필터는 ANTHROPIC_API_KEY 없이 **Claude subagent (haiku)** 가 처리한다.
 
 ## 파이프라인 설계 (#149)
 
 ```
-Stage 1: filter      — rule-only 3tier (high/medium/low) → filter-chunk-NN.sql
-Stage 2: match-dump  — 제목 "X 주차장" 패턴 FTS 매칭 → high-high: match-direct-chunk-NN.sql
-                                                       medium:     medium-candidates.json
-Stage 3: AI filter   — haiku subagent (FILTER_V2_SYSTEM_PROMPT v3) → ai-results.json
-Stage 4: match-apply — AI 결과 반영 → match-ai-chunk-NN.sql
-Stage 5: apply       — wrangler d1 execute --file
+Stage 0: fulltext-fetch — pending URL → full_text 수집 → fulltext-chunk-NN.sql
+Stage 1: filter         — rule-only 3tier (high/medium/low) → filter-chunk-NN.sql
+Stage 2: match-dump     — 제목 "X 주차장" 패턴 FTS 매칭 → high-high: match-direct-chunk-NN.sql
+                                                          medium:     medium-candidates.json
+Stage 3: AI filter      — haiku subagent (FILTER_V2_SYSTEM_PROMPT v3) → ai-results.json
+Stage 4: match-apply    — AI 결과 반영 → match-ai-chunk-NN.sql
+Stage 5: apply          — wrangler d1 execute --file
 ```
 
 | 스테이지 | 조건 | 동작 |
 |---------|------|------|
+| Fulltext Fetch | `full_text_status='pending'` | URL fetch → ok/blocked/too_short/timeout/error 상태 업데이트 |
 | Rule Filter | `ai_filtered_at IS NULL AND full_text_status='ok'` | high/medium → filter_passed=1, low → 0 |
 | Match (high-high) | `filter_tier='high' AND match='high'` | AI 없이 직접 INSERT |
 | Match (medium) | 나머지 후보 | FILTER_V2_SYSTEM_PROMPT + lot_name → 판정 |
@@ -38,6 +40,22 @@ bunx wrangler d1 execute parking-db --remote --command \
 ```
 
 ## 실행 순서
+
+### Stage 0 — Fulltext Fetch
+
+```bash
+bun run scripts/run-pipeline-149.ts --remote --stage fulltext-fetch --limit 500 --concurrency 3 --sleep 500
+```
+
+출력: `/tmp/pipeline-149-{ts}/fulltext-chunk-01.sql`
+
+상태 코드:
+- `ok` — 정상 수집 (full_text 저장)
+- `blocked` — 크롤링 차단 (full_text=NULL)
+- `too_short` — 본문 너무 짧음 (full_text=NULL)
+- `not_found` — 404 (full_text=NULL)
+- `timeout` — 응답 시간 초과 (full_text=NULL)
+- `error` — 기타 오류 또는 30KB 초과 (full_text=NULL)
 
 ### Stage 1 — Rule Filter
 
@@ -61,27 +79,22 @@ bun run scripts/run-pipeline-149.ts --remote --stage match-dump --limit 500 --ou
 
 ### Stage 3 — AI 필터 (`pipeline-ai-filter` subagent)
 
+**반드시 `.claude/agents/pipeline-ai-eval.md`에 정의된 `pipeline-ai-filter` 에이전트(haiku, v3 기준)를 사용한다. `general-purpose`나 `filter-v2-evaluator`로 대체 금지.**
+
 **Stage 2 출력: `medium-candidates.json` (20건 이하) 또는 `medium-candidates-01.json`, `medium-candidates-02.json`, ... (20건 초과 시 자동 분할, CHUNK_SIZE=20)**
 
 청크 수만큼 `pipeline-ai-filter` 서브에이전트를 **병렬로** spawn한다.
 
-> **주의**: `pipeline-ai-filter` 에이전트 파일이 `.claude/agents/pipeline-ai-filter.md`에 있으나, 세션 시작 시 로드 안 될 경우 `general-purpose` 에이전트에 판정 규칙을 내장해 실행한다. 판정 규칙은 `src/server/crawlers/lib/ai-filter-v2-prompt.ts`의 `FILTER_V2_SYSTEM_PROMPT` 기준.
-
 **청크가 1개일 때:**
 ```
-Agent(pipeline-ai-filter): {DIR}/medium-candidates.json 파일을 필터링하고 ai-results.json을 생성해줘.
+Agent(subagent_type="pipeline-ai-filter"): {DIR}/medium-candidates.json 파일을 읽고 v3 판정 기준으로 필터링해서 {DIR}/ai-results.json을 생성해줘.
 ```
 
-**청크가 여러 개일 때 (병렬 spawn):**
+**청크가 여러 개일 때 (병렬 spawn, 단일 메시지에 모든 Agent 호출):**
 ```
-Agent(pipeline-ai-filter, 동시): {DIR}/medium-candidates-01.json → ai-results-01.json
-Agent(pipeline-ai-filter, 동시): {DIR}/medium-candidates-02.json → ai-results-02.json
-Agent(pipeline-ai-filter, 동시): {DIR}/medium-candidates-03.json → ai-results-03.json
-```
-
-각 에이전트 프롬프트 예시:
-```
-{DIR}/medium-candidates-01.json 파일을 필터링하고 {DIR}/ai-results-01.json을 생성해줘.
+Agent(subagent_type="pipeline-ai-filter"): {DIR}/medium-candidates-01.json 읽고 v3 기준 필터링 → {DIR}/ai-results-01.json 생성
+Agent(subagent_type="pipeline-ai-filter"): {DIR}/medium-candidates-02.json 읽고 v3 기준 필터링 → {DIR}/ai-results-02.json 생성
+Agent(subagent_type="pipeline-ai-filter"): {DIR}/medium-candidates-03.json 읽고 v3 기준 필터링 → {DIR}/ai-results-03.json 생성
 ```
 
 Stage 4 match-apply는 같은 디렉토리의 `ai-results*.json` 파일을 자동으로 병합한다.
@@ -141,6 +154,9 @@ bun run scripts/run-pipeline-149.ts --remote --apply both --out /tmp/pipeline-14
 
 ```bash
 DIR=/tmp/pipeline-149-$(date +%s)
+
+# 0. fulltext-fetch (pending → ok/blocked/...)
+bun run scripts/run-pipeline-149.ts --remote --stage fulltext-fetch --limit 500 --concurrency 3 --out $DIR
 
 # 1. filter
 bun run scripts/run-pipeline-149.ts --remote --stage filter --limit 500 --out $DIR

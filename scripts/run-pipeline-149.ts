@@ -4,17 +4,20 @@
  * AI 판정은 Claude subagent가 처리. 스크립트는 SQL 생성만 담당.
  *
  * Usage:
+ *   bun run scripts/run-pipeline-149.ts --remote --stage fulltext-fetch [--limit N] [--concurrency N] [--sleep N]
  *   bun run scripts/run-pipeline-149.ts --remote --stage filter  [--limit N]
  *   bun run scripts/run-pipeline-149.ts --remote --stage match-dump  [--limit N]
  *   bun run scripts/run-pipeline-149.ts --remote --stage match-apply --ai-results FILE
  *   bun run scripts/run-pipeline-149.ts --remote --apply local|remote|both  (이미 emit된 파일 적용)
  *
  * 스테이지:
- *   filter       — rule filter UPDATE SQL emit
- *   match-dump   — 고신뢰 match INSERT SQL + medium 후보 JSON emit
- *   match-apply  — subagent AI 결과 읽어서 match INSERT SQL emit
+ *   fulltext-fetch — pending 레코드 URL fetch → full_text 업데이트 SQL emit
+ *   filter         — rule filter UPDATE SQL emit
+ *   match-dump     — 고신뢰 match INSERT SQL + medium 후보 JSON emit
+ *   match-apply    — subagent AI 결과 읽어서 match INSERT SQL emit
  *
  * 출력: /tmp/pipeline-149-{timestamp}/
+ *   fulltext-chunk-NN.sql      — full_text UPDATE (ok/blocked/too_short/error 등)
  *   filter-chunk-NN.sql        — rule filter UPDATE
  *   match-direct-chunk-NN.sql  — high-high match INSERT + matched_at UPDATE
  *   medium-candidates.json     — AI 평가용 medium 후보 목록
@@ -43,6 +46,8 @@ function argVal(flag: string): string | null {
 
 const STAGE = argVal('--stage') ?? ''
 const LIMIT = parseInt(argVal('--limit') ?? '300', 10)
+const CONCURRENCY = parseInt(argVal('--concurrency') ?? '3', 10)
+const SLEEP_MS = parseInt(argVal('--sleep') ?? '500', 10)
 const AI_RESULTS_FILE = argVal('--ai-results')
 const APPLY = argVal('--apply') // 'local' | 'remote' | 'both'
 
@@ -51,8 +56,10 @@ if (!isRemote && !localDbPath) {
   process.exit(1)
 }
 
-if (!['filter', 'match-dump', 'match-apply', ''].includes(STAGE)) {
-  console.error(`⚠️  알 수 없는 stage: "${STAGE}". filter | match-dump | match-apply 중 선택.`)
+if (!['fulltext-fetch', 'filter', 'match-dump', 'match-apply', ''].includes(STAGE)) {
+  console.error(
+    `⚠️  알 수 없는 stage: "${STAGE}". fulltext-fetch | filter | match-dump | match-apply 중 선택.`,
+  )
   process.exit(1)
 }
 
@@ -66,6 +73,10 @@ if (STAGE === 'match-apply' && !AI_RESULTS_FILE) {
 const FTS_LIMIT = 5
 const SQL_CHUNK_SIZE = 300
 const DB_NAME = 'parking-db'
+const MAX_FULLTEXT_BYTES = 30_000
+const CRAWL4AI_URL = argVal('--crawl4ai-url') ?? 'https://crawl.arttoken.biz'
+const C4AI_TIMEOUT_MS = 30_000
+const MIN_TEXT_LENGTH = 200
 
 const tmpDir = argVal('--out') ?? `/tmp/pipeline-149-${Date.now()}`
 mkdirSync(tmpDir, { recursive: true })
@@ -294,6 +305,124 @@ function buildInsertSql(
     .join(', ')
 
   return `INSERT OR IGNORE INTO web_sources (${cols.join(', ')}) VALUES (${vals});`
+}
+
+// ── Stage 0: Full Text Fetch (via crawl4ai) ───────────────────────
+
+type C4aiStatus = 'ok' | 'blocked' | 'not_found' | 'too_short' | 'timeout' | 'error'
+
+function toMobileUrl(url: string, source: string): string {
+  try {
+    const u = new URL(url)
+    if (source === 'naver_blog' && u.hostname === 'blog.naver.com') {
+      u.hostname = 'm.blog.naver.com'
+      return u.toString()
+    }
+    if (source === 'naver_cafe' && u.hostname === 'cafe.naver.com') {
+      u.hostname = 'm.cafe.naver.com'
+      return u.toString()
+    }
+  } catch {
+    /* noop */
+  }
+  return url
+}
+
+async function fetchViaC4ai(url: string): Promise<{ status: C4aiStatus; text: string }> {
+  try {
+    const res = await fetch(`${CRAWL4AI_URL}/crawl`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ urls: [url], word_count_threshold: 10 }),
+      signal: AbortSignal.timeout(C4AI_TIMEOUT_MS),
+    })
+    if (!res.ok) return { text: '', status: 'error' }
+    const data = (await res.json()) as {
+      results: Array<{ markdown: { raw_markdown: string }; status_code: number }>
+    }
+    const result = data.results?.[0]
+    if (!result) return { text: '', status: 'error' }
+    if (result.status_code === 404) return { text: '', status: 'not_found' }
+    if (result.status_code === 401 || result.status_code === 403)
+      return { text: '', status: 'blocked' }
+    const text = result.markdown?.raw_markdown?.trim() ?? ''
+    if (text.length < MIN_TEXT_LENGTH) return { text, status: 'too_short' }
+    if (text.length > MAX_FULLTEXT_BYTES)
+      return { text: text.slice(0, MAX_FULLTEXT_BYTES), status: 'ok' }
+    return { text, status: 'ok' }
+  } catch (e) {
+    if (e instanceof Error && e.name === 'TimeoutError') return { text: '', status: 'timeout' }
+    return { text: '', status: 'error' }
+  }
+}
+
+async function runFullTextFetchStage() {
+  console.log('\n🌐 Stage: fulltext-fetch (crawl4ai)')
+  console.log(`  url=${CRAWL4AI_URL}  concurrency=${CONCURRENCY}  sleep=${SLEEP_MS}ms`)
+
+  const rows = d1Query<{ id: number; source: string; source_url: string }>(
+    `SELECT id, source, source_url FROM web_sources_raw
+     WHERE full_text_status = 'pending' AND source_url LIKE 'http%'
+     ORDER BY id LIMIT ${LIMIT}`,
+  )
+  console.log(`  대상: ${rows.length}건`)
+  if (rows.length === 0) {
+    return { processed: 0, ok: 0, blocked: 0, not_found: 0, too_short: 0, timeout: 0, error: 0 }
+  }
+
+  const counters = { ok: 0, blocked: 0, not_found: 0, too_short: 0, timeout: 0, error: 0 }
+  let total = 0
+  const buf: string[] = []
+
+  const flushBuf = () => {
+    if (buf.length === 0) return
+    emitSqlChunk('fulltext', buf.splice(0))
+  }
+
+  const buildFetchUpdate = (id: number, status: C4aiStatus, text: string): string => {
+    const fullTextVal = status === 'ok' ? sqlVal(text) : 'NULL'
+    return `UPDATE web_sources_raw SET full_text = ${fullTextVal}, full_text_status = '${status}', full_text_fetched_at = datetime('now') WHERE id = ${id};`
+  }
+
+  const queue = [...rows]
+  let active = 0
+
+  await new Promise<void>((resolveAll) => {
+    const launch = (): void => {
+      while (active < CONCURRENCY && queue.length > 0) {
+        const row = queue.shift()!
+        active++
+        const mobileUrl = toMobileUrl(row.source_url, row.source)
+        fetchViaC4ai(mobileUrl)
+          .then(({ status, text }) => {
+            total++
+            counters[status]++
+            buf.push(buildFetchUpdate(row.id, status, text))
+            process.stdout.write(
+              `\r  진행: ${total}/${rows.length}  ok:${counters.ok}  blocked:${counters.blocked}  too_short:${counters.too_short}  error:${counters.error}  `,
+            )
+            if (buf.length >= SQL_CHUNK_SIZE) flushBuf()
+          })
+          .catch(() => {
+            total++
+            counters.error++
+            buf.push(buildFetchUpdate(row.id, 'error', ''))
+          })
+          .finally(async () => {
+            if (SLEEP_MS > 0) await new Promise((r) => setTimeout(r, SLEEP_MS))
+            active--
+            launch()
+            if (active === 0 && queue.length === 0) resolveAll()
+          })
+      }
+    }
+    launch()
+  })
+
+  console.log()
+  flushBuf()
+
+  return { processed: rows.length, ...counters }
 }
 
 // ── Stage 1: Rule Filter ──────────────────────────────────────────
@@ -614,10 +743,12 @@ async function main() {
   console.log(`   stage=${STAGE || '(none)'}  limit=${LIMIT}  apply=${APPLY ?? '없음'}`)
   console.log(`   출력: ${tmpDir}\n`)
 
+  let fetchStats: Awaited<ReturnType<typeof runFullTextFetchStage>> | null = null
   let filterStats: Awaited<ReturnType<typeof runFilterStage>> | null = null
   let dumpStats: Awaited<ReturnType<typeof runMatchDumpStage>> | null = null
   let applyStats: Awaited<ReturnType<typeof runMatchApplyStage>> | null = null
 
+  if (STAGE === 'fulltext-fetch') fetchStats = await runFullTextFetchStage()
   if (STAGE === 'filter') filterStats = await runFilterStage()
   if (STAGE === 'match-dump') dumpStats = await runMatchDumpStage()
   if (STAGE === 'match-apply') applyStats = await runMatchApplyStage()
@@ -626,6 +757,17 @@ async function main() {
   const sep = '─'.repeat(52)
   console.log(`\n${sep}\n📊 Report`)
   console.log(sep)
+
+  if (fetchStats?.processed) {
+    const { processed: p, ok, blocked, not_found, too_short, timeout, error } = fetchStats
+    console.log(`\n[Fulltext Fetch]  ${p}건`)
+    console.log(`  ok        ${String(ok).padStart(5)}건  (${pct(ok, p)})`)
+    console.log(`  blocked   ${String(blocked).padStart(5)}건  (${pct(blocked, p)})`)
+    console.log(`  too_short ${String(too_short).padStart(5)}건  (${pct(too_short, p)})`)
+    console.log(`  not_found ${String(not_found).padStart(5)}건  (${pct(not_found, p)})`)
+    console.log(`  timeout   ${String(timeout).padStart(5)}건  (${pct(timeout, p)})`)
+    console.log(`  error     ${String(error).padStart(5)}건  (${pct(error, p)})`)
+  }
 
   if (filterStats?.processed) {
     const { processed: p, high, medium, low } = filterStats
