@@ -506,7 +506,7 @@ async function runMatchDumpStage() {
   let wrongLotSkipped = 0
   let keywordsEmptySkipped = 0
   let confidenceNoneSkipped = 0
-  let lotNameMissingSkipped = 0 // kept for display compat; now always 0
+  const lotNameMissingSkipped = 0 // kept for display compat; now always 0
   const directInserts: string[] = []
   const directUpdates: string[] = []
   const mediumCandidates: MediumCandidate[] = []
@@ -589,7 +589,12 @@ async function runMatchDumpStage() {
     }
 
     const attempted = candidates.length > 0 || keywords.length > 0
-    if (attempted && mediumMatches.length === 0 && highMatches.length === 0 && aiOnlyCandidates.length === 0) {
+    if (
+      attempted &&
+      mediumMatches.length === 0 &&
+      highMatches.length === 0 &&
+      aiOnlyCandidates.length === 0
+    ) {
       directUpdates.push(
         `UPDATE web_sources_raw SET matched_at = datetime('now') WHERE id = ${raw.id};`,
       )
@@ -765,7 +770,7 @@ async function main() {
       .readdirSync(dir)
       .filter((f: string) => f.endsWith('.sql'))
       .map((f: string) => `${dir}/${f}`)
-    if (APPLY === 'local' || APPLY === 'both') applySqlFiles('local', files)
+    if (APPLY === 'local' || APPLY === 'remote' || APPLY === 'both') applySqlFiles('local', files)
     if (APPLY === 'remote' || APPLY === 'both') applySqlFiles('remote', files)
     return
   }
@@ -847,7 +852,7 @@ async function main() {
     for (const f of emittedFiles) console.log(`  ${f.split('/').pop()}`)
 
     if (APPLY) {
-      if (APPLY === 'local' || APPLY === 'both') applySqlFiles('local', emittedFiles)
+      if (APPLY === 'local' || APPLY === 'remote' || APPLY === 'both') applySqlFiles('local', emittedFiles)
       if (APPLY === 'remote' || APPLY === 'both') applySqlFiles('remote', emittedFiles)
       console.log('\n✅ 완료')
     } else {
