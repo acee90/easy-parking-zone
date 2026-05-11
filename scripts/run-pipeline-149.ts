@@ -197,13 +197,9 @@ const STOP_WORDS = new Set([
   '가볼만한곳',
 ])
 
-function extractSearchKeywords(title: string, _content: string): string[] {
-  const hasParkingJang = title.includes('주차장')
-  const hasParking = title.includes('주차')
-  if (!hasParkingJang && !hasParking) return []
-
-  // Primary: "주차장" 앞 단어 추출 (기존 로직)
-  if (hasParkingJang) {
+function extractSearchKeywords(title: string, content: string): string[] {
+  // Primary: words before '주차장' in title
+  if (title.includes('주차장')) {
     const parkingIdx = title.indexOf('주차장')
     const beforeParking = title.slice(0, parkingIdx).trim()
     const words = beforeParking
@@ -212,27 +208,35 @@ function extractSearchKeywords(title: string, _content: string): string[] {
       .filter((w) => w.length >= 2 && !STOP_WORDS.has(w) && !/^\d+$/.test(w))
     const unique = [...new Set(words)]
     const candidates = unique.slice(-3)
-    if (candidates.length > 0 && candidates.some((w) => w.length >= 3)) return candidates
+    if (candidates.length > 0 && candidates.some((w) => w.length >= 2)) return candidates
   }
 
-  // Fallback: 제목 전체에서 주차 관련 단어 제거 후 추출
-  // "[주차장] 강남구청", "강남 주차 요금" 등 커버
-  const cleaned = title
+  // Fallback 1: strip parking keywords from title, extract remaining
+  const titleCleaned = title
     .replace(/주차장|주차/g, '')
     .replace(/[^\p{L}\p{N}\s]/gu, ' ')
     .split(/\s+/)
     .filter((w) => w.length >= 2 && !STOP_WORDS.has(w) && !/^\d+$/.test(w))
-  const unique = [...new Set(cleaned)]
-  const candidates = unique.slice(0, 4)
-  if (candidates.length === 0 || !candidates.some((w) => w.length >= 3)) return []
-  return candidates
+  const titleUnique = [...new Set(titleCleaned)]
+  if (titleUnique.length > 0) return titleUnique.slice(0, 4)
+
+  // Fallback 2: extract from content snippet (covers "XX 방문기" titles with parking in body)
+  const contentCleaned = content
+    .slice(0, 300)
+    .replace(/주차장|주차/g, '')
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .split(/\s+/)
+    .filter((w) => w.length >= 2 && !STOP_WORDS.has(w) && !/^\d+$/.test(w))
+  const contentUnique = [...new Set(contentCleaned)]
+  if (contentUnique.length === 0) return []
+  return contentUnique.slice(0, 4)
 }
 
 // 추출한 키워드가 lot name에 포함돼야 지리적으로 연관있는 후보
 function isCandidateLocationCompatible(keywords: string[], lot: LotRow): boolean {
   if (keywords.length === 0) return false
   const lotName = lot.name.toLowerCase()
-  return keywords.some((kw) => kw.length >= 3 && lotName.includes(kw.toLowerCase()))
+  return keywords.some((kw) => kw.length >= 2 && lotName.includes(kw.toLowerCase()))
 }
 
 function searchCandidateLots(keywords: string[]): LotRow[] {
@@ -502,7 +506,7 @@ async function runMatchDumpStage() {
   let wrongLotSkipped = 0
   let keywordsEmptySkipped = 0
   let confidenceNoneSkipped = 0
-  let lotNameMissingSkipped = 0
+  let lotNameMissingSkipped = 0 // kept for display compat; now always 0
   const directInserts: string[] = []
   const directUpdates: string[] = []
   const mediumCandidates: MediumCandidate[] = []
@@ -521,6 +525,8 @@ async function runMatchDumpStage() {
 
     const highMatches: Array<{ lot: LotRow; score: number }> = []
     const mediumMatches: Array<{ lot: LotRow; score: number }> = []
+    // confidence=none: rule tier 무관하게 항상 AI (direct insert 불가)
+    const aiOnlyCandidates: Array<{ lot: LotRow; score: number }> = []
 
     for (const lot of candidates) {
       // 키워드가 lot name에 없으면 지역 불일치 → skip (e.g. 관악구 글 → 남해 축구장)
@@ -531,14 +537,9 @@ async function runMatchDumpStage() {
 
       const { score, confidence } = getMatchConfidence(title, content, lot.name, lot.address)
       if (confidence === 'none') {
+        // none이어도 AI에게 위임 — rule=high라도 direct insert 불가
         confidenceNoneSkipped++
-        continue
-      }
-
-      // title + full_text에 lot_name 키워드 없으면 wrong_lot skip (AI 불필요)
-      if (!lotNameInFullText(lot.name, fullText, title)) {
-        lotNameMissingSkipped++
-        wrongLotSkipped++
+        aiOnlyCandidates.push({ lot, score })
         continue
       }
 
@@ -574,8 +575,21 @@ async function runMatchDumpStage() {
       }
     }
 
+    // aiOnlyCandidates: confidence=none → 항상 AI (rule=high라도 direct 불가)
+    for (const { lot, score } of aiOnlyCandidates) {
+      mediumCandidates.push({
+        raw_id: raw.id,
+        lot_id: lot.lot_id,
+        lot_name: lot.name,
+        lot_address: lot.address,
+        score,
+        title,
+        full_text: fullText.slice(0, 6000),
+      })
+    }
+
     const attempted = candidates.length > 0 || keywords.length > 0
-    if (attempted && mediumMatches.length === 0 && highMatches.length === 0) {
+    if (attempted && mediumMatches.length === 0 && highMatches.length === 0 && aiOnlyCandidates.length === 0) {
       directUpdates.push(
         `UPDATE web_sources_raw SET matched_at = datetime('now') WHERE id = ${raw.id};`,
       )
