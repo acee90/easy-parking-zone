@@ -280,11 +280,8 @@ function searchCandidateLots(keywords: string[]): LotRow[] {
 
 // ── INSERT SQL 생성 ───────────────────────────────────────────────
 
-const MISSED_LOT_ID = 'MISSED'
-
 function buildMissedLotInsertSql(raw: RawRow, detectedName: string): string {
   const cols = [
-    'parking_lot_id',
     'missed_lot_name',
     'source',
     'source_id',
@@ -293,31 +290,26 @@ function buildMissedLotInsertSql(raw: RawRow, detectedName: string): string {
     'source_url',
     'author',
     'published_at',
-    'relevance_score',
     'raw_source_id',
     'sentiment_score',
     'ai_difficulty_keywords',
-    'ai_summary',
     'full_text',
     'full_text_length',
     'full_text_status',
     'full_text_fetched_at',
   ]
   const vals = [
-    MISSED_LOT_ID,
     detectedName,
     raw.source,
-    `${raw.source_id}:${MISSED_LOT_ID}`,
+    raw.source_id,
     stripHtml(raw.title),
     stripHtml(raw.content),
     raw.source_url,
     raw.author,
     raw.published_at,
-    0,
     raw.id,
     raw.sentiment_score,
     raw.ai_difficulty_keywords,
-    null,
     raw.full_text,
     raw.full_text ? raw.full_text.length : 0,
     raw.full_text_status ?? 'pending',
@@ -326,7 +318,7 @@ function buildMissedLotInsertSql(raw: RawRow, detectedName: string): string {
     .map(sqlVal)
     .join(', ')
 
-  return `INSERT OR IGNORE INTO web_sources (${cols.join(', ')}) VALUES (${vals});`
+  return `INSERT OR IGNORE INTO web_sources_missed (${cols.join(', ')}) VALUES (${vals});`
 }
 
 function buildInsertSql(

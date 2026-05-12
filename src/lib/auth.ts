@@ -5,6 +5,7 @@ import { anonymous } from 'better-auth/plugins'
 export function createAuth() {
   return betterAuth({
     database: env.DB,
+    secret: env.BETTER_AUTH_SECRET as string,
     socialProviders: {
       kakao: {
         clientId: env.KAKAO_CLIENT_ID as string,
@@ -21,5 +22,6 @@ export function createAuth() {
     },
     plugins: [anonymous()],
     baseURL: env.BETTER_AUTH_URL as string | undefined,
+    trustedOrigins: [env.BETTER_AUTH_URL as string, 'http://localhost:5173'].filter(Boolean),
   })
 }
