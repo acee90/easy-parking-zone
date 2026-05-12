@@ -13,10 +13,10 @@ import {
   rowToParkingLot,
 } from './transforms'
 
-/** 사이트 전체 통계 (6시간 Cache API 캐싱) */
+/** 사이트 전체 통계 (1시간 Cache API 캐싱) */
 export const fetchSiteStats = createServerFn({ method: 'GET' }).handler(async () => {
   const CACHE_KEY = 'https://easy-parking.xyz/__internal/site-stats'
-  const CACHE_TTL = 6 * 60 * 60 // 6시간
+  const CACHE_TTL = 60 * 60 // 1시간
 
   const cache = typeof caches !== 'undefined' ? await caches.open('site-stats') : null
   if (cache) {

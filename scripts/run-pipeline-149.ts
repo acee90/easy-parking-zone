@@ -75,7 +75,7 @@ const SQL_CHUNK_SIZE = 300
 const DB_NAME = 'parking-db'
 const MAX_FULLTEXT_BYTES = 30_000
 const CRAWL4AI_URL = argVal('--crawl4ai-url') ?? 'https://crawl.arttoken.biz'
-const C4AI_TIMEOUT_MS = 30_000
+const C4AI_TIMEOUT_MS = 15_000
 const MIN_TEXT_LENGTH = 200
 
 const tmpDir = argVal('--out') ?? `/tmp/pipeline-149-${Date.now()}`
@@ -254,27 +254,32 @@ function isCandidateLocationCompatible(keywords: string[], lot: LotRow): boolean
   return keywords.every((kw) => kw.length >= 2 && lotName.includes(kw.toLowerCase()))
 }
 
-function searchCandidateLots(keywords: string[]): LotRow[] {
+// 인메모리 lot 캐시 — runMatchDumpStage() 시작 시 한 번만 로드
+let _allLots: LotRow[] | null = null
+
+function loadAllLots(): LotRow[] {
+  if (_allLots) return _allLots
+  console.log('  📦 parking_lots 전체 로드 중...')
+  _allLots = d1Query<LotRow>(
+    "SELECT id AS lot_id, name, address FROM parking_lots WHERE status != 'inactive' OR status IS NULL",
+  )
+  console.log(`  📦 ${_allLots.length}개 lot 캐시 완료`)
+  return _allLots
+}
+
+function searchCandidateLots(keywords: string[], allLots: LotRow[]): LotRow[] {
   if (keywords.length === 0) return []
-  const seen = new Set<string>()
+  const lowerKws = keywords.map((kw) => kw.toLowerCase())
   const results: LotRow[] = []
-
-  // 정확 phrase 매칭만 사용 — wildcard(kw*) 제거로 "갤러리" → "갤러리아" 오매칭 방지
-  const ftsQuery = keywords.map((kw) => `"${kw}"`).join(' OR ')
-  try {
-    const rows = d1Query<LotRow>(
-      `SELECT lot_id, name, address FROM parking_lots_fts WHERE parking_lots_fts MATCH '${esc(ftsQuery)}' LIMIT ${FTS_LIMIT}`,
-    )
-    for (const r of rows) {
-      if (!seen.has(r.lot_id)) {
-        seen.add(r.lot_id)
-        results.push(r)
-      }
+  for (const lot of allLots) {
+    const lotName = lot.name.toLowerCase()
+    const lotAddr = lot.address.toLowerCase()
+    // FTS OR 매칭 재현: 키워드 중 하나라도 name 또는 address에 포함되면 후보
+    if (lowerKws.some((kw) => kw.length >= 2 && (lotName.includes(kw) || lotAddr.includes(kw)))) {
+      results.push(lot)
+      if (results.length >= FTS_LIMIT) break
     }
-  } catch {
-    /* FTS 오류 시 빈 결과 반환 */
   }
-
   return results
 }
 
@@ -546,17 +551,33 @@ async function runFilterStage() {
 
 async function runMatchDumpStage() {
   console.log('\n🔍 Stage: match-dump')
-  const rows = d1Query<RawRow>(
-    `SELECT id, source, source_id, source_url, title, content, author, published_at,
-            sentiment_score, ai_difficulty_keywords,
-            full_text, full_text_status, full_text_fetched_at, filter_tier
-     FROM web_sources_raw
-     WHERE filter_passed = 1 AND matched_at IS NULL
-     ORDER BY id LIMIT ${LIMIT}`,
+
+  // ID만 먼저 가져와서 총 대상 확인 (full_text 없이 → 응답 작음)
+  const idRows = d1Query<{ id: number }>(
+    `SELECT id FROM web_sources_raw WHERE filter_passed = 1 AND matched_at IS NULL ORDER BY id LIMIT ${LIMIT}`,
   )
-  console.log(`  대상: ${rows.length}건`)
-  if (rows.length === 0)
+  console.log(`  대상: ${idRows.length}건`)
+  if (idRows.length === 0)
     return { processed: 0, directLinks: 0, wrongLotSkipped: 0, mediumCandidates: 0 }
+
+  const allLots = loadAllLots()
+
+  // ID 목록을 200건씩 배치로 나눠 full_text 포함 fetch (D1 응답 크기 한도 회피)
+  const FETCH_BATCH = 200
+  const allIds = idRows.map((r) => r.id)
+  const rows: RawRow[] = []
+  for (let b = 0; b < allIds.length; b += FETCH_BATCH) {
+    const batchIds = allIds.slice(b, b + FETCH_BATCH).join(',')
+    const batch = d1Query<RawRow>(
+      `SELECT id, source, source_id, source_url, title, content, author, published_at,
+              sentiment_score, ai_difficulty_keywords,
+              full_text, full_text_status, full_text_fetched_at, filter_tier
+       FROM web_sources_raw WHERE id IN (${batchIds})`,
+    )
+    rows.push(...batch)
+    process.stdout.write(`\r  rows 로드: ${rows.length}/${allIds.length}`)
+  }
+  console.log()
 
   let directLinks = 0
   let wrongLotSkipped = 0
@@ -583,7 +604,7 @@ async function runMatchDumpStage() {
 
     const keywords = extractSearchKeywords(title, content)
     if (keywords.length === 0) keywordsEmptySkipped++
-    const candidates = searchCandidateLots(keywords)
+    const candidates = searchCandidateLots(keywords, allLots)
 
     const highMatches: Array<{ lot: LotRow; score: number }> = []
     const mediumMatches: Array<{ lot: LotRow; score: number }> = []
@@ -779,14 +800,20 @@ async function runMatchApplyStage() {
     return { aiTotal: results.length, aiPassed: 0, removalBreakdown: {} }
   }
 
-  // raw 데이터 재조회 (통과 항목만)
-  const idList = [...new Set(passingIds)].join(', ')
-  const rawRows = d1Query<RawRow>(
-    `SELECT id, source, source_id, source_url, title, content, author, published_at,
-            sentiment_score, ai_difficulty_keywords,
-            full_text, full_text_status, full_text_fetched_at, filter_tier
-     FROM web_sources_raw WHERE id IN (${idList})`,
-  )
+  // raw 데이터 재조회 (통과 항목만, 200건씩 배치 — D1 응답 크기 한도 회피)
+  const uniqueIds = [...new Set(passingIds)]
+  const FETCH_BATCH = 200
+  const rawRows: RawRow[] = []
+  for (let b = 0; b < uniqueIds.length; b += FETCH_BATCH) {
+    const batchIds = uniqueIds.slice(b, b + FETCH_BATCH).join(', ')
+    const batch = d1Query<RawRow>(
+      `SELECT id, source, source_id, source_url, title, content, author, published_at,
+              sentiment_score, ai_difficulty_keywords,
+              full_text, full_text_status, full_text_fetched_at, filter_tier
+       FROM web_sources_raw WHERE id IN (${batchIds})`,
+    )
+    rawRows.push(...batch)
+  }
   const rawById = new Map(rawRows.map((r) => [r.id, r]))
 
   // medium-candidates*.json에서 원래 score 복원 (청크 파일 모두 스캔)
