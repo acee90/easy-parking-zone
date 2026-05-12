@@ -51,10 +51,7 @@ const SLEEP_MS = parseInt(argVal('--sleep') ?? '500', 10)
 const AI_RESULTS_FILE = argVal('--ai-results')
 const APPLY = argVal('--apply') // 'local' | 'remote' | 'both'
 
-if (!isRemote && !localDbPath) {
-  console.error('⚠️  --remote 또는 --db PATH 플래그가 필요합니다.')
-  process.exit(1)
-}
+// --remote 없이도 .wrangler/state/v3/d1 에서 로컬 DB 자동 탐색
 
 if (!['fulltext-fetch', 'filter', 'match-dump', 'match-apply', ''].includes(STAGE)) {
   console.error(
