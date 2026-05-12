@@ -145,7 +145,13 @@ export interface AiResult {
 function lotNameInFullText(lotName: string, fullText: string, title: string = ''): boolean {
   const keywords = extractNameKeywords(lotName)
   const text = (title + ' ' + fullText).toLowerCase()
-  return keywords.some((kw) => kw.length >= 3 && text.includes(kw))
+  // 전체 이름 키워드(keywords[0])가 3자 이상이면 그것만으로 통과 판정
+  const fullNameKw = keywords[0]
+  if (fullNameKw && fullNameKw.length >= 3 && text.includes(fullNameKw)) return true
+  // 그 외: 길이 3 이상 키워드 중 2개 이상 포함 여부 확인
+  const longKws = keywords.filter((kw) => kw.length >= 3)
+  const matchCount = longKws.filter((kw) => text.includes(kw)).length
+  return matchCount >= Math.min(2, longKws.length)
 }
 
 // ── 키워드 + FTS ───────────────────────────────────────────────────
@@ -195,6 +201,14 @@ const STOP_WORDS = new Set([
   '입장',
   '관람',
   '가볼만한곳',
+  // 주차장 유형 수식어 — lot name에 포함돼도 너무 범용적 (공영주차장 등)
+  '공영',
+  '민영',
+  '노상',
+  '노외',
+  '부설',
+  '임시',
+  '기계식',
 ])
 
 function extractSearchKeywords(title: string, content: string): string[] {
@@ -233,10 +247,11 @@ function extractSearchKeywords(title: string, content: string): string[] {
 }
 
 // 추출한 키워드가 lot name에 포함돼야 지리적으로 연관있는 후보
+// 키워드 모두가 lot name에 포함돼야 통과 (some → every) — 브랜드 오매칭 방지
 function isCandidateLocationCompatible(keywords: string[], lot: LotRow): boolean {
   if (keywords.length === 0) return false
   const lotName = lot.name.toLowerCase()
-  return keywords.some((kw) => kw.length >= 2 && lotName.includes(kw.toLowerCase()))
+  return keywords.every((kw) => kw.length >= 2 && lotName.includes(kw.toLowerCase()))
 }
 
 function searchCandidateLots(keywords: string[]): LotRow[] {
@@ -506,11 +521,15 @@ async function runMatchDumpStage() {
   let wrongLotSkipped = 0
   let keywordsEmptySkipped = 0
   let confidenceNoneSkipped = 0
+  let preFilterSkipped = 0
+  let mediumCapSkipped = 0
   const lotNameMissingSkipped = 0 // kept for display compat; now always 0
   const directInserts: string[] = []
   const directUpdates: string[] = []
   const mediumCandidates: MediumCandidate[] = []
+  const mediumCountPerRaw = new Map<number, number>() // raw_id → medium candidate count
   const immediateMatchedIds = new Set<number>()
+  const MEDIUM_CAP_PER_RAW = 2 // 같은 글에서 최대 2개 lot만 AI에 위임
 
   for (let i = 0; i < rows.length; i++) {
     const raw = rows[i]
@@ -532,6 +551,12 @@ async function runMatchDumpStage() {
       // 키워드가 lot name에 없으면 지역 불일치 → skip (e.g. 관악구 글 → 남해 축구장)
       if (!isCandidateLocationCompatible(keywords, lot)) {
         wrongLotSkipped++
+        continue
+      }
+
+      // full_text가 충분하면 lot name이 본문에 등장해야 연관 후보 (wrong_lot 사전 제거)
+      if (fullText.length > 200 && !lotNameInFullText(lot.name, fullText, title)) {
+        preFilterSkipped++
         continue
       }
 
@@ -563,6 +588,9 @@ async function runMatchDumpStage() {
         directInserts.push(buildInsertSql(raw, lot, score, null))
         directLinks++
       } else {
+        const cnt = mediumCountPerRaw.get(raw.id) ?? 0
+        if (cnt >= MEDIUM_CAP_PER_RAW) { mediumCapSkipped++; continue }
+        mediumCountPerRaw.set(raw.id, cnt + 1)
         mediumCandidates.push({
           raw_id: raw.id,
           lot_id: lot.lot_id,
@@ -577,6 +605,9 @@ async function runMatchDumpStage() {
 
     // aiOnlyCandidates: confidence=none → 항상 AI (rule=high라도 direct 불가)
     for (const { lot, score } of aiOnlyCandidates) {
+      const cnt = mediumCountPerRaw.get(raw.id) ?? 0
+      if (cnt >= MEDIUM_CAP_PER_RAW) { mediumCapSkipped++; continue }
+      mediumCountPerRaw.set(raw.id, cnt + 1)
       mediumCandidates.push({
         raw_id: raw.id,
         lot_id: lot.lot_id,
@@ -603,7 +634,7 @@ async function runMatchDumpStage() {
 
     if ((i + 1) % 50 === 0 || i === rows.length - 1) {
       process.stdout.write(
-        `\r  진행: ${i + 1}/${rows.length}  직접: ${directLinks}  medium: ${mediumCandidates.length}  noKw: ${keywordsEmptySkipped}  noConf: ${confidenceNoneSkipped}  noLot: ${lotNameMissingSkipped}  locSkip: ${wrongLotSkipped}  `,
+        `\r  진행: ${i + 1}/${rows.length}  직접: ${directLinks}  medium: ${mediumCandidates.length}  noKw: ${keywordsEmptySkipped}  noConf: ${confidenceNoneSkipped}  locSkip: ${wrongLotSkipped}  preFilter: ${preFilterSkipped}  capSkip: ${mediumCapSkipped}  `,
       )
     }
 
@@ -852,7 +883,8 @@ async function main() {
     for (const f of emittedFiles) console.log(`  ${f.split('/').pop()}`)
 
     if (APPLY) {
-      if (APPLY === 'local' || APPLY === 'remote' || APPLY === 'both') applySqlFiles('local', emittedFiles)
+      if (APPLY === 'local' || APPLY === 'remote' || APPLY === 'both')
+        applySqlFiles('local', emittedFiles)
       if (APPLY === 'remote' || APPLY === 'both') applySqlFiles('remote', emittedFiles)
       console.log('\n✅ 완료')
     } else {
