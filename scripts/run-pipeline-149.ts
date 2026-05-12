@@ -280,6 +280,55 @@ function searchCandidateLots(keywords: string[]): LotRow[] {
 
 // ── INSERT SQL 생성 ───────────────────────────────────────────────
 
+const MISSED_LOT_ID = 'MISSED'
+
+function buildMissedLotInsertSql(raw: RawRow, detectedName: string): string {
+  const cols = [
+    'parking_lot_id',
+    'missed_lot_name',
+    'source',
+    'source_id',
+    'title',
+    'content',
+    'source_url',
+    'author',
+    'published_at',
+    'relevance_score',
+    'raw_source_id',
+    'sentiment_score',
+    'ai_difficulty_keywords',
+    'ai_summary',
+    'full_text',
+    'full_text_length',
+    'full_text_status',
+    'full_text_fetched_at',
+  ]
+  const vals = [
+    MISSED_LOT_ID,
+    detectedName,
+    raw.source,
+    `${raw.source_id}:${MISSED_LOT_ID}`,
+    stripHtml(raw.title),
+    stripHtml(raw.content),
+    raw.source_url,
+    raw.author,
+    raw.published_at,
+    0,
+    raw.id,
+    raw.sentiment_score,
+    raw.ai_difficulty_keywords,
+    null,
+    raw.full_text,
+    raw.full_text ? raw.full_text.length : 0,
+    raw.full_text_status ?? 'pending',
+    raw.full_text_fetched_at,
+  ]
+    .map(sqlVal)
+    .join(', ')
+
+  return `INSERT OR IGNORE INTO web_sources (${cols.join(', ')}) VALUES (${vals});`
+}
+
 function buildInsertSql(
   raw: RawRow,
   lot: LotRow,
@@ -523,9 +572,11 @@ async function runMatchDumpStage() {
   let confidenceNoneSkipped = 0
   let preFilterSkipped = 0
   let mediumCapSkipped = 0
-  const lotNameMissingSkipped = 0 // kept for display compat; now always 0
+  let missedLotCount = 0
   const directInserts: string[] = []
   const directUpdates: string[] = []
+  const missedInserts: string[] = []
+  const missedUpdates: string[] = []
   const mediumCandidates: MediumCandidate[] = []
   const mediumCountPerRaw = new Map<number, number>() // raw_id → medium candidate count
   const immediateMatchedIds = new Set<number>()
@@ -589,7 +640,10 @@ async function runMatchDumpStage() {
         directLinks++
       } else {
         const cnt = mediumCountPerRaw.get(raw.id) ?? 0
-        if (cnt >= MEDIUM_CAP_PER_RAW) { mediumCapSkipped++; continue }
+        if (cnt >= MEDIUM_CAP_PER_RAW) {
+          mediumCapSkipped++
+          continue
+        }
         mediumCountPerRaw.set(raw.id, cnt + 1)
         mediumCandidates.push({
           raw_id: raw.id,
@@ -606,7 +660,10 @@ async function runMatchDumpStage() {
     // aiOnlyCandidates: confidence=none → 항상 AI (rule=high라도 direct 불가)
     for (const { lot, score } of aiOnlyCandidates) {
       const cnt = mediumCountPerRaw.get(raw.id) ?? 0
-      if (cnt >= MEDIUM_CAP_PER_RAW) { mediumCapSkipped++; continue }
+      if (cnt >= MEDIUM_CAP_PER_RAW) {
+        mediumCapSkipped++
+        continue
+      }
       mediumCountPerRaw.set(raw.id, cnt + 1)
       mediumCandidates.push({
         raw_id: raw.id,
@@ -619,32 +676,47 @@ async function runMatchDumpStage() {
       })
     }
 
+    const hasAnyMatch =
+      highMatches.length > 0 || mediumMatches.length > 0 || aiOnlyCandidates.length > 0
     const attempted = candidates.length > 0 || keywords.length > 0
-    if (
-      attempted &&
-      mediumMatches.length === 0 &&
-      highMatches.length === 0 &&
-      aiOnlyCandidates.length === 0
-    ) {
-      directUpdates.push(
-        `UPDATE web_sources_raw SET matched_at = datetime('now') WHERE id = ${raw.id};`,
-      )
-      immediateMatchedIds.add(raw.id)
+
+    if (!hasAnyMatch && attempted) {
+      if (keywords.length > 0 && candidates.length === 0 && raw.full_text_status === 'ok') {
+        // FTS 결과 0건 — lot이 DB에 없는 경우: web_sources에 MISSED로 보존
+        const detectedName = keywords.join(' ')
+        missedInserts.push(buildMissedLotInsertSql(raw, detectedName))
+        missedUpdates.push(
+          `UPDATE web_sources_raw SET matched_at = datetime('now'), match_fail_reason = 'lot_not_in_db' WHERE id = ${raw.id};`,
+        )
+        missedLotCount++
+        immediateMatchedIds.add(raw.id)
+      } else {
+        directUpdates.push(
+          `UPDATE web_sources_raw SET matched_at = datetime('now') WHERE id = ${raw.id};`,
+        )
+        immediateMatchedIds.add(raw.id)
+      }
     }
 
     if ((i + 1) % 50 === 0 || i === rows.length - 1) {
       process.stdout.write(
-        `\r  진행: ${i + 1}/${rows.length}  직접: ${directLinks}  medium: ${mediumCandidates.length}  noKw: ${keywordsEmptySkipped}  noConf: ${confidenceNoneSkipped}  locSkip: ${wrongLotSkipped}  preFilter: ${preFilterSkipped}  capSkip: ${mediumCapSkipped}  `,
+        `\r  진행: ${i + 1}/${rows.length}  직접: ${directLinks}  medium: ${mediumCandidates.length}  missed: ${missedLotCount}  noKw: ${keywordsEmptySkipped}  locSkip: ${wrongLotSkipped}  preFilter: ${preFilterSkipped}  `,
       )
     }
 
     if (directInserts.length + directUpdates.length >= SQL_CHUNK_SIZE) {
       emitSqlChunk('match-direct', [...directInserts.splice(0), ...directUpdates.splice(0)])
     }
+    if (missedInserts.length + missedUpdates.length >= SQL_CHUNK_SIZE) {
+      emitSqlChunk('missed-lot', [...missedInserts.splice(0), ...missedUpdates.splice(0)])
+    }
   }
 
   if (directInserts.length + directUpdates.length > 0) {
     emitSqlChunk('match-direct', [...directInserts, ...directUpdates])
+  }
+  if (missedInserts.length + missedUpdates.length > 0) {
+    emitSqlChunk('missed-lot', [...missedInserts, ...missedUpdates])
   }
   console.log()
 
@@ -671,6 +743,7 @@ async function runMatchDumpStage() {
     processed: rows.length,
     directLinks,
     wrongLotSkipped,
+    missedLotCount,
     mediumCandidates: mediumCandidates.length,
     candidatesFile,
     candidatesFiles,
