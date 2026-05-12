@@ -44,7 +44,7 @@ bunx wrangler d1 execute parking-db --remote --command \
 ### Stage 0 — Fulltext Fetch
 
 ```bash
-bun run scripts/run-pipeline-149.ts --remote --stage fulltext-fetch --limit 500 --concurrency 3 --sleep 500
+bun run scripts/run-pipeline-149.ts --remote --stage fulltext-fetch --limit 500 --concurrency 10 --sleep 0
 ```
 
 출력: `/tmp/pipeline-149-{ts}/fulltext-chunk-01.sql`
@@ -83,19 +83,25 @@ bun run scripts/run-pipeline-149.ts --remote --stage match-dump --limit 500 --ou
 
 **Stage 2 출력: `medium-candidates.json` (20건 이하) 또는 `medium-candidates-01.json`, `medium-candidates-02.json`, ... (20건 초과 시 자동 분할, CHUNK_SIZE=20)**
 
-청크 수만큼 `pipeline-ai-filter` 서브에이전트를 **병렬로** spawn한다.
+청크를 **5개씩 배치**로 나눠 병렬 spawn한다. 한 배치가 완료되면 다음 배치를 실행한다.
 
 **청크가 1개일 때:**
 ```
 Agent(subagent_type="pipeline-ai-filter"): {DIR}/medium-candidates.json 파일을 읽고 v3 판정 기준으로 필터링해서 {DIR}/ai-results.json을 생성해줘.
 ```
 
-**청크가 여러 개일 때 (병렬 spawn, 단일 메시지에 모든 Agent 호출):**
+**청크가 여러 개일 때 (배치당 최대 5개, 배치 완료 후 다음 배치):**
+
+배치 1 (단일 메시지에 최대 5개 Agent 호출):
 ```
 Agent(subagent_type="pipeline-ai-filter"): {DIR}/medium-candidates-01.json 읽고 v3 기준 필터링 → {DIR}/ai-results-01.json 생성
 Agent(subagent_type="pipeline-ai-filter"): {DIR}/medium-candidates-02.json 읽고 v3 기준 필터링 → {DIR}/ai-results-02.json 생성
 Agent(subagent_type="pipeline-ai-filter"): {DIR}/medium-candidates-03.json 읽고 v3 기준 필터링 → {DIR}/ai-results-03.json 생성
+Agent(subagent_type="pipeline-ai-filter"): {DIR}/medium-candidates-04.json 읽고 v3 기준 필터링 → {DIR}/ai-results-04.json 생성
+Agent(subagent_type="pipeline-ai-filter"): {DIR}/medium-candidates-05.json 읽고 v3 기준 필터링 → {DIR}/ai-results-05.json 생성
 ```
+
+배치 1 완료 확인 후 → 배치 2 (06~10), 배치 3 (11~15), ... 순서로 반복한다.
 
 Stage 4 match-apply는 같은 디렉토리의 `ai-results*.json` 파일을 자동으로 병합한다.
 
@@ -156,7 +162,7 @@ bun run scripts/run-pipeline-149.ts --remote --apply both --out /tmp/pipeline-14
 DIR=/tmp/pipeline-149-$(date +%s)
 
 # 0. fulltext-fetch (pending → ok/blocked/...)
-bun run scripts/run-pipeline-149.ts --remote --stage fulltext-fetch --limit 500 --concurrency 3 --out $DIR
+bun run scripts/run-pipeline-149.ts --remote --stage fulltext-fetch --limit 500 --concurrency 10 --sleep 0 --out $DIR
 
 # 1. filter
 bun run scripts/run-pipeline-149.ts --remote --stage filter --limit 500 --out $DIR
