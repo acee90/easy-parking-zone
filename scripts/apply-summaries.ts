@@ -13,6 +13,7 @@
  *   bun run scripts/apply-summaries.ts --input data/top-sources-by-lot.sql
  *   bun run scripts/apply-summaries.ts --input data/top-sources-by-lot.sql --remote
  *   bun run scripts/apply-summaries.ts --input ... --rejected data/regen-rejected.json --output data/regen-applied.sql
+ *   bun run scripts/apply-summaries.ts --input ... --lots-output data/regen-affected-lots.json
  */
 import { mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { dirname, resolve } from 'path'
@@ -29,6 +30,8 @@ function getArg(name: string, defaultValue: string): string {
 const INPUT = getArg('--input', 'data/top-sources-by-lot.sql')
 const REJECTED = getArg('--rejected', 'data/regen-rejected.json')
 const OUTPUT_SQL = getArg('--output', 'data/regen-applied.sql')
+const LOTS_OUTPUT = getArg('--lots-output', '')
+const FAILED_OUTPUT = getArg('--failed-output', 'data/regen-failed.sql')
 const APPLY = args.includes('--apply') // 명시적 --apply 없으면 SQL만 생성, DB 적용은 안함
 
 // ── Types ──
@@ -39,11 +42,12 @@ interface Parsed {
 
 interface Rejection {
   id: number
-  reason: 'too_short' | 'not_better' | 'parse_error'
+  reason: 'too_short' | 'not_better' | 'parse_error' | 'chrome_detected' | 'too_long'
   old_len: number
   new_len: number
   old_summary?: string
   new_summary?: string
+  matched_pattern?: string
 }
 
 // ── SQL 파싱 ──
@@ -77,6 +81,22 @@ function parseSqlFile(filePath: string): { parsed: Parsed[]; errors: number } {
   return { parsed, errors }
 }
 
+// ── 적용된 web_sources의 parking_lot_id 조회 ──
+function fetchAffectedLotIds(ids: number[]): string[] {
+  if (ids.length === 0) return []
+  const CHUNK = 200
+  const lotIdSet = new Set<string>()
+  for (let i = 0; i < ids.length; i += CHUNK) {
+    const chunk = ids.slice(i, i + CHUNK)
+    const idList = chunk.join(',')
+    const rows = d1Query<{ parking_lot_id: string }>(
+      `SELECT DISTINCT parking_lot_id FROM web_sources WHERE id IN (${idList}) AND parking_lot_id IS NOT NULL`,
+    )
+    for (const r of rows) lotIdSet.add(r.parking_lot_id)
+  }
+  return [...lotIdSet]
+}
+
 // ── 기존 ai_summary 일괄 조회 ──
 function fetchExistingSummaries(ids: number[]): Map<number, string> {
   const result = new Map<number, string>()
@@ -100,6 +120,38 @@ function fetchExistingSummaries(ids: number[]): Map<number, string> {
 // ── SQL 이스케이프 ──
 function escSql(s: string): string {
   return s.replace(/'/g, "''")
+}
+
+// ── Chrome / boilerplate / 인젝션 패턴 ──
+// agent가 본문 raw markdown을 그대로 복사한 케이스 차단.
+// ai-summary-prompt.ts의 boilerplate 사양과 일치.
+const CHROME_PATTERNS: { name: string; re: RegExp }[] = [
+  { name: 'naver_blog_menu', re: /MY메뉴 열기|_My Menu|클립만들기|블로그 앱|내 상품 관리 NEW/ },
+  { name: 'naver_blog_chrome', re: /이 블로그의 체크인|이 장소의 다른 글/ },
+  { name: 'naver_blog_font_ctrl', re: /본문 폰트 크기 (조정|작게|크게)|본문 기타 기능/ },
+  { name: 'naver_cafe_chrome', re: /홈 로그인하기|로그인이 필요합니다|useCafeId=false/ },
+  { name: 'markdown_residue', re: /\]\(https?:\/\/m\. com\//i },
+  { name: 'markdown_image', re: /!\[[^\]]*\]\(https?:/ },
+  { name: 'markdown_header', re: /(?:^|\n)#{1,6} [^\n]+\n/ },
+  { name: 'markdown_link_dump', re: /(?:\]\(https?:[^)]+\)[^.]{0,30}){3,}/ },
+  { name: 'llm_injection', re: /OpenAI GPT|이 텍스트를 자동으로 처리|저작권 보호를 받습니다/ },
+  { name: 'network_error', re: /로딩중입니다|네트워크 문제/ },
+  { name: 'coupang_partners', re: /쿠팡 파트너스/ },
+  {
+    name: 'meta_only',
+    re: /(정보를?\s*제공합니다|정보를?\s*확인할 수 있습니다|상세\s*정보를?\s*포함합니다|정책 변경 여부를?\s*확인)/,
+  },
+  { name: 'ai_disclosure', re: /(AI[가]? 분석|데이터에 따르면|본 페이지는 자동|AI 생성 콘텐츠)/ },
+  { name: 'qa_template', re: /(Q\.\s*[^A]+A\.\s*)/ },
+]
+
+const MAX_SUMMARY_LENGTH = 800
+
+function detectChrome(s: string): string | null {
+  for (const { name, re } of CHROME_PATTERNS) {
+    if (re.test(s)) return name
+  }
+  return null
 }
 
 // ── Main ──
@@ -144,6 +196,34 @@ function main() {
       continue
     }
 
+    // chrome / boilerplate / 인젝션 패턴 검출 → 거부
+    const chromeMatch = detectChrome(p.newSummary)
+    if (chromeMatch) {
+      rejected.push({
+        id: p.id,
+        reason: 'chrome_detected',
+        old_len: oldLen,
+        new_len: newLen,
+        old_summary: old.slice(0, 80),
+        new_summary: p.newSummary.slice(0, 80),
+        matched_pattern: chromeMatch,
+      })
+      continue
+    }
+
+    // 너무 긴 summary → agent가 본문을 raw로 복사한 신호. 거부.
+    if (newLen > MAX_SUMMARY_LENGTH) {
+      rejected.push({
+        id: p.id,
+        reason: 'too_long',
+        old_len: oldLen,
+        new_len: newLen,
+        old_summary: old.slice(0, 80),
+        new_summary: p.newSummary.slice(0, 80),
+      })
+      continue
+    }
+
     // old가 짧으면 (< MIN) 무조건 적용. 둘 다 충분히 길면 더 길 때만.
     const oldTooShort = oldLen < MIN_SUMMARY_LENGTH
     if (!oldTooShort && newLen <= oldLen) {
@@ -178,6 +258,41 @@ function main() {
   mkdirSync(dirname(rejectedPath), { recursive: true })
   writeFileSync(rejectedPath, JSON.stringify(rejected, null, 2), 'utf-8')
   console.log(`\n  4. 거부 리스트 저장: ${rejectedPath}`)
+
+  // 실패 마킹 SQL 생성:
+  //   NULL  → 미시도 (extract 대상)
+  //   ''    → 시도했으나 실패 (extract 스킵)
+  //   값 있음 → 정상 요약
+  // too_short이고 기존 summary도 NULL인 row만 마킹 (not_better는 기존 summary가 충분하므로 제외)
+  // too_short / chrome_detected / too_long 은 모두 "시도했으나 실패" — 재시도 방지 위해 빈 문자열로 마킹.
+  // 단 기존 summary가 있으면(old_len > 0) 마킹하지 않음 (기존 값 보존).
+  const failedToMark = rejected.filter(
+    (r) =>
+      r.old_len === 0 &&
+      (r.reason === 'too_short' || r.reason === 'chrome_detected' || r.reason === 'too_long'),
+  )
+  if (failedToMark.length > 0) {
+    const failedPath = resolve(import.meta.dir, '..', FAILED_OUTPUT)
+    mkdirSync(dirname(failedPath), { recursive: true })
+    const failedSql = failedToMark
+      .map(
+        (r) =>
+          `UPDATE web_sources SET ai_summary = '', ai_summary_updated_at = datetime('now') WHERE id = ${r.id} AND (ai_summary IS NULL OR ai_summary = '') AND ai_summary_updated_at IS NULL;`,
+      )
+      .join('\n')
+    writeFileSync(failedPath, failedSql + '\n', 'utf-8')
+    console.log(`  4c. 실패 마킹 SQL 저장: ${failedPath} (${failedToMark.length}건)`)
+    console.log(`      → 다음 실행 시 이 row들은 ai_summary_updated_at 마킹으로 제외됨`)
+  }
+
+  // 영향받은 lot IDs 추출 및 저장
+  if (LOTS_OUTPUT && applied.length > 0) {
+    const affectedLotIds = fetchAffectedLotIds(applied.map((p) => p.id))
+    const lotsOutputPath = resolve(import.meta.dir, '..', LOTS_OUTPUT)
+    mkdirSync(dirname(lotsOutputPath), { recursive: true })
+    writeFileSync(lotsOutputPath, JSON.stringify(affectedLotIds, null, 2), 'utf-8')
+    console.log(`  4b. 영향 lot IDs 저장: ${lotsOutputPath} (${affectedLotIds.length}건)`)
+  }
 
   // 적용용 SQL 생성 (필터링된 것만)
   const outputPath = resolve(import.meta.dir, '..', OUTPUT_SQL)
