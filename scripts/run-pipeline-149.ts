@@ -55,15 +55,19 @@ const ALL_TO_AI = args.includes('--all-to-ai')
 
 // --remote 없이도 .wrangler/state/v3/d1 에서 로컬 DB 자동 탐색
 
-if (!['fulltext-fetch', 'filter', 'match-dump', 'match-apply', ''].includes(STAGE)) {
+if (
+  !['fulltext-fetch', 'filter', 'ai-filter', 'lot-match', 'match-dump', 'match-apply', ''].includes(
+    STAGE,
+  )
+) {
   console.error(
-    `⚠️  알 수 없는 stage: "${STAGE}". fulltext-fetch | filter | match-dump | match-apply 중 선택.`,
+    `⚠️  알 수 없는 stage: "${STAGE}". fulltext-fetch | filter | ai-filter | lot-match | match-dump | match-apply 중 선택.`,
   )
   process.exit(1)
 }
 
-if (STAGE === 'match-apply' && !AI_RESULTS_FILE) {
-  console.error('⚠️  match-apply는 --ai-results FILE 필요.')
+if ((STAGE === 'match-apply' || STAGE === 'lot-match') && !AI_RESULTS_FILE) {
+  console.error(`⚠️  ${STAGE}는 --ai-results FILE 필요.`)
   process.exit(1)
 }
 
@@ -965,6 +969,144 @@ async function runMatchApplyStage() {
   return { aiTotal: results.length, aiPassed: inserts.length, removalBreakdown }
 }
 
+// ── Stage 2 (재배치): ai-filter 입력 dump — lot 없음 ──────────────
+// plan §4.1: rule 통과(high+medium) raw를 lot 모른 채 콘텐츠 품질/요약 평가용으로 dump.
+async function runAiFilterDumpStage() {
+  console.log('\n🧪 Stage: ai-filter (dump, lot-less)')
+  const idRows = d1Query<{ id: number }>(
+    `SELECT id FROM web_sources_raw WHERE filter_passed = 1 AND matched_at IS NULL ORDER BY id LIMIT ${LIMIT}`,
+  )
+  console.log(`  대상: ${idRows.length}건`)
+  if (idRows.length === 0) return { processed: 0, candidatesFile: '', candidatesFiles: [] as string[] }
+
+  const FETCH_BATCH = 200
+  const allIds = idRows.map((r) => r.id)
+  const rows: RawRow[] = []
+  for (let b = 0; b < allIds.length; b += FETCH_BATCH) {
+    const batch = d1Query<RawRow>(
+      `SELECT id, source, source_id, source_url, title, content, author, published_at,
+              sentiment_score, ai_difficulty_keywords,
+              full_text, full_text_status, full_text_fetched_at, filter_tier
+       FROM web_sources_raw WHERE id IN (${allIds.slice(b, b + FETCH_BATCH).join(',')})`,
+    )
+    rows.push(...batch)
+  }
+
+  // lot-less 후보: 에이전트는 lot 모르고 콘텐츠 품질 + lot-agnostic summary만 생성
+  const candidates = rows.map((raw) => ({
+    raw_id: raw.id,
+    title: stripHtml(raw.title),
+    full_text: (raw.full_text ?? stripHtml(raw.content)).slice(0, 6000),
+  }))
+
+  const CHUNK_SIZE = 20
+  const chunkCount = Math.ceil(candidates.length / CHUNK_SIZE)
+  const candidatesFiles: string[] = []
+  for (let i = 0; i < chunkCount; i++) {
+    const chunk = candidates.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE)
+    const suffix = chunkCount > 1 ? `-${String(i + 1).padStart(2, '0')}` : ''
+    const f = `${tmpDir}/medium-candidates${suffix}.json`
+    writeFileSync(
+      f,
+      JSON.stringify({ candidates: chunk, generated_at: new Date().toISOString() }, null, 2),
+      'utf-8',
+    )
+    candidatesFiles.push(f)
+    console.log(`  → ${f.split('/').pop()} (${chunk.length}건)`)
+  }
+  return { processed: rows.length, candidatesFile: candidatesFiles[0], candidatesFiles }
+}
+
+// ── Stage 3 (재배치): lot-match — ai-filter 통과 글에 best lot 매칭 ──
+const missedInsertsLM: string[] = []
+
+function pickBestLot(
+  title: string,
+  content: string,
+  fullText: string,
+): { lot: LotRow; score: number } | null {
+  const keywords = extractSearchKeywords(title, content)
+  if (keywords.length === 0) return null
+  const candidates = searchCandidateLots(keywords, loadAllLots())
+  const rank: Record<string, number> = { high: 3, medium: 2, none: 1 }
+  let best: { lot: LotRow; score: number; r: number } | null = null
+  for (const lot of candidates) {
+    if (!isCandidateLocationCompatible(keywords, lot)) continue
+    if (fullText.length > 200 && !lotNameInFullText(lot.name, fullText, title)) continue
+    const { score, confidence } = getMatchConfidence(title, content, lot.name, lot.address)
+    const r = rank[confidence] ?? 0
+    if (!best || r > best.r || (r === best.r && score > best.score)) best = { lot, score, r }
+  }
+  return best ? { lot: best.lot, score: best.score } : null
+}
+
+async function runLotMatchStage() {
+  console.log('\n🎯 Stage: lot-match')
+  if (!AI_RESULTS_FILE || !existsSync(AI_RESULTS_FILE)) {
+    console.error(`⚠️  AI 결과 파일 없음: ${AI_RESULTS_FILE}`)
+    process.exit(1)
+  }
+  const resultsDir = AI_RESULTS_FILE.replace(/\/[^/]+$/, '')
+  const { readdirSync } = await import('node:fs')
+  const files = readdirSync(resultsDir)
+    .filter((f) => f.startsWith('ai-results') && f.endsWith('.json'))
+    .sort()
+    .map((f) => `${resultsDir}/${f}`)
+  const results: AiResult[] = []
+  for (const file of files) {
+    const { results: rs } = JSON.parse(readFileSync(file, 'utf-8')) as { results: AiResult[] }
+    results.push(...rs)
+  }
+  console.log(`  AI 결과 ${results.length}건 (파일 ${files.length}개)`)
+
+  const passing = results.filter((r) => r.filter_passed)
+  const uniqueIds = [...new Set(passing.map((r) => r.raw_id))]
+  const FETCH_BATCH = 200
+  const rawRows: RawRow[] = []
+  for (let b = 0; b < uniqueIds.length; b += FETCH_BATCH) {
+    const batch = d1Query<RawRow>(
+      `SELECT id, source, source_id, source_url, title, content, author, published_at,
+              sentiment_score, ai_difficulty_keywords,
+              full_text, full_text_status, full_text_fetched_at, filter_tier
+       FROM web_sources_raw WHERE id IN (${uniqueIds.slice(b, b + FETCH_BATCH).join(',')})`,
+    )
+    rawRows.push(...batch)
+  }
+  const rawById = new Map(rawRows.map((r) => [r.id, r]))
+
+  const inserts: string[] = []
+  const updates: string[] = []
+  let matched = 0
+  let missed = 0
+  for (const result of results) {
+    if (!result.filter_passed) continue
+    const raw = rawById.get(result.raw_id)
+    if (!raw) continue
+    const title = stripHtml(raw.title)
+    const content = stripHtml(raw.content)
+    const fullText = raw.full_text ?? content
+    const best = pickBestLot(title, content, fullText)
+    if (best) {
+      inserts.push(buildInsertSql(raw, best.lot, best.score, result))
+      matched++
+    } else {
+      // 콘텐츠는 양질이나 DB에 lot 없음 → MISSED로 보존
+      const kws = extractSearchKeywords(title, content)
+      missedInsertsLM.push(buildMissedLotInsertSql(raw, kws.join(' ')))
+      missed++
+    }
+  }
+  // 모든 AI 평가 raw에 matched_at 마킹 (재처리 방지)
+  for (const rawId of new Set(results.map((r) => r.raw_id))) {
+    updates.push(`UPDATE web_sources_raw SET matched_at = datetime('now') WHERE id = ${rawId};`)
+  }
+  const all = [...inserts, ...missedInsertsLM, ...updates]
+  for (let i = 0; i < all.length; i += SQL_CHUNK_SIZE) {
+    emitSqlChunk('match-ai', all.slice(i, i + SQL_CHUNK_SIZE))
+  }
+  return { aiTotal: results.length, aiPassed: passing.length, matched, missed }
+}
+
 // ── Apply SQL Files ───────────────────────────────────────────────
 
 function applySqlFiles(target: 'local' | 'remote', files: string[]): void {
@@ -1008,9 +1150,13 @@ async function main() {
   let filterStats: Awaited<ReturnType<typeof runFilterStage>> | null = null
   let dumpStats: Awaited<ReturnType<typeof runMatchDumpStage>> | null = null
   let applyStats: Awaited<ReturnType<typeof runMatchApplyStage>> | null = null
+  let aiFilterStats: Awaited<ReturnType<typeof runAiFilterDumpStage>> | null = null
+  let lotMatchStats: Awaited<ReturnType<typeof runLotMatchStage>> | null = null
 
   if (STAGE === 'fulltext-fetch') fetchStats = await runFullTextFetchStage()
   if (STAGE === 'filter') filterStats = await runFilterStage()
+  if (STAGE === 'ai-filter') aiFilterStats = await runAiFilterDumpStage()
+  if (STAGE === 'lot-match') lotMatchStats = await runLotMatchStage()
   if (STAGE === 'match-dump') dumpStats = await runMatchDumpStage()
   if (STAGE === 'match-apply') applyStats = await runMatchApplyStage()
 
@@ -1070,6 +1216,19 @@ async function main() {
     for (const [reason, count] of Object.entries(removalBreakdown).sort((a, b) => b[1] - a[1])) {
       console.log(`    ${reason.padEnd(14)} ${count}건`)
     }
+  }
+
+  if (aiFilterStats?.processed) {
+    const { processed, candidatesFiles } = aiFilterStats
+    console.log(`\n[AI Filter Dump]  ${processed}건 → ${candidatesFiles.length}개 청크 (lot-less)`)
+    console.log(`  → haiku subagent 실행 후: --stage lot-match --ai-results <dir>/ai-results*.json`)
+  }
+
+  if (lotMatchStats) {
+    const { aiTotal, aiPassed, matched, missed } = lotMatchStats
+    console.log(`\n[Lot Match]  AI ${aiTotal}건 / 통과 ${aiPassed}건`)
+    console.log(`  매칭   ${matched}건  (${pct(matched, aiPassed)})`)
+    console.log(`  missed ${missed}건  (lot DB에 없음)`)
   }
 
   if (emittedFiles.length > 0) {

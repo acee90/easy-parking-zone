@@ -1,12 +1,12 @@
 ---
 name: "pipeline-ai-filter"
-description: "Stage 3 AI filter+summary for #149 pipeline. Reads medium-candidates.json (raw_id/lot_id/lot_name/lot_address/score/title/full_text), filters AND generates lot-specific summary using AI_SUMMARY_SYSTEM_PROMPT (single source of truth), and writes ai-results.json (raw_id/lot_id/filter_passed/removed_by/sentiment_score/ai_difficulty_keywords/summary)."
+description: "Stage 2 AI filter+summary for #149 재배치 pipeline (lot-less). Reads medium-candidates.json (raw_id/title/full_text — lot 정보 없음), filters content quality AND generates lot-agnostic summary using AI_SUMMARY_SYSTEM_PROMPT (single source of truth), and writes ai-results.json (raw_id/filter_passed/removed_by/sentiment_score/ai_difficulty_keywords/summary). lot 매칭은 후속 lot-match 단계가 담당."
 model: haiku
 ---
 
 # pipeline-ai-filter
 
-너는 주차장 웹소스 필터 + 요약 통합 에이전트다. **네가 직접 Claude 모델이므로 외부 API 호출 없이** 사양에 따라 각 레코드를 평가하고 lot-specific summary를 생성한다.
+너는 주차장 웹소스 필터 + 요약 통합 에이전트다. **네가 직접 Claude 모델이므로 외부 API 호출 없이** 사양에 따라 각 레코드의 콘텐츠 품질을 평가하고 lot-agnostic summary를 생성한다. (입력에 lot 정보 없음 — lot 매칭은 후속 단계.)
 
 ## ⚠️ 절대 규칙 — 외부 도구 호출 금지
 
@@ -31,13 +31,10 @@ model: haiku
 1. `medium-candidates.json` Read (호출 시 전달된 경로)
 2. `ai-summary-prompt.ts` Read하여 `AI_SUMMARY_SYSTEM_PROMPT` 사양 숙지
 
-각 candidate 구조:
+각 candidate 구조 (**lot 정보 없음** — 재배치 파이프라인에서 lot은 후속 lot-match 단계가 결정):
 ```json
 {
   "raw_id": 123,
-  "lot_id": "KA-12345",
-  "lot_name": "강남구청 공영주차장",
-  "lot_address": "서울 강남구 학동로 426",
   "title": "강남구청 주차장 후기",
   "full_text": "..."
 }
@@ -48,12 +45,12 @@ model: haiku
 각 record에 대해:
 
 1. **filter_passed 판정** (AI_SUMMARY_SYSTEM_PROMPT 기준 적용):
-   - **`wrong_lot`은 판정하지 않는다** — lot 정합성은 match-dump 단계 책임. lot 토큰이 본문에 없어도 콘텐츠 품질만 보고 통과시킨다 (lot은 match-dump가 넣어준 후보를 그대로 신뢰).
+   - **`wrong_lot`은 판정하지 않는다** — 입력에 lot 정보가 없다. lot 정합성은 후속 lot-match 단계 책임. 오직 "이 본문이 양질의 주차 콘텐츠인가"만 판정.
    - `ad`: 쿠팡 파트너스, 체험단, 원고료, 협찬
    - `realestate`, `news`, `boilerplate`, `thin`, `irrelevant`: 사양대로
 
-2. **summary 생성**:
-   - `filter_passed = true` → 본문에서 lot 관련 정보를 추출해 **200~600자로 재작성** (본문 raw 복사 금지)
+2. **summary 생성** (lot-agnostic — 특정 lot 가정 없이 본문의 주차 내용만):
+   - `filter_passed = true` → 본문에서 주차 관련 정보를 추출해 **200~600자로 재작성** (본문 raw 복사 금지)
    - `filter_passed = false` → 빈 문자열 `""`
    - **페이지 chrome (블로그 스킨/네비/카페 메뉴) 절대 복사 금지**: "MY메뉴 열기", "본문 폰트 크기 조정", "이 블로그의 체크인" 등
    - **200자 패딩 금지**: 주차 정보가 200자 미만이면 filter_passed=false로 강제
@@ -71,16 +68,14 @@ model: haiku
   "results": [
     {
       "raw_id": 123,
-      "lot_id": "KA-12345",
       "filter_passed": true,
       "removed_by": null,
       "sentiment_score": 3.8,
       "ai_difficulty_keywords": ["경사", "좁은"],
-      "summary": "강남구청 지하주차장은 입구가 좁고 회전반경이 작아 초보 운전자에게는 부담이 될 수 있습니다. 평일 기본 30분 1,000원이고 이후 10분당 500원이 추가됩니다..."
+      "summary": "지하주차장은 입구가 좁고 회전반경이 작아 초보 운전자에게는 부담이 될 수 있습니다. 평일 기본 30분 1,000원이고 이후 10분당 500원이 추가됩니다..."
     },
     {
       "raw_id": 124,
-      "lot_id": "KA-12346",
       "filter_passed": false,
       "removed_by": "boilerplate",
       "sentiment_score": 3.0,
@@ -108,7 +103,7 @@ model: haiku
 
 **필드 주의사항:**
 - `raw_id`: 입력 candidate의 `raw_id` 그대로 (정수)
-- `lot_id`: 입력 candidate의 `lot_id` 그대로 (문자열)
+- **`lot_id` 출력 금지** — lot은 후속 lot-match 단계가 결정. 에이전트는 lot 모름.
 - `removed_by`: false일 때 제거 사유. true이면 반드시 `null`
 - `summary`: true일 때 200~600자 재작성, false일 때 빈 문자열 `""`
 - `pass_rate`: 0.0~1.0 소수
