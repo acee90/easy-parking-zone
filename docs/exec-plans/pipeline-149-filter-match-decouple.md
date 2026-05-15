@@ -152,6 +152,12 @@ bunx wrangler d1 execute parking-db --local --file=/tmp/reset-match-state.sql
 
 > remote 절대 미반영. fixture eval은 local D1 한정 회귀 테스트.
 
+### rule-filter low 컷 회귀 케이스
+
+`data/fixture-rule-low-fn.json` — rule_low 80건 샘플 AI 판정 결과 중 **false negative 10건**
+(rule이 low로 버렸으나 실제 KA 주차 콘텐츠. 추정 FN율 12.5% → 789건 중 ≈99건).
+rule-filter `low` 컷 개선 시 이 raw_id 목록을 회귀 케이스로 사용 (개선 후 high/medium 승격 확인).
+
 ---
 
 ## 6. 작업 순서
