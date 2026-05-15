@@ -77,6 +77,9 @@ const NARRATIVE_RE =
 const CONCRETE_PARKING_RE =
   /주차하기\s*(?:어렵|힘들|불편|쉽|편리|좋)|주차가\s*(?:어렵|힘들|불편|쉽|편리|좋|안됨)|주차난|만차|자리가\s*(?:없|부족|꽉)|빈\s*자리|빈자리|진입(?:로)?(?:이|가)?\s*(?:좁|어렵|힘들|복잡|막|불편)|주차\s*(?:비|요금|료)\s*(?:\d|유료|무료|비싸|저렴|싸|부담)|(?:\d+분|\d+시간)\s*(?:주차|대기|기다)|주차\s*(?:꿀팁|팁|후기|리뷰)|출차\s*(?:했|어렵|힘들|오래)|주차면|주차공간이?\s*(?:좁|협소|넓|충분|부족)|입차|출차|회전반경|일방통행|혼잡/
 
+// high 판정용 — concrete parking 신호 출현 횟수 카운트(전역 매칭)
+const CONCRETE_PARKING_RE_G = new RegExp(CONCRETE_PARKING_RE.source, 'g')
+
 // ── 헬퍼 ─────────────────────────────────────────────────────
 
 function countMatches(text: string, keywords: string[]): number {
@@ -110,7 +113,9 @@ export function classifyByRule(input: RuleFilterInput): FilterTier {
   if (countMatches(text, LOW_KEYWORDS_APP) >= 1) return 'low'
 
   const narrativeMatches = (text.match(NARRATIVE_RE) ?? []).length
-  const hasConcreteParking = CONCRETE_PARKING_RE.test(text)
+  // 고유 신호 종류 수 (같은 토큰 반복은 1로 — "혼잡 혼잡"이 high 통과 못 하게)
+  const concreteParkingCount = new Set(text.match(CONCRETE_PARKING_RE_G) ?? []).size
+  const hasConcreteParking = concreteParkingCount > 0
 
   // 제목에 주차 키워드 없으면 → 주차 경험 콘텐츠 최소 기준 확인
   // 여행기·맛집·관광지 방문기에서 "주차장 있음" 한 줄 언급 수준은 low로 처리
@@ -119,8 +124,13 @@ export function classifyByRule(input: RuleFilterInput): FilterTier {
     return 'low'
   }
 
-  // high: 충분한 길이 + 1인칭 서술 2회 이상 + 구체적 주차 경험 표현
-  if (text.length >= HIGH_FULLTEXT_MIN_LENGTH && narrativeMatches >= 2 && hasConcreteParking) {
+  // high: 충분한 길이 + 1인칭 서술 2회 이상 + 구체적 주차 표현 2회 이상.
+  // concrete parking 1회(맛집글의 "주차 무료" 한 줄 등)는 high 아님 → medium(AI 판정).
+  if (
+    text.length >= HIGH_FULLTEXT_MIN_LENGTH &&
+    narrativeMatches >= 2 &&
+    concreteParkingCount >= 2
+  ) {
     return 'high'
   }
 

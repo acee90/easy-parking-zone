@@ -50,6 +50,8 @@ const CONCURRENCY = parseInt(argVal('--concurrency') ?? '3', 10)
 const SLEEP_MS = parseInt(argVal('--sleep') ?? '500', 10)
 const AI_RESULTS_FILE = argVal('--ai-results')
 const APPLY = argVal('--apply') // 'local' | 'remote' | 'both'
+// --all-to-ai: rule=high여도 direct insert 비활성화, 모든 후보 AI 위임 (eval용)
+const ALL_TO_AI = args.includes('--all-to-ai')
 
 // --remote 없이도 .wrangler/state/v3/d1 에서 로컬 DB 자동 탐색
 
@@ -68,6 +70,20 @@ if (STAGE === 'match-apply' && !AI_RESULTS_FILE) {
 // ── 상수 ──────────────────────────────────────────────────────────
 
 const FTS_LIMIT = 5
+// lot명에서 식별력 없는 일반 토큰 — 후보 스코어링의 핵심 토큰 산정에서 제외
+const LOT_GENERIC = new Set([
+  '주차장',
+  '주차',
+  '공영',
+  '민영',
+  '노상',
+  '노외',
+  '무료',
+  '유료',
+  '부설',
+  '임시',
+  '기계식',
+])
 const SQL_CHUNK_SIZE = 300
 const DB_NAME = 'parking-db'
 const MAX_FULLTEXT_BYTES = 30_000
@@ -135,19 +151,40 @@ export interface AiResult {
   removed_by: string | null
   sentiment_score: number
   ai_difficulty_keywords: string[]
+  /** lot-specific 200~600자 요약. filter_passed=false면 빈 문자열. */
+  summary?: string
 }
 
 // ── full_text 기반 lot_name 존재 여부 체크 ─────────────────────────
 
-function lotNameInFullText(lotName: string, fullText: string, title: string = ''): boolean {
+export function lotNameInFullText(lotName: string, fullText: string, title: string = ''): boolean {
   const keywords = extractNameKeywords(lotName)
   const text = (title + ' ' + fullText).toLowerCase()
+  const textNoSpace = text.replace(/\s+/g, '')
+
   // 전체 이름 키워드(keywords[0])가 3자 이상이면 그것만으로 통과 판정
   const fullNameKw = keywords[0]
-  if (fullNameKw && fullNameKw.length >= 3 && text.includes(fullNameKw)) return true
-  // 그 외: 길이 3 이상 키워드 중 2개 이상 포함 여부 확인
+  if (fullNameKw && fullNameKw.length >= 3) {
+    // 1) 원본 substring
+    if (text.includes(fullNameKw)) return true
+    // 2) 공백 무시 substring (예: "스타필드시티위례"가 본문에 있을 때)
+    const fullNameNoSpace = fullNameKw.replace(/\s+/g, '')
+    if (fullNameNoSpace.length >= 4 && textNoSpace.includes(fullNameNoSpace)) return true
+    // 3) 어순 뒤집은 합성 (예: "위례스타필드시티")
+    const parts = fullNameKw.split(/\s+/).filter((p) => p.length >= 2)
+    if (parts.length >= 2) {
+      const reversed = [...parts].reverse().join('')
+      if (reversed.length >= 4 && textNoSpace.includes(reversed)) return true
+      // 4) 모든 part가 본문에 출현 (어순 무관, 거리 무관)
+      if (parts.every((p) => textNoSpace.includes(p))) return true
+    }
+  }
+
+  // 그 외: 길이 3 이상 키워드 중 2개 이상 포함 여부 확인 (공백 무시 포함)
   const longKws = keywords.filter((kw) => kw.length >= 3)
-  const matchCount = longKws.filter((kw) => text.includes(kw)).length
+  const matchCount = longKws.filter(
+    (kw) => text.includes(kw) || textNoSpace.includes(kw.replace(/\s+/g, '')),
+  ).length
   return matchCount >= Math.min(2, longKws.length)
 }
 
@@ -208,7 +245,7 @@ const STOP_WORDS = new Set([
   '기계식',
 ])
 
-function extractSearchKeywords(title: string, content: string): string[] {
+export function extractSearchKeywords(title: string, content: string): string[] {
   // Primary: words before '주차장' in title
   if (title.includes('주차장')) {
     const parkingIdx = title.indexOf('주차장')
@@ -218,7 +255,9 @@ function extractSearchKeywords(title: string, content: string): string[] {
       .split(/\s+/)
       .filter((w) => w.length >= 2 && !STOP_WORDS.has(w) && !/^\d+$/.test(w))
     const unique = [...new Set(words)]
-    const candidates = unique.slice(-3)
+    // 선두(보통 장소명) + 말미(주차장 직전) 토큰을 함께 보존.
+    // slice(-3)만 쓰면 "스타필드 시티 위례 … 다이소 주차장"에서 장소명을 통째로 잃음.
+    const candidates = [...new Set([...unique.slice(0, 3), ...unique.slice(-3)])]
     if (candidates.length > 0 && candidates.some((w) => w.length >= 2)) return candidates
   }
 
@@ -243,18 +282,50 @@ function extractSearchKeywords(title: string, content: string): string[] {
   return contentUnique.slice(0, 4)
 }
 
-// 추출한 키워드가 lot name에 포함돼야 지리적으로 연관있는 후보
-// 키워드 모두가 lot name에 포함돼야 통과 (some → every) — 브랜드 오매칭 방지
-function isCandidateLocationCompatible(keywords: string[], lot: LotRow): boolean {
-  if (keywords.length === 0) return false
-  const lotName = lot.name.toLowerCase()
-  return keywords.every((kw) => kw.length >= 2 && lotName.includes(kw.toLowerCase()))
+// 추출 키워드가 lot name과 지리적으로 연관있는지 판정.
+// every()는 본문 노이즈 키워드(CGV/맛집/1탄 등)가 섞이면 정답 lot도 탈락시킴.
+// → 공백 무시 정규화 + (다중 토큰 일치 | 이름 변형 일치 | 식별적 장문 토큰) 기준으로 완화.
+// 정밀도는 하류 lotNameInFullText + getMatchConfidence + AI filter가 담당.
+export function isCandidateLocationCompatible(keywords: string[], lot: LotRow): boolean {
+  const kws = keywords.map((k) => k.toLowerCase()).filter((k) => k.length >= 2)
+  if (kws.length === 0) return false
+  const nameNoSpace = lot.name.toLowerCase().replace(/\s+/g, '')
+
+  const joined = kws.join('')
+  const reversed = [...kws].reverse().join('')
+  if (
+    joined.length >= 4 &&
+    (nameNoSpace.includes(joined) ||
+      joined.includes(nameNoSpace) ||
+      (reversed.length >= 4 && nameNoSpace.includes(reversed)))
+  )
+    return true
+
+  // lot명 핵심 토큰이 키워드 blob에 모두 등장하면 통과 (어순·공백 무관)
+  const coreTokens = lot.name
+    .toLowerCase()
+    .split(/\s+/)
+    .map((t) => t.replace(/[^\p{L}\p{N}]/gu, ''))
+    .filter((t) => t.length >= 2 && !LOT_GENERIC.has(t))
+  if (coreTokens.length > 0) {
+    const hit = coreTokens.filter(
+      (t) => joined.includes(t) || kws.some((k) => k.includes(t) || t.includes(k)),
+    ).length
+    if (hit === coreTokens.length || hit >= 2) return true
+  }
+
+  const matched = kws.filter((kw) => nameNoSpace.includes(kw.replace(/\s+/g, '')))
+  // 다중 토큰 일치 → 단일 흔한 토큰(브랜드) 오매칭 방지하며 통과
+  if (matched.length >= 2) return true
+  // 단일이라도 충분히 식별적인 장문 토큰이면 통과
+  if (matched.some((kw) => kw.length >= 4)) return true
+  return false
 }
 
 // 인메모리 lot 캐시 — runMatchDumpStage() 시작 시 한 번만 로드
 let _allLots: LotRow[] | null = null
 
-function loadAllLots(): LotRow[] {
+export function loadAllLots(): LotRow[] {
   if (_allLots) return _allLots
   console.log('  📦 parking_lots 전체 로드 중...')
   _allLots = d1Query<LotRow>(
@@ -264,20 +335,51 @@ function loadAllLots(): LotRow[] {
   return _allLots
 }
 
-function searchCandidateLots(keywords: string[], allLots: LotRow[]): LotRow[] {
+// 관련도 랭킹 기반 후보 생성. 단순 선형 스캔 + 앞 N개 컷(이름 변형/흔한 토큰에
+// 슬롯을 뺏겨 정작 정답 lot이 후보에 못 드는 문제)을 스코어 정렬로 교체.
+export function searchCandidateLots(keywords: string[], allLots: LotRow[]): LotRow[] {
   if (keywords.length === 0) return []
-  const lowerKws = keywords.map((kw) => kw.toLowerCase())
-  const results: LotRow[] = []
+  const kws = keywords.map((kw) => kw.toLowerCase()).filter((kw) => kw.length >= 2)
+  if (kws.length === 0) return []
+  // 공백 무시 합성(이름 변형 매칭): "스타필드시티위례" / 어순 뒤집기 흡수
+  const joinedNoSpace = kws.join('')
+  const reversedNoSpace = [...kws].reverse().join('')
+
+  const scored: Array<{ lot: LotRow; score: number }> = []
   for (const lot of allLots) {
-    const lotName = lot.name.toLowerCase()
-    const lotAddr = lot.address.toLowerCase()
-    // FTS OR 매칭 재현: 키워드 중 하나라도 name 또는 address에 포함되면 후보
-    if (lowerKws.some((kw) => kw.length >= 2 && (lotName.includes(kw) || lotAddr.includes(kw)))) {
-      results.push(lot)
-      if (results.length >= FTS_LIMIT) break
+    const name = lot.name.toLowerCase()
+    const addr = lot.address.toLowerCase()
+    const nameNoSpace = name.replace(/\s+/g, '')
+    let score = 0
+    for (const kw of kws) {
+      const kwNoSpace = kw.replace(/\s+/g, '')
+      // 길이 가중: 식별력 높은 장문 토큰(스타필드시티위례)이 흔한 단문 토큰(cgv/시티)을 압도
+      if (name.includes(kw) || nameNoSpace.includes(kwNoSpace))
+        score += Math.min(kwNoSpace.length, 8)
+      if (addr.includes(kw)) score += 1
     }
+    // lot명 핵심 토큰 커버리지(어순·공백 무관): "위례스타필드시티" ↔ "스타필드시티 위례"
+    const coreTokens = name
+      .split(/\s+/)
+      .map((t) => t.replace(/[^\p{L}\p{N}]/gu, ''))
+      .filter((t) => t.length >= 2 && !LOT_GENERIC.has(t))
+    if (coreTokens.length > 0) {
+      const hit = coreTokens.filter(
+        (t) => joinedNoSpace.includes(t) || kws.some((k) => k.includes(t) || t.includes(k)),
+      ).length
+      if (hit === coreTokens.length && coreTokens.join('').length >= 4) score += 14
+      else if (hit >= 2) score += 8
+    }
+    // 이름 변형(공백 제거/어순) 보조 신호
+    if (joinedNoSpace.length >= 4) {
+      if (nameNoSpace.includes(joinedNoSpace) || joinedNoSpace.includes(nameNoSpace)) score += 6
+      else if (reversedNoSpace.length >= 4 && nameNoSpace.includes(reversedNoSpace)) score += 6
+    }
+    if (score > 0) scored.push({ lot, score })
   }
-  return results
+  // 스코어 내림차순 정렬 후 상위 FTS_LIMIT개 (앞 N개 임의 컷 → 최상위 N개)
+  scored.sort((a, b) => b.score - a.score)
+  return scored.slice(0, FTS_LIMIT).map((s) => s.lot)
 }
 
 // ── INSERT SQL 생성 ───────────────────────────────────────────────
@@ -334,6 +436,13 @@ function buildInsertSql(
     ? JSON.stringify(aiResult.ai_difficulty_keywords)
     : raw.ai_difficulty_keywords
 
+  // ai_summary: pipeline-ai-filter agent가 통합 단계에서 직접 생성. 빈 문자열이면 '시도했으나 실패'로 마킹.
+  const aiSummary = aiResult?.summary ?? null
+  // sqlVal이 SQL 키워드를 못 다루므로 ISO 문자열로 시각 기록 (SQLite TEXT 호환)
+  const aiSummaryUpdatedAt = aiSummary !== null ? new Date().toISOString() : null
+
+  // full_text는 web_sources_raw에서만 관리 (raw_source_id로 JOIN하여 조회).
+  // web_sources는 정제된 데이터(summary/sentiment/관계)만 보유.
   const cols = [
     'parking_lot_id',
     'source',
@@ -348,10 +457,7 @@ function buildInsertSql(
     'sentiment_score',
     'ai_difficulty_keywords',
     'ai_summary',
-    'full_text',
-    'full_text_length',
-    'full_text_status',
-    'full_text_fetched_at',
+    'ai_summary_updated_at',
   ]
   const vals = [
     lot.lot_id,
@@ -366,11 +472,8 @@ function buildInsertSql(
     raw.id,
     sentimentScore,
     difficultyKw,
-    null, // ai_summary는 ai-summary-generator에서 별도 생성
-    raw.full_text,
-    raw.full_text ? raw.full_text.length : 0,
-    raw.full_text_status ?? 'pending',
-    raw.full_text_fetched_at,
+    aiSummary,
+    aiSummaryUpdatedAt,
   ]
     .map(sqlVal)
     .join(', ')
@@ -452,7 +555,9 @@ async function runFullTextFetchStage() {
 
   const buildFetchUpdate = (id: number, status: C4aiStatus, text: string): string => {
     const fullTextVal = status === 'ok' ? sqlVal(text) : 'NULL'
-    return `UPDATE web_sources_raw SET full_text = ${fullTextVal}, full_text_status = '${status}', full_text_fetched_at = datetime('now') WHERE id = ${id};`
+    // remote에 push 시 이미 처리된 row(status≠'pending')는 덮어쓰지 않도록 가드.
+    // local-pending 모드에서 local·remote 가 divergent 인 경우 (remote가 더 진척) 안전장치.
+    return `UPDATE web_sources_raw SET full_text = ${fullTextVal}, full_text_status = '${status}', full_text_fetched_at = datetime('now') WHERE id = ${id} AND full_text_status = 'pending';`
   }
 
   const queue = [...rows]
@@ -633,9 +738,10 @@ async function runMatchDumpStage() {
       else mediumMatches.push({ lot, score })
     }
 
-    // match=high: rule=high → direct, rule!=high → AI
+    // rule classifier high가 엄격화돼(concrete parking distinct≥2) 신뢰 가능 →
+    // strict-high & match=high는 AI 스킵 direct insert, 그 외는 medium(AI 판정).
     for (const { lot, score } of highMatches) {
-      if (isRuleHigh) {
+      if (isRuleHigh && !ALL_TO_AI) {
         directInserts.push(buildInsertSql(raw, lot, score, null))
         directLinks++
       } else {
@@ -643,9 +749,8 @@ async function runMatchDumpStage() {
       }
     }
 
-    // match=medium: rule=high → direct (AI 불필요), rule!=high → AI
     for (const { lot, score } of mediumMatches) {
-      if (isRuleHigh) {
+      if (isRuleHigh && !ALL_TO_AI) {
         directInserts.push(buildInsertSql(raw, lot, score, null))
         directLinks++
       } else {
@@ -985,7 +1090,9 @@ async function main() {
   console.log()
 }
 
-main().catch((err) => {
-  console.error('\n❌ 에러:', err.message)
-  process.exit(1)
-})
+if (import.meta.main) {
+  main().catch((err) => {
+    console.error('\n❌ 에러:', err.message)
+    process.exit(1)
+  })
+}
