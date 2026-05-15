@@ -1,6 +1,7 @@
-# 크롤링 파이프라인 — 현행 아키텍처
+# 스케줄러 파이프라인 — 현행 아키텍처
 
-> 최초 작성: 2026-03-13 | 현행화: 2026-05-15 (poi-pipeline-v2 → crawling-pipeline 명칭 직관화)
+> `scheduled.ts` 매시간 자동 실행 파이프라인. (#149 수동 subagent 파이프라인은 `/run-pipeline` 별도)
+> 최초 작성: 2026-03-13 | 현행화: 2026-05-15 (poi-pipeline-v2 → scheduler-pipeline 명칭 직관화)
 
 ## 목적
 

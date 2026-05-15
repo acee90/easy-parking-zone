@@ -118,7 +118,7 @@ WHERE ws.parking_lot_id IN (...)
 
 ## 관련 문서
 
-- [crawling-pipeline.md](../references/crawling-pipeline.md) §4 스코어링
+- [scheduler-pipeline.md](../references/scheduler-pipeline.md) §4 스코어링
 - [scoring-calibration.plan.md](./scoring-calibration.plan.md) — 이전 calibration 작업
 - [issue-148-filter-relevance-v2.md](./issue-148-filter-relevance-v2.md) — filter_passed_v2 도입
 - [issue-140-fulltext-batch.md](./issue-140-fulltext-batch.md) — fulltext 도입

@@ -177,7 +177,7 @@ const [lot, nearbyPlaces] = await Promise.all([
 
 ## 관련 문서
 
-- [크롤링 파이프라인](crawling-pipeline.md) — 원본 블로그 수집 아키텍처
+- [크롤링 파이프라인](scheduler-pipeline.md) — 원본 블로그 수집 아키텍처
 - [스코어링 알고리즘](archive/2026-03/crawlers/parking-scoring-algorithm.md) — 난이도 점수 산출
 - [M7 Plan](01-plan/features/M7-curation.plan.md) — 기획 문서
 - [M7 Design](02-design/features/M7-curation.design.md) — 설계 문서
