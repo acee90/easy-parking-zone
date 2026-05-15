@@ -977,7 +977,8 @@ async function runAiFilterDumpStage() {
     `SELECT id FROM web_sources_raw WHERE filter_passed = 1 AND matched_at IS NULL ORDER BY id LIMIT ${LIMIT}`,
   )
   console.log(`  대상: ${idRows.length}건`)
-  if (idRows.length === 0) return { processed: 0, candidatesFile: '', candidatesFiles: [] as string[] }
+  if (idRows.length === 0)
+    return { processed: 0, candidatesFile: '', candidatesFiles: [] as string[] }
 
   const FETCH_BATCH = 200
   const allIds = idRows.map((r) => r.id)

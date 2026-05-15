@@ -17,10 +17,10 @@
 import { getMatchConfidence, stripHtml } from '../src/server/crawlers/lib/scoring'
 import {
   extractSearchKeywords,
-  searchCandidateLots,
   isCandidateLocationCompatible,
-  lotNameInFullText,
   loadAllLots,
+  lotNameInFullText,
+  searchCandidateLots,
 } from './run-pipeline-149'
 
 const argv = process.argv.slice(2)
