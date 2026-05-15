@@ -21,7 +21,7 @@ Add shadcn components with: `npx shadcn@latest add <component>`
 - [Reliability](docs/references/RELIABILITY.md) — 운영 안정성, 모니터링, 장애 대응
 - [Review](docs/references/REVIEW.md) — 코드 리뷰 체크리스트, PR 기준
 - [Security](docs/references/SECURITY.md) — 인증, 데이터 보호, 취약점 관리
-- [Crawling Pipeline](docs/references/poi-pipeline-v2.md) — 크롤링 파이프라인 현행 아키텍처
+- [Crawling Pipeline](docs/references/crawling-pipeline.md) — 크롤링 파이프라인 현행 아키텍처
 - [Nearby Places Pipeline](docs/references/nearby-places-pipeline.md) — 주변 장소 AI 추출 파이프라인
 - [Web Sources AI Summary](docs/references/web-sources-ai-summary.md) — web_sources.ai_summary 재추출 스킬
 - [AI Content QA Standard](docs/design-docs/ai-content-qa-standard.md) — AI 콘텐츠 품질 및 검수 기준
