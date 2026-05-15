@@ -10,7 +10,12 @@
 // 1. 키워드 사전
 // ---------------------------------------------------------------------------
 
-/** 긍정 키워드 — 주차하기 쉬움을 나타내는 표현 (주요 활용형 포함) */
+/** 긍정 키워드 — 주차하기 쉬움을 나타내는 표현 (주요 활용형 포함)
+ *
+ * 노이즈 제거:
+ * - '추천' — Naver 블로그/디렉터리 UI(추천수, [추천](url), 카테고리) 다수
+ * - '한산' — 북한산/남한산/한산도 지역명 false positive
+ */
 export const POSITIVE_KEYWORDS = [
   '넓',
   '널널',
@@ -24,14 +29,12 @@ export const POSITIVE_KEYWORDS = [
   '쉬워',
   '쉬웠',
   '초보',
-  '추천',
   '평면',
   '자주식',
   '잘되어',
   '넉넉',
   '깔끔',
   '쾌적',
-  '한산',
   '공간이 넓',
   '자리가 많',
   '주차면이 넓',
@@ -42,7 +45,13 @@ export const POSITIVE_KEYWORDS = [
   '수월',
 ] as const
 
-/** 부정 키워드 — 주차하기 어려움을 나타내는 표현 (주요 활용형 포함) */
+/** 부정 키워드 — 주차하기 어려움을 나타내는 표현 (주요 활용형 포함)
+ *
+ * 노이즈 제거:
+ * - '사고' — 사고방식/사고력/사고관 일반어
+ * - '회전' — 좌회전/우회전/회전식 false positive
+ * - '대기' — 대기실/대기업/대기오염 false positive
+ */
 export const NEGATIVE_KEYWORDS = [
   '좁',
   '힘들',
@@ -62,7 +71,6 @@ export const NEGATIVE_KEYWORDS = [
   '복잡',
   '급경사',
   '만차',
-  '대기',
   '헬',
   'hell',
   '지옥',
@@ -70,10 +78,8 @@ export const NEGATIVE_KEYWORDS = [
   '빡시',
   '빡세',
   '위험',
-  '사고',
   '찌그러',
   '찍힌',
-  '회전',
   '경사',
   '돌아가',
   // 주관 평가 — 안좋았다/불편/후회
@@ -81,6 +87,26 @@ export const NEGATIVE_KEYWORDS = [
   '안좋',
   '후회',
 ] as const
+
+/**
+ * 키워드별 substring false positive 차단.
+ * - prev: 키워드 직전 1글자가 매칭되면 제외 (예: 쉽 ← 아쉽)
+ * - next: 키워드 직후 시작 문자열이 매칭되면 제외 (예: 헬 → 헬기)
+ */
+const KEYWORD_EXCLUSIONS: Record<string, { prev?: readonly string[]; next?: readonly string[] }> = {
+  // 아쉽다(regret)는 부정 어휘이지만 '쉽'으로 잡으면 polarity 반전 사고
+  쉽: { prev: ['아'] },
+  쉬운: { prev: ['아'] },
+  쉬워: { prev: ['아'] },
+  쉬웠: { prev: ['아'] },
+  // 세무서/법무서/재무서
+  무서: { prev: ['세', '법', '재'] },
+  무섭: { prev: ['세', '법', '재'] },
+  // 헬기장/헬스장/헬리포트/헬멧/헬로윈/헬메스 등
+  헬: { next: ['기', '스', '리', '멧', '로', '메'] },
+  // 경사로움/경사스러우 (긍정 의미 — '경사스럽다')
+  경사: { next: ['로움', '롭', '스러'] },
+}
 
 /** 부정어 패턴 — 뒤따르는 키워드의 극성 반전 */
 export const NEGATION_PATTERNS = [
@@ -189,8 +215,8 @@ const EXPERIENCE_KEYWORDS = [
  * - "주차" 단어만 포함 → 0.3
  * - 주차 관련 키워드 없음 → 0.0
  */
-export function computeRelevance(text: string): number {
-  const t = text.toLowerCase()
+export function computeRelevance(rawText: string): number {
+  const t = stripBoilerplate(rawText).toLowerCase()
 
   const matchCount = EXPERIENCE_KEYWORDS.filter((kw) => t.includes(kw.toLowerCase())).length
 
@@ -207,29 +233,105 @@ export function computeRelevance(text: string): number {
 interface Token {
   text: string
   index: number
+  /** 원본 텍스트에서 토큰 시작 문자 위치 (주차 근접 필터용) */
+  charStart: number
 }
 
-/** 간단한 한국어 토큰화 (공백 + 조사 분리) */
+/** 간단한 한국어 토큰화 (공백 + 조사 분리, 문자 위치 추적) */
 function tokenize(text: string): Token[] {
   const tokens: Token[] = []
-  // 공백·구두점 기준 분할
-  const parts = text.split(/[\s,.!?;:…·~]+/)
+  const sep = /[\s,.!?;:…·~]+/g
+  let pos = 0
   let idx = 0
-  for (const part of parts) {
-    if (part.length > 0) {
-      tokens.push({ text: part, index: idx })
-      idx++
+  let m: RegExpExecArray | null
+  while ((m = sep.exec(text)) !== null) {
+    if (m.index > pos) {
+      const part = text.slice(pos, m.index)
+      if (part.length > 0) tokens.push({ text: part, index: idx++, charStart: pos })
     }
+    pos = m.index + m[0].length
+  }
+  if (pos < text.length) {
+    const part = text.slice(pos)
+    if (part.length > 0) tokens.push({ text: part, index: idx++, charStart: pos })
   }
   return tokens
 }
 
+/** 키워드가 '주차' 키워드와 ±PARKING_PROXIMITY자 내에 있는지 확인. */
+const PARKING_PROXIMITY = 50
+function isNearParking(text: string, charPos: number): boolean {
+  const start = Math.max(0, charPos - PARKING_PROXIMITY)
+  const end = Math.min(text.length, charPos + PARKING_PROXIMITY)
+  return text.slice(start, end).includes('주차')
+}
+
+/**
+ * 정보 페이지/안내문 시그니처 감지 → 감성 신호를 3.0 쪽으로 추가 damping.
+ * 사용자 후기처럼 키워드는 들어 있으나 글 자체는 광고/정보 안내인 경우.
+ *
+ * 시그니처:
+ *   - 마크다운 표(`|---|`)
+ *   - Q&A 패턴 (자주 묻는 질문, Q1., Q2.)
+ *   - 정형 메타데이터 키 (운영시간, 주차구획수, 관리기관 등)
+ *   - 가이드 톤 (총정리, 이용 방법, 영업시간) + 정형 리스트(* 위치/주소/요금)
+ *
+ * 반환: 1.0(아님) / 0.7(약한 신호) / 0.4(강한 신호)
+ */
+function infoPageDamper(text: string): number {
+  let signals = 0
+  if (/\|\s*---\s*\|/.test(text)) signals++
+  if (/자주\s*묻는|Q1\.|Q2\./i.test(text)) signals++
+  if (/(운영시간|운영\s*요일|주차구획수|관리기관|월정기권)/.test(text)) signals++
+  if (
+    /(총정리|이용\s*방법|영업시간|주차비)/.test(text) &&
+    /(\*\s+\*\*?\s*위치|\*\s+\*\*?\s*주소|\*\s+\*\*?\s*요금|\*\s+\*\*?\s*전화)/.test(text)
+  )
+    signals++
+  if (signals >= 2) return 0.25
+  if (signals >= 1) return 0.55
+  return 1.0
+}
+
+/**
+ * 마크다운 링크/이미지/URL 등 boilerplate를 공백으로 치환.
+ * Naver 블로그/디렉터리 사이트의 UI 텍스트가 false positive를 유발하는 것을 막는다.
+ */
+function stripBoilerplate(text: string): string {
+  return text
+    .replace(/!?\[[^\]\n]*\]\([^)\n]*\)/g, ' ') // [text](url), ![alt](url)
+    .replace(/https?:\/\/\S+/g, ' ') // raw URL
+}
+
+/**
+ * 토큰 내에서 키워드가 매칭되는지 확인 (KEYWORD_EXCLUSIONS 적용).
+ */
+function matchesKeyword(tokenText: string, kw: string): boolean {
+  const lower = tokenText.toLowerCase()
+  const target = kw.toLowerCase()
+  const idx = lower.indexOf(target)
+  if (idx === -1) return false
+  const excl = KEYWORD_EXCLUSIONS[kw]
+  if (!excl) return true
+  if (excl.prev && idx > 0) {
+    const prev = lower[idx - 1]
+    if (excl.prev.includes(prev)) return false
+  }
+  if (excl.next) {
+    const afterIdx = idx + target.length
+    if (afterIdx < lower.length) {
+      const after = lower.slice(afterIdx, afterIdx + 4)
+      if (excl.next.some((n) => after.startsWith(n.toLowerCase()))) return false
+    }
+  }
+  return true
+}
+
 /** 토큰이 감성 키워드를 포함하는지 확인 */
 function containsSentimentKeyword(tokenText: string): boolean {
-  const t = tokenText.toLowerCase()
   return (
-    POSITIVE_KEYWORDS.some((kw) => t.includes(kw.toLowerCase())) ||
-    NEGATIVE_KEYWORDS.some((kw) => t.includes(kw.toLowerCase()))
+    POSITIVE_KEYWORDS.some((kw) => matchesKeyword(tokenText, kw)) ||
+    NEGATIVE_KEYWORDS.some((kw) => matchesKeyword(tokenText, kw))
   )
 }
 
@@ -239,11 +341,32 @@ function containsSentimentKeyword(tokenText: string): boolean {
  * "넓지 않아서 힘들었어요" → "넓"만 반전, "힘들"은 유지 (앞에 키워드가 있으면 뒤 반전 억제)
  * 반환값: 부정어에 의해 반전되어야 하는 토큰 인덱스 Set
  */
+function isNegationToken(tokenText: string): boolean {
+  // 안/못: 단독 토큰("안 좁다", "못 가다") 또는 조사 1글자만 — "안전/안내/못지않" false negation 방지
+  if (tokenText === '안' || tokenText === '못') return true
+  if (
+    tokenText.length === 2 &&
+    (tokenText[0] === '안' || tokenText[0] === '못') &&
+    /[은는도이가만]/.test(tokenText[1])
+  )
+    return true
+  // 않/없: 활용형 prefix 매칭 (토큰 길이 ≤ 4)
+  if (tokenText.length <= 4 && (tokenText.startsWith('않') || tokenText.startsWith('없')))
+    return true
+  // 아니: "아니어서/아니라/아니라서/아니다" 활용 — 토큰 시작이 '아니'이고 짧을 때만
+  // ("아니지만/아니어서" 등은 인정, "아니라고는/아니마저" 같은 긴 케이스는 false negation 위험으로 제외)
+  if (tokenText.length <= 6 && tokenText.startsWith('아니')) return true
+  // 다음 명시 패턴은 토큰에 포함되면 negation
+  const fullPatterns = ['아닌', '별로', '안되', '안된', '안돼', '못하', '못해', '못한']
+  for (const np of fullPatterns) if (tokenText.includes(np)) return true
+  return false
+}
+
 function findNegatedIndices(tokens: Token[]): Set<number> {
   const negated = new Set<number>()
   for (let i = 0; i < tokens.length; i++) {
     const t = tokens[i].text
-    const isNegation = NEGATION_PATTERNS.some((np) => t.includes(np))
+    const isNegation = isNegationToken(t)
     if (!isNegation) continue
 
     // 앞 2어절에서 키워드가 있는지 확인
@@ -315,10 +438,14 @@ function extractKeywordMatches(text: string, idfDict: IdfDict | null): KeywordMa
   const matches: KeywordMatch[] = []
 
   for (let i = 0; i < tokens.length; i++) {
-    const tokenText = tokens[i].text.toLowerCase()
+    const tokenText = tokens[i].text
+
+    // 주차 맥락 근접 필터 — 토큰이 '주차'와 ±80자 내가 아니면 키워드 매칭 자체를 스킵.
+    // (식당/카페 리뷰 본문의 일반 긍정/부정 키워드가 점수에 섞이는 것을 방지)
+    if (!isNearParking(text, tokens[i].charStart)) continue
 
     for (const kw of POSITIVE_KEYWORDS) {
-      if (tokenText.includes(kw.toLowerCase())) {
+      if (matchesKeyword(tokenText, kw)) {
         const basePolarity = 1
         const polarity = negatedIndices.has(i) ? (-basePolarity as 1 | -1) : basePolarity
         matches.push({
@@ -332,7 +459,7 @@ function extractKeywordMatches(text: string, idfDict: IdfDict | null): KeywordMa
     }
 
     for (const kw of NEGATIVE_KEYWORDS) {
-      if (tokenText.includes(kw.toLowerCase())) {
+      if (matchesKeyword(tokenText, kw)) {
         const basePolarity = -1
         const polarity = negatedIndices.has(i) ? (-basePolarity as 1 | -1) : basePolarity
         matches.push({
@@ -387,7 +514,8 @@ export interface SentimentResult {
  * @param text - 분석할 텍스트 (블로그 본문, 댓글 등)
  * @param idfDict - IDF 사전 (null이면 기본 가중치 사용)
  */
-export function analyzeSentiment(text: string, idfDict: IdfDict | null = null): SentimentResult {
+export function analyzeSentiment(rawText: string, idfDict: IdfDict | null = null): SentimentResult {
+  const text = stripBoilerplate(rawText)
   const relevance = computeRelevance(text)
 
   // 관련도 0이면 감성 분석 불필요
@@ -428,10 +556,14 @@ export function analyzeSentiment(text: string, idfDict: IdfDict | null = null): 
   // (이전 -0.1 보정 제거 — 실측 분포가 positive 편향으로 보정 방향이 반대였음)
   const scaled = sentimentRaw * 2.0 + 3.0
 
-  // 키워드 수 기반 감쇠: 키워드가 적으면 중립(3.0) 방향으로 당김 (완화)
-  const DAMPING: Record<number, number> = { 1: 0.65, 2: 0.82 }
+  // 키워드 수 기반 감쇠: 키워드가 적으면 중립(3.0) 방향으로 당김.
+  // matches=1~2는 false positive 위험 높음 — 강한 감쇠.
+  // matches=3~4는 신뢰도 중간, matches=5+는 거의 그대로.
+  const DAMPING: Record<number, number> = { 1: 0.4, 2: 0.55, 3: 0.75, 4: 0.9 }
   const damping = DAMPING[matches.length] ?? 1.0
-  const damped = 3.0 + (scaled - 3.0) * damping
+  // 정보 페이지/안내문에서 광고성 키워드 매칭 위험 완화
+  const infoDamp = infoPageDamper(text)
+  const damped = 3.0 + (scaled - 3.0) * damping * infoDamp
   const sentimentScore = Math.max(1.0, Math.min(5.0, damped))
 
   return {

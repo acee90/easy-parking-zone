@@ -107,10 +107,19 @@ function computeSourceScores(reviews: ReviewRow[], texts: TextRow[], now: Date) 
   )
 
   const highRelevanceTexts = texts.filter((t) => t.relevance_score >= 70)
+  // 블로그 1건당 nEffective 기여: weight = min(0.1, 1/N) × match_factor
+  //   - N ≤ 10:  각 블로그 0.1 (총 ≤ 1.0)
+  //   - N > 10:  각 블로그 1/N (총 = 1.0, factor 적용 시 ≤ 1.0)
+  // 한 글의 영향이 사용자 리뷰 1건의 10%를 넘지 않도록 cap
+  const N = highRelevanceTexts.length
+  const blogWeight = N === 0 ? 0 : Math.min(0.1, 1 / N)
   const nEffective =
     userReviews.length * 1.0 +
     communityReviews.length * 0.6 +
-    highRelevanceTexts.reduce((sum, t) => sum + 0.2 * (MATCH_TYPE_FACTOR[t.match_type] ?? 0.5), 0)
+    highRelevanceTexts.reduce(
+      (sum, t) => sum + blogWeight * (MATCH_TYPE_FACTOR[t.match_type] ?? 0.5),
+      0,
+    )
 
   return {
     userReviewScore: userReviewScore ? Math.round(userReviewScore * 100) / 100 : null,
@@ -145,7 +154,15 @@ function computeFinalScore(prior: number, sources: ReturnType<typeof computeSour
   const totalWeight = active.reduce((s, a) => s + a.weight, 0)
   const rawScore = active.reduce((s, a) => s + (a.weight / totalWeight) * a.score, 0)
   const finalScore = (C * prior + sources.nEffective * rawScore) / (C + sources.nEffective)
-  const clamped = Math.max(1.0, Math.min(5.0, Math.round(finalScore * 100) / 100))
+
+  // Prior floor: 신뢰도가 reference 이하(nEffective < 1)일 때는 약한 텍스트 신호로
+  // structural prior를 끌어내리지 않는다. (사용자 리뷰가 1건 이상 들어오면 해제)
+  const floored =
+    sources.nEffective < 1 && sources.userReviewCount === 0
+      ? Math.max(finalScore, prior)
+      : finalScore
+
+  const clamped = Math.max(1.0, Math.min(5.0, Math.round(floored * 100) / 100))
 
   let reliability: string
   if (sources.nEffective >= 5) reliability = 'confirmed'
@@ -197,7 +214,8 @@ export async function recomputeStats(
       `SELECT ws.parking_lot_id, ws.sentiment_score, ws.relevance_score, ws.published_at, 'direct' as match_type
        FROM web_sources ws
        WHERE ws.parking_lot_id IN (${placeholders})
-         AND ws.sentiment_score IS NOT NULL AND ws.relevance_score > 30`,
+         AND ws.sentiment_score IS NOT NULL AND ws.relevance_score > 30
+         AND ws.filter_passed_v2 = 1`,
     )
     .bind(...lotIds)
     .all<TextRow & { parking_lot_id: string }>()

@@ -10,14 +10,15 @@
  * --dry-run:   DB 업데이트 없이 결과를 JSON 파일로 저장
  * --dry-stats: DB 업데이트 없이 분포 + 큐레이션 일관성만 콘솔 출력 (sweep용)
  */
-import { d1Query, d1Execute, isRemote } from "./lib/d1";
-import { writeFileSync } from "fs";
-import { join } from "path";
-import { timeDecay } from "../src/server/crawlers/lib/sentiment";
 
-const isDryRun = process.argv.includes("--dry-run");
-const isDryStats = process.argv.includes("--dry-stats");
-const BATCH_SIZE = 1000;
+import { writeFileSync } from 'fs'
+import { join } from 'path'
+import { timeDecay } from '../src/server/crawlers/lib/sentiment'
+import { d1Execute, d1Query, isRemote } from './lib/d1'
+
+const isDryRun = process.argv.includes('--dry-run')
+const isDryStats = process.argv.includes('--dry-stats')
+const BATCH_SIZE = 1000
 
 // ---------------------------------------------------------------------------
 // 튜닝 파라미터 — issue#113 scoring calibration
@@ -26,40 +27,40 @@ const BATCH_SIZE = 1000;
 const PARAMS = {
   /** 베이지안 신뢰 임계치 — prior의 가상 리뷰 수 (높을수록 구조 prior 신뢰) */
   C: 2.5,
-  /** B: 텍스트 n_effective 가중치 (relevance >= 70 텍스트당) */
-  TEXT_N_EFF_WEIGHT: 0.5,
+  /** B: 텍스트 n_effective 가중치 (relevance >= 70 텍스트당, max 1/10 = 사용자 리뷰의 1/10) */
+  TEXT_N_EFF_WEIGHT: 0.1,
   // A: structural prior 조정값
-  PRIOR_MECHANICAL:  -0.40,  // 기계식 (강한 부정 신호)
-  PRIOR_SMALL_LOT:   -0.10,  // 면수 < 30
-  PRIOR_LARGE_LOT:   +0.05,  // 면수 > 200 (대형이라도 복잡할 수 있어 최소화)
-  PRIOR_XLARGE_LOT:  +0.00,  // 면수 > 500
-  PRIOR_UNDERGROUND: -0.15,  // 지하 (이름에 '지하' 포함)
-  PRIOR_OUTDOOR:     +0.00,  // 노외 = 행정분류, 실외 의미 아님 → 0
-  PRIOR_FREE:        +0.00,  // 무료 ≠ 쉬운 주차 → 0
+  PRIOR_MECHANICAL: -0.4, // 기계식 (강한 부정 신호)
+  PRIOR_SMALL_LOT: -0.1, // 면수 < 30
+  PRIOR_LARGE_LOT: +0.05, // 면수 > 200 (대형이라도 복잡할 수 있어 최소화)
+  PRIOR_XLARGE_LOT: +0.0, // 면수 > 500
+  PRIOR_UNDERGROUND: -0.15, // 지하 (이름에 '지하' 포함)
+  PRIOR_OUTDOOR: +0.0, // 노외 = 행정분류, 실외 의미 아님 → 0
+  PRIOR_FREE: +0.0, // 무료 ≠ 쉬운 주차 → 0
   /** hell 큐레이션 태그 점수 상한 — 위치 텍스트 positive bias 보정용 */
-  HELL_SCORE_CAP:    2.9,
-} as const;
+  HELL_SCORE_CAP: 2.9,
+} as const
 
 /** 소스별 기본 가중치 */
 const WEIGHTS = {
-  user: 0.50,
-  community: 0.30,
+  user: 0.5,
+  community: 0.3,
   blog: 0.15,
   youtube: 0.15,
-} as const;
+} as const
 
 // ---------------------------------------------------------------------------
 // 1. 구조적 사전 점수 (Structural Prior) — §4.1
 // ---------------------------------------------------------------------------
 
 interface ParkingLot {
-  id: string;
-  name: string;
-  type: string | null;
-  total_spaces: number | null;
-  is_free: number | null;
-  notes: string | null;
-  curation_tag: string | null;
+  id: string
+  name: string
+  type: string | null
+  total_spaces: number | null
+  is_free: number | null
+  notes: string | null
+  curation_tag: string | null
 }
 
 /**
@@ -67,33 +68,33 @@ interface ParkingLot {
  * curation_tag는 크롤링 가이드 용도로만 사용하며 점수에는 관여하지 않음.
  */
 function computeStructuralPrior(lot: ParkingLot): number {
-  let score = 3.0;
+  let score = 3.0
 
-  const nameNotes = `${lot.name} ${lot.notes ?? ""}`.toLowerCase();
+  const nameNotes = `${lot.name} ${lot.notes ?? ''}`.toLowerCase()
 
-  if (nameNotes.includes("기계식") || nameNotes.includes("기계")) {
-    score += PARAMS.PRIOR_MECHANICAL;
+  if (nameNotes.includes('기계식') || nameNotes.includes('기계')) {
+    score += PARAMS.PRIOR_MECHANICAL
   }
 
   if (lot.total_spaces !== null) {
-    if (lot.total_spaces < 30) score += PARAMS.PRIOR_SMALL_LOT;
-    if (lot.total_spaces > 500) score += PARAMS.PRIOR_XLARGE_LOT;
-    else if (lot.total_spaces > 200) score += PARAMS.PRIOR_LARGE_LOT;
+    if (lot.total_spaces < 30) score += PARAMS.PRIOR_SMALL_LOT
+    if (lot.total_spaces > 500) score += PARAMS.PRIOR_XLARGE_LOT
+    else if (lot.total_spaces > 200) score += PARAMS.PRIOR_LARGE_LOT
   }
 
-  if (nameNotes.includes("지하")) {
-    score += PARAMS.PRIOR_UNDERGROUND;
+  if (nameNotes.includes('지하')) {
+    score += PARAMS.PRIOR_UNDERGROUND
   }
 
-  if (lot.type === "노외") {
-    score += PARAMS.PRIOR_OUTDOOR;
+  if (lot.type === '노외') {
+    score += PARAMS.PRIOR_OUTDOOR
   }
 
   if (lot.is_free === 1) {
-    score += PARAMS.PRIOR_FREE;
+    score += PARAMS.PRIOR_FREE
   }
 
-  return Math.max(1.0, Math.min(5.0, score));
+  return Math.max(1.0, Math.min(5.0, score))
 }
 
 // ---------------------------------------------------------------------------
@@ -101,59 +102,49 @@ function computeStructuralPrior(lot: ParkingLot): number {
 // ---------------------------------------------------------------------------
 
 interface ReviewRow {
-  parking_lot_id: string;
-  overall_score: number;
-  is_seed: number;
-  source_type: string | null;
-  created_at: string;
+  parking_lot_id: string
+  overall_score: number
+  is_seed: number
+  source_type: string | null
+  created_at: string
 }
 
 interface TextRow {
-  parking_lot_id: string;
-  sentiment_score: number;
-  relevance_score: number;
-  source: string;
-  published_at: string | null;
-  match_type: "direct" | "ai_high" | "ai_medium";
+  parking_lot_id: string
+  sentiment_score: number
+  relevance_score: number
+  source: string
+  published_at: string | null
+  match_type: 'direct' | 'ai_high' | 'ai_medium'
 }
 
 interface SourceScores {
-  userReviewScore: number | null;
-  userReviewCount: number;
-  communityScore: number | null;
-  communityCount: number;
-  textScore: number | null;
-  textCount: number;
-  nEffective: number;
+  userReviewScore: number | null
+  userReviewCount: number
+  communityScore: number | null
+  communityCount: number
+  textScore: number | null
+  textCount: number
+  nEffective: number
 }
 
-function computeSourceScores(
-  reviews: ReviewRow[],
-  texts: TextRow[],
-  now: Date,
-): SourceScores {
+function computeSourceScores(reviews: ReviewRow[], texts: TextRow[], now: Date): SourceScores {
   // 사용자 리뷰 (source_type IS NULL, is_seed=0)
-  const userReviews = reviews.filter(
-    (r) => r.source_type === null && r.is_seed === 0,
-  );
+  const userReviews = reviews.filter((r) => r.source_type === null && r.is_seed === 0)
   // 커뮤니티 리뷰 (source_type IS NOT NULL) + seed 리뷰
-  const communityReviews = reviews.filter(
-    (r) => r.source_type !== null || r.is_seed === 1,
-  );
+  const communityReviews = reviews.filter((r) => r.source_type !== null || r.is_seed === 1)
 
   // 시간 감쇠 가중 평균
-  function weightedAvg(
-    items: { score: number; date: string; weight: number }[],
-  ): number | null {
-    if (items.length === 0) return null;
-    let wSum = 0;
-    let wTotal = 0;
+  function weightedAvg(items: { score: number; date: string; weight: number }[]): number | null {
+    if (items.length === 0) return null
+    let wSum = 0
+    let wTotal = 0
     for (const item of items) {
-      const d = timeDecay(item.date, now);
-      wSum += item.weight * d * item.score;
-      wTotal += item.weight * d;
+      const d = timeDecay(item.date, now)
+      wSum += item.weight * d * item.score
+      wTotal += item.weight * d
     }
-    return wTotal > 0 ? wSum / wTotal : null;
+    return wTotal > 0 ? wSum / wTotal : null
   }
 
   const userReviewScore = weightedAvg(
@@ -162,7 +153,7 @@ function computeSourceScores(
       date: r.created_at,
       weight: 1.0,
     })),
-  );
+  )
 
   const communityScore = weightedAvg(
     communityReviews.map((r) => ({
@@ -170,42 +161,39 @@ function computeSourceScores(
       date: r.created_at,
       weight: r.is_seed === 1 ? 0.3 : 0.6,
     })),
-  );
+  )
 
   // 텍스트 감성 (관련도 > 30, sentiment_score NOT NULL)
   // match_type별 가중치 감쇠: direct=1.0, ai_high=0.8, ai_medium=0.5
-  const MATCH_TYPE_FACTOR = { direct: 1.0, ai_high: 0.8, ai_medium: 0.5 } as const;
-  const relevantTexts = texts.filter(
-    (t) => t.relevance_score > 30 && t.sentiment_score !== null,
-  );
+  const MATCH_TYPE_FACTOR = { direct: 1.0, ai_high: 0.8, ai_medium: 0.5 } as const
+  const relevantTexts = texts.filter((t) => t.relevance_score > 30 && t.sentiment_score !== null)
   const textScore = weightedAvg(
     relevantTexts.map((t) => ({
       score: t.sentiment_score,
-      date: t.published_at ?? "",
+      date: t.published_at ?? '',
       weight: (t.relevance_score / 100) * MATCH_TYPE_FACTOR[t.match_type],
     })),
-  );
+  )
 
   // 유효 데이터량
-  const highRelevanceTexts = texts.filter((t) => t.relevance_score >= 70);
+  // 블로그 weight = min(PARAMS.TEXT_N_EFF_WEIGHT, 1/N) → 단일 블로그 영향 cap, 총 기여도 max 1.0
+  const highRelevanceTexts = texts.filter((t) => t.relevance_score >= 70)
+  const N = highRelevanceTexts.length
+  const blogWeight = N === 0 ? 0 : Math.min(PARAMS.TEXT_N_EFF_WEIGHT, 1 / N)
   const nEffective =
     userReviews.length * 1.0 +
     communityReviews.length * 0.6 +
-    highRelevanceTexts.reduce((sum, t) => sum + PARAMS.TEXT_N_EFF_WEIGHT * MATCH_TYPE_FACTOR[t.match_type], 0);
+    highRelevanceTexts.reduce((sum, t) => sum + blogWeight * MATCH_TYPE_FACTOR[t.match_type], 0)
 
   return {
-    userReviewScore: userReviewScore
-      ? Math.round(userReviewScore * 100) / 100
-      : null,
+    userReviewScore: userReviewScore ? Math.round(userReviewScore * 100) / 100 : null,
     userReviewCount: userReviews.length,
-    communityScore: communityScore
-      ? Math.round(communityScore * 100) / 100
-      : null,
+    communityScore: communityScore ? Math.round(communityScore * 100) / 100 : null,
     communityCount: communityReviews.length,
     textScore: textScore ? Math.round(textScore * 100) / 100 : null,
     textCount: relevantTexts.length,
     nEffective: Math.round(nEffective * 100) / 100,
-  };
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -213,19 +201,19 @@ function computeSourceScores(
 // ---------------------------------------------------------------------------
 
 interface StatsRow {
-  parkingLotId: string;
-  parkingLotName: string;
-  curationTag: string | null;
-  structuralPrior: number;
-  userReviewScore: number | null;
-  userReviewCount: number;
-  communityScore: number | null;
-  communityCount: number;
-  textScore: number | null;
-  textCount: number;
-  nEffective: number;
-  finalScore: number;
-  reliability: string;
+  parkingLotId: string
+  parkingLotName: string
+  curationTag: string | null
+  structuralPrior: number
+  userReviewScore: number | null
+  userReviewCount: number
+  communityScore: number | null
+  communityCount: number
+  textScore: number | null
+  textCount: number
+  nEffective: number
+  finalScore: number
+  reliability: string
 }
 
 function computeFinalScore(
@@ -233,50 +221,54 @@ function computeFinalScore(
   sources: SourceScores,
 ): { finalScore: number; reliability: string } {
   // 활성 소스 수집 + 가중치 재분배
-  const active: { key: string; weight: number; score: number }[] = [];
+  const active: { key: string; weight: number; score: number }[] = []
 
   if (sources.userReviewScore !== null) {
-    active.push({ key: "user", weight: WEIGHTS.user, score: sources.userReviewScore });
+    active.push({ key: 'user', weight: WEIGHTS.user, score: sources.userReviewScore })
   }
   if (sources.communityScore !== null) {
-    active.push({ key: "community", weight: WEIGHTS.community, score: sources.communityScore });
+    active.push({ key: 'community', weight: WEIGHTS.community, score: sources.communityScore })
   }
   if (sources.textScore !== null) {
     // blog + youtube 텍스트를 하나로 합산
-    active.push({ key: "text", weight: WEIGHTS.blog + WEIGHTS.youtube, score: sources.textScore });
+    active.push({ key: 'text', weight: WEIGHTS.blog + WEIGHTS.youtube, score: sources.textScore })
   }
 
   // 데이터가 전혀 없으면 구조 속성만 사용
   if (active.length === 0) {
     return {
       finalScore: Math.round(prior * 100) / 100,
-      reliability: prior !== 3.0 ? "structural" : "none",
-    };
+      reliability: prior !== 3.0 ? 'structural' : 'none',
+    }
   }
 
   // 가중치 재분배 (합 = 1.0)
-  const totalWeight = active.reduce((s, a) => s + a.weight, 0);
-  const rawScore =
-    active.reduce((s, a) => s + (a.weight / totalWeight) * a.score, 0);
+  const totalWeight = active.reduce((s, a) => s + a.weight, 0)
+  const rawScore = active.reduce((s, a) => s + (a.weight / totalWeight) * a.score, 0)
 
   // 베이지안 평균: (C × m + n_eff × raw) / (C + n_eff)
   const finalScore =
-    (PARAMS.C * prior + sources.nEffective * rawScore) / (PARAMS.C + sources.nEffective);
-  const clamped = Math.max(1.0, Math.min(5.0, Math.round(finalScore * 100) / 100));
+    (PARAMS.C * prior + sources.nEffective * rawScore) / (PARAMS.C + sources.nEffective)
+  // Prior floor: 약한 신호(nEff<1) + 사용자 리뷰 없으면 prior 아래로 떨어지지 않음
+  const floored =
+    sources.nEffective < 1 && sources.userReviewCount === 0
+      ? Math.max(finalScore, prior)
+      : finalScore
+  const clamped = Math.max(1.0, Math.min(5.0, Math.round(floored * 100) / 100))
 
   // 신뢰도 등급
-  let reliability: string;
+  let reliability: string
   if (sources.nEffective >= 5) {
-    reliability = "confirmed";
+    reliability = 'confirmed'
   } else if (sources.nEffective >= 1) {
-    reliability = "estimated";
+    reliability = 'estimated'
   } else if (sources.nEffective > 0) {
-    reliability = "reference";
+    reliability = 'reference'
   } else {
-    reliability = "structural";
+    reliability = 'structural'
   }
 
-  return { finalScore: clamped, reliability };
+  return { finalScore: clamped, reliability }
 }
 
 // ---------------------------------------------------------------------------
@@ -285,43 +277,39 @@ function computeFinalScore(
 
 async function main() {
   console.log(
-    `[Stats] ${isRemote ? "REMOTE" : "LOCAL"} D1 | ${isDryRun ? "DRY-RUN" : isDryStats ? "DRY-STATS" : "LIVE"}`,
-  );
+    `[Stats] ${isRemote ? 'REMOTE' : 'LOCAL'} D1 | ${isDryRun ? 'DRY-RUN' : isDryStats ? 'DRY-STATS' : 'LIVE'}`,
+  )
   if (isDryStats) {
-    console.log("[Stats] PARAMS:", JSON.stringify(PARAMS, null, 2));
+    console.log('[Stats] PARAMS:', JSON.stringify(PARAMS, null, 2))
   }
 
-  const now = new Date();
+  const now = new Date()
 
   // 전체 주차장 수
-  const totalResult = d1Query<{ cnt: number }>(
-    "SELECT COUNT(*) as cnt FROM parking_lots",
-  );
-  const totalLots = totalResult[0]?.cnt ?? 0;
-  console.log(`[Stats] 전체 주차장: ${totalLots}개`);
+  const totalResult = d1Query<{ cnt: number }>('SELECT COUNT(*) as cnt FROM parking_lots')
+  const totalLots = totalResult[0]?.cnt ?? 0
+  console.log(`[Stats] 전체 주차장: ${totalLots}개`)
 
   // 전체 리뷰 로드 (parking_lot_id별 그룹핑용)
-  console.log("[Stats] 리뷰 로드 중...");
+  console.log('[Stats] 리뷰 로드 중...')
   const allReviews = d1Query<ReviewRow>(
-    "SELECT parking_lot_id, overall_score, is_seed, source_type, created_at FROM user_reviews",
-  );
-  const reviewsByLot = new Map<string, ReviewRow[]>();
+    'SELECT parking_lot_id, overall_score, is_seed, source_type, created_at FROM user_reviews',
+  )
+  const reviewsByLot = new Map<string, ReviewRow[]>()
   for (const r of allReviews) {
-    if (!reviewsByLot.has(r.parking_lot_id))
-      reviewsByLot.set(r.parking_lot_id, []);
-    reviewsByLot.get(r.parking_lot_id)!.push(r);
+    if (!reviewsByLot.has(r.parking_lot_id)) reviewsByLot.set(r.parking_lot_id, [])
+    reviewsByLot.get(r.parking_lot_id)!.push(r)
   }
-  console.log(
-    `[Stats] 리뷰 ${allReviews.length}건 (${reviewsByLot.size}개 주차장)`,
-  );
+  console.log(`[Stats] 리뷰 ${allReviews.length}건 (${reviewsByLot.size}개 주차장)`)
 
   // 전체 텍스트 감성 로드 (직접 매칭 + ai_matches UNION)
-  console.log("[Stats] 텍스트 감성 로드 중...");
+  console.log('[Stats] 텍스트 감성 로드 중...')
   const allTexts = d1Query<TextRow>(
     `SELECT ws.parking_lot_id, ws.sentiment_score, ws.relevance_score, ws.source, ws.published_at, 'direct' as match_type
      FROM web_sources ws
      WHERE ws.parking_lot_id IS NOT NULL
        AND (ws.sentiment_score IS NOT NULL OR ws.relevance_score > 30)
+       AND ws.filter_passed_v2 = 1
      UNION ALL
      SELECT am.parking_lot_id, ws.sentiment_score, ws.relevance_score, ws.source, ws.published_at,
        CASE am.confidence WHEN 'high' THEN 'ai_high' ELSE 'ai_medium' END as match_type
@@ -329,42 +317,40 @@ async function main() {
      JOIN web_sources ws ON ws.id = am.web_source_id
      WHERE 1=1
        AND (ws.sentiment_score IS NOT NULL OR ws.relevance_score > 30)
+       AND ws.filter_passed_v2 = 1
        AND am.confidence IN ('high', 'medium')
        AND (ws.parking_lot_id IS NULL OR am.parking_lot_id != ws.parking_lot_id)`,
-  );
-  const textsByLot = new Map<string, TextRow[]>();
+  )
+  const textsByLot = new Map<string, TextRow[]>()
   for (const t of allTexts) {
-    if (!textsByLot.has(t.parking_lot_id))
-      textsByLot.set(t.parking_lot_id, []);
-    textsByLot.get(t.parking_lot_id)!.push(t);
+    if (!textsByLot.has(t.parking_lot_id)) textsByLot.set(t.parking_lot_id, [])
+    textsByLot.get(t.parking_lot_id)!.push(t)
   }
-  const directTexts = allTexts.filter((t) => t.match_type === "direct").length;
-  const aiTexts = allTexts.length - directTexts;
+  const directTexts = allTexts.filter((t) => t.match_type === 'direct').length
+  const aiTexts = allTexts.length - directTexts
   console.log(
     `[Stats] 텍스트 ${allTexts.length}건 (직접 ${directTexts} + AI매칭 ${aiTexts}) → ${textsByLot.size}개 주차장`,
-  );
+  )
 
   // 배치 처리
-  const results: StatsRow[] = [];
-  let offset = 0;
+  const results: StatsRow[] = []
+  let offset = 0
 
   while (offset < totalLots) {
     const lots = d1Query<ParkingLot>(
       `SELECT id, name, type, total_spaces, is_free, notes, curation_tag FROM parking_lots ORDER BY id LIMIT ${BATCH_SIZE} OFFSET ${offset}`,
-    );
+    )
 
-    if (lots.length === 0) break;
+    if (lots.length === 0) break
 
     for (const lot of lots) {
-      const prior = computeStructuralPrior(lot);
-      const reviews = reviewsByLot.get(lot.id) ?? [];
-      const texts = textsByLot.get(lot.id) ?? [];
-      const sources = computeSourceScores(reviews, texts, now);
-      const { finalScore: rawFinalScore, reliability } = computeFinalScore(prior, sources);
+      const prior = computeStructuralPrior(lot)
+      const reviews = reviewsByLot.get(lot.id) ?? []
+      const texts = textsByLot.get(lot.id) ?? []
+      const sources = computeSourceScores(reviews, texts, now)
+      const { finalScore: rawFinalScore, reliability } = computeFinalScore(prior, sources)
       const finalScore =
-        lot.curation_tag === "hell"
-          ? Math.min(rawFinalScore, PARAMS.HELL_SCORE_CAP)
-          : rawFinalScore;
+        lot.curation_tag === 'hell' ? Math.min(rawFinalScore, PARAMS.HELL_SCORE_CAP) : rawFinalScore
 
       results.push({
         parkingLotId: lot.id,
@@ -380,191 +366,188 @@ async function main() {
         nEffective: sources.nEffective,
         finalScore,
         reliability,
-      });
+      })
     }
 
-    offset += lots.length;
-    console.log(`[Stats] 진행: ${offset}/${totalLots}`);
+    offset += lots.length
+    console.log(`[Stats] 진행: ${offset}/${totalLots}`)
   }
 
   // 통계 요약
-  const reliabilityCounts: Record<string, number> = {};
+  const reliabilityCounts: Record<string, number> = {}
   const scoreBuckets = {
-    "4.0-5.0 😊 초보추천": 0,
-    "3.3-3.9 🙂 무난": 0,
-    "2.7-3.2 😐 보통": 0,
-    "2.0-2.6 😕 별로": 0,
-    "1.5-1.9 💀 비추": 0,
-    "1.0-1.4 🔥 헬": 0,
-  };
+    '4.0-5.0 😊 초보추천': 0,
+    '3.3-3.9 🙂 무난': 0,
+    '2.7-3.2 😐 보통': 0,
+    '2.0-2.6 😕 별로': 0,
+    '1.5-1.9 💀 비추': 0,
+    '1.0-1.4 🔥 헬': 0,
+  }
   for (const r of results) {
-    reliabilityCounts[r.reliability] =
-      (reliabilityCounts[r.reliability] ?? 0) + 1;
-    const s = r.finalScore;
-    if (s >= 4.0) scoreBuckets["4.0-5.0 😊 초보추천"]++;
-    else if (s >= 3.3) scoreBuckets["3.3-3.9 🙂 무난"]++;
-    else if (s >= 2.7) scoreBuckets["2.7-3.2 😐 보통"]++;
-    else if (s >= 2.0) scoreBuckets["2.0-2.6 😕 별로"]++;
-    else if (s >= 1.5) scoreBuckets["1.5-1.9 💀 비추"]++;
-    else scoreBuckets["1.0-1.4 🔥 헬"]++;
+    reliabilityCounts[r.reliability] = (reliabilityCounts[r.reliability] ?? 0) + 1
+    const s = r.finalScore
+    if (s >= 4.0) scoreBuckets['4.0-5.0 😊 초보추천']++
+    else if (s >= 3.3) scoreBuckets['3.3-3.9 🙂 무난']++
+    else if (s >= 2.7) scoreBuckets['2.7-3.2 😐 보통']++
+    else if (s >= 2.0) scoreBuckets['2.0-2.6 😕 별로']++
+    else if (s >= 1.5) scoreBuckets['1.5-1.9 💀 비추']++
+    else scoreBuckets['1.0-1.4 🔥 헬']++
   }
 
-  console.log("\n[Stats] === 결과 요약 ===");
-  console.log("  신뢰도 등급 분포:");
+  console.log('\n[Stats] === 결과 요약 ===')
+  console.log('  신뢰도 등급 분포:')
   for (const [k, v] of Object.entries(reliabilityCounts).sort()) {
-    console.log(`    ${k.padEnd(15)} ${v.toString().padStart(6)}`);
+    console.log(`    ${k.padEnd(15)} ${v.toString().padStart(6)}`)
   }
-  console.log("  점수 분포:");
+  console.log('  점수 분포:')
   for (const [k, v] of Object.entries(scoreBuckets)) {
-    console.log(`    ${k.padEnd(15)} ${v.toString().padStart(6)} (${((v / results.length) * 100).toFixed(1)}%)`);
+    console.log(
+      `    ${k.padEnd(15)} ${v.toString().padStart(6)} (${((v / results.length) * 100).toFixed(1)}%)`,
+    )
   }
 
   // --dry-stats: 분포 + 큐레이션 일관성만 출력하고 종료 (sweep용)
   if (isDryStats) {
-    const total = results.length;
+    const total = results.length
     const buckets: Record<string, number> = {
-      "< 2.0": 0, "2.0~2.5": 0, "2.5~3.0": 0,
-      "3.0~3.1": 0, "3.1~3.5": 0, ">= 3.5": 0,
-    };
+      '< 2.0': 0,
+      '2.0~2.5': 0,
+      '2.5~3.0': 0,
+      '3.0~3.1': 0,
+      '3.1~3.5': 0,
+      '>= 3.5': 0,
+    }
     for (const r of results) {
-      const s = r.finalScore;
-      if (s < 2.0) buckets["< 2.0"]++;
-      else if (s < 2.5) buckets["2.0~2.5"]++;
-      else if (s < 3.0) buckets["2.5~3.0"]++;
-      else if (s < 3.1) buckets["3.0~3.1"]++;
-      else if (s < 3.5) buckets["3.1~3.5"]++;
-      else buckets[">= 3.5"]++;
+      const s = r.finalScore
+      if (s < 2.0) buckets['< 2.0']++
+      else if (s < 2.5) buckets['2.0~2.5']++
+      else if (s < 3.0) buckets['2.5~3.0']++
+      else if (s < 3.1) buckets['3.0~3.1']++
+      else if (s < 3.5) buckets['3.1~3.5']++
+      else buckets['>= 3.5']++
     }
-    const avg = results.reduce((s, r) => s + r.finalScore, 0) / total;
+    const avg = results.reduce((s, r) => s + r.finalScore, 0) / total
 
-    const allHell = results.filter((r) => r.curationTag === "hell");
-    const hellAbove3 = allHell.filter((r) => r.finalScore >= 3.0);
-    const allEasy = results.filter((r) => r.curationTag === "easy");
-    const easyBelow3 = allEasy.filter((r) => r.finalScore < 3.0);
+    const allHell = results.filter((r) => r.curationTag === 'hell')
+    const hellAbove3 = allHell.filter((r) => r.finalScore >= 3.0)
+    const allEasy = results.filter((r) => r.curationTag === 'easy')
+    const easyBelow3 = allEasy.filter((r) => r.finalScore < 3.0)
 
-    console.log("\n[dry-stats] ========== 분포 ==========");
+    console.log('\n[dry-stats] ========== 분포 ==========')
     for (const [b, cnt] of Object.entries(buckets)) {
-      const pct = ((cnt / total) * 100).toFixed(1);
-      const bar = "█".repeat(Math.round(cnt / total * 40));
-      console.log(`  ${b.padEnd(10)} ${String(cnt).padStart(6)}  ${pct.padStart(5)}%  ${bar}`);
+      const pct = ((cnt / total) * 100).toFixed(1)
+      const bar = '█'.repeat(Math.round((cnt / total) * 40))
+      console.log(`  ${b.padEnd(10)} ${String(cnt).padStart(6)}  ${pct.padStart(5)}%  ${bar}`)
     }
-    console.log(`  전체 평균: ${avg.toFixed(3)}  총 ${total}개`);
+    console.log(`  전체 평균: ${avg.toFixed(3)}  총 ${total}개`)
 
-    console.log("\n[dry-stats] ========== 큐레이션 일관성 ==========");
-    console.log(`  Hell ${allHell.length}개 중 >= 3.0 오분류: ${hellAbove3.length}개`);
+    console.log('\n[dry-stats] ========== 큐레이션 일관성 ==========')
+    console.log(`  Hell ${allHell.length}개 중 >= 3.0 오분류: ${hellAbove3.length}개`)
     if (hellAbove3.length > 0) {
       for (const r of hellAbove3.slice(0, 10)) {
-        console.log(`    ${r.finalScore.toFixed(2)} [${r.reliability}] ${r.parkingLotName}`);
+        console.log(`    ${r.finalScore.toFixed(2)} [${r.reliability}] ${r.parkingLotName}`)
       }
-      if (hellAbove3.length > 10) console.log(`    ... 외 ${hellAbove3.length - 10}개`);
+      if (hellAbove3.length > 10) console.log(`    ... 외 ${hellAbove3.length - 10}개`)
     }
-    console.log(`  Easy ${allEasy.length}개 중 < 3.0: ${easyBelow3.length}개`);
+    console.log(`  Easy ${allEasy.length}개 중 < 3.0: ${easyBelow3.length}개`)
 
-    console.log("\n[dry-stats] ✅ PASS 조건: hell >= 3.0 == 0개");
-    const verdict = hellAbove3.length === 0 ? "PASS ✅" : hellAbove3.length <= 3 ? "WARN ⚠️" : "FAIL ❌";
-    console.log(`[dry-stats] 현재 판정: ${verdict} (hell >= 3.0: ${hellAbove3.length}개)`);
-    return;
+    console.log('\n[dry-stats] ✅ PASS 조건: hell >= 3.0 == 0개')
+    const verdict =
+      hellAbove3.length === 0 ? 'PASS ✅' : hellAbove3.length <= 3 ? 'WARN ⚠️' : 'FAIL ❌'
+    console.log(`[dry-stats] 현재 판정: ${verdict} (hell >= 3.0: ${hellAbove3.length}개)`)
+    return
   }
 
   // DB 업데이트
   if (!isDryRun) {
-    console.log("\n[Stats] DB 업데이트 중...");
+    console.log('\n[Stats] DB 업데이트 중...')
     // SQL 파일로 배치 생성
-    const CHUNK = 2000;
+    const CHUNK = 2000
     for (let i = 0; i < results.length; i += CHUNK) {
-      const chunk = results.slice(i, i + CHUNK);
+      const chunk = results.slice(i, i + CHUNK)
       const sql = chunk
         .map((r) => {
           const vals = [
             `'${r.parkingLotId}'`,
             r.structuralPrior,
-            r.userReviewScore ?? "NULL",
+            r.userReviewScore ?? 'NULL',
             r.userReviewCount,
-            r.communityScore ?? "NULL",
+            r.communityScore ?? 'NULL',
             r.communityCount,
-            r.textScore ?? "NULL",
+            r.textScore ?? 'NULL',
             r.textCount,
             r.nEffective,
             r.finalScore,
             `'${r.reliability}'`,
             "datetime('now')",
-          ].join(",");
-          return `INSERT OR REPLACE INTO parking_lot_stats (parking_lot_id,structural_prior,user_review_score,user_review_count,community_score,community_count,text_sentiment_score,text_source_count,n_effective,final_score,reliability,computed_at) VALUES (${vals});`;
+          ].join(',')
+          return `INSERT OR REPLACE INTO parking_lot_stats (parking_lot_id,structural_prior,user_review_score,user_review_count,community_score,community_count,text_sentiment_score,text_source_count,n_effective,final_score,reliability,computed_at) VALUES (${vals});`
         })
-        .join("\n");
+        .join('\n')
 
-      const tmpFile = join(import.meta.dirname, `_stats_batch_${i}.sql`);
-      const { writeFileSync: wf, unlinkSync } = await import("fs");
-      wf(tmpFile, sql, "utf-8");
+      const tmpFile = join(import.meta.dirname, `_stats_batch_${i}.sql`)
+      const { writeFileSync: wf, unlinkSync } = await import('fs')
+      wf(tmpFile, sql, 'utf-8')
 
       try {
-        const { execSync } = await import("child_process");
-        const target = isRemote ? "--remote" : "--local";
-        execSync(
-          `npx wrangler d1 execute parking-db ${target} --file="${tmpFile}"`,
-          { stdio: "pipe" },
-        );
-        console.log(`  배치 ${i / CHUNK + 1}: ${chunk.length}건 완료`);
+        const { execSync } = await import('child_process')
+        const target = isRemote ? '--remote' : '--local'
+        execSync(`npx wrangler d1 execute parking-db ${target} --file="${tmpFile}"`, {
+          stdio: 'pipe',
+        })
+        console.log(`  배치 ${i / CHUNK + 1}: ${chunk.length}건 완료`)
       } finally {
-        unlinkSync(tmpFile);
+        unlinkSync(tmpFile)
       }
     }
-    console.log("[Stats] DB 업데이트 완료");
+    console.log('[Stats] DB 업데이트 완료')
   } else {
-    const outPath = join(import.meta.dirname, "parking-stats-results.json");
-    writeFileSync(outPath, JSON.stringify(results, null, 2), "utf-8");
-    console.log(`\n[Stats] 결과 저장: ${outPath}`);
+    const outPath = join(import.meta.dirname, 'parking-stats-results.json')
+    writeFileSync(outPath, JSON.stringify(results, null, 2), 'utf-8')
+    console.log(`\n[Stats] 결과 저장: ${outPath}`)
   }
 
   // 큐레이션 태그별 점수 분포 검증 (태그는 크롤링 가이드 전용, 점수 무관)
   const hellLots = results.filter(
-    (r) =>
-      r.curationTag === "hell" &&
-      r.reliability !== "none" &&
-      r.reliability !== "structural",
-  );
+    (r) => r.curationTag === 'hell' && r.reliability !== 'none' && r.reliability !== 'structural',
+  )
   const easyLots = results.filter(
-    (r) =>
-      r.curationTag === "easy" &&
-      r.reliability !== "none" &&
-      r.reliability !== "structural",
-  );
+    (r) => r.curationTag === 'easy' && r.reliability !== 'none' && r.reliability !== 'structural',
+  )
 
   if (hellLots.length > 0) {
-    const hellBelow25 = hellLots.filter((l) => l.finalScore < 2.5).length;
-    const hellAbove35 = hellLots.filter((l) => l.finalScore >= 3.5).length;
+    const hellBelow25 = hellLots.filter((l) => l.finalScore < 2.5).length
+    const hellAbove35 = hellLots.filter((l) => l.finalScore >= 3.5).length
     console.log(
       `\n[검증] Hell 태그(데이터 있음): ${hellLots.length}개 → 2.5 미만: ${hellBelow25}개, 3.5 이상: ${hellAbove35}개`,
-    );
+    )
     if (hellAbove35 > 0) {
-      console.log(`  ⚠️ Hell 태그이나 긍정 점수:`);
+      console.log(`  ⚠️ Hell 태그이나 긍정 점수:`)
       for (const l of hellLots.filter((l) => l.finalScore >= 3.5)) {
-        console.log(`    ${l.parkingLotName} (${l.parkingLotId}) — score=${l.finalScore}`);
+        console.log(`    ${l.parkingLotName} (${l.parkingLotId}) — score=${l.finalScore}`)
       }
     }
   }
   if (easyLots.length > 0) {
-    const easyAbove35 = easyLots.filter((l) => l.finalScore >= 3.5).length;
-    const easyBelow20 = easyLots.filter((l) => l.finalScore <= 2.0).length;
+    const easyAbove35 = easyLots.filter((l) => l.finalScore >= 3.5).length
+    const easyBelow20 = easyLots.filter((l) => l.finalScore <= 2.0).length
     console.log(
       `[검증] Easy 태그(데이터 있음): ${easyLots.length}개 → 3.5 이상: ${easyAbove35}개, 2.0 이하: ${easyBelow20}개`,
-    );
+    )
     if (easyBelow20 > 0) {
-      console.log(`  ⚠️ Easy 태그이나 부정 점수:`);
+      console.log(`  ⚠️ Easy 태그이나 부정 점수:`)
       for (const l of easyLots.filter((l) => l.finalScore <= 2.0)) {
-        console.log(`    ${l.parkingLotName} (${l.parkingLotId}) — score=${l.finalScore}`);
+        console.log(`    ${l.parkingLotName} (${l.parkingLotId}) — score=${l.finalScore}`)
       }
     }
   }
 
   // 커버리지 비교
-  const withData = results.filter(
-    (r) => r.reliability !== "none",
-  ).length;
-  const prevCoverage = reviewsByLot.size; // 기존: 리뷰 있는 주차장만
+  const withData = results.filter((r) => r.reliability !== 'none').length
+  const prevCoverage = reviewsByLot.size // 기존: 리뷰 있는 주차장만
   console.log(
     `\n[커버리지] 기존(리뷰만): ${prevCoverage}개 → 새(통합): ${withData}개 (+${withData - prevCoverage}개)`,
-  );
+  )
 }
 
-main().catch(console.error);
+main().catch(console.error)
