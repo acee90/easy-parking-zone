@@ -33,12 +33,13 @@ function getNumArg(name: string, defaultValue: number): number {
 const TOP_N = getNumArg('--top-n', 5)
 const LIMIT_LOTS = getNumArg('--limit-lots', 0) // 0 = no limit
 const MIN_CONTENT = getNumArg('--min-content', 200)
+const MAX_MATCHED_LOTS = getNumArg('--max-matched-lots', 3) // 1 source가 N개 초과 lot에 매칭되면 나열글로 간주, skip
 const LOT_ID = getArg('--lot-id', '')
 const OUTPUT = getArg('--output', 'data/top-sources-by-lot.json')
-// source 화이트리스트 (콤마 구분). 기본: tistory_blog,naver_place (풀텍스트 신뢰 source).
+// source 화이트리스트 (콤마 구분). 기본: #149 파이프라인이 산출하는 실제 source 셋과 일치.
 // ddg_search/naver_blog/naver_cafe는 snippet only이거나 매체/보도자료 비율 높아 기본 제외.
 // 전체 허용하려면 --source-whitelist all
-const SOURCE_WHITELIST = getArg('--source-whitelist', 'tistory_blog,naver_place')
+const SOURCE_WHITELIST = getArg('--source-whitelist', 'naver_blog,naver_cafe,ddg_search')
 
 // ── Types ──
 interface SourceRow {
@@ -48,11 +49,13 @@ interface SourceRow {
   source: string
   title: string
   content: string
+  full_text: string | null
   source_url: string
   relevance_score: number
   sentiment_score: number | null
   ai_difficulty_keywords: string | null
   ai_summary: string | null
+  ai_summary_updated_at: string | null
   matched_lot_count: number
   content_len: number
 }
@@ -76,7 +79,9 @@ interface OutputRecord {
 
 // ── quality_score 계산 ──
 function computeQualityScore(row: SourceRow): number {
-  const contentNorm = Math.min(row.content_len / 1000, 1.0)
+  // full_text가 있으면 그 길이로, 없으면 content 길이로 (최대 2000자 기준 정규화)
+  const textLen = row.full_text ? row.full_text.length : row.content_len
+  const contentNorm = Math.min(textLen / 2000, 1.0)
   const relevanceNorm = Math.min(row.relevance_score / 100, 1.0)
 
   const fulltextSources = new Set(['naver_blog', 'naver_cafe', 'tistory_blog', 'youtube_comment'])
@@ -156,6 +161,7 @@ function selectAllSources(): SourceRow[] {
 
   // matched_lot_count: 같은 source_url이 매칭된 distinct lot 수
   // 같은 source가 N개 lot에 정보를 갖는 건 정상 패턴 — penalty 아닌 lot-specific 추출 필요 신호
+  // full_text는 web_sources_raw에서 raw_source_id로 JOIN하여 조회.
   const sql = `
     SELECT
       ws.id,
@@ -164,11 +170,13 @@ function selectAllSources(): SourceRow[] {
       ws.source,
       ws.title,
       ws.content,
+      wsr.full_text,
       ws.source_url,
       ws.relevance_score,
       ws.sentiment_score,
       ws.ai_difficulty_keywords,
       ws.ai_summary,
+      ws.ai_summary_updated_at,
       LENGTH(ws.content) as content_len,
       (
         SELECT COUNT(DISTINCT ws2.parking_lot_id)
@@ -177,7 +185,9 @@ function selectAllSources(): SourceRow[] {
       ) as matched_lot_count
     FROM web_sources ws
     INNER JOIN parking_lots pl ON ws.parking_lot_id = pl.id
-    WHERE LENGTH(ws.content) >= ${MIN_CONTENT}
+    LEFT JOIN web_sources_raw wsr ON wsr.id = ws.raw_source_id
+    WHERE wsr.full_text IS NOT NULL AND wsr.full_text != ''
+      AND ws.ai_summary IS NULL
     ${sourceFilter}
     ${lotFilter}
     ORDER BY ws.parking_lot_id, ws.relevance_score DESC
@@ -200,8 +210,11 @@ function main() {
   )
 
   console.log(`\n  1. web_sources 조회 중...`)
-  const sources = selectAllSources()
-  console.log(`     로드: ${sources.length}건`)
+  const rawSources = selectAllSources()
+  const sources = rawSources.filter((r) => r.matched_lot_count <= MAX_MATCHED_LOTS)
+  console.log(
+    `     로드: ${rawSources.length}건 → 다중 lot 나열글 제외 후: ${sources.length}건 (max-matched-lots=${MAX_MATCHED_LOTS})`,
+  )
 
   if (sources.length === 0) {
     console.log('\n  ⚠️  대상 row 없음.')
@@ -247,7 +260,7 @@ function main() {
         parking_lot_id: c.parking_lot_id,
         parking_lot_name: c.parking_lot_name,
         title: c.title,
-        content: c.content,
+        content: c.full_text ?? c.content,
         review_comments: reviewComments,
         quality_score: computeQualityScore(c),
         source: c.source,

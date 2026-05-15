@@ -8,11 +8,14 @@
  *   bun run scripts/extract-lots-for-agent.ts --remote --limit=3
  *   bun run scripts/extract-lots-for-agent.ts --remote --limit=3 --mixed
  *   bun run scripts/extract-lots-for-agent.ts --remote --limit=100 --output=data/lots_for_summary.json
+ *   bun run scripts/extract-lots-for-agent.ts --remote --lot-ids-file=data/regen-affected-lots.json
  *
  * --mixed: rich / thin / review-only 한 건씩 의도적으로 섞어서 추출 (limit 무시, 3건 고정)
+ * --lot-ids-file: 지정 JSON 파일의 lot ID 목록만 추출. ai_summary IS NULL 필터 없이 재생성용.
  */
 
-import { writeFileSync } from 'fs'
+import { readFileSync, writeFileSync } from 'fs'
+import { resolve } from 'path'
 import { d1Query } from './lib/d1'
 import { esc } from './lib/sql-flush'
 
@@ -33,6 +36,7 @@ interface AgentInput {
 const args = process.argv.slice(2)
 const limit = parseInt(args.find((a) => a.startsWith('--limit='))?.split('=')[1] ?? '20', 10)
 const isMixed = args.includes('--mixed')
+const lotIdsFile = args.find((a) => a.startsWith('--lot-ids-file='))?.split('=')[1] ?? ''
 const output =
   args.find((a) => a.startsWith('--output='))?.split('=')[1] ?? 'data/lots_for_summary.json'
 
@@ -149,8 +153,32 @@ function pickDefault(n: number): LotRow[] {
   `)
 }
 
+function pickByIds(ids: string[]): LotRow[] {
+  if (ids.length === 0) return []
+  const CHUNK = 100
+  const result: LotRow[] = []
+  for (let i = 0; i < ids.length; i += CHUNK) {
+    const chunk = ids.slice(i, i + CHUNK)
+    const idList = chunk.map((id) => `'${esc(id)}'`).join(',')
+    const rows = d1Query<LotRow>(`
+      SELECT p.id, p.name, p.address
+      FROM parking_lots p
+      WHERE p.id IN (${idList})
+      ORDER BY p.id
+    `)
+    result.push(...rows)
+  }
+  return result
+}
+
 function main() {
-  const lots = isMixed ? pickMixed() : pickDefault(limit)
+  let lots: LotRow[]
+  if (lotIdsFile) {
+    const ids: string[] = JSON.parse(readFileSync(resolve(lotIdsFile), 'utf-8'))
+    lots = pickByIds(ids)
+  } else {
+    lots = isMixed ? pickMixed() : pickDefault(limit)
+  }
   if (lots.length === 0) {
     console.error('매칭된 주차장 없음')
     process.exit(1)

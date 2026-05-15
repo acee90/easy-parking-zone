@@ -1,12 +1,10 @@
 /**
- * #148 Phase C — full_text 입력 filter v2 prompt.
+ * @deprecated 2026-05-13 통합 — `AI_SUMMARY_SYSTEM_PROMPT` 가 filter+summary 단일 source.
  *
- * raw 단계 (`ai-summary-prompt.ts`) 의 SYSTEM_PROMPT 와 분리.
- * 이 프롬프트는 **summary 출력 안 함** — filter 결정만. summary 재생성은 #141 에서.
+ * 본 prompt는 legacy 호출자(`match-to-lots.ts`, `scripts/filter-web-sources.ts`)를 위해 유지.
+ * 신규 코드는 `ai-summary-prompt.ts`의 `AI_SUMMARY_SYSTEM_PROMPT` 사용.
  *
- * 입력: full_text + lot meta
- * 출력 JSON:
- *   { filter_passed, removed_by, sentiment_score, ai_difficulty_keywords }
+ * pipeline-ai-filter subagent는 이미 새 통합 사양으로 전환됨 (`.claude/agents/pipeline-ai-filter.md`).
  */
 
 export const FILTER_V2_SYSTEM_PROMPT = `주차장 풀텍스트 본문을 분석하여 SEO 가치 있는 후기/정보 소스만 통과시키는 JSON 분류기입니다.

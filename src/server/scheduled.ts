@@ -5,7 +5,7 @@
  *   1. 크롤링 → web_sources_raw (URL 단위, full_text_status='pending')
  *   2. raw fulltext batch → web_sources_raw.full_text 채움
  *   3. AI 필터 → rule(high/low 즉시) + Haiku(medium만), fulltext 입력
- *   4. 주차장 매칭 → filter_passed=1 → web_sources (full_text 복사)
+ *   4. 주차장 매칭 → filter_passed=1 → web_sources (정제 데이터만; full_text는 raw 유지, raw_source_id JOIN)
  *   5. 스코어링 재계산
  *
  * DDG cron (매시 30분):

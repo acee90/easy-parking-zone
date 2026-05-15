@@ -260,14 +260,15 @@ function buildInsert(
     ? JSON.stringify(aiResult.ai_difficulty_keywords)
     : raw.ai_difficulty_keywords
 
+  // full_text는 web_sources_raw에서만 관리 (raw_source_id JOIN으로 조회).
+  // web_sources는 정제된 데이터(요약/sentiment/관계)만 보유.
   return db
     .prepare(
       `INSERT OR IGNORE INTO web_sources
        (parking_lot_id, source, source_id, title, content, source_url,
         author, published_at, relevance_score, raw_source_id,
-        sentiment_score, ai_difficulty_keywords, ai_summary,
-        full_text, full_text_length, full_text_status, full_text_fetched_at)
-       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)`,
+        sentiment_score, ai_difficulty_keywords, ai_summary)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)`,
     )
     .bind(
       lot.lot_id,
@@ -283,10 +284,6 @@ function buildInsert(
       sentimentScore,
       difficultyKeywords,
       null, // ai_summary는 post-match ai-summary-generator에서 별도 생성
-      raw.full_text,
-      raw.full_text ? raw.full_text.length : 0,
-      raw.full_text_status ?? 'pending',
-      raw.full_text_fetched_at,
     )
 }
 
