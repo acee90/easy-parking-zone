@@ -389,6 +389,8 @@ export function searchCandidateLots(keywords: string[], allLots: LotRow[]): LotR
 // ── INSERT SQL 생성 ───────────────────────────────────────────────
 
 function buildMissedLotInsertSql(raw: RawRow, detectedName: string): string {
+  // full_text는 web_sources_raw에서만 관리 (raw_source_id로 JOIN 조회).
+  // web_sources_missed는 정제 데이터만 보유 — web_sources와 동일 원칙.
   const cols = [
     'missed_lot_name',
     'source',
@@ -401,10 +403,6 @@ function buildMissedLotInsertSql(raw: RawRow, detectedName: string): string {
     'raw_source_id',
     'sentiment_score',
     'ai_difficulty_keywords',
-    'full_text',
-    'full_text_length',
-    'full_text_status',
-    'full_text_fetched_at',
   ]
   const vals = [
     detectedName,
@@ -418,10 +416,6 @@ function buildMissedLotInsertSql(raw: RawRow, detectedName: string): string {
     raw.id,
     raw.sentiment_score,
     raw.ai_difficulty_keywords,
-    raw.full_text,
-    raw.full_text ? raw.full_text.length : 0,
-    raw.full_text_status ?? 'pending',
-    raw.full_text_fetched_at,
   ]
     .map(sqlVal)
     .join(', ')
