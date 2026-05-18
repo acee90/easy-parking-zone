@@ -239,6 +239,31 @@ const STOP_WORDS = new Set([
   '입장',
   '관람',
   '가볼만한곳',
+  // 블로그 제목 필러 — 장소명이 아닌 머리말/수식어 (place name이 뒤로 밀려 누락되는 주원인)
+  '여행',
+  '가기',
+  '좋은',
+  '함께',
+  '나의',
+  '다녀와서',
+  '다녀온',
+  '다녀왔어요',
+  '아이랑',
+  '아이들과',
+  '가족여행',
+  '나들이',
+  '당일치기',
+  '둘러보기',
+  '방문기',
+  '방문',
+  '코스',
+  '명소',
+  '인근',
+  '예약',
+  '갈만한',
+  '갈만한곳',
+  '가볼만한',
+  '주말',
   // 주차장 유형 수식어 — lot name에 포함돼도 너무 범용적 (공영주차장 등)
   '공영',
   '민영',
@@ -272,7 +297,11 @@ export function extractSearchKeywords(title: string, content: string): string[] 
     .split(/\s+/)
     .filter((w) => w.length >= 2 && !STOP_WORDS.has(w) && !/^\d+$/.test(w))
   const titleUnique = [...new Set(titleCleaned)]
-  if (titleUnique.length > 0) return titleUnique.slice(0, 4)
+  // 장소명은 보통 가장 긴 복합명사(김제시립도서관/양구선사박물관/과천과학관).
+  // 앞 N개 컷은 "아이들과 함께 가기 좋은 …" 같은 필러 머리말을 잡아 장소명을 잃음.
+  // → 길이 내림차순 우선 선택으로 식별력 높은 토큰 보존.
+  if (titleUnique.length > 0)
+    return [...titleUnique].sort((a, b) => b.length - a.length).slice(0, 5)
 
   // Fallback 2: extract from content snippet (covers "XX 방문기" titles with parking in body)
   const contentCleaned = content
@@ -283,7 +312,7 @@ export function extractSearchKeywords(title: string, content: string): string[] 
     .filter((w) => w.length >= 2 && !STOP_WORDS.has(w) && !/^\d+$/.test(w))
   const contentUnique = [...new Set(contentCleaned)]
   if (contentUnique.length === 0) return []
-  return contentUnique.slice(0, 4)
+  return [...contentUnique].sort((a, b) => b.length - a.length).slice(0, 5)
 }
 
 // 추출 키워드가 lot name과 지리적으로 연관있는지 판정.
@@ -1015,6 +1044,26 @@ async function runAiFilterDumpStage() {
 // ── Stage 3 (재배치): lot-match — ai-filter 통과 글에 best lot 매칭 ──
 const missedInsertsLM: string[] = []
 
+// (B) lot 식별코어 게이트: lot명에서 generic/숫자 제거 후 식별 토큰(≥4자)이
+// 본문에 실제 등장해야 통과. 식별 토큰이 없으면(지역명·범용명뿐) 코어 전체
+// 결합문자열 일치 요구. 지역-only/스침 언급 오매칭(강진군립도서관·구좌읍주차장
+// ·베스트주차장 등)을 차단하면서 정답(김제시립도서관 등)은 보존.
+export function lotCoreInText(lotName: string, title: string, fullText: string): boolean {
+  const hay = (title + ' ' + fullText).toLowerCase().replace(/\s+/g, '')
+  const core = lotName
+    .toLowerCase()
+    .replace(/주차장\s*\d*/g, ' ')
+    .replace(/주차\s*\d*/g, ' ')
+    .split(/\s+/)
+    .map((t) => t.replace(/[^\p{L}\p{N}]/gu, '').replace(/\d+$/, ''))
+    .filter((t) => t.length >= 2 && !LOT_GENERIC.has(t))
+  if (core.length === 0) return false
+  const distinct = core.filter((t) => t.length >= 4)
+  if (distinct.length > 0) return distinct.some((t) => hay.includes(t))
+  const joined = core.join('')
+  return joined.length >= 4 && hay.includes(joined)
+}
+
 function pickBestLot(
   title: string,
   content: string,
@@ -1028,6 +1077,7 @@ function pickBestLot(
   for (const lot of candidates) {
     if (!isCandidateLocationCompatible(keywords, lot)) continue
     if (fullText.length > 200 && !lotNameInFullText(lot.name, fullText, title)) continue
+    if (!lotCoreInText(lot.name, title, fullText)) continue
     const { score, confidence } = getMatchConfidence(title, content, lot.name, lot.address)
     const r = rank[confidence] ?? 0
     if (!best || r > best.r || (r === best.r && score > best.score)) best = { lot, score, r }
