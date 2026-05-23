@@ -1,6 +1,6 @@
 # Reliability
 
-> 최종 업데이트: 2026-04-30
+> 최종 업데이트: 2026-05-23
 
 운영 안정성, 모니터링, 장애 대응 가이드.
 
@@ -10,6 +10,7 @@
 |----------|--------|-----|
 | SSR + API | Cloudflare Workers | 99.9% |
 | Database | Cloudflare D1 | 99.9% |
+| Async queue | Cloudflare Queues | Best effort |
 | Cron Jobs | Workers Cron Triggers | Best effort |
 | DNS + CDN | Cloudflare | 99.9% |
 
@@ -22,6 +23,12 @@
   각 단계 try-catch 독립 — 부분 실패 허용
 ```
 
+리뷰 등록/삭제에 따른 평점 재계산은 Cloudflare Queue로 비동기 처리한다.
+
+```
+리뷰 변경 → SCORE_RECOMPUTE_QUEUE → recomputeStats → parking_lot_stats
+```
+
 ### 모니터링 포인트
 
 | 지표 | 확인 방법 | 경고 기준 |
@@ -29,6 +36,8 @@
 | Cron 실행 여부 | Workers Logs | 2시간 이상 로그 없음 |
 | AI 필터 미처리 | `SELECT COUNT(*) FROM web_sources_raw WHERE ai_filtered_at IS NULL` | 1,000건 이상 적체 |
 | 매칭 미처리 | `SELECT COUNT(*) FROM web_sources_raw WHERE filter_passed=1 AND matched_at IS NULL` | 500건 이상 적체 |
+| Queue enqueue 실패 | Workers Logs `[score-recompute-queue] enqueue failed` | 연속 발생 |
+| Queue consumer 실패 | Workers Logs `[score-recompute-queue]` error | retry 반복 |
 | D1 용량 | wrangler d1 info | 242MB / 500MB (Free plan) |
 | API 키 유효성 | Cron 로그 에러 | 연속 3회 실패 |
 
@@ -46,6 +55,8 @@
 |------|-----|------|
 | Workers CPU time (Free) | 10ms | Cron에서 대량 처리 제한 |
 | Workers wall time (Free) | 30초 | AI 필터 배치 100건 제한 |
+| Queues operations (Free) | 10,000/day | 정상 처리 기준 약 3,333 messages/day |
+| Queues retention (Free) | 24h | 24h 이상 consumer 장애 시 메시지 만료 가능 |
 | D1 storage (Free) | 500MB | 현재 242MB 사용 (48%) |
 | D1 rows read/day (Free) | 5M | 대량 쿼리 주의 |
 | Subrequests/invocation | 1,000 | DDG 크롤러 별도 cron 분리 이유 |
@@ -63,6 +74,19 @@
 1. Workers 대시보드에서 Cron Trigger 상태 확인
 2. wrangler tail로 실시간 로그 확인
 3. 수동 실행: `curl -X POST https://easy-parking.xyz/__scheduled`
+
+### 리뷰 평점 Queue 장애
+
+1. Workers Logs에서 `[score-recompute-queue]` enqueue/consumer 오류 확인
+2. Queue binding `SCORE_RECOMPUTE_QUEUE`와 queue name `score-recompute-queue` 확인
+3. consumer 오류가 코드/쿼리 문제라면 수정 후 재배포
+4. 메시지 유실 또는 24h retention 초과가 의심되면 전체 점수 재계산 실행:
+
+```bash
+bun run scripts/compute-parking-stats.ts --remote
+```
+
+상세: [Scoring / Recompute Architecture](scoring-recompute.md)
 
 ### API 키 만료
 

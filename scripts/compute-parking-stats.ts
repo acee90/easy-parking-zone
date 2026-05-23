@@ -13,45 +13,20 @@
 
 import { writeFileSync } from 'fs'
 import { join } from 'path'
-import { timeDecay } from '../src/server/crawlers/lib/sentiment'
-import { d1Execute, d1Query, isRemote } from './lib/d1'
+import {
+  applyCurationCap,
+  computeFinalScore,
+  computeSourceScores,
+  computeStructuralPrior,
+  type ReviewSignal,
+  SCORE_PARAMS,
+  type WebSignal,
+} from '../src/server/crawlers/lib/scoring-engine-core'
+import { d1Query, isRemote } from './lib/d1'
 
 const isDryRun = process.argv.includes('--dry-run')
 const isDryStats = process.argv.includes('--dry-stats')
 const BATCH_SIZE = 1000
-
-// ---------------------------------------------------------------------------
-// 튜닝 파라미터 — issue#113 scoring calibration
-// A: structural prior 조정폭, B: 텍스트 n_effective 가중치
-// ---------------------------------------------------------------------------
-const PARAMS = {
-  /** 베이지안 신뢰 임계치 — prior의 가상 리뷰 수 (높을수록 구조 prior 신뢰) */
-  C: 2.5,
-  /** B: 텍스트 n_effective 가중치 (relevance >= 70 텍스트당, max 1/10 = 사용자 리뷰의 1/10) */
-  TEXT_N_EFF_WEIGHT: 0.1,
-  // A: structural prior 조정값
-  PRIOR_MECHANICAL: -0.4, // 기계식 (강한 부정 신호)
-  PRIOR_SMALL_LOT: -0.1, // 면수 < 30
-  PRIOR_LARGE_LOT: +0.05, // 면수 > 200 (대형이라도 복잡할 수 있어 최소화)
-  PRIOR_XLARGE_LOT: +0.0, // 면수 > 500
-  PRIOR_UNDERGROUND: -0.15, // 지하 (이름에 '지하' 포함)
-  PRIOR_OUTDOOR: +0.0, // 노외 = 행정분류, 실외 의미 아님 → 0
-  PRIOR_FREE: +0.0, // 무료 ≠ 쉬운 주차 → 0
-  /** hell 큐레이션 태그 점수 상한 — 위치 텍스트 positive bias 보정용 */
-  HELL_SCORE_CAP: 2.9,
-} as const
-
-/** 소스별 기본 가중치 */
-const WEIGHTS = {
-  user: 0.5,
-  community: 0.3,
-  blog: 0.15,
-  youtube: 0.15,
-} as const
-
-// ---------------------------------------------------------------------------
-// 1. 구조적 사전 점수 (Structural Prior) — §4.1
-// ---------------------------------------------------------------------------
 
 interface ParkingLot {
   id: string
@@ -63,212 +38,28 @@ interface ParkingLot {
   curation_tag: string | null
 }
 
-/**
- * 구조적 사전 점수 계산 — §4.1
- * curation_tag는 크롤링 가이드 용도로만 사용하며 점수에는 관여하지 않음.
- */
-function computeStructuralPrior(lot: ParkingLot): number {
-  let score = 3.0
-
-  const nameNotes = `${lot.name} ${lot.notes ?? ''}`.toLowerCase()
-
-  if (nameNotes.includes('기계식') || nameNotes.includes('기계')) {
-    score += PARAMS.PRIOR_MECHANICAL
-  }
-
-  if (lot.total_spaces !== null) {
-    if (lot.total_spaces < 30) score += PARAMS.PRIOR_SMALL_LOT
-    if (lot.total_spaces > 500) score += PARAMS.PRIOR_XLARGE_LOT
-    else if (lot.total_spaces > 200) score += PARAMS.PRIOR_LARGE_LOT
-  }
-
-  if (nameNotes.includes('지하')) {
-    score += PARAMS.PRIOR_UNDERGROUND
-  }
-
-  if (lot.type === '노외') {
-    score += PARAMS.PRIOR_OUTDOOR
-  }
-
-  if (lot.is_free === 1) {
-    score += PARAMS.PRIOR_FREE
-  }
-
-  return Math.max(1.0, Math.min(5.0, score))
+interface ReviewRow extends ReviewSignal {
+  parking_lot_id: string
 }
 
-// ---------------------------------------------------------------------------
-// 2. 소스별 점수 집계 — §4.2~4.3
-// ---------------------------------------------------------------------------
-
-interface ReviewRow {
+interface TextRow extends WebSignal {
   parking_lot_id: string
-  overall_score: number
-  is_seed: number
-  source_type: string | null
-  created_at: string
-}
-
-interface TextRow {
-  parking_lot_id: string
-  sentiment_score: number
-  relevance_score: number
   source: string
-  published_at: string | null
   match_type: 'direct' | 'ai_high' | 'ai_medium'
 }
-
-interface SourceScores {
-  userReviewScore: number | null
-  userReviewCount: number
-  communityScore: number | null
-  communityCount: number
-  textScore: number | null
-  textCount: number
-  nEffective: number
-}
-
-function computeSourceScores(reviews: ReviewRow[], texts: TextRow[], now: Date): SourceScores {
-  // 사용자 리뷰 (source_type IS NULL, is_seed=0)
-  const userReviews = reviews.filter((r) => r.source_type === null && r.is_seed === 0)
-  // 커뮤니티 리뷰 (source_type IS NOT NULL) + seed 리뷰
-  const communityReviews = reviews.filter((r) => r.source_type !== null || r.is_seed === 1)
-
-  // 시간 감쇠 가중 평균
-  function weightedAvg(items: { score: number; date: string; weight: number }[]): number | null {
-    if (items.length === 0) return null
-    let wSum = 0
-    let wTotal = 0
-    for (const item of items) {
-      const d = timeDecay(item.date, now)
-      wSum += item.weight * d * item.score
-      wTotal += item.weight * d
-    }
-    return wTotal > 0 ? wSum / wTotal : null
-  }
-
-  const userReviewScore = weightedAvg(
-    userReviews.map((r) => ({
-      score: r.overall_score,
-      date: r.created_at,
-      weight: 1.0,
-    })),
-  )
-
-  const communityScore = weightedAvg(
-    communityReviews.map((r) => ({
-      score: r.overall_score,
-      date: r.created_at,
-      weight: r.is_seed === 1 ? 0.3 : 0.6,
-    })),
-  )
-
-  // 텍스트 감성 (관련도 > 30, sentiment_score NOT NULL)
-  // match_type별 가중치 감쇠: direct=1.0, ai_high=0.8, ai_medium=0.5
-  const MATCH_TYPE_FACTOR = { direct: 1.0, ai_high: 0.8, ai_medium: 0.5 } as const
-  const relevantTexts = texts.filter((t) => t.relevance_score > 30 && t.sentiment_score !== null)
-  const textScore = weightedAvg(
-    relevantTexts.map((t) => ({
-      score: t.sentiment_score,
-      date: t.published_at ?? '',
-      weight: (t.relevance_score / 100) * MATCH_TYPE_FACTOR[t.match_type],
-    })),
-  )
-
-  // 유효 데이터량
-  // 블로그 weight = min(PARAMS.TEXT_N_EFF_WEIGHT, 1/N) → 단일 블로그 영향 cap, 총 기여도 max 1.0
-  const highRelevanceTexts = texts.filter((t) => t.relevance_score >= 70)
-  const N = highRelevanceTexts.length
-  const blogWeight = N === 0 ? 0 : Math.min(PARAMS.TEXT_N_EFF_WEIGHT, 1 / N)
-  const nEffective =
-    userReviews.length * 1.0 +
-    communityReviews.length * 0.6 +
-    highRelevanceTexts.reduce((sum, t) => sum + blogWeight * MATCH_TYPE_FACTOR[t.match_type], 0)
-
-  return {
-    userReviewScore: userReviewScore ? Math.round(userReviewScore * 100) / 100 : null,
-    userReviewCount: userReviews.length,
-    communityScore: communityScore ? Math.round(communityScore * 100) / 100 : null,
-    communityCount: communityReviews.length,
-    textScore: textScore ? Math.round(textScore * 100) / 100 : null,
-    textCount: relevantTexts.length,
-    nEffective: Math.round(nEffective * 100) / 100,
-  }
-}
-
-// ---------------------------------------------------------------------------
-// 3. 베이지안 통합 — §4.4
-// ---------------------------------------------------------------------------
 
 interface StatsRow {
   parkingLotId: string
   parkingLotName: string
   curationTag: string | null
   structuralPrior: number
-  userReviewScore: number | null
-  userReviewCount: number
-  communityScore: number | null
-  communityCount: number
-  textScore: number | null
-  textCount: number
+  reviewScore: number | null
+  reviewCount: number
+  webScore: number | null
+  webCount: number
   nEffective: number
   finalScore: number
   reliability: string
-}
-
-function computeFinalScore(
-  prior: number,
-  sources: SourceScores,
-): { finalScore: number; reliability: string } {
-  // 활성 소스 수집 + 가중치 재분배
-  const active: { key: string; weight: number; score: number }[] = []
-
-  if (sources.userReviewScore !== null) {
-    active.push({ key: 'user', weight: WEIGHTS.user, score: sources.userReviewScore })
-  }
-  if (sources.communityScore !== null) {
-    active.push({ key: 'community', weight: WEIGHTS.community, score: sources.communityScore })
-  }
-  if (sources.textScore !== null) {
-    // blog + youtube 텍스트를 하나로 합산
-    active.push({ key: 'text', weight: WEIGHTS.blog + WEIGHTS.youtube, score: sources.textScore })
-  }
-
-  // 데이터가 전혀 없으면 구조 속성만 사용
-  if (active.length === 0) {
-    return {
-      finalScore: Math.round(prior * 100) / 100,
-      reliability: prior !== 3.0 ? 'structural' : 'none',
-    }
-  }
-
-  // 가중치 재분배 (합 = 1.0)
-  const totalWeight = active.reduce((s, a) => s + a.weight, 0)
-  const rawScore = active.reduce((s, a) => s + (a.weight / totalWeight) * a.score, 0)
-
-  // 베이지안 평균: (C × m + n_eff × raw) / (C + n_eff)
-  const finalScore =
-    (PARAMS.C * prior + sources.nEffective * rawScore) / (PARAMS.C + sources.nEffective)
-  // Prior floor: 약한 신호(nEff<1) + 사용자 리뷰 없으면 prior 아래로 떨어지지 않음
-  const floored =
-    sources.nEffective < 1 && sources.userReviewCount === 0
-      ? Math.max(finalScore, prior)
-      : finalScore
-  const clamped = Math.max(1.0, Math.min(5.0, Math.round(floored * 100) / 100))
-
-  // 신뢰도 등급
-  let reliability: string
-  if (sources.nEffective >= 5) {
-    reliability = 'confirmed'
-  } else if (sources.nEffective >= 1) {
-    reliability = 'estimated'
-  } else if (sources.nEffective > 0) {
-    reliability = 'reference'
-  } else {
-    reliability = 'structural'
-  }
-
-  return { finalScore: clamped, reliability }
 }
 
 // ---------------------------------------------------------------------------
@@ -280,7 +71,7 @@ async function main() {
     `[Stats] ${isRemote ? 'REMOTE' : 'LOCAL'} D1 | ${isDryRun ? 'DRY-RUN' : isDryStats ? 'DRY-STATS' : 'LIVE'}`,
   )
   if (isDryStats) {
-    console.log('[Stats] PARAMS:', JSON.stringify(PARAMS, null, 2))
+    console.log('[Stats] PARAMS:', JSON.stringify(SCORE_PARAMS, null, 2))
   }
 
   const now = new Date()
@@ -308,7 +99,8 @@ async function main() {
     `SELECT ws.parking_lot_id, ws.sentiment_score, ws.relevance_score, ws.source, ws.published_at, 'direct' as match_type
      FROM web_sources ws
      WHERE ws.parking_lot_id IS NOT NULL
-       AND (ws.sentiment_score IS NOT NULL OR ws.relevance_score > 30)
+       AND ws.sentiment_score IS NOT NULL
+       AND ws.relevance_score > 30
        AND ws.filter_passed_v2 = 1
      UNION ALL
      SELECT am.parking_lot_id, ws.sentiment_score, ws.relevance_score, ws.source, ws.published_at,
@@ -316,7 +108,8 @@ async function main() {
      FROM web_source_ai_matches am
      JOIN web_sources ws ON ws.id = am.web_source_id
      WHERE 1=1
-       AND (ws.sentiment_score IS NOT NULL OR ws.relevance_score > 30)
+       AND ws.sentiment_score IS NOT NULL
+       AND ws.relevance_score > 30
        AND ws.filter_passed_v2 = 1
        AND am.confidence IN ('high', 'medium')
        AND (ws.parking_lot_id IS NULL OR am.parking_lot_id != ws.parking_lot_id)`,
@@ -349,20 +142,17 @@ async function main() {
       const texts = textsByLot.get(lot.id) ?? []
       const sources = computeSourceScores(reviews, texts, now)
       const { finalScore: rawFinalScore, reliability } = computeFinalScore(prior, sources)
-      const finalScore =
-        lot.curation_tag === 'hell' ? Math.min(rawFinalScore, PARAMS.HELL_SCORE_CAP) : rawFinalScore
+      const finalScore = applyCurationCap(lot, rawFinalScore)
 
       results.push({
         parkingLotId: lot.id,
         parkingLotName: lot.name,
         curationTag: lot.curation_tag,
         structuralPrior: prior,
-        userReviewScore: sources.userReviewScore,
-        userReviewCount: sources.userReviewCount,
-        communityScore: sources.communityScore,
-        communityCount: sources.communityCount,
-        textScore: sources.textScore,
-        textCount: sources.textCount,
+        reviewScore: sources.reviewScore,
+        reviewCount: sources.reviewCount,
+        webScore: sources.webScore,
+        webCount: sources.webCount,
         nEffective: sources.nEffective,
         finalScore,
         reliability,
@@ -470,18 +260,16 @@ async function main() {
           const vals = [
             `'${r.parkingLotId}'`,
             r.structuralPrior,
-            r.userReviewScore ?? 'NULL',
-            r.userReviewCount,
-            r.communityScore ?? 'NULL',
-            r.communityCount,
-            r.textScore ?? 'NULL',
-            r.textCount,
+            r.reviewScore ?? 'NULL',
+            r.reviewCount,
+            r.webScore ?? 'NULL',
+            r.webCount,
             r.nEffective,
             r.finalScore,
             `'${r.reliability}'`,
             "datetime('now')",
           ].join(',')
-          return `INSERT OR REPLACE INTO parking_lot_stats (parking_lot_id,structural_prior,user_review_score,user_review_count,community_score,community_count,text_sentiment_score,text_source_count,n_effective,final_score,reliability,computed_at) VALUES (${vals});`
+          return `INSERT INTO parking_lot_stats (parking_lot_id,structural_prior,review_score,review_count,web_score,web_count,n_effective,final_score,reliability,computed_at) VALUES (${vals}) ON CONFLICT(parking_lot_id) DO UPDATE SET structural_prior=excluded.structural_prior,review_score=excluded.review_score,review_count=excluded.review_count,web_score=excluded.web_score,web_count=excluded.web_count,n_effective=excluded.n_effective,final_score=excluded.final_score,reliability=excluded.reliability,computed_at=excluded.computed_at;`
         })
         .join('\n')
 

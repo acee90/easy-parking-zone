@@ -106,7 +106,7 @@ async function getPriorityParkingRows(
           OR s.ai_tip_pricing IS NOT NULL
           OR s.ai_tip_visit IS NOT NULL
           OR s.ai_tip_alternative IS NOT NULL
-          OR COALESCE(s.user_review_count, 0) > 0
+          OR COALESCE(s.review_count, 0) > 0
           OR EXISTS (
             SELECT 1 FROM web_sources ws
             WHERE ws.parking_lot_id = p.id AND ws.relevance_score >= 40
@@ -120,7 +120,7 @@ async function getPriorityParkingRows(
              OR s.ai_tip_alternative IS NOT NULL
            THEN 1 ELSE 0
          END DESC,
-         COALESCE(s.user_review_count, 0) DESC,
+         COALESCE(s.review_count, 0) DESC,
          (SELECT COUNT(*) FROM web_sources ws
           WHERE ws.parking_lot_id = p.id AND ws.relevance_score >= 40) DESC,
          COALESCE(s.final_score, 0) DESC,

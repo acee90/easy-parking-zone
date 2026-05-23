@@ -23,6 +23,22 @@
 			"invocation_logs": true
 		}
 	},
+	"queues": {
+		"producers": [
+			{
+				"binding": "SCORE_RECOMPUTE_QUEUE",
+				"queue": "score-recompute-queue"
+			}
+		],
+		"consumers": [
+			{
+				"queue": "score-recompute-queue",
+				"max_batch_size": 25,
+				"max_batch_timeout": 5,
+				"max_retries": 3
+			}
+		]
+	},
 	"d1_databases": [
 		{
 			"binding": "DB",

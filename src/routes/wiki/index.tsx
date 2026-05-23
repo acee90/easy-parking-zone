@@ -46,7 +46,7 @@ const REGIONS = [
 
 const LOT_SELECT = `SELECT p.*,
   s.final_score as avg_score,
-  COALESCE(s.user_review_count, 0) + COALESCE(s.community_count, 0) as review_count,
+  COALESCE(s.review_count, 0) as review_count,
   s.reliability,
   (SELECT COUNT(*) FROM parking_media pm WHERE pm.parking_lot_id = p.id) as media_count,
   (SELECT COUNT(*) FROM web_sources ws WHERE ws.parking_lot_id = p.id AND ws.relevance_score >= 40) as web_count`
@@ -119,7 +119,7 @@ const fetchWikiHome = createServerFn({ method: 'GET' }).handler(async () => {
     sql.raw(
       `SELECT p.*,
         s.final_score as avg_score,
-        COALESCE(s.user_review_count, 0) + COALESCE(s.community_count, 0) as review_count,
+        COALESCE(s.review_count, 0) as review_count,
         s.reliability,
         (SELECT COUNT(*) FROM parking_media pm WHERE pm.parking_lot_id = p.id) as media_count,
         (SELECT COUNT(*) FROM web_sources ws

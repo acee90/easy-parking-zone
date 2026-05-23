@@ -172,7 +172,7 @@ async function main() {
         SELECT p.id, p.name, p.address, p.curation_tag, 2 as priority
         FROM parking_lots p
         JOIN parking_lot_stats s ON s.parking_lot_id = p.id
-        WHERE (s.user_review_count > 0 OR s.community_count > 0)
+        WHERE COALESCE(s.review_count, 0) > 0
         AND p.is_curated = 0
         AND p.id NOT IN (SELECT DISTINCT parking_lot_id FROM parking_media)
 
@@ -181,9 +181,9 @@ async function main() {
         SELECT p.id, p.name, p.address, p.curation_tag, 3 as priority
         FROM parking_lots p
         JOIN parking_lot_stats s ON s.parking_lot_id = p.id
-        WHERE s.text_source_count >= 3
+        WHERE s.web_count >= 3
         AND p.is_curated = 0
-        AND COALESCE(s.user_review_count, 0) = 0 AND COALESCE(s.community_count, 0) = 0
+        AND COALESCE(s.review_count, 0) = 0
         AND p.id NOT IN (SELECT DISTINCT parking_lot_id FROM parking_media)
 
         UNION ALL
@@ -192,7 +192,7 @@ async function main() {
         FROM parking_lots p
         WHERE p.total_spaces >= 100
         AND p.is_curated = 0
-        AND p.id NOT IN (SELECT parking_lot_id FROM parking_lot_stats WHERE text_source_count >= 3)
+        AND p.id NOT IN (SELECT parking_lot_id FROM parking_lot_stats WHERE web_count >= 3)
         AND p.id NOT IN (SELECT DISTINCT parking_lot_id FROM parking_media)
       )
       GROUP BY id

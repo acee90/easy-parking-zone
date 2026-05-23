@@ -2,6 +2,7 @@ import { createServerFn } from '@tanstack/react-start'
 import { and, count, eq, gt, sql } from 'drizzle-orm'
 import { getDb, schema } from '@/db'
 import { createAuth } from '@/lib/auth'
+import { enqueueScoreRecompute } from '@/server/queues/score-recompute'
 import type { UserReview } from '@/types/parking'
 import { type ReviewRow, rowToReview, validateScore } from './transforms'
 
@@ -150,6 +151,11 @@ export const createReview = createServerFn({ method: 'POST' })
       visitedAt: data.visitedAt ?? null,
     })
 
+    await enqueueScoreRecompute({
+      lotId: data.parkingLotId,
+      reason: 'review_created',
+    })
+
     return { ok: true }
   })
 
@@ -162,7 +168,10 @@ export const deleteReview = createServerFn({ method: 'POST' })
 
     const db = getDb()
     const review = await db
-      .select({ userId: schema.userReviews.userId })
+      .select({
+        userId: schema.userReviews.userId,
+        parkingLotId: schema.userReviews.parkingLotId,
+      })
       .from(schema.userReviews)
       .where(eq(schema.userReviews.id, data.reviewId))
       .get()
@@ -172,6 +181,11 @@ export const deleteReview = createServerFn({ method: 'POST' })
     }
 
     await db.delete(schema.userReviews).where(eq(schema.userReviews.id, data.reviewId))
+
+    await enqueueScoreRecompute({
+      lotId: review.parkingLotId,
+      reason: 'review_deleted',
+    })
 
     return { ok: true }
   })

@@ -69,7 +69,7 @@ export const fetchParkingLots = createServerFn({ method: 'GET' })
       sql.raw(
         `SELECT p.*,
           s.final_score as avg_score,
-          COALESCE(s.user_review_count, 0) + COALESCE(s.community_count, 0) as review_count,
+          COALESCE(s.review_count, 0) as review_count,
           s.reliability,
           p.verified_source
         FROM parking_lots p
@@ -154,7 +154,7 @@ export const searchParkingLots = createServerFn({ method: 'GET' })
     const rows = await db.all(
       sql`SELECT p.*,
           s.final_score as avg_score,
-          COALESCE(s.user_review_count, 0) + COALESCE(s.community_count, 0) as review_count,
+          COALESCE(s.review_count, 0) as review_count,
           s.reliability
         FROM parking_lots p
         LEFT JOIN parking_lot_stats s ON s.parking_lot_id = p.id
@@ -177,7 +177,7 @@ export const fetchParkingDetail = createServerFn({ method: 'GET' })
     const rows = await db.all(
       sql`SELECT p.*,
           s.final_score as avg_score,
-          COALESCE(s.user_review_count, 0) + COALESCE(s.community_count, 0) as review_count,
+          COALESCE(s.review_count, 0) as review_count,
           s.reliability,
           s.ai_summary,
           s.ai_summary_updated_at,
@@ -219,7 +219,7 @@ export const fetchNearbyParkingLots = createServerFn({ method: 'GET' })
     const rows = await db.all(
       sql`SELECT p.*,
           s.final_score as avg_score,
-          COALESCE(s.user_review_count, 0) + COALESCE(s.community_count, 0) as review_count,
+          COALESCE(s.review_count, 0) as review_count,
           s.reliability
         FROM parking_lots p
         LEFT JOIN parking_lot_stats s ON s.parking_lot_id = p.id
@@ -271,7 +271,7 @@ export const fetchRelatedParkingLots = createServerFn({ method: 'GET' })
         )
         SELECT p.*,
           s.final_score as avg_score,
-          COALESCE(s.user_review_count, 0) + COALESCE(s.community_count, 0) as review_count,
+          COALESCE(s.review_count, 0) as review_count,
           s.reliability,
           COALESCE(sc.web_count, 0) as web_count,
           COALESCE(sc.high_source_count, 0) as high_source_count
@@ -284,7 +284,7 @@ export const fetchRelatedParkingLots = createServerFn({ method: 'GET' })
         ORDER BY
           ((p.lat - ${data.lat}) * (p.lat - ${data.lat}) + (p.lng - ${data.lng}) * (p.lng - ${data.lng})) ASC,
           COALESCE(sc.web_count, 0) DESC,
-          COALESCE(s.user_review_count, 0) DESC
+          COALESCE(s.review_count, 0) DESC
         LIMIT ${lim}`,
     )
 
@@ -507,7 +507,7 @@ export const fetchGuideDetail = createServerFn({ method: 'GET' })
       db.all(
         sql.raw(
           `SELECT p.*, s.final_score as avg_score,
-            COALESCE(s.user_review_count, 0) + COALESCE(s.community_count, 0) as review_count,
+            COALESCE(s.review_count, 0) as review_count,
             s.reliability
           FROM parking_lots p
           LEFT JOIN parking_lot_stats s ON s.parking_lot_id = p.id
@@ -518,7 +518,7 @@ export const fetchGuideDetail = createServerFn({ method: 'GET' })
       db.all(
         sql.raw(
           `SELECT p.*, s.final_score as avg_score,
-            COALESCE(s.user_review_count, 0) + COALESCE(s.community_count, 0) as review_count,
+            COALESCE(s.review_count, 0) as review_count,
             s.reliability
           FROM parking_lots p
           LEFT JOIN parking_lot_stats s ON s.parking_lot_id = p.id
@@ -529,7 +529,7 @@ export const fetchGuideDetail = createServerFn({ method: 'GET' })
       db.all(
         sql.raw(
           `SELECT p.*, s.final_score as avg_score,
-            COALESCE(s.user_review_count, 0) + COALESCE(s.community_count, 0) as review_count,
+            COALESCE(s.review_count, 0) as review_count,
             s.reliability
           FROM parking_lots p
           LEFT JOIN parking_lot_stats s ON s.parking_lot_id = p.id

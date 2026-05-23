@@ -1,6 +1,6 @@
 # Architecture
 
-> 최종 업데이트: 2026-05-01
+> 최종 업데이트: 2026-05-23
 
 ## Overview
 
@@ -16,11 +16,11 @@ TanStack Start full-stack React app deployed to Cloudflare Workers.
 | Animation | motion (Framer Motion v12 리브랜드) — 데스크톱 패널 슬라이드 |
 | Map | Naver Maps (react-naver-maps) |
 | Database | Cloudflare D1 (SQLite) |
-| Deployment | Cloudflare Workers + wrangler |
+| Deployment | Cloudflare Workers + Cloudflare Queues + wrangler |
 | Testing | Vitest + @testing-library/react (jsdom) |
 | Crawling | Workers Cron + Anthropic Haiku |
 | Clustering | SuperCluster (서버사이드 → 클라이언트 전환) |
-| Scoring | Bayesian 통합 (유저리뷰 + 텍스트 감성분석) |
+| Scoring | Bayesian 통합 (structural prior + review score + web score) |
 
 ## Data Sources
 
@@ -47,10 +47,11 @@ src/
   server/             # 서버 함수 (parking, admin, auth)
   server/crawlers/    # 크롤러 + AI 필터 + 매칭
   server/crawlers/lib/ # 공통 유틸 (scoring, sentiment, ai-filter)
+  server/queues/      # Cloudflare Queue helpers
   types/              # 타입 정의
   db/                 # Drizzle ORM 스키마 + D1 바인딩
 scripts/              # 배치 스크립트 (import, compute, crawl)
-migrations/           # D1 마이그레이션 SQL (0001~0035)
+migrations/           # D1 마이그레이션 SQL
 docs/                 # 프로젝트 문서 (design-docs/exec-plans/product-specs/references/archive)
 ```
 
@@ -108,16 +109,27 @@ web_sources_raw    # 크롤링 원본 + 필터링 상태 관리
 web_sources        # 검증된 데이터만 (is_ad, filter_passed 컬럼 없음)
 
 parking_lots       # 주차장 마스터 (34,719건)
-parking_lot_stats  # 통합 스코어 (Bayesian)
+parking_lot_stats  # 통합 스코어 (Bayesian) + AI 요약/팁
 parking_media      # YouTube 미디어
 user_reviews       # 사용자 리뷰 (점수 REAL, 0.5 단위)
 nearby_places      # 위키 주변 장소 (AI 추출, 0031)
 content_reports    # 콘텐츠 신고
 ```
 
+`parking_lot_stats` writer 책임:
+
+- scoring writer: `structural_prior`, `review_score`, `review_count`, `web_score`, `web_count`, `n_effective`, `final_score`, `reliability`, `computed_at`
+- lot-summary writer: `ai_summary`, `ai_summary_updated_at`, `ai_tip_*`, `ai_tip_updated_at`
+
+scoring writer는 `INSERT OR REPLACE`를 쓰지 않고 scoring 컬럼만 UPSERT한다.
+
 > Note: `0036_review_score_real.sql`은 PR #117에서 최초 `0031_*`로 추가되어 prod에 직접 적용됐으나, 0031 prefix 충돌로 0036으로 rename됨. 신규 환경에서는 0035 다음에 정상 적용된다.
 
-상세: [Crawling Pipeline](scheduler-pipeline.md)
+상세:
+
+- [Scheduler Pipeline](scheduler-pipeline.md)
+- [Scoring / Recompute Architecture](scoring-recompute.md)
+- [Scoring / Recompute Design](../design-docs/scoring-recompute.design.md)
 
 ## SEO
 
@@ -159,5 +171,6 @@ bun run deploy    # build + wrangler deploy
 
 - Cloudflare Workers (SSR)
 - D1 database binding: `DB`
+- Cloudflare Queue binding: `SCORE_RECOMPUTE_QUEUE`
 - Workers Cron: 매시 정각 + 매시 30분
 - Secrets: `ANTHROPIC_API_KEY`, `CRAWL4AI_URL`, `NAVER_CLIENT_ID/SECRET`, etc.

@@ -7,10 +7,12 @@
 
 import { createStartHandler, defaultRenderHandler } from '@tanstack/react-start/server'
 import { NodeHtmlMarkdown } from 'node-html-markdown'
+import { processScoreRecomputeMessages, type ScoreRecomputeMessage } from './queues/score-recompute'
 import { handleDdgScheduled, handleScheduled } from './scheduled'
 
 interface Env {
   DB: D1Database
+  SCORE_RECOMPUTE_QUEUE: Queue<ScoreRecomputeMessage>
   NAVER_CLIENT_ID: string
   NAVER_CLIENT_SECRET: string
   YOUTUBE_API_KEY: string
@@ -292,6 +294,21 @@ export default {
       ctx.waitUntil(handleDdgScheduled(env))
     } else {
       ctx.waitUntil(handleScheduled(env))
+    }
+  },
+  async queue(batch: MessageBatch<ScoreRecomputeMessage>, env: Env, _ctx: ExecutionContext) {
+    if (batch.queue !== 'score-recompute-queue') return
+
+    const result = await processScoreRecomputeMessages(
+      env.DB,
+      batch.messages.map((message) => message.body),
+    )
+    console.log(
+      `[score-recompute-queue] ${result.updated}/${result.lotIds.length} lots recomputed from ${result.messageCount} messages`,
+    )
+
+    for (const message of batch.messages) {
+      message.ack()
     }
   },
 }

@@ -1,7 +1,7 @@
 # 스케줄러 파이프라인 — 현행 아키텍처
 
 > `scheduled.ts` 매시간 자동 실행 파이프라인. (#149 수동 subagent 파이프라인은 `/run-pipeline` 별도)
-> 최초 작성: 2026-03-13 | 현행화: 2026-05-15 (poi-pipeline-v2 → scheduler-pipeline 명칭 직관화)
+> 최초 작성: 2026-03-13 | 현행화: 2026-05-23
 
 ## 목적
 
@@ -47,7 +47,7 @@ web_sources (검증된 데이터만, full_text 1,400~2,000자 — #140 이후)
 │       → low/none: 스킵                             │
 │                                                   │
 │  4. 스코어링 재계산 (scoring-engine.ts)             │
-│     └ 최근 2시간 내 매칭된 주차장 대상              │
+│     └ crawl_progress('scoring') 이후 매칭된 주차장   │
 │                                                   │
 ├─────────────────────────────────────────────────┤
 │ Cron: 매시 30분 (30 */1 * * *)                    │
@@ -150,15 +150,50 @@ raw 소스 1건
 
 **파일**: `src/server/crawlers/lib/scoring-engine.ts`
 
-최근 2시간 내 매칭된 주차장만 대상으로 `parking_lot_stats` 재계산.
+`crawl_progress('scoring')`의 `last_run_at` 이후 매칭된 주차장만 대상으로 `parking_lot_stats`의 scoring 컬럼을 재계산한다.
 
-가중치:
-```
-user_review: 0.50  (사용자 직접 리뷰, 5점 척도)
-text:        0.50  (모든 텍스트 소스 통합, 감성×관련도 가중 평균)
+```sql
+SELECT DISTINCT ws.parking_lot_id
+FROM web_sources ws
+JOIN web_sources_raw r ON r.id = ws.raw_source_id
+WHERE r.matched_at > lastScoringRun
 ```
 
-Bayesian 통합: structural_prior(3.0) 기반, n_effective로 신뢰도 산출.
+주의:
+
+- 이 경로는 `web_sources_raw.matched_at` 기반이다.
+- `user_reviews` 등록/삭제는 이 cron의 자동 fallback 대상이 아니다. 리뷰 변경은 Cloudflare Queue 경로로 처리한다.
+- scoring writer는 `INSERT OR REPLACE`를 쓰지 않고 scoring 컬럼만 UPSERT한다.
+
+현행 점수 축:
+
+- `structural_prior`: 주차장 기본 정보 기반 Bayesian prior
+- `review_score`: `user_reviews` 전체. 직접 리뷰/source 리뷰/seed 리뷰를 내부 weight로 통합
+- `web_score`: `web_sources.sentiment_score`와 `relevance_score` 기반 보조 신호
+
+상세: [Scoring / Recompute Architecture](scoring-recompute.md)
+
+### 5. 리뷰 변경 Queue 재계산
+
+**파일**: `src/server/queues/score-recompute.ts`, `src/server/worker-entry.ts`
+
+리뷰 등록/삭제는 매시간 cron을 기다리지 않고 Cloudflare Queue에 lot 단위 재계산 job을 넣는다.
+
+```text
+createReview/deleteReview
+  -> user_reviews 변경 성공
+  -> SCORE_RECOMPUTE_QUEUE.send({ lotId, reason })
+  -> queue consumer
+  -> batch 내 lotId dedupe
+  -> recomputeStats(env.DB, lotIds)
+```
+
+운영 규칙:
+
+- enqueue 실패는 리뷰 등록/삭제 성공을 막지 않는다.
+- enqueue 실패에 대한 자동 fallback은 v1에 없다. 필요 시 전체 batch recompute로 복구한다.
+- consumer 실패는 throw하여 Cloudflare Queues retry에 맡긴다.
+- Queue consumer는 평점만 재계산하고 `ai_summary` / `ai_tip_*`는 업데이트하지 않는다.
 
 ---
 
@@ -177,7 +212,9 @@ Bayesian 통합: structural_prior(3.0) 기반, n_effective로 신뢰도 산출.
               ↓ (#141 — 예정)
 [재요약]   → web_sources.ai_summary 재생성 (full_text 입력, 200자+)
               ↓ (최근 매칭 주차장)
-[스코어링] → parking_lot_stats UPSERT
+[스코어링] → parking_lot_stats scoring 컬럼 UPSERT
+
+[리뷰 변경] → SCORE_RECOMPUTE_QUEUE → parking_lot_stats scoring 컬럼 UPSERT
 ```
 
 ---
@@ -197,6 +234,8 @@ Bayesian 통합: structural_prior(3.0) 기반, n_effective로 신뢰도 산출.
 | `src/server/crawlers/match-to-lots.ts` | 주차장 하이브리드 매칭 |
 | `src/server/crawlers/lib/scoring.ts` | 관련도 채점 + 신뢰도 판정 |
 | `src/server/crawlers/lib/scoring-engine.ts` | 통합 스코어링 엔진 |
+| `src/server/crawlers/lib/scoring-engine-core.ts` | 스코어링 공통 core |
+| `src/server/queues/score-recompute.ts` | 리뷰 변경 점수 재계산 Queue helper |
 | `src/server/crawlers/lib/sentiment.ts` | 감성 분석 (룰 기반) |
 | `scripts/fetch-matched-fulltext.ts` | **#140** 풀텍스트 batch (외부 실행) |
 | `scripts/clean-pdf-updates.ts` | #140 1회용 PDF UPDATE cleaner |
