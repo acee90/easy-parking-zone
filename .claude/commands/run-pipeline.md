@@ -167,17 +167,24 @@ for f in $DIR/match-ai-chunk-*.sql; do bunx wrangler d1 execute parking-db --loc
 
 ### Stage 5 — Remote DB 일괄 적용
 
-모든 SQL 파일을 remote DB에 한 번만 적용한다 (fulltext 제외, filter + match 파일만):
+모든 SQL 파일을 remote DB에 한 번만 적용한다 (**fulltext 제외**, filter + match 파일만):
 
 ```bash
-for f in $DIR/filter-chunk-*.sql $DIR/match-direct-chunk-*.sql $DIR/match-ai-chunk-*.sql; do
+for f in $DIR/filter-chunk-*.sql $DIR/match-direct-chunk-*.sql $DIR/missed-lot-chunk-*.sql $DIR/match-ai-chunk-*.sql; do
   [ -f "$f" ] && bunx wrangler d1 execute parking-db --remote --file="$f"
 done
 ```
 
-fulltext SQL도 remote에 반영해야 다음 실행 시 중복 fetch를 방지한다:
+> **fulltext-chunk-*.sql은 remote에 push하지 않는다.** D1 무료 플랜 500MB 한도를 보호하기 위해 full_text는 local에만 적재한다. remote는 cron(scheduled.ts)이 자체적으로 fetch한다. (2026-05-23 569MB 초과 사고 후 정책화)
+
+### 라운드 종료 후 purge (옵션)
+
+라운드 중 새로 full_text가 채워졌고 ai-filter까지 완료된 raw는 더 이상 full_text가 필요 없으므로 purge로 용량을 회복할 수 있다:
+
 ```bash
-for f in $DIR/fulltext-chunk-*.sql; do bunx wrangler d1 execute parking-db --remote --file="$f"; done
+PURGE="UPDATE web_sources_raw SET full_text=NULL, full_text_status='purged' WHERE ai_filtered_at IS NOT NULL AND full_text_status='ok' AND full_text IS NOT NULL"
+bunx wrangler d1 execute parking-db --local --command "$PURGE"
+bunx wrangler d1 execute parking-db --remote --command "$PURGE"
 ```
 
 ## 전체 플로우 요약
@@ -203,8 +210,13 @@ for f in $DIR/match-direct-chunk-*.sql; do bunx wrangler d1 execute parking-db -
 bun run scripts/run-pipeline-149.ts --stage match-apply --ai-results $DIR/ai-results.json --out $DIR
 for f in $DIR/match-ai-chunk-*.sql; do bunx wrangler d1 execute parking-db --local --file="$f"; done
 
-# 5. remote 일괄 적용
-for f in $DIR/fulltext-chunk-*.sql $DIR/filter-chunk-*.sql $DIR/match-direct-chunk-*.sql $DIR/match-ai-chunk-*.sql; do
+# 5. remote 일괄 적용 (fulltext 제외)
+for f in $DIR/filter-chunk-*.sql $DIR/match-direct-chunk-*.sql $DIR/missed-lot-chunk-*.sql $DIR/match-ai-chunk-*.sql; do
   [ -f "$f" ] && bunx wrangler d1 execute parking-db --remote --file="$f"
 done
+
+# 6. (옵션) ai-filter 끝난 raw의 full_text purge로 용량 회복
+PURGE="UPDATE web_sources_raw SET full_text=NULL, full_text_status='purged' WHERE ai_filtered_at IS NOT NULL AND full_text_status='ok' AND full_text IS NOT NULL"
+bunx wrangler d1 execute parking-db --local --command "$PURGE"
+bunx wrangler d1 execute parking-db --remote --command "$PURGE"
 ```
