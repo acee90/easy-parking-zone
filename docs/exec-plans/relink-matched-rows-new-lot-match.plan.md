@@ -124,3 +124,43 @@ bun run scripts/run-pipeline-149.ts --stage lot-match --ai-results <dir>/ai-resu
 - **`searchCandidateLots` O(N) 선형 스캔 개선** — 현재 행마다 `parking_lots` 31,941개 전체를 선형 스캔하며 키워드 substring 매칭 + 상위 후보마다 full_text 재스캔. 26K행 재매칭이 단일 스레드 CPU로 15~30분 소요되는 주원인.
   - 후보: lot명/주소 FTS5 인덱스 도입, 또는 키워드 역색인(토큰→lot id) 사전 구축, 또는 행정구역(시군구) prefilter로 후보 모수 축소.
   - lot-match는 scheduled cron + 본 재처리 양쪽에서 핫패스 → 처리량/비용 직접 영향.
+
+---
+
+## 실행 기록 (2026-05-17 ~ 18) — summary 재생성 후속 + 사고
+
+### 진행
+
+- A-1/A-2 후속 패스 착수: work.sqlite의 matched 15,520행(= `FROM web_sources ws JOIN raw` 교집합, ai_filtered_at NOT NULL 조건 포함) → 776청크(20/청크).
+- `pipeline-ai-filter` haiku 서브에이전트로 전 청크 처리(≤7 동시, 자율 루프). 최종: **valid 399 / failed 377 / notrun 0**.
+  - valid 청크 내 passed(filter_passed=true) 1,414행 → 그중 1,338행 remote `web_sources` UPDATE(ai_summary/sentiment/keywords) 적용.
+  - valid 내 filter_passed=false 6,566 + failed 청크 7,540 → remote `web_sources`에서 DELETE(실삭제 13,197).
+- local raw는 full_text 보존(purge는 remote 한정) 확인: local `web_sources_raw` 26,501 passed+matched 전부 full_text 보유.
+
+### ⛔ 사고 / 교훈 (반복 금지)
+
+1. **failed 청크를 ws에서 DELETE한 것은 잘못.**
+   failed는 *haiku 출력 형식 불량*(rawcopy/padrep/struct_mismatch)이지 콘텐츠 탈락이 아님. 해당 raw는 여전히 `filter_passed=1 + matched_at` → ws에서만 지우면 **불변식(§95: passed+match면 ws에 반드시 존재) 위반**. failed는 *폐기*가 아니라 **재처리** 대상이었다. 폐기하려면 raw의 `filter_passed/matched_at`도 함께 해제해 raw/ws 정합을 맞춰야 한다.
+   → 교훈: ws DELETE는 "콘텐츠 재판정 탈락(valid 청크 filter_passed=false)"에만. 처리 실패는 재처리 큐로.
+
+2. **정리 단계에서 `data/relink-20260515/`(work.sqlite 포함) 삭제 — §111 명시 금지 위반.**
+   work.sqlite는 remote-purge된 26,378행 full_text의 **유일 사본**이었다. A-1/A-2 후속이 "끝나기 전" 삭제 금지였는데 후속 도중 삭제. 비가역. **다행히 local `web_sources_raw`가 full_text 27,387행 보존** 중이라 복구 가능 — 운이 좋았을 뿐, 절차 위반.
+   → 교훈: §111 같은 "삭제 금지" 가드는 후속 *전체 종료 + remote 검증 + 사용자 승인* 후에만 해제. cleanup 전 `git status`/유일본 여부 재확인 필수.
+
+3. **"local ws에 없음"을 복구 기준으로 잡은 것은 부정확.**
+   Stage F는 **remote에만** 적용 → local `web_sources`는 애초에 재구축된 적 없음(5,788뿐). 따라서 "local ws에 없는 raw" ≈ 거의 전부(23,075)로 부풀어, 진짜 유실분과 "local이 원래 안 채워진 것"이 섞임.
+   → 교훈: 복구/정합 기준 DB는 **운영(remote) `web_sources`**. local은 dev 캐시라 누락이 정상.
+
+### 복구 작업 (2026-05-18, 진행 중)
+
+- 목표: raw passed+matched인데 ws에 없는 행 재처리 → run-pipeline-149 정식 경로(ai-filter dump → haiku → lot-match → apply both).
+- 입력 full_text는 **local `web_sources_raw`**에서 확보(remote purge됨, work.sqlite 소실).
+- ⚠️ **복구 범위는 remote ws 기준으로 재산정할 것** (local ws 기준 23,075/1,156청크는 위 교훈 3으로 과대). remote ws 부재 ∩ local raw full_text 보유 교집합으로 확정 후 진행.
+- local raw 23,075행 `matched_at/ai_filtered_at=NULL` reset 완료(되돌리기 가능 단계). remote raw/ws는 아직 무변경.
+
+### 절차 가드 (다음 작업자/세션)
+
+- ws DELETE 전: 해당 raw의 `filter_passed/matched_at` 처리 방침을 먼저 정해 raw↔ws 불변식 유지.
+- 임시 디렉토리 삭제 전: full_text 등 **유일본 여부**·관련 plan의 "삭제 금지" 항목·`git status` 3중 확인.
+- "missing/누락" 판정 기준 DB는 항상 remote(운영). local 수치는 참고만.
+- 대규모(>500청크) 루프 착수 전 사용자에게 규모·예상 실패율 보고 후 승인.

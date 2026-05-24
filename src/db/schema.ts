@@ -199,13 +199,6 @@ export const webSources = sqliteTable('web_sources', {
   isPositive: integer('is_positive'),
   sentimentScore: real('sentiment_score'),
 
-  // Full text body (migration 0024 + 0037).
-  // Populated by scripts/fetch-matched-fulltext.ts via the #139 fetcher library.
-  fullText: text('full_text'),
-  fullTextLength: integer('full_text_length').default(0),
-  fullTextStatus: text('full_text_status').default('pending'),
-  fullTextFetchedAt: text('full_text_fetched_at'),
-
   // v2 filter + relevance (migration 0038, #148).
   // Re-evaluation of raw-stage filter/relevance using the full_text body.
   relevanceScoreV2: integer('relevance_score_v2'),
