@@ -22,10 +22,12 @@ Add shadcn components with: `npx shadcn@latest add <component>`
 - [Review](docs/references/REVIEW.md) — 코드 리뷰 체크리스트, PR 기준
 - [Security](docs/references/SECURITY.md) — 인증, 데이터 보호, 취약점 관리
 - [Scheduler Pipeline](docs/references/scheduler-pipeline.md) — scheduled.ts 자동 크롤링 파이프라인 아키텍처
+- [Scoring / Recompute](docs/references/scoring-recompute.md) — 평점 산출 모델, Queue 재계산, scoring 컬럼 소유권
 - [Nearby Places Pipeline](docs/references/nearby-places-pipeline.md) — 주변 장소 AI 추출 파이프라인
 - [Web Sources AI Summary](docs/references/web-sources-ai-summary.md) — web_sources.ai_summary 재추출 스킬
 - [AI Content QA Standard](docs/design-docs/ai-content-qa-standard.md) — AI 콘텐츠 품질 및 검수 기준
 - [AI Content Rollout Plan](docs/design-docs/ai-content-rollout-plan.md) — AI 콘텐츠 단계별 확대 및 측정 계획
+- [Scoring / Recompute Design](docs/design-docs/scoring-recompute.design.md) — 평점 산출 모델 및 비동기 재계산 설계
 
 ### product-specs
 - [Product Sense](docs/product-specs/PRODUCT_SENSE.md) — 서비스 비전, 핵심 기능, 난이도 체계

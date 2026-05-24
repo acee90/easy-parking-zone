@@ -22,7 +22,7 @@
     "format": "biome format --write src/"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.95.2",
+    "@anthropic-ai/sdk": "^0.96.0",
     "@cloudflare/vite-plugin": "^1.24.0",
     "@mozilla/readability": "^0.6.0",
     "@tailwindcss/vite": "^4.0.6",
