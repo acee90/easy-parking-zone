@@ -8,7 +8,7 @@ export const SCORE_PARAMS = {
   },
   TEXT_N_EFFECTIVE_WEIGHT: 0.1,
   HELL_SCORE_CAP: 2.9,
-  PRIOR_MECHANICAL: -0.4,
+  PRIOR_MECHANICAL: -0.2,
   PRIOR_SMALL_LOT: -0.1,
   PRIOR_LARGE_LOT: 0.05,
   PRIOR_XLARGE_LOT: 0,
@@ -100,7 +100,7 @@ function weightedAvg(
 function reviewWeight(review: ReviewSignal): number {
   if (review.is_seed === 1) return 0.3
   if (review.source_type !== null) return 0.6
-  return 1.0
+  return 3.0
 }
 
 function roundScore(score: number | null): number | null {

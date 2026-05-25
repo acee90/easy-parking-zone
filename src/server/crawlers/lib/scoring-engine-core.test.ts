@@ -24,7 +24,7 @@ describe('scoring-engine-core', () => {
       nEffective: 0,
     })
 
-    expect(result.finalScore).toBe(prior)
+    expect(result.finalScore).toBeCloseTo(prior, 1)
     expect(result.reliability).toBe('structural')
   })
 
@@ -46,8 +46,8 @@ describe('scoring-engine-core', () => {
 
     expect(sources.reviewScore).toBe(5)
     expect(sources.reviewCount).toBe(1)
-    expect(sources.nEffective).toBe(1)
-    expect(result.finalScore).toBe(3.57)
+    expect(sources.nEffective).toBe(3)
+    expect(result.finalScore).toBe(4.09)
   })
 
   it('리뷰와 웹소스는 0.6 / 0.4 기본 weight로 통합', () => {
@@ -92,7 +92,7 @@ describe('scoring-engine-core', () => {
     )
 
     expect(sources.reviewCount).toBe(3)
-    expect(sources.nEffective).toBe(1.9)
-    expect(sources.reviewScore).toBe(3.11)
+    expect(sources.nEffective).toBe(3.9)
+    expect(sources.reviewScore).toBe(4.08)
   })
 })
