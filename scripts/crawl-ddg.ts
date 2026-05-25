@@ -16,7 +16,7 @@
 import { resolve } from 'path'
 import { hashUrl, stripHtml } from '../src/server/crawlers/lib/scoring'
 import { d1Execute, d1Query, isRemote } from './lib/d1'
-import { extractRegion, isGenericName } from './lib/geo'
+import { buildLotQueries, type LotQuery } from './lib/lot-queries'
 import { loadProgress, saveProgress } from './lib/progress'
 import { buildInsert, flushStatements } from './lib/sql-flush'
 
@@ -56,31 +56,12 @@ interface LotRow {
   poi_tags: string | null
 }
 
-type QueryStrategy = 'name' | 'poi' | 'region'
-
-function buildQueries(lot: LotRow): Array<{ strategy: QueryStrategy; query: string }> {
-  const region = extractRegion(lot.address)
-  const queries: Array<{ strategy: QueryStrategy; query: string }> = []
-
-  if (!isGenericName(lot.name)) {
-    queries.push({ strategy: 'name', query: `${lot.name} 주차장 ${region}`.trim() })
-  }
-
-  let poiTags: string[] = []
-  if (lot.poi_tags) {
-    try {
-      poiTags = JSON.parse(lot.poi_tags)
-    } catch {}
-  }
-  if (poiTags.length > 0) {
-    queries.push({ strategy: 'poi', query: `${poiTags[0]} 주차장` })
-  }
-
-  if (queries.length === 0) {
-    queries.push({ strategy: 'region', query: `${region} 주차장 추천` })
-  }
-
-  return queries
+function buildQueries(lot: LotRow): LotQuery[] {
+  return buildLotQueries({
+    name: lot.name,
+    address: lot.address,
+    poiTags: lot.poi_tags,
+  })
 }
 
 interface DdgResult {

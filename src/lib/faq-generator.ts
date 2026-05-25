@@ -63,11 +63,14 @@ function buildPricingAnswer(lot: ParkingLot): string | null {
 function buildDifficultyAnswer(lot: ParkingLot): string | null {
   const score = lot.difficulty.score
   if (score === null) return '난이도 정보가 충분하지 않습니다.'
-  if (score >= 4.0)
-    return `쉬움 점수 ${score.toFixed(1)}점으로 초보운전자도 편하게 이용 가능합니다.`
-  if (score < 2.0)
-    return `쉬움 점수 ${score.toFixed(1)}점으로 진입이 어려울 수 있습니다. 사전에 경로를 확인하세요.`
-  return `쉬움 점수 ${score.toFixed(1)}점으로 보통 수준의 주차장입니다.`
+  const s = score.toFixed(1)
+  if (score >= 4.0) return `쉬움 점수 ${s}점으로 초보운전자도 편하게 이용할 수 있습니다.`
+  if (score >= 3.3)
+    return `쉬움 점수 ${s}점으로 무난한 편이라 초보운전자도 큰 어려움 없이 이용할 수 있습니다.`
+  if (score >= 2.7) return `쉬움 점수 ${s}점으로 보통 수준의 주차장입니다.`
+  if (score >= 2.0) return `쉬움 점수 ${s}점으로 다소 어려운 편이라 초보운전자는 주의가 필요합니다.`
+  if (score >= 1.5) return `쉬움 점수 ${s}점으로 어려운 주차장이라 초보운전자에게는 비추천합니다.`
+  return `쉬움 점수 ${s}점으로 매우 어려운 주차장입니다. 사전에 경로를 확인하고 신중히 진입하세요.`
 }
 
 function buildHoursAnswer(lot: ParkingLot): string | null {

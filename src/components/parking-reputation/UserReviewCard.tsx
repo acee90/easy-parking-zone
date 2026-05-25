@@ -1,11 +1,7 @@
-import { ExternalLink, User } from 'lucide-react'
+import { User } from 'lucide-react'
 import { ReportButton } from '@/components/ReportDialog'
 import type { UserReview } from '@/types/parking'
 import { StarDisplay } from './StarDisplay'
-
-const REVIEW_SOURCE_LABELS: Record<string, string> = {
-  clien: '클리앙',
-}
 
 export function UserReviewCard({
   review,
@@ -47,26 +43,6 @@ export function UserReviewCard({
             </div>
           </div>
         </div>
-
-        {review.sourceType && (
-          <div className="shrink-0">
-            {review.sourceUrl ? (
-              <a
-                href={review.sourceUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 rounded-lg bg-orange-50 px-2.5 py-1 text-xs font-bold text-orange-600 transition-colors hover:bg-orange-100"
-              >
-                {REVIEW_SOURCE_LABELS[review.sourceType] ?? review.sourceType}
-                <ExternalLink className="size-3" />
-              </a>
-            ) : (
-              <span className="inline-flex items-center rounded-lg bg-orange-50 px-2.5 py-1 text-xs font-bold text-orange-600">
-                {REVIEW_SOURCE_LABELS[review.sourceType] ?? review.sourceType}
-              </span>
-            )}
-          </div>
-        )}
       </div>
 
       {review.comment && (

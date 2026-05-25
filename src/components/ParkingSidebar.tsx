@@ -1,6 +1,6 @@
 import { ChevronRight, MapPin, ParkingSquare } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { getDifficultyIcon, getDifficultyLabel, getDistance } from '@/lib/geo-utils'
+import { getDifficultyLabel, getDistance } from '@/lib/geo-utils'
 import type { ParkingLot } from '@/types/parking'
 
 const PAGE_SIZE = 20
@@ -96,7 +96,6 @@ export function ParkingSidebar({
             {visibleLots.map(({ lot, distance }) => {
               const selected = lot.id === selectedLotId
               const hovered = lot.id === hoveredLotId
-              const icon = getDifficultyIcon(lot.difficulty.score)
               const label = getDifficultyLabel(lot.difficulty.score)
 
               return (
@@ -125,7 +124,6 @@ export function ParkingSidebar({
                         className={`size-2.5 rounded-full shrink-0 ${difficultyColor(lot.difficulty.score)}`}
                       />
                       <span className="font-medium text-base truncate flex-1">{lot.name}</span>
-                      <span className="text-sm shrink-0">{icon}</span>
                     </div>
 
                     <div className="flex items-center gap-1.5 mb-1.5">

@@ -1,22 +1,25 @@
 /**
- * 블로그/카페 후기 크롤링 (멀티 검색 엔진)
+ * 블로그/카페 후기 크롤링 (멀티 검색 엔진) — run-pipeline 진입점
  *
- * - parking_lots 테이블의 주차장별로 블로그/카페 검색
- * - 관련도 점수(relevance_score) 기반 필터링
- * - 제네릭 이름 감지로 무의미한 API 호출 절감
+ * - 검색 결과를 `web_sources_raw`에 적재 (full_text_status='pending'). 이후 단계는 /run-pipeline 흐름:
+ *   fulltext-fetch → filter → ai-filter → lot-match
+ * - lot 매칭은 lot-match 스테이지가 담당하므로 raw에는 parking_lot_id 안 박음
+ * - 검색 결과 1차 노이즈 컷만 relevance_score로 (≥ RELEVANCE_THRESHOLD)
+ * - 제네릭 이름 lot은 검색 스킵
  * - 엔진별 진행상황 저장 → 중단 후 재개 가능
  *
  * 사용법:
  *   bun scripts/crawl-blogs.ts                          # 기본: naver
  *   bun scripts/crawl-blogs.ts --engine=kakao           # 카카오(다음) 블로그
  *   bun scripts/crawl-blogs.ts --engine=naver           # 네이버 블로그+카페
- *   bun scripts/crawl-blogs.ts --uncovered-only         # 데이터 없는 주차장만
- *   bun scripts/crawl-blogs.ts --uncovered-only --remote
+ *   bun scripts/crawl-blogs.ts --lot-ids=KA-...,KA-...  # 특정 lot만
+ *   bun scripts/crawl-blogs.ts --remote                 # remote D1
  */
 import { existsSync, unlinkSync } from 'fs'
 import { resolve } from 'path'
 import { d1Query, isRemote } from './lib/d1'
 import { extractRegion, isGenericName, sleep } from './lib/geo'
+import { buildLotQueries } from './lib/lot-queries'
 import { hashUrl, parsePostdate, stripHtml } from './lib/naver-api'
 import { loadProgress, saveProgress } from './lib/progress'
 import { getEngine, type SearchItem, type SourceType } from './lib/search-engine'
@@ -25,7 +28,7 @@ import { buildInsert, flushStatements } from './lib/sql-flush'
 // --- Config ---
 const DELAY = 300
 const RELEVANCE_THRESHOLD = 40
-const RESULTS_PER_QUERY = 5
+const RESULTS_PER_QUERY = 30
 const DB_FLUSH_SIZE = 50
 
 // --- CLI ---
@@ -57,6 +60,7 @@ interface ParkingRow {
   id: string
   name: string
   address: string
+  poi_tags: string | null
 }
 
 interface Progress {
@@ -70,8 +74,7 @@ interface Progress {
   lastUpdatedAt: string
 }
 
-interface PendingReview {
-  parkingLotId: string
+interface PendingRaw {
   source: SourceType
   sourceId: string
   title: string
@@ -79,19 +82,17 @@ interface PendingReview {
   sourceUrl: string
   author: string
   publishedAt: string | null
-  relevanceScore: number
 }
 
-const REVIEW_COLUMNS = [
-  'parking_lot_id',
+const RAW_COLUMNS = [
   'source',
   'source_id',
+  'source_url',
   'title',
   'content',
-  'source_url',
   'author',
   'published_at',
-  'relevance_score',
+  'full_text_status',
 ]
 
 /** 검색 결과 관련도 점수 (0-100) */
@@ -161,25 +162,24 @@ function scoreRelevance(item: SearchItem, name: string, address: string): number
 }
 
 // --- DB helpers ---
-function flushToDB(reviews: PendingReview[], progress: Progress) {
-  if (reviews.length === 0) return
+function flushToDB(rows: PendingRaw[], progress: Progress) {
+  if (rows.length === 0) return
 
-  const stmts = reviews.map((r) =>
-    buildInsert('web_sources', REVIEW_COLUMNS, [
-      r.parkingLotId,
+  const stmts = rows.map((r) =>
+    buildInsert('web_sources_raw', RAW_COLUMNS, [
       r.source,
       r.sourceId,
+      r.sourceUrl,
       r.title,
       r.content,
-      r.sourceUrl,
       r.author,
       r.publishedAt,
-      r.relevanceScore,
+      'pending',
     ]),
   )
 
   flushStatements(TMP_SQL, stmts)
-  progress.savedReviews += reviews.length
+  progress.savedReviews += rows.length
 }
 
 // --- Main ---
@@ -210,18 +210,23 @@ async function main() {
   let lots: ParkingRow[]
   if (LOT_IDS) {
     const placeholders = LOT_IDS.map((id) => `'${id.replace(/'/g, "''")}'`).join(',')
-    lots = d1Query(`SELECT id, name, address FROM parking_lots WHERE id IN (${placeholders})`)
+    lots = d1Query(
+      `SELECT id, name, address, poi_tags FROM parking_lots WHERE id IN (${placeholders})`,
+    )
   } else if (UNCOVERED_ONLY) {
     lots = d1Query(
-      'SELECT id, name, address FROM parking_lots WHERE id NOT IN (SELECT DISTINCT parking_lot_id FROM web_sources)',
+      'SELECT id, name, address, poi_tags FROM parking_lots WHERE id NOT IN (SELECT DISTINCT parking_lot_id FROM web_sources)',
     )
   } else {
-    lots = d1Query('SELECT id, name, address FROM parking_lots')
+    lots = d1Query('SELECT id, name, address, poi_tags FROM parking_lots')
   }
   console.log(`대상 ${lots.length}개 주차장, ${completedSet.size}개 완료됨\n`)
 
-  let pending: PendingReview[] = []
+  let pending: PendingRaw[] = []
   let processed = 0
+
+  // 한 라운드 내 채널 간 중복 방지 (raw 적재는 UNIQUE(source, source_id)로 IGNORE되지만 in-memory 가드로 SQL 호출 절감)
+  const seenSourceIds = new Set<string>()
 
   for (const lot of lots) {
     if (completedSet.has(lot.id)) continue
@@ -234,39 +239,47 @@ async function main() {
       continue
     }
 
-    const region = extractRegion(lot.address)
-    const query = `${lot.name} 주차장 ${region}`.trim()
+    const queries = buildLotQueries({
+      name: lot.name,
+      address: lot.address,
+      poiTags: lot.poi_tags,
+    })
 
-    // 각 채널(블로그, 카페 등) 순차 검색
-    for (const channel of engine.channels) {
-      try {
-        const result = await channel.search(query, RESULTS_PER_QUERY)
-        progress.totalApiCalls++
+    // 쿼리 × 채널(블로그, 카페 등) 매트릭스 순차 검색
+    for (const lq of queries) {
+      for (const channel of engine.channels) {
+        try {
+          const result = await channel.search(lq.query, RESULTS_PER_QUERY)
+          progress.totalApiCalls++
 
-        for (const item of result.items) {
-          const score = scoreRelevance(item, lot.name, lot.address)
-          if (score < RELEVANCE_THRESHOLD) {
-            progress.skippedLowRelevance++
-            continue
+          for (const item of result.items) {
+            const score = scoreRelevance(item, lot.name, lot.address)
+            if (score < RELEVANCE_THRESHOLD) {
+              progress.skippedLowRelevance++
+              continue
+            }
+            const sourceId = await hashUrl(item.link)
+            if (seenSourceIds.has(sourceId)) continue
+            seenSourceIds.add(sourceId)
+            pending.push({
+              source: channel.sourceType,
+              sourceId,
+              title: stripHtml(item.title),
+              content: stripHtml(item.description),
+              sourceUrl: item.link,
+              author: item.author,
+              publishedAt: parsePostdate(item.postdate),
+            })
           }
-          const sourceId = await hashUrl(item.link)
-          pending.push({
-            parkingLotId: lot.id,
-            source: channel.sourceType,
-            sourceId,
-            title: stripHtml(item.title),
-            content: stripHtml(item.description),
-            sourceUrl: item.link,
-            author: item.author,
-            publishedAt: parsePostdate(item.postdate),
-            relevanceScore: score,
-          })
+        } catch (err) {
+          console.error(
+            `\n  ${channel.name} 검색 실패 (${lot.name} / ${lq.strategy}):`,
+            (err as Error).message,
+          )
         }
-      } catch (err) {
-        console.error(`\n  ${channel.name} 검색 실패 (${lot.name}):`, (err as Error).message)
-      }
 
-      await sleep(DELAY)
+        await sleep(DELAY)
+      }
     }
 
     completedSet.add(lot.id)
