@@ -311,7 +311,12 @@ export const fetchTabCounts = createServerFn({ method: 'GET' })
       db
         .select({ cnt: count() })
         .from(schema.webSources)
-        .where(eq(schema.webSources.parkingLotId, data.parkingLotId))
+        .where(
+          and(
+            eq(schema.webSources.parkingLotId, data.parkingLotId),
+            sql`${schema.webSources.relevanceScore} >= 40`,
+          ),
+        )
         .get(),
       db
         .select({ cnt: count() })

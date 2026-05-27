@@ -13,7 +13,7 @@ export function UserReviewCard({
   onDelete?: () => void
 }) {
   return (
-    <div className="group relative flex h-[228px] flex-col rounded-2xl border bg-white p-5 transition-all hover:shadow-md">
+    <div className="group relative flex h-[228px] w-full flex-col rounded-2xl border bg-white p-5 transition-all hover:shadow-md">
       {!review.isMine && (
         <div className="absolute right-3 top-3 opacity-0 transition-opacity group-hover:opacity-100">
           <ReportButton targetType="review" targetId={review.id} parkingLotId={lotId} />
