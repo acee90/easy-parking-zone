@@ -175,7 +175,7 @@ done
 
 > **legacy 스테이지 경고**: `--stage match-dump`/`--stage match-apply`는 (raw,lot) 짝 기반 구 흐름이다. ai-filter가 lot-less로 동작하기 때문에 match-apply는 `result.lot_id=null`을 그대로 INSERT하여 `parking_lot_id=NULL` (NOT NULL 제약으로 INSERT OR IGNORE) — 매칭이 전부 lost된다. **사용 금지**.
 
-### Stage 5 — Remote DB 일괄 적용
+### Stage 5 — Remote DB 일괄 적용 + fulltext purge
 
 모든 SQL 파일을 remote DB에 한 번만 적용한다 (**fulltext 제외**, filter + match 파일만):
 
@@ -187,13 +187,11 @@ done
 
 > **fulltext-chunk-*.sql은 remote에 push하지 않는다.** D1 무료 플랜 500MB 한도를 보호하기 위해 full_text는 local에만 적재한다. remote는 cron(scheduled.ts)이 자체적으로 fetch한다. (2026-05-23 569MB 초과 사고 후 정책화)
 
-### 라운드 종료 후 purge (옵션)
-
-라운드 중 새로 full_text가 채워졌고 ai-filter까지 완료된 raw는 더 이상 full_text가 필요 없으므로 purge로 용량을 회복할 수 있다:
+**이어서 fulltext purge를 local + remote 양쪽에 즉시 실행한다.** ai-filter까지 끝난 raw는 full_text가 더 이상 필요 없으므로 즉시 비워 용량을 회복한다. remote는 cron(scheduled.ts)이 별도로 full_text를 누적시키므로, 라운드마다 purge를 빼먹으면 빠르게 500MB 한도를 침범한다.
 
 ```bash
 PURGE="UPDATE web_sources_raw SET full_text=NULL, full_text_status='purged' WHERE ai_filtered_at IS NOT NULL AND full_text_status='ok' AND full_text IS NOT NULL"
-bunx wrangler d1 execute parking-db --local --command "$PURGE"
+bunx wrangler d1 execute parking-db --local  --command "$PURGE"
 bunx wrangler d1 execute parking-db --remote --command "$PURGE"
 ```
 
@@ -221,13 +219,11 @@ for f in $DIR/match-ai-chunk-*.sql $DIR/missed-lot-chunk-*.sql; do
   [ -f "$f" ] && bunx wrangler d1 execute parking-db --local --file="$f"
 done
 
-# 5. remote 일괄 적용 (fulltext 제외)
+# 5. remote 일괄 적용 (fulltext 제외) + 곧바로 fulltext purge (D1 500MB 한도 보호)
 for f in $DIR/filter-chunk-*.sql $DIR/match-ai-chunk-*.sql $DIR/missed-lot-chunk-*.sql; do
   [ -f "$f" ] && bunx wrangler d1 execute parking-db --remote --file="$f"
 done
-
-# 6. (옵션) ai-filter 끝난 raw의 full_text purge로 용량 회복
 PURGE="UPDATE web_sources_raw SET full_text=NULL, full_text_status='purged' WHERE ai_filtered_at IS NOT NULL AND full_text_status='ok' AND full_text IS NOT NULL"
-bunx wrangler d1 execute parking-db --local --command "$PURGE"
+bunx wrangler d1 execute parking-db --local  --command "$PURGE"
 bunx wrangler d1 execute parking-db --remote --command "$PURGE"
 ```
