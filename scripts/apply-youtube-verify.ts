@@ -4,10 +4,12 @@
  * 입력: data/youtube-verify/youtube-verify-input*-verified.json (agent 출력)
  *
  * 처리:
- *   filter_passed=true → web_sources INSERT (raw_source_id, parking_lot_id=hint_lot_id)
- *                      + parking_media INSERT (thumbnail은 videoId에서 동적 구성)
+ *   filter_passed=true → parking_media INSERT (thumbnail은 videoId에서 동적 구성)
  *                      + ws_raw 갱신 (filter_passed=1, matched_at=now)
  *   filter_passed=false → ws_raw 갱신 (filter_passed=0, filter_removed_by, matched_at=now)
+ *
+ * 영상은 web_sources(블로그/카페/뉴스 텍스트)에 적재하지 않는다.
+ * raw 파이프라인은 통합(web_sources_raw)되어도 통과 후 적재처는 콘텐츠 타입별로 분기.
  *
  * Usage:
  *   bun run scripts/apply-youtube-verify.ts --remote --input-dir=data/youtube-verify
@@ -110,19 +112,7 @@ function main(): void {
     }
 
     if (r.filter_passed) {
-      // 1. web_sources INSERT
-      const sourceId = `yt-${raw.id}:${raw.search_lot_hint}`
-      sqls.push(
-        `INSERT OR IGNORE INTO web_sources ` +
-          `(parking_lot_id, source, source_id, title, content, source_url, author, published_at, raw_source_id, relevance_score) ` +
-          `VALUES ('${esc(raw.search_lot_hint)}', 'youtube_video', '${esc(sourceId)}', ` +
-          `'${esc(raw.title)}', '${esc(raw.content)}', '${esc(raw.source_url)}', ` +
-          `${raw.author ? `'${esc(raw.author)}'` : 'NULL'}, ` +
-          `${raw.published_at ? `'${esc(raw.published_at)}'` : 'NULL'}, ` +
-          `${raw.id}, 100);`,
-      )
-
-      // 2. parking_media INSERT (thumbnail은 videoId에서)
+      // 1. parking_media INSERT (thumbnail은 videoId에서)
       const videoId = extractVideoId(raw.source_url)
       if (videoId) {
         const thumbnailUrl = `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`
@@ -134,7 +124,7 @@ function main(): void {
         )
       }
 
-      // 3. ws_raw 갱신 (통과)
+      // 2. ws_raw 갱신 (통과)
       sqls.push(
         `UPDATE web_sources_raw SET filter_passed = 1, ai_filtered_at = datetime('now'), ` +
           `matched_at = datetime('now') WHERE id = ${raw.id};`,
