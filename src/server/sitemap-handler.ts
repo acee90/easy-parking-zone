@@ -49,13 +49,20 @@ function xmlResponse(xml: string): Response {
   })
 }
 
-/** sub-sitemap별 MAX(updated_at) 가져오기 */
-async function getSitemapPageLastmods(db: D1Database): Promise<string[]> {
-  // sitemap-0, sitemap-1, ... 각각의 MAX(updated_at)
-  const result = await db
+/**
+ * 사이트맵 인덱스용 메타데이터.
+ * web_sources 있는 lot 전체에서 MAX(updated_at)과 개수를 한 번에 계산.
+ * sub-sitemap 단위 lastmod은 batch crawl 특성상 거의 동일하므로 동일 값 사용.
+ * D1에서 윈도우 함수 + GROUP BY 조합은 불안정 — 단순 집계로 처리.
+ */
+async function getSitemapIndexMeta(db: D1Database): Promise<{
+  pageCount: number
+  lastmod: string
+}> {
+  const row = await db
     .prepare(
       `SELECT
-         (ROW_NUMBER() OVER (ORDER BY p.id) - 1) / ${URLS_PER_SITEMAP} AS bucket,
+         COUNT(DISTINCT p.id) AS lot_count,
          MAX(
            COALESCE(
              CASE WHEN s.computed_at > p.updated_at THEN s.computed_at ELSE p.updated_at END,
@@ -64,21 +71,18 @@ async function getSitemapPageLastmods(db: D1Database): Promise<string[]> {
          ) AS last_updated
        FROM parking_lots p
        INNER JOIN web_sources w ON w.parking_lot_id = p.id
-       LEFT JOIN parking_lot_stats s ON s.parking_lot_id = p.id
-       GROUP BY bucket
-       ORDER BY bucket`,
+       LEFT JOIN parking_lot_stats s ON s.parking_lot_id = p.id`,
     )
-    .all<{ bucket: number; last_updated: string | null }>()
+    .first<{ lot_count: number; last_updated: string | null }>()
 
-  const buckets: string[] = []
-  for (const row of result.results ?? []) {
-    buckets[row.bucket] = toLastmodDate(row.last_updated, STATIC_LASTMOD)
+  return {
+    pageCount: Math.ceil((row?.lot_count ?? 0) / URLS_PER_SITEMAP),
+    lastmod: toLastmodDate(row?.last_updated, STATIC_LASTMOD),
   }
-  return buckets
 }
 
 async function sitemapIndex(db: D1Database): Promise<Response> {
-  const lastmods = await getSitemapPageLastmods(db)
+  const meta = await getSitemapIndexMeta(db)
 
   let xml = `<?xml version="1.0" encoding="UTF-8"?>
 <sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
@@ -87,11 +91,11 @@ async function sitemapIndex(db: D1Database): Promise<Response> {
     <lastmod>${STATIC_LASTMOD}</lastmod>
   </sitemap>`
 
-  for (let i = 0; i < lastmods.length; i++) {
+  for (let i = 0; i < meta.pageCount; i++) {
     xml += `
   <sitemap>
     <loc>${BASE}/sitemap-${i}.xml</loc>
-    <lastmod>${lastmods[i]}</lastmod>
+    <lastmod>${meta.lastmod}</lastmod>
   </sitemap>`
   }
 
@@ -103,7 +107,7 @@ async function sitemapIndex(db: D1Database): Promise<Response> {
 
 /** /sitemap-parking.xml : GSC 재등록용 새 진입점. sitemap-index와 동일 구조 + priority 사이트맵 포함. */
 async function sitemapParking(db: D1Database): Promise<Response> {
-  const lastmods = await getSitemapPageLastmods(db)
+  const meta = await getSitemapIndexMeta(db)
 
   let xml = `<?xml version="1.0" encoding="UTF-8"?>
 <sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
@@ -113,14 +117,14 @@ async function sitemapParking(db: D1Database): Promise<Response> {
   </sitemap>
   <sitemap>
     <loc>${BASE}/sitemap-priority.xml</loc>
-    <lastmod>${lastmods[0] ?? STATIC_LASTMOD}</lastmod>
+    <lastmod>${meta.lastmod}</lastmod>
   </sitemap>`
 
-  for (let i = 0; i < lastmods.length; i++) {
+  for (let i = 0; i < meta.pageCount; i++) {
     xml += `
   <sitemap>
     <loc>${BASE}/sitemap-${i}.xml</loc>
-    <lastmod>${lastmods[i]}</lastmod>
+    <lastmod>${meta.lastmod}</lastmod>
   </sitemap>`
   }
 
