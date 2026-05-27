@@ -122,7 +122,7 @@ export function computeSourceScores(
   )
 
   const relevantWebSignals = webSignals.filter(
-    (signal) => signal.relevance_score > 30 && signal.sentiment_score !== null,
+    (signal) => signal.relevance_score >= 60 && signal.sentiment_score !== null,
   )
   const webScore = weightedAvg(
     relevantWebSignals.map((signal) => ({

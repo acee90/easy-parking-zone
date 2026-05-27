@@ -60,7 +60,7 @@ export async function recomputeStats(
        FROM web_sources ws
        WHERE ws.parking_lot_id IN (${placeholders})
          AND ws.sentiment_score IS NOT NULL
-         AND ws.relevance_score > 30
+         AND ws.relevance_score >= 60
          AND ws.filter_passed_v2 = 1
        UNION ALL
        SELECT am.parking_lot_id, ws.sentiment_score, ws.relevance_score, ws.published_at,
@@ -69,7 +69,7 @@ export async function recomputeStats(
        JOIN web_sources ws ON ws.id = am.web_source_id
        WHERE am.parking_lot_id IN (${placeholders})
          AND ws.sentiment_score IS NOT NULL
-         AND ws.relevance_score > 30
+         AND ws.relevance_score >= 60
          AND ws.filter_passed_v2 = 1
          AND am.confidence IN ('high', 'medium')
          AND (ws.parking_lot_id IS NULL OR am.parking_lot_id != ws.parking_lot_id)`,
