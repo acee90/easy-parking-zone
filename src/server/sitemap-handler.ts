@@ -105,31 +105,46 @@ async function sitemapIndex(db: D1Database): Promise<Response> {
   return xmlResponse(xml)
 }
 
-/** /sitemap-parking.xml : GSC 재등록용 새 진입점. sitemap-index와 동일 구조 + priority 사이트맵 포함. */
+/**
+ * /sitemap-parking.xml : GSC 재등록용 새 진입점.
+ *
+ * 형식: 단순 urlset (sitemapindex 아님).
+ * GSC가 과거 sitemapindex 형식을 잘 처리하지 못한 이력 회피.
+ * 작은 단순 urlset이 fetch/파싱 부담이 가장 적어 "사이트맵을 읽을 수 없음" 패턴도 피한다.
+ *
+ * 콘텐츠: thin content 필터에 안 걸릴 lot — ai_summary 있거나 user_review 있는 곳만.
+ * 약 100개 규모. 색인 검증된 후 점진 확장.
+ */
 async function sitemapParking(db: D1Database): Promise<Response> {
-  const meta = await getSitemapIndexMeta(db)
+  const rows = await db
+    .prepare(
+      `SELECT p.id, p.name,
+              COALESCE(
+                CASE WHEN s.computed_at > p.updated_at THEN s.computed_at ELSE p.updated_at END,
+                p.updated_at
+              ) AS updated_at
+       FROM parking_lots p
+       INNER JOIN parking_lot_stats s ON s.parking_lot_id = p.id
+       WHERE s.ai_summary IS NOT NULL OR COALESCE(s.review_count, 0) > 0
+       ORDER BY
+         CASE WHEN s.ai_summary IS NOT NULL THEN 1 ELSE 0 END DESC,
+         COALESCE(s.review_count, 0) DESC,
+         COALESCE(s.final_score, 0) DESC,
+         p.id`,
+    )
+    .all<LotRow>()
 
   let xml = `<?xml version="1.0" encoding="UTF-8"?>
-<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <sitemap>
-    <loc>${BASE}/sitemap-static.xml</loc>
-    <lastmod>${STATIC_LASTMOD}</lastmod>
-  </sitemap>
-  <sitemap>
-    <loc>${BASE}/sitemap-priority.xml</loc>
-    <lastmod>${meta.lastmod}</lastmod>
-  </sitemap>`
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${staticUrlEntries(STATIC_LASTMOD)}`
 
-  for (let i = 0; i < meta.pageCount; i++) {
+  for (const row of rows.results ?? []) {
     xml += `
-  <sitemap>
-    <loc>${BASE}/sitemap-${i}.xml</loc>
-    <lastmod>${meta.lastmod}</lastmod>
-  </sitemap>`
+${parkingUrlEntry(row.id, row.name, row.updated_at, '0.9')}`
   }
 
   xml += `
-</sitemapindex>`
+</urlset>`
 
   return xmlResponse(xml)
 }
