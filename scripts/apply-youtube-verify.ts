@@ -13,8 +13,8 @@
  *   bun run scripts/apply-youtube-verify.ts --remote --input-dir=data/youtube-verify
  *   bun run scripts/apply-youtube-verify.ts --remote --input=data/youtube-verify/foo-verified.json
  */
-import { readdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
 import { d1ExecFile, d1Query, isRemote } from './lib/d1'
 import { esc } from './lib/sql-flush'
 
@@ -23,8 +23,7 @@ const INPUT_DIR =
   args.find((a) => a.startsWith('--input-dir='))?.split('=')[1] ?? 'data/youtube-verify'
 const SINGLE_INPUT = args.find((a) => a.startsWith('--input='))?.split('=')[1]
 const OUTPUT_SQL =
-  args.find((a) => a.startsWith('--output-sql='))?.split('=')[1] ??
-  'data/youtube-verify/apply.sql'
+  args.find((a) => a.startsWith('--output-sql='))?.split('=')[1] ?? 'data/youtube-verify/apply.sql'
 
 interface VerifyResult {
   raw_id: number
@@ -154,6 +153,7 @@ function main(): void {
   }
 
   const sqlPath = resolve(import.meta.dir, '..', OUTPUT_SQL)
+  mkdirSync(dirname(sqlPath), { recursive: true })
   writeFileSync(sqlPath, sqls.join('\n') + '\n', 'utf-8')
 
   console.log(`✅ wrote ${sqlPath} (${sqls.length} statements)`)

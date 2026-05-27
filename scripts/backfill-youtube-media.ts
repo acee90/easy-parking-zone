@@ -13,9 +13,10 @@
  *   bun run scripts/backfill-youtube-media.ts --remote --dry-run    # 미리보기
  *   bun run scripts/backfill-youtube-media.ts --remote --apply      # 실제 적용
  */
-import { writeFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+
 import { createHash } from 'node:crypto'
+import { mkdirSync, writeFileSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
 import { d1ExecFile, d1Query, isRemote } from './lib/d1'
 import { esc } from './lib/sql-flush'
 
@@ -85,6 +86,7 @@ function main(): void {
   }
 
   const sqlPath = resolve(import.meta.dir, '..', OUTPUT_SQL)
+  mkdirSync(dirname(sqlPath), { recursive: true })
   writeFileSync(sqlPath, sqls.join('\n') + '\n', 'utf-8')
 
   console.log(`✅ wrote ${sqlPath} (${sqls.length} statements)`)

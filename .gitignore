@@ -83,6 +83,7 @@ data/regen-rejected.json
 data/ai-summary-*.sql
 data/filter-out/
 data/filter-v2-recheck/
+data/youtube-verify/
 web-sources-dump.sql
 tmp/
 
