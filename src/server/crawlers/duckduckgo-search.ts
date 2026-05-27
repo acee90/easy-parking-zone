@@ -9,7 +9,7 @@
  */
 import { extractRegion, hashUrl, isGenericName, stripHtml } from './lib/scoring'
 
-const BATCH_SIZE = 25
+const BATCH_SIZE = 50
 const RECRAWL_DAYS = 30
 const DELAY = 1500
 const FETCH_TIMEOUT = 15_000

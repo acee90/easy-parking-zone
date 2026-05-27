@@ -18,10 +18,10 @@ import { extractRegion, hashUrl, isGenericName, parsePostdate, stripHtml } from 
  * - subrequest 1,000개/invocation (fetch + D1 쿼리 모두 포함)
  *
  * subrequest 1,000개 제한: 네이버 fetch + D1 쿼리 + YouTube 등 합산.
- * 실측 기준 ~25개에서 한도 도달 → 여유 두고 25개.
- * wall-clock: 25 × ~1.5초 = ~38초 (15분 대비 충분)
+ * lot당 ~2 query × RESULTS_PER_QUERY 5 = ~10 fetch + D1 쿼리.
+ * 50 lots × ~10 = ~500 subrequest로 여유 유지.
  */
-const BATCH_SIZE = 25
+const BATCH_SIZE = 50
 const DELAY = 300
 const RESULTS_PER_QUERY = 5
 const RECRAWL_DAYS = 30

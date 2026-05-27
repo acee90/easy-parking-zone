@@ -7,7 +7,7 @@
  * fulltext-batch.ts(web_sources용)와 동일 로직, 대상 테이블만 다름.
  */
 
-const BATCH_LIMIT = 25
+const BATCH_LIMIT = 100
 const FETCH_TIMEOUT = 30_000
 const MIN_TEXT_LENGTH = 200
 
