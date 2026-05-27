@@ -25,6 +25,11 @@ import {
   formatPricing,
   formatTotalSpaces,
 } from '@/lib/parking-display'
+import {
+  buildParkingFaqJsonLd,
+  buildParkingLotJsonLd,
+  getParkingCanonicalUrl,
+} from '@/lib/parking-jsonld'
 import { makeParkingSlug } from '@/lib/slug'
 
 const parentRoute = getRouteApi('/wiki/$slug')
@@ -48,9 +53,27 @@ function WikiDetailPage() {
   const slug = makeParkingSlug(lot.name, lot.id)
   const hasAiTips = Boolean(lot.aiTipPricing || lot.aiTipVisit || lot.aiTipAlternative)
   const hasContentAbove = Boolean(summary) || hasAiTips
+  // TanStack Start head API의 links/scripts가 SSR HTML에 직렬화 안 되어
+  // React 19 metadata hoisting으로 head에 inject한다.
+  const canonicalUrl = getParkingCanonicalUrl(lot)
+  const lotJsonLd = buildParkingLotJsonLd(lot)
+  const faqJsonLd = buildParkingFaqJsonLd(lot, relatedLots)
 
   return (
     <div className="min-h-screen bg-white">
+      <link rel="canonical" href={canonicalUrl} />
+      <script
+        type="application/ld+json"
+        // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON.stringify output is safe
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(lotJsonLd) }}
+      />
+      {faqJsonLd && (
+        <script
+          type="application/ld+json"
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON.stringify output is safe
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+        />
+      )}
       <section className="relative border-b bg-white">
         <div className="relative mx-auto grid max-w-6xl grid-cols-1 gap-5 px-4 py-4 md:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)] md:py-6">
           <WikiMiniMap lat={lot.lat} lng={lot.lng} name={lot.name} />

@@ -1,5 +1,4 @@
 import { createFileRoute, Link, notFound, Outlet } from '@tanstack/react-router'
-import { generateFaqItems } from '@/lib/faq-generator'
 import { shouldIndexParkingDetail } from '@/lib/seo-indexing'
 import { makeParkingSlug, parseIdFromSlug } from '@/lib/slug'
 import {
@@ -11,26 +10,6 @@ import {
   fetchTabCounts,
 } from '@/server/parking'
 import { fetchUserReviews } from '@/server/reviews'
-import type { ParkingLot } from '@/types/parking'
-
-function buildFaqJsonLd(lot: ParkingLot, relatedLots: ParkingLot[]) {
-  const faqItems = generateFaqItems(lot, relatedLots)
-  if (faqItems.length < 3) return []
-  return [
-    {
-      type: 'application/ld+json' as const,
-      children: JSON.stringify({
-        '@context': 'https://schema.org',
-        '@type': 'FAQPage',
-        mainEntity: faqItems.map((item) => ({
-          '@type': 'Question',
-          name: item.question,
-          acceptedAnswer: { '@type': 'Answer', text: item.answer },
-        })),
-      }),
-    },
-  ]
-}
 
 export const Route = createFileRoute('/wiki/$slug')({
   loader: async ({ params }) => {
@@ -60,12 +39,12 @@ export const Route = createFileRoute('/wiki/$slug')({
     const lot = loaderData?.lot
     if (!lot) return {}
     const tabCounts = loaderData?.tabCounts
-    const relatedLots = loaderData?.relatedLots ?? []
     const shouldIndex = shouldIndexParkingDetail(lot, tabCounts)
     const robotsContent = shouldIndex
       ? 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1'
       : 'noindex, follow, max-image-preview:large'
     const slug = makeParkingSlug(lot.name, lot.id)
+    const canonicalUrl = `https://easy-parking.xyz/wiki/${encodeURI(slug)}`
     const title = `${lot.name} - 주차 난이도/요금/정보 | 쉬운주차장`
     const pricingDesc = lot.pricing.isFree
       ? '무료'
@@ -78,40 +57,9 @@ export const Route = createFileRoute('/wiki/$slug')({
           ? '초보 추천 주차장. '
           : ''
     const desc = `${curationPrefix}${lot.name} (${lot.address}) 주차 난이도 ${scoreDesc}, ${pricingDesc}. 리뷰 ${lot.difficulty.reviewCount}개.`
-    const jsonLd = {
-      '@context': 'https://schema.org',
-      '@type': ['LocalBusiness', 'ParkingFacility'],
-      name: lot.name,
-      address: {
-        '@type': 'PostalAddress',
-        streetAddress: lot.address,
-        addressCountry: 'KR',
-      },
-      geo: {
-        '@type': 'GeoCoordinates',
-        latitude: lot.lat,
-        longitude: lot.lng,
-      },
-      url: `https://easy-parking.xyz/wiki/${slug}`,
-      ...(lot.totalSpaces > 0 && { maximumAttendeeCapacity: lot.totalSpaces }),
-      ...(lot.phone && { telephone: lot.phone }),
-      ...(lot.pricing.isFree
-        ? { isAccessibleForFree: true }
-        : {
-            isAccessibleForFree: false,
-            priceRange: `기본 ${lot.pricing.baseTime}분 ${lot.pricing.baseFee.toLocaleString()}원`,
-          }),
-      ...(lot.difficulty.score !== null && {
-        aggregateRating: {
-          '@type': 'AggregateRating',
-          ratingValue: lot.difficulty.score.toFixed(1),
-          bestRating: '5',
-          worstRating: '1',
-          ratingCount: lot.difficulty.reviewCount || 1,
-        },
-      }),
-    }
 
+    // canonical/JSON-LD는 TanStack Start head API의 links/scripts가 SSR HTML에
+    // 직렬화되지 않아 $slug.index.tsx에서 React 19 metadata hoisting으로 직접 렌더한다.
     return {
       meta: [
         { title },
@@ -120,18 +68,7 @@ export const Route = createFileRoute('/wiki/$slug')({
         { property: 'og:title', content: title },
         { property: 'og:description', content: desc },
         { property: 'og:type', content: 'article' },
-        {
-          property: 'og:url',
-          content: `https://easy-parking.xyz/wiki/${slug}`,
-        },
-      ],
-      links: [{ rel: 'canonical', href: `https://easy-parking.xyz/wiki/${slug}` }],
-      scripts: [
-        {
-          type: 'application/ld+json',
-          children: JSON.stringify(jsonLd),
-        },
-        ...buildFaqJsonLd(lot, relatedLots),
+        { property: 'og:url', content: canonicalUrl },
       ],
     }
   },

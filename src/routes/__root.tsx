@@ -108,54 +108,25 @@ export const Route = createRootRoute({
         content: `${SITE_URL}/og-image.png`,
       },
     ],
-    links: [
-      {
-        rel: 'icon',
-        type: 'image/png',
-        sizes: '512x512',
-        href: '/favicon-512.png',
-      },
-      {
-        rel: 'icon',
-        type: 'image/png',
-        sizes: '32x32',
-        href: '/favicon-32.png',
-      },
-      {
-        rel: 'apple-touch-icon',
-        sizes: '180x180',
-        href: '/apple-touch-icon.png',
-      },
-      {
-        rel: 'manifest',
-        href: '/site.webmanifest',
-      },
-      {
-        rel: 'stylesheet',
-        href: appCss,
-      },
-    ],
-    scripts: [
-      {
-        type: 'application/ld+json',
-        children: JSON.stringify({
-          '@context': 'https://schema.org',
-          '@type': 'WebSite',
-          name: SITE_NAME,
-          url: SITE_URL,
-          description: SITE_DESC,
-          inLanguage: 'ko',
-          potentialAction: {
-            '@type': 'SearchAction',
-            target: `${SITE_URL}/?q={search_term_string}`,
-            'query-input': 'required name=search_term_string',
-          },
-        }),
-      },
-    ],
   }),
 
   shellComponent: RootDocument,
+})
+
+// TanStack Start head API의 scripts가 SSR HTML로 직렬화되지 않아
+// RootDocument의 <head>에 직접 inject한다.
+const WEBSITE_JSONLD = JSON.stringify({
+  '@context': 'https://schema.org',
+  '@type': 'WebSite',
+  name: SITE_NAME,
+  url: SITE_URL,
+  description: SITE_DESC,
+  inLanguage: 'ko',
+  potentialAction: {
+    '@type': 'SearchAction',
+    target: `${SITE_URL}/?q={search_term_string}`,
+    'query-input': 'required name=search_term_string',
+  },
 })
 
 function RootComponent() {
@@ -201,6 +172,16 @@ function RootDocument({ children }: { children: React.ReactNode }) {
     <html lang="ko">
       <head>
         <HeadContent />
+        <link rel="icon" type="image/png" sizes="512x512" href="/favicon-512.png" />
+        <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+        <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+        <link rel="manifest" href="/site.webmanifest" />
+        <link rel="stylesheet" href={appCss} />
+        <script
+          type="application/ld+json"
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON.stringify output is safe
+          dangerouslySetInnerHTML={{ __html: WEBSITE_JSONLD }}
+        />
         {process.env.NODE_ENV === 'production' && (
           <>
             <script async src="https://www.googletagmanager.com/gtag/js?id=G-7FB8JKK2HD" />
