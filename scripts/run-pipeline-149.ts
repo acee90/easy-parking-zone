@@ -30,16 +30,59 @@ import { classifyByRule, type RuleFilterInput } from '../src/server/crawlers/lib
 import {
   extractNameKeywords,
   getMatchConfidence,
+  scoreBlogRelevance,
   stripHtml,
 } from '../src/server/crawlers/lib/scoring'
 import { d1Query, isRemote, localDbPath } from './lib/d1'
 import { classify, NOISE_TYPES, normalizeName } from './lib/missed-classify'
+import { searchNaverLocal } from './lib/naver-api'
+import {
+  type ExistingLot,
+  extractHints,
+  isRelevant,
+  loadExistingLots,
+  resolvePlace,
+} from './lib/place-match'
 import { esc, sqlVal } from './lib/sql-flush'
 
 // 추출된 장소명이 노이즈(지역명/일반명/페이지·서비스명/추출 파편)면 missed로 보내지 않는다.
 // missed 정화 트랙: 미래 크롤이 이미-DB-있는 lot/노이즈로 missed를 재오염하지 않게 함.
 function isNoiseLotName(name: string): boolean {
   return NOISE_TYPES.has(classify(normalizeName(name)).type)
+}
+
+// ── 좌표회수 lot-match (--coord-recovery, opt-in) ───────────────────
+// 이름매칭(pickBestLot) 실패 시 장소검색 좌표로 기존 lot 회수. eval 검증: recall 5%→92%.
+// API 비용(실패 raw당 Naver 1콜)이 있어 기본 off, 플래그로만 활성.
+const COORD_RECOVERY = process.argv.includes('--coord-recovery')
+const COORD_RECOVERY_RADIUS_M = 60
+let _coordLots: ExistingLot[] | null = null
+let _lotByIdCache: Map<string, LotRow> | null = null
+
+async function recoverLotByCoordinate(
+  name: string,
+  title: string,
+  content: string,
+): Promise<{ lot: LotRow; score: number } | null> {
+  if (!_coordLots) _coordLots = loadExistingLots()
+  if (!_lotByIdCache) _lotByIdCache = new Map(loadAllLots().map((l) => [l.lot_id, l]))
+  const query = /(주차장|파킹|parking)/i.test(name) ? name : `${name} 주차장`
+  let items
+  try {
+    items = await searchNaverLocal(query, 5)
+  } catch {
+    return null
+  }
+  const hints = extractHints(`${title} ${content}`)
+  const o = resolvePlace(name, items, _coordLots, hints, COORD_RECOVERY_RADIUS_M)
+  if (o.label !== 'all_existing' || !o.best?.existing_lot_id) return null
+  // 관련성 게이트: Naver 결과명/지역 기반 (DB lot명 기반 아님 — 좌표회수는 이름이 다른 경우용).
+  // "서울"→롯데월드 같은 우연 매칭은 결과명·지역 불일치로 차단.
+  if (!isRelevant(name, o.best)) return null
+  const lot = _lotByIdCache.get(o.best.existing_lot_id)
+  if (!lot) return null
+  const score = scoreBlogRelevance(title, content, lot.name, lot.address)
+  return { lot, score }
 }
 
 // ── 인자 파싱 ─────────────────────────────────────────────────────
@@ -1137,6 +1180,7 @@ async function runLotMatchStage() {
   const inserts: string[] = []
   const updates: string[] = []
   let matched = 0
+  let recovered = 0
   let missed = 0
   for (const result of results) {
     if (!result.filter_passed) continue
@@ -1149,16 +1193,23 @@ async function runLotMatchStage() {
     if (best) {
       inserts.push(buildInsertSql(raw, best.lot, best.score, result))
       matched++
-    } else {
-      // 콘텐츠는 양질이나 DB에 lot 없음 → MISSED로 보존 (단, 노이즈 장소명은 제외)
-      const kws = extractSearchKeywords(title, content)
-      const detectedName = kws.join(' ')
-      if (!isNoiseLotName(detectedName)) {
-        missedInsertsLM.push(buildMissedLotInsertSql(raw, detectedName))
-        missed++
+      continue
+    }
+    // 이름매칭 실패 — 노이즈명이면 버리고, 아니면 좌표회수 시도 후 missed
+    const detectedName = extractSearchKeywords(title, content).join(' ')
+    if (isNoiseLotName(detectedName)) continue
+    if (COORD_RECOVERY) {
+      const rec = await recoverLotByCoordinate(detectedName, title, content)
+      if (rec) {
+        inserts.push(buildInsertSql(raw, rec.lot, rec.score, result))
+        recovered++
+        continue
       }
     }
+    missedInsertsLM.push(buildMissedLotInsertSql(raw, detectedName))
+    missed++
   }
+  if (COORD_RECOVERY) console.log(`  🧭 좌표회수 매칭: ${recovered}건`)
   // 모든 AI 평가 raw에 matched_at 마킹 (재처리 방지)
   for (const rawId of new Set(results.map((r) => r.raw_id))) {
     updates.push(`UPDATE web_sources_raw SET matched_at = datetime('now') WHERE id = ${rawId};`)
@@ -1167,7 +1218,7 @@ async function runLotMatchStage() {
   for (let i = 0; i < all.length; i += SQL_CHUNK_SIZE) {
     emitSqlChunk('match-ai', all.slice(i, i + SQL_CHUNK_SIZE))
   }
-  return { aiTotal: results.length, aiPassed: passing.length, matched, missed }
+  return { aiTotal: results.length, aiPassed: passing.length, matched, recovered, missed }
 }
 
 // ── Apply SQL Files ───────────────────────────────────────────────
@@ -1288,9 +1339,10 @@ async function main() {
   }
 
   if (lotMatchStats) {
-    const { aiTotal, aiPassed, matched, missed } = lotMatchStats
+    const { aiTotal, aiPassed, matched, recovered, missed } = lotMatchStats
     console.log(`\n[Lot Match]  AI ${aiTotal}건 / 통과 ${aiPassed}건`)
     console.log(`  매칭   ${matched}건  (${pct(matched, aiPassed)})`)
+    if (recovered > 0) console.log(`  좌표회수 ${recovered}건  (이름매칭 실패 → 좌표로 기존 lot)`)
     console.log(`  missed ${missed}건  (lot DB에 없음)`)
   }
 

@@ -661,6 +661,7 @@ extractor/노이즈 정리를 먼저 실행해 "진짜 missed"만 남김. `web_s
 1. Stage A 노이즈 필터 강화(파편어 사전 + 추출 파편 감점) 후 재측정 — *적용·재측정 완료*
 2. ambiguous 대상 disambiguation 로직(missed row의 본문/지역 힌트 + 좌표 근접도로 best lot 선택) — *적용 완료*
 3. `all_existing` 타입1 → 기존 lot **재연결 경로** 구현 (`resolved_existing_lot`); 타입2 → eligible 진입 차단(노이즈 필터)
+   - *실행 완료 (2026-05-29, `scripts/relink-existing-missed.ts`):* resolved_existing_lot 910건에 관련성 게이트(scoreBlogRelevance≥40) 적용 → **통과 635건 web_sources 재연결**(INSERT OR IGNORE, 실제 +620), 탈락 275건은 우연/오링크로 보류. local+remote 적용. 게이트가 "경주 교촌마을→숭문대(다른 lot)", "송도 노외(경북)→송도센트럴공원(인천, 지역 불일치)" 등 정확히 차단. 재연결분 `ai_summary=NULL` → 후속 regen + 영향 lot `parking_lot_stats` 재계산 필요.
 4. **lot-match 좌표/지역 보조 매칭** — 이름매칭 실패분을 좌표로 회수해 missed 유입 자체를 줄임 (extractor 트랙과 연계)
 5. Kakao confirm 단계는 `resolved_new`에만 적용 → 단일 확정률·precision을 끌어올린 뒤 착수
 

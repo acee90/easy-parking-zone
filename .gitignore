@@ -93,6 +93,8 @@ data/missed-resolution-*.sql
 data/place-candidates-naver-*.json
 data/place-check.json
 data/eval-lot-match-*.json
+data/relink-existing-*.sql
+data/backup-relinked-websources-*.json
 
 # .claude — agents/commands/skills는 추적, 개인/메타 파일은 제외
 .claude/settings.local.json

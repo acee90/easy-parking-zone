@@ -132,7 +132,10 @@ function candidateCoreTokens(name: string): string[] {
     .filter((t) => t.length >= 2)
 }
 
-function isRelevant(candidate: string, r: AnnotatedResult): boolean {
+// 관련성: 블로그 지역힌트가 결과 주소와 일치(region_score>0)하거나, 검색명 핵심 토큰이
+// 검색 "결과명"에 포함되면 관련 있다고 본다. (DB lot명이 아니라 Naver 결과명 기준 —
+// 좌표회수는 이름이 다른 경우용이므로 DB lot명 기반 게이트는 부적합.)
+export function isRelevant(candidate: string, r: AnnotatedResult): boolean {
   if (r.region_score > 0) return true
   return candidateCoreTokens(candidate).some((t) => r.name.includes(t))
 }
