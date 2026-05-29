@@ -33,7 +33,14 @@ import {
   stripHtml,
 } from '../src/server/crawlers/lib/scoring'
 import { d1Query, isRemote, localDbPath } from './lib/d1'
+import { classify, NOISE_TYPES, normalizeName } from './lib/missed-classify'
 import { esc, sqlVal } from './lib/sql-flush'
+
+// 추출된 장소명이 노이즈(지역명/일반명/페이지·서비스명/추출 파편)면 missed로 보내지 않는다.
+// missed 정화 트랙: 미래 크롤이 이미-DB-있는 lot/노이즈로 missed를 재오염하지 않게 함.
+function isNoiseLotName(name: string): boolean {
+  return NOISE_TYPES.has(classify(normalizeName(name)).type)
+}
 
 // ── 인자 파싱 ─────────────────────────────────────────────────────
 
@@ -826,12 +833,20 @@ async function runMatchDumpStage() {
       if (keywords.length > 0 && candidates.length === 0 && raw.full_text_status === 'ok') {
         // FTS 결과 0건 — lot이 DB에 없는 경우: web_sources에 MISSED로 보존
         const detectedName = keywords.join(' ')
-        missedInserts.push(buildMissedLotInsertSql(raw, detectedName))
-        missedUpdates.push(
-          `UPDATE web_sources_raw SET matched_at = datetime('now'), match_fail_reason = 'lot_not_in_db' WHERE id = ${raw.id};`,
-        )
-        missedLotCount++
-        immediateMatchedIds.add(raw.id)
+        if (isNoiseLotName(detectedName)) {
+          // 노이즈 장소명 → missed 적재하지 않고 raw만 마킹 (missed 재오염 방지)
+          directUpdates.push(
+            `UPDATE web_sources_raw SET matched_at = datetime('now'), match_fail_reason = 'noise_name' WHERE id = ${raw.id};`,
+          )
+          immediateMatchedIds.add(raw.id)
+        } else {
+          missedInserts.push(buildMissedLotInsertSql(raw, detectedName))
+          missedUpdates.push(
+            `UPDATE web_sources_raw SET matched_at = datetime('now'), match_fail_reason = 'lot_not_in_db' WHERE id = ${raw.id};`,
+          )
+          missedLotCount++
+          immediateMatchedIds.add(raw.id)
+        }
       } else {
         directUpdates.push(
           `UPDATE web_sources_raw SET matched_at = datetime('now') WHERE id = ${raw.id};`,
@@ -1064,7 +1079,7 @@ export function lotCoreInText(lotName: string, title: string, fullText: string):
   return joined.length >= 4 && hay.includes(joined)
 }
 
-function pickBestLot(
+export function pickBestLot(
   title: string,
   content: string,
   fullText: string,
@@ -1135,10 +1150,13 @@ async function runLotMatchStage() {
       inserts.push(buildInsertSql(raw, best.lot, best.score, result))
       matched++
     } else {
-      // 콘텐츠는 양질이나 DB에 lot 없음 → MISSED로 보존
+      // 콘텐츠는 양질이나 DB에 lot 없음 → MISSED로 보존 (단, 노이즈 장소명은 제외)
       const kws = extractSearchKeywords(title, content)
-      missedInsertsLM.push(buildMissedLotInsertSql(raw, kws.join(' ')))
-      missed++
+      const detectedName = kws.join(' ')
+      if (!isNoiseLotName(detectedName)) {
+        missedInsertsLM.push(buildMissedLotInsertSql(raw, detectedName))
+        missed++
+      }
     }
   }
   // 모든 AI 평가 raw에 matched_at 마킹 (재처리 방지)

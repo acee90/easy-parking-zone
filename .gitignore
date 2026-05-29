@@ -87,6 +87,13 @@ data/youtube-verify/
 web-sources-dump.sql
 tmp/
 
+# missed 정화 / lot-match eval 생성물 (재생성 가능)
+data/missed-discovery-candidates-*.json
+data/missed-resolution-*.sql
+data/place-candidates-naver-*.json
+data/place-check.json
+data/eval-lot-match-*.json
+
 # .claude — agents/commands/skills는 추적, 개인/메타 파일은 제외
 .claude/settings.local.json
 .claude/agent-memory/
