@@ -520,6 +520,8 @@ function buildInsertSql(
 
   // full_text는 web_sources_raw에서만 관리 (raw_source_id로 JOIN하여 조회).
   // web_sources는 정제된 데이터(summary/sentiment/관계)만 보유.
+  // ai-filter(v3 품질판정)를 통과한 글만 buildInsertSql에 도달하므로 filter_passed_v2=1.
+  // compute-parking-stats의 web_score 집계 조건(filter_passed_v2=1)을 충족시켜 점수에 반영.
   const cols = [
     'parking_lot_id',
     'source',
@@ -535,6 +537,9 @@ function buildInsertSql(
     'ai_difficulty_keywords',
     'ai_summary',
     'ai_summary_updated_at',
+    'filter_passed_v2',
+    'filter_v2_reason',
+    'filter_v2_evaluated_at',
   ]
   const vals = [
     lot.lot_id,
@@ -551,6 +556,9 @@ function buildInsertSql(
     difficultyKw,
     aiSummary,
     aiSummaryUpdatedAt,
+    1,
+    'ai_pass',
+    new Date().toISOString(),
   ]
     .map(sqlVal)
     .join(', ')
