@@ -172,20 +172,52 @@ async function auditRobots(base: string): Promise<Issue[]> {
       )
       return issues
     }
-    const expected = new URL('/sitemap.xml', base).href
-    const hasSitemap = res.text
+    const expectedSitemaps = [
+      new URL('/sitemap-parking.xml', base).href,
+      new URL('/sitemap-priority.xml', base).href,
+      new URL('/sitemap-index.xml', base).href,
+    ]
+    const declaredSitemaps = new Set(
+      res.text
+        .split(/\r?\n/)
+        .map((line) => line.trim().toLowerCase())
+        .filter((line) => line.startsWith('sitemap: ')),
+    )
+    const missingSitemaps = expectedSitemaps.filter(
+      (sitemap) => !declaredSitemaps.has(`sitemap: ${sitemap}`.toLowerCase()),
+    )
+    const hasLegacySitemap = res.text
       .split(/\r?\n/)
-      .some((line) => line.trim().toLowerCase() === `sitemap: ${expected}`.toLowerCase())
-    if (!hasSitemap) {
+      .some(
+        (line) =>
+          line.trim().toLowerCase() ===
+          `sitemap: ${new URL('/sitemap.xml', base).href}`.toLowerCase(),
+      )
+    if (missingSitemaps.length > 0) {
       issues.push(
         issue(
           'warning',
           'robots',
           'ROBOTS_SITEMAP_MISSING',
-          'robots.txt does not declare canonical sitemap',
+          'robots.txt does not declare expected sitemaps',
           url,
           {
-            expected,
+            expected: expectedSitemaps,
+            missing: missingSitemaps,
+          },
+        ),
+      )
+    }
+    if (hasLegacySitemap) {
+      issues.push(
+        issue(
+          'warning',
+          'robots',
+          'ROBOTS_LEGACY_SITEMAP_DECLARED',
+          'robots.txt still declares retired sitemap.xml',
+          url,
+          {
+            retired: new URL('/sitemap.xml', base).href,
           },
         ),
       )
@@ -209,7 +241,7 @@ function parseXmlLocs(xml: string, tagName: 'sitemap' | 'url'): string[] {
 }
 
 async function collectSitemapUrls(base: string): Promise<{ urls: string[]; issues: Issue[] }> {
-  const sitemapUrl = new URL('/sitemap.xml', base).href
+  const sitemapUrl = new URL('/sitemap-index.xml', base).href
   const issues: Issue[] = []
   const urls: string[] = []
 
@@ -223,7 +255,7 @@ async function collectSitemapUrls(base: string): Promise<{ urls: string[]; issue
             'error',
             'sitemap',
             'SITEMAP_INDEX_STATUS',
-            `sitemap.xml returned ${index.status}`,
+            `sitemap-index.xml returned ${index.status}`,
             sitemapUrl,
           ),
         ],
@@ -239,7 +271,7 @@ async function collectSitemapUrls(base: string): Promise<{ urls: string[]; issue
             'error',
             'sitemap',
             'SITEMAP_INDEX_EMPTY',
-            'sitemap.xml has no child sitemaps',
+            'sitemap-index.xml has no child sitemaps',
             sitemapUrl,
           ),
         ],

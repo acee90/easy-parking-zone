@@ -86,7 +86,13 @@ function AdminToolsPage() {
 
             <div className="text-xs text-gray-500 space-y-1">
               <p>
-                • <code>/sitemap.xml</code> 인덱스 — 모든 주차장 사이트맵 링크
+                • <code>/sitemap-index.xml</code> 인덱스 — 모든 주차장 사이트맵 링크
+              </p>
+              <p>
+                • <code>/sitemap-parking.xml</code> — GSC 재등록용 핵심 주차장
+              </p>
+              <p>
+                • <code>/sitemap-priority.xml</code> — 우선 색인 대상 주차장
               </p>
               <p>
                 • <code>/sitemap-static.xml</code> — 홈, 위키 등 정적 페이지
@@ -138,7 +144,9 @@ function AdminToolsPage() {
 Allow: /
 Disallow: /admin/
 
-Sitemap: https://easy-parking.xyz/sitemap.xml`}</pre>
+Sitemap: https://easy-parking.xyz/sitemap-parking.xml
+Sitemap: https://easy-parking.xyz/sitemap-priority.xml
+Sitemap: https://easy-parking.xyz/sitemap-index.xml`}</pre>
           </div>
         </div>
       </div>
