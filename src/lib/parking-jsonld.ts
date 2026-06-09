@@ -1,4 +1,5 @@
 import { generateFaqItems } from '@/lib/faq-generator'
+import type { ParkingRegion } from '@/lib/parking-regions'
 import { makeParkingSlug } from '@/lib/slug'
 import type { ParkingLot } from '@/types/parking'
 
@@ -57,4 +58,33 @@ export function buildParkingFaqJsonLd(lot: ParkingLot, relatedLots: ParkingLot[]
 
 export function getParkingCanonicalUrl(lot: ParkingLot): string {
   return `${SITE_URL}/wiki/${encodeURI(makeParkingSlug(lot.name, lot.id))}`
+}
+
+/**
+ * 상세 페이지 breadcrumb 구조화데이터: 둘러보기 › {지역} 주차장 › {상세}.
+ * region이 null이면 지역 단계를 생략한다.
+ * 지역 URL 인코딩은 all.tsx의 self-canonical(URLSearchParams)과 일치시킨다.
+ */
+export function buildBreadcrumbJsonLd(lot: ParkingLot, region: ParkingRegion | null) {
+  const items: Array<{ name: string; url: string }> = [
+    { name: '주차장 둘러보기', url: `${SITE_URL}/wiki` },
+  ]
+  if (region) {
+    items.push({
+      name: `${region.label} 주차장`,
+      url: `${SITE_URL}/wiki/all?region=${encodeURIComponent(region.prefix)}`,
+    })
+  }
+  items.push({ name: lot.name, url: getParkingCanonicalUrl(lot) })
+
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: items.map((item, index) => ({
+      '@type': 'ListItem',
+      position: index + 1,
+      name: item.name,
+      item: item.url,
+    })),
+  }
 }

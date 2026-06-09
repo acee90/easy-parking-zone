@@ -25,10 +25,12 @@ import {
   formatTotalSpaces,
 } from '@/lib/parking-display'
 import {
+  buildBreadcrumbJsonLd,
   buildParkingFaqJsonLd,
   buildParkingLotJsonLd,
   getParkingCanonicalUrl,
 } from '@/lib/parking-jsonld'
+import { getRegionForAddress } from '@/lib/parking-regions'
 import { makeParkingSlug } from '@/lib/slug'
 
 const parentRoute = getRouteApi('/wiki/$slug')
@@ -57,6 +59,8 @@ function WikiDetailPage() {
   const canonicalUrl = getParkingCanonicalUrl(lot)
   const lotJsonLd = buildParkingLotJsonLd(lot)
   const faqJsonLd = buildParkingFaqJsonLd(lot, relatedLots)
+  const region = getRegionForAddress(lot.address)
+  const breadcrumbJsonLd = buildBreadcrumbJsonLd(lot, region)
 
   return (
     <div className="min-h-screen bg-white">
@@ -73,12 +77,42 @@ function WikiDetailPage() {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
         />
       )}
+      <script
+        type="application/ld+json"
+        // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON.stringify output is safe
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
       <section className="relative border-b bg-white">
         <div className="relative mx-auto grid max-w-6xl grid-cols-1 gap-5 px-4 py-4 md:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)] md:py-6">
           <WikiMiniMap lat={lot.lat} lng={lot.lng} name={lot.name} />
 
           <div className="flex flex-col justify-between gap-5">
             <div className="space-y-4">
+              <nav
+                aria-label="breadcrumb"
+                className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground"
+              >
+                <Link
+                  to="/wiki"
+                  className="transition-colors hover:text-foreground hover:underline"
+                >
+                  둘러보기
+                </Link>
+                {region && (
+                  <>
+                    <ChevronRight className="size-3 shrink-0" />
+                    <Link
+                      to="/wiki/all"
+                      search={{ region: region.prefix }}
+                      className="transition-colors hover:text-foreground hover:underline"
+                    >
+                      {region.label} 주차장
+                    </Link>
+                  </>
+                )}
+                <ChevronRight className="size-3 shrink-0" />
+                <span className="font-medium text-foreground">{lot.name}</span>
+              </nav>
               <div className="space-y-2">
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge variant={lot.pricing.isFree ? 'default' : 'outline'}>
