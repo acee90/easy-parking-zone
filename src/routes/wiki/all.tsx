@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
+import { sql } from 'drizzle-orm'
 import { ChevronLeft, ChevronRight, MapPin } from 'lucide-react'
 import { z } from 'zod'
 import { getDb } from '@/db'
@@ -42,32 +43,28 @@ const fetchAllLots = createServerFn({ method: 'GET' })
   .handler(async ({ data: { page, region } }) => {
     const db = getDb()
     const offset = (page - 1) * PAGE_SIZE
+    const regionLike = region ? `${region}%` : null
+    // 사용자 입력(region)은 drizzle sql 템플릿으로 파라미터 바인딩 (주입 방지 + ? 바인딩 정상화).
+    const whereClause = regionLike ? sql`WHERE p.address LIKE ${regionLike}` : sql``
 
-    let query = `
+    const rows = await db.all(sql`
       SELECT p.*,
-        s.final_score as avg_score,
-        COALESCE(s.review_count, 0) as review_count,
+        s.final_score AS avg_score,
+        COALESCE(s.review_count, 0) AS review_count,
         s.reliability
       FROM parking_lots p
       LEFT JOIN parking_lot_stats s ON s.parking_lot_id = p.id
-    `
-    const params: any[] = []
+      ${whereClause}
+      ORDER BY COALESCE(s.final_score, 0) DESC, p.total_spaces DESC
+      LIMIT ${PAGE_SIZE} OFFSET ${offset}
+    `)
 
-    if (region) {
-      query += ` WHERE p.address LIKE ?`
-      params.push(`${region}%`)
-    }
-
-    query += ` ORDER BY COALESCE(s.final_score, 0) DESC, p.total_spaces DESC LIMIT ? OFFSET ?`
-    params.push(PAGE_SIZE, offset)
-
-    const rows = await db.all(query, ...params)
-
-    const countQuery = region
-      ? `SELECT COUNT(*) as count FROM parking_lots WHERE address LIKE ?`
-      : `SELECT COUNT(*) as count FROM parking_lots`
-    const countResult = await db.get(countQuery, ...(region ? [`${region}%`] : []))
-    const totalCount = (countResult as any).count
+    const countRow = (await db.get(
+      regionLike
+        ? sql`SELECT COUNT(*) AS count FROM parking_lots WHERE address LIKE ${regionLike}`
+        : sql`SELECT COUNT(*) AS count FROM parking_lots`,
+    )) as { count: number } | null
+    const totalCount = Number(countRow?.count ?? 0)
 
     return {
       lots: (rows as unknown as ParkingLotRow[]).map(rowToParkingLot),
