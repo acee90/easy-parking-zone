@@ -22,6 +22,11 @@ const BASE = 'https://easy-parking.xyz'
 // 정적 페이지(/, /wiki)의 lastmod 기준일. 콘텐츠 구조가 바뀔 때 수동으로 갱신.
 const STATIC_LASTMOD = '2026-05-27'
 
+// /wiki/all 지역 허브 sitemap용 prefix.
+// ⚠️ src/routes/wiki/index.tsx·src/components/Footer.tsx의 REGIONS prefix와 반드시 일치.
+//    값이 어긋나면 sitemap이 존재하지 않는 필터 URL을 가리키게 된다.
+const REGION_PREFIXES = ['서울', '경기', '부산', '인천', '대구', '대전', '광주', '울산', '제주']
+
 function toSlug(name: string): string {
   return name
     .trim()
@@ -70,8 +75,16 @@ async function getSitemapIndexMeta(db: D1Database): Promise<{
            )
          ) AS last_updated
        FROM parking_lots p
-       INNER JOIN web_sources w ON w.parking_lot_id = p.id
-       LEFT JOIN parking_lot_stats s ON s.parking_lot_id = p.id`,
+       LEFT JOIN parking_lot_stats s ON s.parking_lot_id = p.id
+       WHERE EXISTS (SELECT 1 FROM web_sources ws WHERE ws.parking_lot_id = p.id)
+          OR s.ai_summary IS NOT NULL
+          OR p.curation_reason IS NOT NULL
+          OR (
+            (CASE WHEN p.total_spaces > 0 THEN 1 ELSE 0 END) +
+            (CASE WHEN p.phone IS NOT NULL AND p.phone != '' THEN 1 ELSE 0 END) +
+            (CASE WHEN p.is_free IS NOT NULL THEN 1 ELSE 0 END) +
+            (CASE WHEN p.curation_tag IS NOT NULL THEN 1 ELSE 0 END)
+          ) >= 3`,
     )
     .first<{ lot_count: number; last_updated: string | null }>()
 
@@ -150,7 +163,7 @@ ${parkingUrlEntry(row.id, row.name, row.updated_at, '0.9')}`
 }
 
 function staticUrlEntries(now: string): string {
-  return `  <url>
+  const fixed = `  <url>
     <loc>${BASE}/</loc>
     <lastmod>${now}</lastmod>
     <changefreq>daily</changefreq>
@@ -161,7 +174,25 @@ function staticUrlEntries(now: string): string {
     <lastmod>${now}</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>${BASE}/wiki/all</loc>
+    <lastmod>${now}</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
   </url>`
+
+  // 지역 허브: /wiki/all?region=<prefix>. 인코딩은 all.tsx의 canonical(URLSearchParams)과 일치.
+  const regionEntries = REGION_PREFIXES.map(
+    (prefix) => `  <url>
+    <loc>${BASE}/wiki/all?region=${encodeURIComponent(prefix)}</loc>
+    <lastmod>${now}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>`,
+  ).join('\n')
+
+  return `${fixed}\n${regionEntries}`
 }
 
 function parkingUrlEntry(
@@ -285,8 +316,16 @@ async function sitemapPage(db: D1Database, pageId: number): Promise<Response> {
                 p.updated_at
               ) AS updated_at
        FROM parking_lots p
-       INNER JOIN web_sources w ON w.parking_lot_id = p.id
        LEFT JOIN parking_lot_stats s ON s.parking_lot_id = p.id
+       WHERE EXISTS (SELECT 1 FROM web_sources ws WHERE ws.parking_lot_id = p.id)
+          OR s.ai_summary IS NOT NULL
+          OR p.curation_reason IS NOT NULL
+          OR (
+            (CASE WHEN p.total_spaces > 0 THEN 1 ELSE 0 END) +
+            (CASE WHEN p.phone IS NOT NULL AND p.phone != '' THEN 1 ELSE 0 END) +
+            (CASE WHEN p.is_free IS NOT NULL THEN 1 ELSE 0 END) +
+            (CASE WHEN p.curation_tag IS NOT NULL THEN 1 ELSE 0 END)
+          ) >= 3
        ORDER BY p.id
        LIMIT ? OFFSET ?`,
     )
@@ -331,9 +370,10 @@ ${parkingUrlEntry(row.id, row.name, row.updated_at, '0.6')}`
 }
 
 export async function handleSitemap(pathname: string, db: D1Database): Promise<Response> {
+  // /sitemap.xml을 인덱스로 사용 (표준)
+  if (pathname === '/sitemap.xml' || pathname === '/sitemap-index.xml') return sitemapIndex(db)
+
   if (pathname === '/sitemap-parking.xml') return sitemapParking(db)
-  if (pathname === '/sitemap.xml') return sitemapMain(db)
-  if (pathname === '/sitemap-index.xml') return sitemapIndex(db)
   if (pathname === '/sitemap-priority.xml') return sitemapPriority(db)
   if (pathname === '/sitemap-static.xml') return sitemapStatic()
   if (pathname === '/sitemap-test.xml') return sitemapTest(db)

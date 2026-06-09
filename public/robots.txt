@@ -6,6 +6,4 @@ User-agent: Yeti
 Allow: /
 Disallow: /admin/
 
-Sitemap: https://easy-parking.xyz/sitemap-parking.xml
-Sitemap: https://easy-parking.xyz/sitemap-priority.xml
-Sitemap: https://easy-parking.xyz/sitemap-index.xml
+Sitemap: https://easy-parking.xyz/sitemap.xml
