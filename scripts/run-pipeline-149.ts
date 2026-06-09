@@ -1062,8 +1062,11 @@ async function runMatchApplyStage() {
 // plan §4.1: rule 통과(high+medium) raw를 lot 모른 채 콘텐츠 품질/요약 평가용으로 dump.
 async function runAiFilterDumpStage() {
   console.log('\n🧪 Stage: ai-filter (dump, lot-less)')
+  // full_text_status='ok' 가드: purge로 full_text가 비워진 row(zombie)는 본문이 없어
+  // AI 품질판정이 불가능하므로 dump 대상에서 제외한다. 가드가 없으면 purged-unmatched
+  // row가 매 라운드 재dump되어 subagent 호출을 낭비한다.
   const idRows = d1Query<{ id: number }>(
-    `SELECT id FROM web_sources_raw WHERE filter_passed = 1 AND matched_at IS NULL ORDER BY id LIMIT ${LIMIT}`,
+    `SELECT id FROM web_sources_raw WHERE filter_passed = 1 AND matched_at IS NULL AND full_text_status = 'ok' ORDER BY id LIMIT ${LIMIT}`,
   )
   console.log(`  대상: ${idRows.length}건`)
   if (idRows.length === 0)
