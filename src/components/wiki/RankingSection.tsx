@@ -13,6 +13,9 @@ type RankingLot = ParkingLot & {
   }
 }
 
+/** 랭킹 섹션(캐러셀·그리드)에서 노출할 최대 주차장 수. */
+const MAX_VISIBLE_LOTS = 9
+
 export function RankingSection({
   title,
   description,
@@ -28,10 +31,11 @@ export function RankingSection({
 }) {
   if (lots.length === 0) return null
 
+  const visible = lots.slice(0, MAX_VISIBLE_LOTS)
   const isWide = className?.includes('col-span-2') || layout === 'carousel'
-  const mid = isWide ? Math.ceil(lots.length / 2) : lots.length
-  const col1 = lots.slice(0, mid)
-  const col2 = isWide ? lots.slice(mid) : []
+  const mid = isWide ? Math.ceil(visible.length / 2) : visible.length
+  const col1 = visible.slice(0, mid)
+  const col2 = isWide ? visible.slice(mid) : []
 
   return (
     <section className={`flex flex-col ${className ?? ''}`}>
@@ -42,7 +46,7 @@ export function RankingSection({
       {layout === 'carousel' ? (
         <div className="pb-1">
           <Carousel>
-            {lots.map((lot, i) => (
+            {visible.map((lot, i) => (
               <CarouselSlide key={lot.id} size="ranking">
                 <RankingCard lot={lot} rank={i + 1} />
               </CarouselSlide>
