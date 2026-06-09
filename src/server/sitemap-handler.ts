@@ -2,9 +2,9 @@
  * 사이트맵 핸들러 — Worker에서 직접 D1 쿼리하여 XML 응답
  * TanStack Start의 서버 핸들러 문제(Content-Type 덮어쓰기, 동적 라우트 404) 우회
  *
- * sitemap-parking.xml : 신규 sitemap-index (GSC 재등록용, 모든 sub-sitemap 가리킴)
- * sitemap.xml         : 핵심 URL만 담은 단순 urlset (Google 재처리용 / legacy)
- * sitemap-index.xml   : 기존 sitemap index 구조 유지 (legacy)
+ * sitemap-parking.xml : GSC 재등록용 단순 urlset
+ * sitemap-priority.xml: 우선 색인 대상 단순 urlset
+ * sitemap-index.xml   : sitemap index 구조
  * sitemap-N.xml       : web_sources 있는 주차장
  *
  * lastmod 정책:
@@ -260,24 +260,6 @@ async function getPriorityParkingRows(db: D1Database, limit: number): Promise<Lo
   return rows.results ?? []
 }
 
-async function sitemapMain(db: D1Database): Promise<Response> {
-  const rows = await getPriorityParkingRows(db, 1000)
-
-  let xml = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${staticUrlEntries(STATIC_LASTMOD)}`
-
-  for (const row of rows) {
-    xml += `
-${parkingUrlEntry(row.id, row.name, row.updated_at, '0.8')}`
-  }
-
-  xml += `
-</urlset>`
-
-  return xmlResponse(xml)
-}
-
 async function sitemapPriority(db: D1Database): Promise<Response> {
   const rows = await getPriorityParkingRows(db, 200)
 
@@ -370,10 +352,17 @@ ${parkingUrlEntry(row.id, row.name, row.updated_at, '0.6')}`
 }
 
 export async function handleSitemap(pathname: string, db: D1Database): Promise<Response> {
-  // /sitemap.xml을 인덱스로 사용 (표준)
-  if (pathname === '/sitemap.xml' || pathname === '/sitemap-index.xml') return sitemapIndex(db)
+  if (pathname === '/sitemap.xml') {
+    return new Response(null, {
+      status: 404,
+      headers: {
+        'Cache-Control': 'no-store',
+      },
+    })
+  }
 
   if (pathname === '/sitemap-parking.xml') return sitemapParking(db)
+  if (pathname === '/sitemap-index.xml') return sitemapIndex(db)
   if (pathname === '/sitemap-priority.xml') return sitemapPriority(db)
   if (pathname === '/sitemap-static.xml') return sitemapStatic()
   if (pathname === '/sitemap-test.xml') return sitemapTest(db)

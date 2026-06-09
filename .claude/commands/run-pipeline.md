@@ -187,10 +187,12 @@ done
 
 > **fulltext-chunk-*.sql은 remote에 push하지 않는다.** D1 무료 플랜 500MB 한도를 보호하기 위해 full_text는 local에만 적재한다. remote는 cron(scheduled.ts)이 자체적으로 fetch한다. (2026-05-23 569MB 초과 사고 후 정책화)
 
-**이어서 fulltext purge를 local + remote 양쪽에 즉시 실행한다.** ai-filter까지 끝난 raw는 full_text가 더 이상 필요 없으므로 즉시 비워 용량을 회복한다. remote는 cron(scheduled.ts)이 별도로 full_text를 누적시키므로, 라운드마다 purge를 빼먹으면 빠르게 500MB 한도를 침범한다.
+**이어서 fulltext purge를 local + remote 양쪽에 즉시 실행한다.** 처리가 끝난(terminal) raw는 full_text가 더 이상 필요 없으므로 즉시 비워 용량을 회복한다. remote는 cron(scheduled.ts)이 별도로 full_text를 누적시키므로, 라운드마다 purge를 빼먹으면 빠르게 500MB 한도를 침범한다.
+
+> **purge 시점 (2026-06-09 zombie 사고 후 수정)**: 과거에는 `ai_filtered_at IS NOT NULL`로 purge했는데, `ai_filtered_at`은 **rule filter(Stage 1)** 에서 이미 설정되므로 `filter_passed=1`이지만 아직 lot-match(Stage 4)를 안 거친 in-flight 후보의 full_text까지 비워버렸다. → 이 row들은 본문이 사라진 채 `filter_passed=1 AND matched_at IS NULL`로 남아 매 라운드 재dump되는 zombie가 됐다. 수정: terminal 조건(`filter_passed=0` 즉 rule-rejected, **또는** `matched_at IS NOT NULL` 즉 match 완료)인 row만 purge하고, in-flight 후보(`filter_passed=1 AND matched_at IS NULL`)는 full_text를 보존한다.
 
 ```bash
-PURGE="UPDATE web_sources_raw SET full_text=NULL, full_text_status='purged' WHERE ai_filtered_at IS NOT NULL AND full_text_status='ok' AND full_text IS NOT NULL"
+PURGE="UPDATE web_sources_raw SET full_text=NULL, full_text_status='purged' WHERE full_text_status='ok' AND full_text IS NOT NULL AND (filter_passed=0 OR matched_at IS NOT NULL)"
 bunx wrangler d1 execute parking-db --local  --command "$PURGE"
 bunx wrangler d1 execute parking-db --remote --command "$PURGE"
 ```
@@ -223,7 +225,7 @@ done
 for f in $DIR/filter-chunk-*.sql $DIR/match-ai-chunk-*.sql $DIR/missed-lot-chunk-*.sql; do
   [ -f "$f" ] && bunx wrangler d1 execute parking-db --remote --file="$f"
 done
-PURGE="UPDATE web_sources_raw SET full_text=NULL, full_text_status='purged' WHERE ai_filtered_at IS NOT NULL AND full_text_status='ok' AND full_text IS NOT NULL"
+PURGE="UPDATE web_sources_raw SET full_text=NULL, full_text_status='purged' WHERE full_text_status='ok' AND full_text IS NOT NULL AND (filter_passed=0 OR matched_at IS NOT NULL)"
 bunx wrangler d1 execute parking-db --local  --command "$PURGE"
 bunx wrangler d1 execute parking-db --remote --command "$PURGE"
 ```
