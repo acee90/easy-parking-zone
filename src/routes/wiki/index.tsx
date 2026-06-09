@@ -242,15 +242,23 @@ function WikiHomePage() {
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-6xl mx-auto px-4 py-6 space-y-6">
         <section className="space-y-4">
-          <div className="space-y-2">
-            <h1 className="text-3xl font-bold leading-tight tracking-normal md:text-4xl">
-              전국 주차장 둘러보기
-            </h1>
-            <p className="max-w-3xl text-base leading-relaxed text-muted-foreground">
-              주차 전에 미리 확인하세요. 요금, 운영시간, 주차면 수, 초보 운전자 난이도까지 한눈에
-              비교할 수 있습니다. 실제 블로그·유튜브 후기를 모아 정리했으며, 아래 목록은 정보가 가장
-              잘 정리된 주차장부터 보여드립니다.
-            </p>
+          <div className="flex items-end justify-between gap-4">
+            <div className="space-y-2">
+              <h1 className="text-3xl font-bold leading-tight tracking-normal md:text-4xl">
+                전국 주차장 둘러보기
+              </h1>
+              <p className="max-w-3xl text-base leading-relaxed text-muted-foreground">
+                주차 전에 미리 확인하세요. 요금, 운영시간, 주차면 수, 초보 운전자 난이도까지 한눈에
+                비교할 수 있습니다. 실제 블로그·유튜브 후기를 모아 정리했으며, 아래 목록은 정보가
+                가장 잘 정리된 주차장부터 보여드립니다.
+              </p>
+            </div>
+            <Link
+              to="/wiki/all"
+              className="hidden sm:inline-flex items-center gap-1 text-sm font-semibold text-blue-600 hover:underline"
+            >
+              전체 목록 <ChevronRight className="size-4" />
+            </Link>
           </div>
           <SiteStatsBar siteStats={siteStats} />
         </section>
@@ -391,9 +399,18 @@ function WikiHomePage() {
 function RegionList({ region }: { region: RegionGroup }) {
   return (
     <div>
-      <div className="mb-3 px-1 flex items-center gap-1.5 text-sm font-bold">
-        <MapPin className="size-4 text-muted-foreground" />
-        {region.label}
+      <div className="mb-3 px-1 flex items-center justify-between gap-1.5 text-sm font-bold">
+        <div className="flex items-center gap-1.5">
+          <MapPin className="size-4 text-muted-foreground" />
+          {region.label}
+        </div>
+        <Link
+          to="/wiki/all"
+          search={{ region: region.prefix }}
+          className="text-xs font-medium text-blue-500 hover:underline"
+        >
+          더 보기
+        </Link>
       </div>
       <div className="divide-y rounded-xl border bg-white overflow-hidden shadow-xs">
         {region.lots.map((lot) => (

@@ -12,7 +12,6 @@ import {
 } from 'lucide-react'
 import { ParkingActionGroup } from '@/components/ParkingActionGroup'
 import { ParkingReputationSections } from '@/components/ParkingReputationSections'
-import { PublicDataAttribution } from '@/components/PublicDataAttribution'
 import { Badge } from '@/components/ui/badge'
 import { WikiMiniMap } from '@/components/WikiMiniMap'
 import { FaqSection } from '@/components/wiki/FaqSection'
@@ -268,7 +267,6 @@ function WikiDetailPage() {
                     </div>
                   </div>
                 )}
-                <PublicDataAttribution />
               </div>
             </section>
 

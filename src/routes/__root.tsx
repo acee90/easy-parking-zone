@@ -8,6 +8,7 @@ import {
 } from '@tanstack/react-router'
 import { useCallback, useEffect } from 'react'
 import { Toaster } from 'sonner'
+import { Footer } from '@/components/Footer'
 import { Header } from '@/components/Header'
 import { makeParkingSlug } from '@/lib/slug'
 import { fetchSiteStats } from '@/server/parking'
@@ -143,6 +144,9 @@ function RootComponent() {
   const lastMatch = matches[matches.length - 1]
   const active = lastMatch?.fullPath?.startsWith('/wiki') ? ('wiki' as const) : ('map' as const)
   const isMap = lastMatch?.fullPath === '/'
+  const isAdmin = lastMatch?.fullPath?.startsWith('/admin') ?? false
+  // admin 외 모든 페이지에 footer 노출 (지도 홈 포함 — SEO discovery용)
+  const showFooter = !isAdmin
   const handleWikiSearchSelect = useCallback(
     (lot: ParkingLot) => {
       navigate({
@@ -163,6 +167,7 @@ function RootComponent() {
         />
       )}
       <Outlet />
+      {showFooter && <Footer />}
     </>
   )
 }

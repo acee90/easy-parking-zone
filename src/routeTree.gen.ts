@@ -10,10 +10,15 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TestDesignsRouteImport } from './routes/test-designs'
+import { Route as TermsRouteImport } from './routes/terms'
+import { Route as PrivacyRouteImport } from './routes/privacy'
+import { Route as ContactRouteImport } from './routes/contact'
 import { Route as AdminRouteImport } from './routes/admin'
+import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as WikiIndexRouteImport } from './routes/wiki/index'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
+import { Route as WikiAllRouteImport } from './routes/wiki/all'
 import { Route as WikiSlugRouteImport } from './routes/wiki/$slug'
 import { Route as AdminWebSourcesRouteImport } from './routes/admin/web-sources'
 import { Route as AdminToolsRouteImport } from './routes/admin/tools'
@@ -32,9 +37,29 @@ const TestDesignsRoute = TestDesignsRouteImport.update({
   path: '/test-designs',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContactRoute = ContactRouteImport.update({
+  id: '/contact',
+  path: '/contact',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminRoute = AdminRouteImport.update({
   id: '/admin',
   path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AboutRoute = AboutRouteImport.update({
+  id: '/about',
+  path: '/about',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -51,6 +76,11 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AdminRoute,
+} as any)
+const WikiAllRoute = WikiAllRouteImport.update({
+  id: '/wiki/all',
+  path: '/wiki/all',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const WikiSlugRoute = WikiSlugRouteImport.update({
   id: '/wiki/$slug',
@@ -117,13 +147,18 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
   '/admin': typeof AdminRouteWithChildren
+  '/contact': typeof ContactRoute
+  '/privacy': typeof PrivacyRoute
+  '/terms': typeof TermsRoute
   '/test-designs': typeof TestDesignsRoute
   '/admin/reports': typeof AdminReportsRoute
   '/admin/reviews': typeof AdminReviewsRoute
   '/admin/tools': typeof AdminToolsRoute
   '/admin/web-sources': typeof AdminWebSourcesRoute
   '/wiki/$slug': typeof WikiSlugRouteWithChildren
+  '/wiki/all': typeof WikiAllRoute
   '/admin/': typeof AdminIndexRoute
   '/wiki/': typeof WikiIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -136,11 +171,16 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
+  '/contact': typeof ContactRoute
+  '/privacy': typeof PrivacyRoute
+  '/terms': typeof TermsRoute
   '/test-designs': typeof TestDesignsRoute
   '/admin/reports': typeof AdminReportsRoute
   '/admin/reviews': typeof AdminReviewsRoute
   '/admin/tools': typeof AdminToolsRoute
   '/admin/web-sources': typeof AdminWebSourcesRoute
+  '/wiki/all': typeof WikiAllRoute
   '/admin': typeof AdminIndexRoute
   '/wiki': typeof WikiIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -154,13 +194,18 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
   '/admin': typeof AdminRouteWithChildren
+  '/contact': typeof ContactRoute
+  '/privacy': typeof PrivacyRoute
+  '/terms': typeof TermsRoute
   '/test-designs': typeof TestDesignsRoute
   '/admin/reports': typeof AdminReportsRoute
   '/admin/reviews': typeof AdminReviewsRoute
   '/admin/tools': typeof AdminToolsRoute
   '/admin/web-sources': typeof AdminWebSourcesRoute
   '/wiki/$slug': typeof WikiSlugRouteWithChildren
+  '/wiki/all': typeof WikiAllRoute
   '/admin/': typeof AdminIndexRoute
   '/wiki/': typeof WikiIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -175,13 +220,18 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/about'
     | '/admin'
+    | '/contact'
+    | '/privacy'
+    | '/terms'
     | '/test-designs'
     | '/admin/reports'
     | '/admin/reviews'
     | '/admin/tools'
     | '/admin/web-sources'
     | '/wiki/$slug'
+    | '/wiki/all'
     | '/admin/'
     | '/wiki/'
     | '/api/auth/$'
@@ -194,11 +244,16 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/about'
+    | '/contact'
+    | '/privacy'
+    | '/terms'
     | '/test-designs'
     | '/admin/reports'
     | '/admin/reviews'
     | '/admin/tools'
     | '/admin/web-sources'
+    | '/wiki/all'
     | '/admin'
     | '/wiki'
     | '/api/auth/$'
@@ -211,13 +266,18 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/about'
     | '/admin'
+    | '/contact'
+    | '/privacy'
+    | '/terms'
     | '/test-designs'
     | '/admin/reports'
     | '/admin/reviews'
     | '/admin/tools'
     | '/admin/web-sources'
     | '/wiki/$slug'
+    | '/wiki/all'
     | '/admin/'
     | '/wiki/'
     | '/api/auth/$'
@@ -231,9 +291,14 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AboutRoute: typeof AboutRoute
   AdminRoute: typeof AdminRouteWithChildren
+  ContactRoute: typeof ContactRoute
+  PrivacyRoute: typeof PrivacyRoute
+  TermsRoute: typeof TermsRoute
   TestDesignsRoute: typeof TestDesignsRoute
   WikiSlugRoute: typeof WikiSlugRouteWithChildren
+  WikiAllRoute: typeof WikiAllRoute
   WikiIndexRoute: typeof WikiIndexRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   EventHalfpriceTravelSlugRoute: typeof EventHalfpriceTravelSlugRoute
@@ -249,11 +314,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TestDesignsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/contact': {
+      id: '/contact'
+      path: '/contact'
+      fullPath: '/contact'
+      preLoaderRoute: typeof ContactRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin': {
       id: '/admin'
       path: '/admin'
       fullPath: '/admin'
       preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/about': {
+      id: '/about'
+      path: '/about'
+      fullPath: '/about'
+      preLoaderRoute: typeof AboutRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -276,6 +369,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin/'
       preLoaderRoute: typeof AdminIndexRouteImport
       parentRoute: typeof AdminRoute
+    }
+    '/wiki/all': {
+      id: '/wiki/all'
+      path: '/wiki/all'
+      fullPath: '/wiki/all'
+      preLoaderRoute: typeof WikiAllRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/wiki/$slug': {
       id: '/wiki/$slug'
@@ -402,9 +502,14 @@ const WikiSlugRouteWithChildren = WikiSlugRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AboutRoute: AboutRoute,
   AdminRoute: AdminRouteWithChildren,
+  ContactRoute: ContactRoute,
+  PrivacyRoute: PrivacyRoute,
+  TermsRoute: TermsRoute,
   TestDesignsRoute: TestDesignsRoute,
   WikiSlugRoute: WikiSlugRouteWithChildren,
+  WikiAllRoute: WikiAllRoute,
   WikiIndexRoute: WikiIndexRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   EventHalfpriceTravelSlugRoute: EventHalfpriceTravelSlugRoute,
