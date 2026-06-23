@@ -145,8 +145,7 @@ function RootComponent() {
   const active = lastMatch?.fullPath?.startsWith('/wiki') ? ('wiki' as const) : ('map' as const)
   const isMap = lastMatch?.fullPath === '/'
   const isAdmin = lastMatch?.fullPath?.startsWith('/admin') ?? false
-  // admin 외 모든 페이지에 footer 노출 (지도 홈 포함 — SEO discovery용)
-  const showFooter = !isAdmin
+  const showFooter = !isMap && !isAdmin
   const handleWikiSearchSelect = useCallback(
     (lot: ParkingLot) => {
       navigate({
