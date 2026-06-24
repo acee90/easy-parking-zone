@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { Car } from 'lucide-react'
+import { Car, RefreshCw, TriangleAlert } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { NavermapsProvider } from 'react-naver-maps'
 import { toast } from 'sonner'
@@ -14,6 +14,7 @@ import { ParkingCard } from '@/components/ParkingCard'
 import { useGeolocation } from '@/hooks/useGeolocation'
 import { useParkingFilters } from '@/hooks/useParkingFilters'
 import { type MapFeature, useSuperCluster } from '@/hooks/useSuperCluster'
+import { loadNaverMapSdk } from '@/lib/naver-map-sdk'
 import { Route as RootRoute } from '@/routes/__root'
 import type { ParkingPoint } from '@/server/parking'
 import { fetchAllParkingPoints, fetchParkingDetail, fetchParkingLots } from '@/server/parking'
@@ -49,7 +50,9 @@ function App() {
     useParkingFilters()
 
   const [isClient, setIsClient] = useState(false)
+  const [mapSdkReady, setMapSdkReady] = useState(false)
   const [mapReady, setMapReady] = useState(false)
+  const [mapLoadFailed, setMapLoadFailed] = useState(false)
   const [allPoints, setAllPoints] = useState<ParkingPoint[] | null>(null)
   const [parkingLots, setParkingLots] = useState<ParkingLot[]>([])
   const [features, setFeatures] = useState<MapFeature[]>([])
@@ -70,6 +73,24 @@ function App() {
   useEffect(() => {
     if (locationError) toast.error(locationError)
   }, [locationError])
+
+  useEffect(() => {
+    if (!isClient || initializing || mapSdkReady || mapLoadFailed) return
+
+    let cancelled = false
+    loadNaverMapSdk(import.meta.env.VITE_NAVER_MAP_CLIENT_ID)
+      .then(() => {
+        if (!cancelled) setMapSdkReady(true)
+      })
+      .catch((err) => {
+        console.error('[Naver Maps SDK] load failed:', err)
+        if (!cancelled) setMapLoadFailed(true)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [isClient, initializing, mapSdkReady, mapLoadFailed])
 
   // 전체 경량 데이터 1회 로드
   useEffect(() => {
@@ -206,7 +227,7 @@ function App() {
       })
   }, [mapReady, lotId])
 
-  const mapLoading = !isClient || initializing || !mapReady
+  const mapLoading = !mapLoadFailed && (!isClient || initializing || !mapSdkReady || !mapReady)
 
   return (
     <div className="flex h-dvh flex-col">
@@ -227,8 +248,27 @@ function App() {
               </div>
             </div>
           )}
-          {isClient && !initializing && (
-            <MapErrorBoundary>
+          {mapLoadFailed && (
+            <div className="absolute inset-0 flex items-center justify-center bg-muted/30 p-8">
+              <div className="flex max-w-md flex-col items-center gap-4 text-center">
+                <TriangleAlert className="size-12 text-amber-500" />
+                <h2 className="text-lg font-semibold">지도를 불러올 수 없습니다</h2>
+                <p className="text-sm text-muted-foreground">
+                  지도 서비스 응답이 지연되거나 일시적으로 실패했습니다.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => window.location.reload()}
+                  className="mt-2 inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+                >
+                  <RefreshCw className="size-4" />
+                  새로고침
+                </button>
+              </div>
+            </div>
+          )}
+          {isClient && !initializing && mapSdkReady && !mapLoadFailed && (
+            <MapErrorBoundary onError={() => setMapLoadFailed(true)}>
               <NavermapsProvider ncpKeyId={import.meta.env.VITE_NAVER_MAP_CLIENT_ID}>
                 <MapView
                   userLat={userLat}

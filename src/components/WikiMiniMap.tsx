@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Container as MapDiv,
   Marker,
@@ -6,6 +6,7 @@ import {
   NavermapsProvider,
   useNavermaps,
 } from 'react-naver-maps'
+import { loadNaverMapSdk } from '@/lib/naver-map-sdk'
 
 interface WikiMiniMapProps {
   lat: number
@@ -38,6 +39,24 @@ function MiniMapInner({ lat, lng, name }: WikiMiniMapProps) {
 
 export function WikiMiniMap({ lat, lng, name }: WikiMiniMapProps) {
   const [error, setError] = useState(false)
+  const [sdkReady, setSdkReady] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+
+    loadNaverMapSdk(import.meta.env.VITE_NAVER_MAP_CLIENT_ID)
+      .then(() => {
+        if (!cancelled) setSdkReady(true)
+      })
+      .catch((err) => {
+        console.error('[Naver Maps SDK] mini map load failed:', err)
+        if (!cancelled) setError(true)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   if (error) {
     return (
@@ -52,7 +71,7 @@ export function WikiMiniMap({ lat, lng, name }: WikiMiniMapProps) {
 
   return (
     <section className="rounded-xl border overflow-hidden" style={{ height: 250 }}>
-      {typeof window !== 'undefined' && (
+      {sdkReady && (
         <NavermapsProvider
           ncpKeyId={import.meta.env.VITE_NAVER_MAP_CLIENT_ID}
           onError={() => setError(true)}
