@@ -106,25 +106,37 @@ bun run scripts/run-pipeline-149.ts --stage ai-filter --limit 500 --out $DIR
 
 에이전트는 lot 정보 없이 raw 콘텐츠 품질만 평가한다. lot 매칭은 Stage 4 `lot-match`가 담당한다.
 
-청크를 **5개씩 배치**로 나눠 병렬 spawn한다. 한 배치가 완료되면 다음 배치를 실행한다.
+**Workflow 방식 (2026-06-30 변경 — 동시제한 하드캡)**: 과거 "전 청크를 단일 메시지에 한꺼번에 spawn해서 harness가 7-in-flight를 유지하길 기대"하던 방식([[feedback_subagent_sliding_window]])은 **동시 실행 갯수를 강제할 수단이 없어** 청크가 많아지면 한 배치가 가장 느린/멈춘 subagent에 통째로 막혀 먹통이 됐다. 대신 `.claude/workflows/ai-filter-fanout.js` **Workflow**로 돌린다. `parallel()`이 동시 `agent()` 호출을 `min(16, cpu-2)`개로 **하드캡 + 큐잉**하므로 청크 수와 무관하게 동시 실행이 결정론적으로 제한된다(이 머신은 8코어 → 6). 각 청크는 ai-filter → 무결성 verify → 실패 시 해당 청크만 재실행(최대 3회)을 워크플로 안에서 처리한다.
 
-**청크가 1개일 때:**
-```
-Agent(subagent_type="pipeline-ai-filter"): {DIR}/medium-candidates.json 파일을 읽고 v3 판정 기준으로 필터링해서 {DIR}/ai-results.json을 생성해줘.
-```
+표준 흐름: **(1) 생성기로 청크-인라인 실행본 emit → (2) Workflow(scriptPath) 실행.**
 
-**청크가 여러 개일 때 (배치당 최대 5개, 배치 완료 후 다음 배치):**
-
-배치 1 (단일 메시지에 최대 5개 Agent 호출):
-```
-Agent(subagent_type="pipeline-ai-filter"): {DIR}/medium-candidates-01.json 읽고 filter+summary 통합 처리 → {DIR}/ai-results-01.json 생성
-Agent(subagent_type="pipeline-ai-filter"): {DIR}/medium-candidates-02.json 읽고 filter+summary 통합 처리 → {DIR}/ai-results-02.json 생성
-Agent(subagent_type="pipeline-ai-filter"): {DIR}/medium-candidates-03.json 읽고 filter+summary 통합 처리 → {DIR}/ai-results-03.json 생성
-Agent(subagent_type="pipeline-ai-filter"): {DIR}/medium-candidates-04.json 읽고 filter+summary 통합 처리 → {DIR}/ai-results-04.json 생성
-Agent(subagent_type="pipeline-ai-filter"): {DIR}/medium-candidates-05.json 읽고 filter+summary 통합 처리 → {DIR}/ai-results-05.json 생성
+```bash
+# 1) DIR의 medium-candidates*.json을 .claude/workflows/ai-filter-fanout.js 로직에 인라인한 실행본 생성
+RUN=$(bun run scripts/gen-aifilter-workflow.ts $DIR)   # 마지막 stdout 줄 = emit된 scriptPath
+echo "$RUN"
 ```
 
-배치 1 완료 확인 후 → 배치 2 (06~10), 배치 3 (11~15), ... 순서로 반복한다.
+```
+# 2) 위 경로로 Workflow 실행 (parallel() 하드캡 = min(16, cpu-2). 청크 수 무관 결정론적 동시제한)
+Workflow(scriptPath="<$RUN>")
+```
+
+`.claude/workflows/ai-filter-fanout.js`가 표준 로직(청크별 ai-filter → verify 무결성검사 → 실패분만 재실행, `parallel()` 하드캡)의 **source of truth**다. 생성기는 이 파일의 `[] /* __CHUNKS__ */` 마커에 청크 배열만 박아 넣은 사본을 `$DIR/ai-filter-run.workflow.js`로 쓴다. 청크가 1개여도 동일.
+
+> **args 채널 주의 (2026-06-30 실측)**: 현재 하네스에서 `Workflow(args=...)`는 스크립트 `args` 전역으로 전달되지 **않는다**(빈 chunks로 no-op). 그래서 인라인 방식을 쓴다. args 경로는 미래 대비 fallback으로만 남아 있다.
+
+**Workflow 반환 후 메인 루프에서 최종 권위 검증을 반드시 한 번 더 돌린다** (Workflow의 verify는 세션 한도/agent 사망 시 false-fail이 날 수 있고, filter agent는 파일을 이미 썼을 수 있으므로). **stray 파일(`ai-results-09-v2.json` 등 canonical 청크에 안 맞는 추가 출력) 탐지·삭제까지 포함한다** — lot-match는 `ai-results*.json`을 전부 glob 병합하므로 stray가 있으면 해당 청크가 중복 집계된다(2026-06-30 실측, 500→520):
+
+```bash
+node -e 'const fs=require("fs");const dir="<DIR>";const cand=new Set(fs.readdirSync(dir).filter(f=>/^medium-candidates-(\d+)\.json$/.test(f)).map(f=>f.match(/(\d+)/)[1]));const bad=[];
+// 1) stray 삭제: canonical(ai-results-NN, NN∈cand)이 아닌 ai-results*.json 제거
+for(const f of fs.readdirSync(dir).filter(f=>/^ai-results.*\.json$/.test(f))){const m=f.match(/^ai-results-(\d+)\.json$/);if(!(m&&cand.has(m[1]))){fs.unlinkSync(dir+"/"+f);console.log("removed stray "+f)}}
+// 2) 청크별 무결성: 존재·유효JSON·prefix·raw_id 집합 일치
+for(const id of cand){const f="medium-candidates-"+id+".json",outf="ai-results-"+id+".json";if(!fs.existsSync(dir+"/"+outf)){bad.push(outf+":MISSING");continue}const raw=fs.readFileSync(dir+"/"+outf,"utf8");if(!raw.trimStart().startsWith("{")){bad.push(outf+":PREFIX");continue}let out;try{out=JSON.parse(raw)}catch(e){bad.push(outf+":JSON_ERR");continue}const ic=JSON.parse(fs.readFileSync(dir+"/"+f,"utf8"));const inIds=new Set((Array.isArray(ic)?ic:ic.candidates||[]).map(c=>c.raw_id));const outIds=new Set((out.results||[]).map(r=>r.raw_id));const miss=[...inIds].filter(x=>!outIds.has(x));if(miss.length||outIds.size!==inIds.size)bad.push(outf+":IDS")}
+console.log(bad.length?"BAD:\n"+bad.join("\n"):"ALL PASS")'
+```
+
+`BAD`로 잡힌 청크만 `pipeline-ai-filter` Agent로 단건 재생성(소수면 Workflow 없이 직접 Agent 호출). 전건 PASS면 Stage 4로.
 
 Stage 4 match-apply는 같은 디렉토리의 `ai-results*.json` 파일을 자동으로 병합한다.
 
@@ -213,7 +225,10 @@ for f in $DIR/filter-chunk-*.sql; do bunx wrangler d1 execute parking-db --local
 # 2. ai-filter dump (lot-less) — medium-candidates*.json 생성
 bun run scripts/run-pipeline-149.ts --stage ai-filter --limit 4000 --out $DIR
 
-# 3. AI eval — Claude pipeline-ai-filter subagent가 medium-candidates*.json → ai-results*.json 생성
+# 3. AI eval — Workflow로 실행 (parallel() 하드캡으로 동시제한). 생성기로 청크-인라인 실행본 emit 후 Workflow(scriptPath):
+RUN=$(bun run scripts/gen-aifilter-workflow.ts $DIR)   # → $DIR/ai-filter-run.workflow.js
+#   Workflow(scriptPath="$RUN") 실행 → ai-results*.json 생성
+#   완료 후 메인 루프에서 on-disk 권위 검증(raw_id 집합·유효 JSON·prefix). BAD 청크만 단건 Agent 재생성.
 
 # 4. lot-match (ai-filter 통과 글에 best lot 매칭)
 bun run scripts/run-pipeline-149.ts --stage lot-match --ai-results $DIR/ai-results.json --out $DIR
