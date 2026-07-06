@@ -349,7 +349,9 @@ export const fetchBlogPosts = createServerFn({ method: 'GET' })
         id: schema.webSources.id,
         title: schema.webSources.title,
         content: schema.webSources.content,
-        summary: schema.webSources.summary,
+        // 레거시 summary(거의 비어있음) 대신 원본 AI 합성 요약을 노출.
+        // BlogPostCard가 summary ?? snippet 순으로 렌더 → raw 스크랩 대신 ai_summary 표시.
+        summary: schema.webSources.aiSummary,
         source_url: schema.webSources.sourceUrl,
         source: schema.webSources.source,
         author: schema.webSources.author,
