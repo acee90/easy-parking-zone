@@ -196,6 +196,9 @@ export const webSources = sqliteTable('web_sources', {
   publishedAt: text('published_at'),
   relevanceScore: integer('relevance_score').notNull().default(0),
   summary: text('summary'),
+  // 원본 AI 합성 요약 (D1 web_sources.ai_summary). fetchBlogPosts가 노출.
+  aiSummary: text('ai_summary'),
+  aiSummaryUpdatedAt: text('ai_summary_updated_at'),
   isPositive: integer('is_positive'),
   sentimentScore: real('sentiment_score'),
 
