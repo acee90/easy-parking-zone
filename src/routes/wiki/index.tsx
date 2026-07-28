@@ -133,21 +133,18 @@ const fetchWikiHome = createServerFn({ method: 'GET' }).handler(async () => {
     ),
   )
 
-  // 최근 보강된 주차장
-  const recentlyUpdatedRows = await db.all(
+  // 최근 리뷰 달린 주차장 (사용자 리뷰 최신순)
+  const recentlyReviewedRows = await db.all(
     sql.raw(
       `${LOT_SELECT}
       FROM parking_lots p
       LEFT JOIN parking_lot_stats s ON s.parking_lot_id = p.id
-      WHERE p.curation_reason IS NOT NULL
-        OR p.notes IS NOT NULL
-        OR s.ai_summary IS NOT NULL
-        OR s.ai_tip_pricing IS NOT NULL
-        OR s.ai_tip_visit IS NOT NULL
-        OR s.ai_tip_alternative IS NOT NULL
-      ORDER BY
-        COALESCE(s.ai_summary_updated_at, p.updated_at, p.created_at) DESC,
-        COALESCE(s.final_score, 0) DESC
+      JOIN (
+        SELECT parking_lot_id, MAX(created_at) AS last_review
+        FROM user_reviews
+        GROUP BY parking_lot_id
+      ) r ON r.parking_lot_id = p.id
+      ORDER BY r.last_review DESC
       LIMIT 12`,
     ),
   )
@@ -183,7 +180,7 @@ const fetchWikiHome = createServerFn({ method: 'GET' }).handler(async () => {
     easy: toLots(easyRows),
     free: toLots(freeRows),
     popular: toLots(popularRows),
-    recentlyUpdated: toLots(recentlyUpdatedRows),
+    recentlyReviewed: toLots(recentlyReviewedRows),
     regions,
     siteStats,
   }
@@ -232,7 +229,7 @@ export const Route = createFileRoute('/wiki/')({
 })
 
 function WikiHomePage() {
-  const { spacious, easy, free, popular, recentlyUpdated, regions, siteStats } =
+  const { spacious, easy, free, popular, recentlyReviewed, regions, siteStats } =
     Route.useLoaderData()
 
   const validRegions = regions.filter((region) => region.lots.length > 0)
@@ -295,6 +292,12 @@ function WikiHomePage() {
             className="md:col-span-2"
           />
           <RankingSection
+            title="최근 리뷰 달린 주차장"
+            description="사용자 리뷰가 최근에 등록된 주차장"
+            lots={recentlyReviewed}
+            className="md:col-span-2"
+          />
+          <RankingSection
             title="웹에서 많이 언급된 주차장"
             description="블로그/커뮤니티에서 자주 언급되는 주차장"
             lots={popular}
@@ -310,12 +313,6 @@ function WikiHomePage() {
             title="무료 주차장"
             description="무료이면서 정보 신호가 있는 주차장"
             lots={free}
-          />
-          <RankingSection
-            title="최근 정보 보강"
-            description="요약, 팁, 특이사항이 보강된 주차장"
-            lots={recentlyUpdated}
-            className="md:col-span-2"
           />
         </div>
 
