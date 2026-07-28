@@ -295,6 +295,7 @@ function WikiHomePage() {
             title="최근 리뷰 달린 주차장"
             description="사용자 리뷰가 최근에 등록된 주차장"
             lots={recentlyReviewed}
+            layout="carousel"
             className="md:col-span-2"
           />
           <RankingSection
