@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { toast } from 'sonner'
 import { authClient } from '@/lib/auth-client'
 import { createReview } from '@/server/reviews'
 import { StarRatingInput } from './StarRatingInput'
@@ -47,6 +48,11 @@ export function ReviewForm({
           guestNickname: session ? undefined : guestNickname || undefined,
         },
       })
+      // 폼 초기화 — 별점을 0으로 되돌리면 입력 영역이 접히며 등록 완료가 눈에 보인다.
+      // 닉네임은 다음 리뷰에서 다시 쓰도록 유지.
+      setOverallScore(0)
+      setComment('')
+      toast.success('리뷰가 등록되었습니다')
       onSubmitted()
     } catch (e) {
       setError(e instanceof Error ? e.message : '오류가 발생했습니다')
