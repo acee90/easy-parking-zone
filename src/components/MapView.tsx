@@ -202,6 +202,7 @@ export function MapView({
   const markerHtmlCacheRef = useRef<Map<string, string>>(new Map())
   const animatingRef = useRef(false)
   const [currentZoom, setCurrentZoom] = useState<number>(DEFAULT_ZOOM)
+  const [mapInitialized, setMapInitialized] = useState(false)
 
   // parkingLots → Map (O(1) lookup for features rendering)
   const lotsMap = useMemo(() => new Map(parkingLots.map((l) => [l.id, l])), [parkingLots])
@@ -215,11 +216,13 @@ export function MapView({
     }
   }, [lotsMap])
 
+  // mapInitialized를 deps에 포함: MapView mount 시점엔 지도 인스턴스가 아직 없어
+  // (react-naver-maps Container가 children을 다음 렌더에 붙임) mapRef.current가 null.
+  // 진입 시 이미 userLocated=true인 경우 onInit 이후 한 번 더 실행돼야 자동 이동된다.
   useEffect(() => {
-    if (mapRef.current && userLocated) {
-      mapRef.current.setCenter(new navermaps.LatLng(userLat, userLng))
-    }
-  }, [navermaps, userLat, userLng, userLocated])
+    if (!mapInitialized || !mapRef.current || !userLocated) return
+    mapRef.current.setCenter(new navermaps.LatLng(userLat, userLng))
+  }, [navermaps, userLat, userLng, userLocated, mapInitialized])
 
   const selectedLotIdRef = useRef(selectedLotId)
   selectedLotIdRef.current = selectedLotId
@@ -259,6 +262,7 @@ export function MapView({
   }, [])
 
   const handleInit = useCallback(() => {
+    setMapInitialized(true)
     onMapReady()
     setTimeout(emitBounds, 100)
   }, [onMapReady])
