@@ -88,7 +88,7 @@ export function DesktopMapPanel({
               transition={{ duration: fadeDur }}
             >
               <div className="flex items-center gap-2">
-                <ParkingSquare className="size-4 text-blue-500" />
+                <ParkingSquare className="size-4 text-primary" />
                 <span className="font-semibold text-base">주차장 목록</span>
               </div>
               <span className="text-sm text-muted-foreground">{parkingLots.length}개</span>

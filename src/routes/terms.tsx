@@ -74,10 +74,7 @@ function TermsPage() {
       <LegalSection heading="문의">
         <p>
           본 약관에 관한 문의는{' '}
-          <a
-            href={`mailto:${CONTACT_EMAIL}`}
-            className="text-blue-600 underline underline-offset-2"
-          >
+          <a href={`mailto:${CONTACT_EMAIL}`} className="text-primary underline underline-offset-2">
             {CONTACT_EMAIL}
           </a>
           로 보내 주세요.

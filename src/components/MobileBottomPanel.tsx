@@ -111,7 +111,7 @@ export function MobileBottomPanel({
               onClick={() => setSortMode('distance')}
               className={`px-2 py-0.5 rounded text-sm cursor-pointer transition-colors ${
                 sortMode === 'distance'
-                  ? 'bg-blue-100 text-blue-700 font-medium'
+                  ? 'bg-primary/10 text-primary font-medium'
                   : 'text-muted-foreground hover:bg-gray-100'
               }`}
             >
@@ -122,7 +122,7 @@ export function MobileBottomPanel({
               onClick={() => setSortMode('difficulty')}
               className={`px-2 py-0.5 rounded text-sm cursor-pointer transition-colors ${
                 sortMode === 'difficulty'
-                  ? 'bg-blue-100 text-blue-700 font-medium'
+                  ? 'bg-primary/10 text-primary font-medium'
                   : 'text-muted-foreground hover:bg-gray-100'
               }`}
             >
@@ -137,7 +137,7 @@ export function MobileBottomPanel({
                 onSelect(lot)
                 setExpanded(false)
               }}
-              className="w-full flex items-center gap-3 px-4 py-2.5 border-b border-gray-50 active:bg-blue-50 transition-colors cursor-pointer"
+              className="w-full flex items-center gap-3 px-4 py-2.5 border-b border-gray-50 active:bg-primary/5 transition-colors cursor-pointer"
             >
               <span
                 className={`size-2.5 shrink-0 rounded-full ${getDifficultyColor(lot.difficulty.score)}`}

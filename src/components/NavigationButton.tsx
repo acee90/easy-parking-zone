@@ -91,7 +91,7 @@ export function NavigationButton({
         aria-expanded={open}
         aria-haspopup="menu"
         onClick={() => setOpen((v) => !v)}
-        className={`inline-grid h-10 min-w-[132px] grid-cols-[auto_1fr_auto] items-center gap-2 rounded-full bg-blue-500 px-4 text-sm font-medium text-white transition-colors hover:bg-blue-600 active:bg-blue-700 cursor-pointer ${buttonClassName ?? ''}`}
+        className={`inline-grid h-10 min-w-[132px] grid-cols-[auto_1fr_auto] items-center gap-2 rounded-full bg-primary px-4 text-sm font-medium text-white transition-colors hover:bg-primary/90 active:bg-primary/80 cursor-pointer ${buttonClassName ?? ''}`}
       >
         <Navigation className="size-4" />
         <span className="text-center">길찾기</span>

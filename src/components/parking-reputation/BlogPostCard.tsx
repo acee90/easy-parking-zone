@@ -26,7 +26,7 @@ export function BlogPostCard({ post, lotId }: { post: BlogPost; lotId: string })
             >
               {config.label}
             </span>
-            <h4 className="mt-2 line-clamp-2 text-lg font-bold leading-snug text-zinc-900 group-hover:text-blue-600 transition-colors">
+            <h4 className="mt-2 line-clamp-2 text-lg font-bold leading-snug text-zinc-900 group-hover:text-primary transition-colors">
               {post.title}
             </h4>
           </div>

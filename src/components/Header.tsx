@@ -83,7 +83,7 @@ function UserMenu() {
         {session.user.image ? (
           <img src={session.user.image} alt="" className="size-6 rounded-full" />
         ) : (
-          <div className="size-6 rounded-full bg-blue-100 flex items-center justify-center text-xs font-medium text-blue-600">
+          <div className="size-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium text-primary">
             {(session.user.name ?? 'U')[0]}
           </div>
         )}

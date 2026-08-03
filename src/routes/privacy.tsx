@@ -106,7 +106,7 @@ function PrivacyPage() {
             연락처:{' '}
             <a
               href={`mailto:${CONTACT_EMAIL}`}
-              className="text-blue-600 underline underline-offset-2"
+              className="text-primary underline underline-offset-2"
             >
               {CONTACT_EMAIL}
             </a>

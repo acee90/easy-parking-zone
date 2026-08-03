@@ -120,7 +120,7 @@ function BlogListPage() {
                   >
                     {loadingMore ? (
                       <span className="flex items-center justify-center gap-2">
-                        <Loader2 className="size-4 animate-spin text-blue-600" />
+                        <Loader2 className="size-4 animate-spin text-primary" />
                         불러오는 중...
                       </span>
                     ) : (
@@ -361,7 +361,7 @@ function BlogListItem({ post, lotId }: { post: BlogPost; lotId: string }) {
             </>
           )}
         </div>
-        <h2 className="line-clamp-2 text-base font-bold leading-snug text-zinc-900 transition-colors group-hover:text-blue-600">
+        <h2 className="line-clamp-2 text-base font-bold leading-snug text-zinc-900 transition-colors group-hover:text-primary">
           {post.title}
         </h2>
         {post.snippet && (

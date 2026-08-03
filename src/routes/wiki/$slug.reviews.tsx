@@ -87,7 +87,7 @@ function ReviewsListPage() {
             </div>
             <div className="flex flex-1 flex-col gap-1">
               <div className="flex items-center gap-2 text-xl font-bold text-zinc-900">
-                <MessageSquare className="size-6 text-blue-500" />
+                <MessageSquare className="size-6 text-primary" />
                 <span>총 {reviews.length}개의 생생한 리뷰</span>
               </div>
               <p className="text-sm leading-relaxed text-zinc-500">
@@ -119,7 +119,7 @@ function ReviewsListPage() {
             <Link
               to="/wiki/$slug"
               params={{ slug }}
-              className="mt-6 rounded-xl bg-blue-600 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-blue-200 transition-transform hover:scale-105 active:scale-95"
+              className="mt-6 rounded-xl bg-primary px-6 py-3 text-sm font-bold text-white shadow-lg shadow-primary/30 transition-transform hover:scale-105 active:scale-95"
             >
               리뷰 작성하러 가기
             </Link>

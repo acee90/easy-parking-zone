@@ -30,7 +30,7 @@ export function SectionTitle({ title, count, viewAll, actions }: SectionTitlePro
           <Link
             to={TAB_TO_PATH[viewAll.tab]}
             params={{ slug: viewAll.slug }}
-            className="flex items-center gap-0.5 text-sm font-medium text-blue-500 hover:text-blue-600"
+            className="flex items-center gap-0.5 text-sm font-medium text-primary hover:text-primary/80"
           >
             전체 보기
             <ChevronRight className="size-3.5" />

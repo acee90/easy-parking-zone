@@ -71,7 +71,7 @@ export function MobileFilterSheet({
         >
           <SlidersHorizontal className="size-4 text-zinc-700" />
           {activeCount > 0 && (
-            <span className="absolute -top-1 -right-1 flex size-4 items-center justify-center rounded-full bg-blue-500 text-[10px] font-bold text-white">
+            <span className="absolute -top-1 -right-1 flex size-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-white">
               {activeCount}
             </span>
           )}
@@ -95,7 +95,7 @@ export function MobileFilterSheet({
                   onClick={() => onToggle(key)}
                   className={`rounded-full px-3 py-2 text-sm font-medium border transition-colors ${
                     filters[key]
-                      ? 'bg-blue-500 text-white border-blue-500'
+                      ? 'bg-primary text-primary-foreground border-primary'
                       : 'bg-white text-zinc-700 border-zinc-200'
                   }`}
                 >
@@ -116,7 +116,7 @@ export function MobileFilterSheet({
                   onClick={() => onSetFeeRange(value)}
                   className={`rounded-full px-3 py-2 text-sm font-medium border transition-colors ${
                     filters.feeRange === value
-                      ? 'bg-blue-500 text-white border-blue-500'
+                      ? 'bg-primary text-primary-foreground border-primary'
                       : 'bg-white text-zinc-700 border-zinc-200'
                   }`}
                 >
@@ -134,7 +134,7 @@ export function MobileFilterSheet({
               onClick={onToggleMinSpaces}
               className={`w-full rounded-full px-3 py-2 text-sm font-medium border transition-colors ${
                 filters.minSpaces !== null
-                  ? 'bg-blue-500 text-white border-blue-500'
+                  ? 'bg-primary text-primary-foreground border-primary'
                   : 'bg-white text-zinc-700 border-zinc-200'
               }`}
             >
@@ -157,7 +157,7 @@ export function MobileFilterSheet({
                   >
                     <span
                       className={`flex size-5 shrink-0 items-center justify-center rounded border transition-colors ${
-                        checked ? 'bg-blue-500 border-blue-500' : 'border-zinc-300 bg-white'
+                        checked ? 'bg-primary border-primary' : 'border-zinc-300 bg-white'
                       }`}
                     >
                       {checked && <Check className="size-3.5 text-white" strokeWidth={3} />}

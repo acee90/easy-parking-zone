@@ -106,11 +106,11 @@ export function ParkingSidebar({
                     if (el) itemRefs.current.set(lot.id, el)
                     else itemRefs.current.delete(lot.id)
                   }}
-                  className={`w-full text-left px-4 py-3 border-b border-gray-100 hover:bg-blue-50 transition-colors cursor-pointer flex items-center gap-2 ${
+                  className={`w-full text-left px-4 py-3 border-b border-gray-100 hover:bg-primary/5 transition-colors cursor-pointer flex items-center gap-2 ${
                     selected
-                      ? 'bg-blue-50 border-l-2 border-l-blue-500'
+                      ? 'bg-primary/5 border-l-2 border-l-primary'
                       : hovered
-                        ? 'bg-blue-50'
+                        ? 'bg-primary/5'
                         : ''
                   }`}
                   onClick={() => onSelect(lot)}
@@ -163,14 +163,14 @@ export function ParkingSidebar({
                     </div>
                   </div>
                   {selected && (
-                    <ChevronRight aria-hidden="true" className="size-5 shrink-0 text-blue-500" />
+                    <ChevronRight aria-hidden="true" className="size-5 shrink-0 text-primary" />
                   )}
                 </button>
               )
             })}
             {hasMore && (
               <button
-                className="w-full py-3 text-sm text-blue-500 hover:bg-blue-50 transition-colors cursor-pointer font-medium"
+                className="w-full py-3 text-sm text-primary hover:bg-primary/5 transition-colors cursor-pointer font-medium"
                 onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
               >
                 더 보기 ({sortedLots.length - effectiveCount}개 남음)

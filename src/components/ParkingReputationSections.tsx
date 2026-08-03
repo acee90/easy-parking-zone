@@ -117,7 +117,7 @@ export function ParkingReputationSections({
             onClick={() => setActiveTab(key)}
             className={`flex-1 cursor-pointer border-b-2 py-2.5 text-xs font-medium transition-colors ${
               activeTab === key
-                ? 'border-blue-500 text-blue-600'
+                ? 'border-primary text-primary'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
@@ -127,7 +127,7 @@ export function ParkingReputationSections({
               {count > 0 && (
                 <span
                   className={`rounded-full px-1.5 py-0.5 text-[10px] ${
-                    activeTab === key ? 'bg-blue-50 text-blue-600' : 'bg-zinc-100 text-zinc-500'
+                    activeTab === key ? 'bg-primary/5 text-primary' : 'bg-zinc-100 text-zinc-500'
                   }`}
                 >
                   {count}

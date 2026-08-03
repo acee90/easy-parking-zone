@@ -75,7 +75,7 @@ export const Route = createFileRoute('/wiki/$slug')({
   notFoundComponent: () => (
     <div className="min-h-screen flex flex-col items-center justify-center gap-4">
       <h1 className="text-2xl font-bold">주차장을 찾을 수 없습니다</h1>
-      <Link to="/" className="text-blue-500 underline">
+      <Link to="/" className="text-primary underline">
         지도로 돌아가기
       </Link>
     </div>

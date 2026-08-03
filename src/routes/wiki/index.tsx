@@ -252,7 +252,7 @@ function WikiHomePage() {
             </div>
             <Link
               to="/wiki/all"
-              className="hidden sm:inline-flex items-center gap-1 text-sm font-semibold text-blue-600 hover:underline"
+              className="hidden sm:inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline"
             >
               전체 목록 <ChevronRight className="size-4" />
             </Link>
@@ -263,12 +263,12 @@ function WikiHomePage() {
         {/* 반값여행 이벤트 배너 */}
         <Link
           to="/event/halfprice-travel"
-          className="block bg-linear-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-100 p-5 hover:border-blue-300 transition-all"
+          className="block bg-linear-to-r from-primary/5 to-primary/10 rounded-xl border border-primary/15 p-5 hover:border-primary/40 transition-all"
         >
           <div className="flex items-center justify-between">
             <div>
               <div className="flex items-center gap-2 mb-1">
-                <span className="bg-blue-600 text-white px-2 py-0.5 rounded-full text-xs font-bold">
+                <span className="bg-primary text-white px-2 py-0.5 rounded-full text-xs font-bold">
                   반값여행
                 </span>
                 <span className="text-xs text-muted-foreground">4~6월 · 여행비 50% 환급</span>
@@ -278,7 +278,7 @@ function WikiHomePage() {
                 관광지별 주변 주차장 안내 · 1인 최대 10만원 환급
               </p>
             </div>
-            <ChevronRight className="size-5 text-blue-400 shrink-0" />
+            <ChevronRight className="size-5 text-primary/60 shrink-0" />
           </div>
         </Link>
 
@@ -405,7 +405,7 @@ function RegionList({ region }: { region: RegionGroup }) {
         <Link
           to="/wiki/all"
           search={{ region: region.prefix }}
-          className="text-xs font-medium text-blue-500 hover:underline"
+          className="text-xs font-medium text-primary hover:underline"
         >
           더 보기
         </Link>

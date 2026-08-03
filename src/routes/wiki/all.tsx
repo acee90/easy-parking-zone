@@ -126,7 +126,7 @@ function AllLotsPage() {
               총 {totalCount.toLocaleString()}개의 주차장 정보가 있습니다.
             </p>
           </div>
-          <Link to="/wiki" className="text-sm text-blue-500 hover:underline">
+          <Link to="/wiki" className="text-sm text-primary hover:underline">
             위키 홈으로
           </Link>
         </div>

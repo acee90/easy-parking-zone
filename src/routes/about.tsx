@@ -57,10 +57,10 @@ function AboutPage() {
 
       <LegalSection heading="더 둘러보기">
         <p className="flex flex-wrap gap-3">
-          <Link to="/wiki" className="text-blue-600 underline underline-offset-2">
+          <Link to="/wiki" className="text-primary underline underline-offset-2">
             전국 주차장 둘러보기
           </Link>
-          <Link to="/contact" className="text-blue-600 underline underline-offset-2">
+          <Link to="/contact" className="text-primary underline underline-offset-2">
             문의하기
           </Link>
         </p>

@@ -186,8 +186,8 @@ function WikiDetailPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="md:col-span-2 space-y-4">
             {summary && (
-              <section className="rounded-xl border border-blue-100 bg-blue-50 p-5">
-                <div className="mb-2 text-xs font-semibold text-blue-700">AI 요약</div>
+              <section className="rounded-xl border border-primary/15 bg-primary/5 p-5">
+                <div className="mb-2 text-xs font-semibold text-primary">AI 요약</div>
                 <p className="whitespace-pre-line text-base font-medium leading-relaxed text-zinc-900">
                   {summary}
                 </p>

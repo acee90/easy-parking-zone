@@ -88,7 +88,7 @@ function RankingCard({ lot }: { lot: RankingLot }) {
     <Link
       to="/wiki/$slug"
       params={{ slug: makeParkingSlug(lot.name, lot.id) }}
-      className="flex h-full w-full flex-col gap-3 rounded-xl border bg-white p-5 shadow-xs transition-colors hover:border-blue-300"
+      className="flex h-full w-full flex-col gap-3 rounded-xl border bg-white p-5 shadow-xs transition-colors hover:border-primary/40"
     >
       <div className="flex items-center gap-2">
         <div

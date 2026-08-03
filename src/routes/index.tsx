@@ -243,7 +243,7 @@ function App() {
           {mapLoading && (
             <div className="absolute inset-0 z-10 flex items-center justify-center bg-background">
               <div className="flex flex-col items-center gap-3">
-                <Car className="size-8 text-blue-500 animate-pulse" />
+                <Car className="size-8 text-primary animate-pulse" />
                 <p className="text-sm text-muted-foreground">지도를 불러오는 중...</p>
               </div>
             </div>

@@ -140,13 +140,13 @@ export function ParkingDetailPanel({ lot }: ParkingDetailPanelProps) {
         {/* 컨텐츠 */}
         <div className="px-5 py-5 space-y-4">
           {summary && (
-            <section className="rounded-xl border border-blue-100 bg-blue-50 p-4">
-              <div className="mb-2 text-xs font-semibold text-blue-700">AI 요약</div>
+            <section className="rounded-xl border border-primary/15 bg-primary/5 p-4">
+              <div className="mb-2 text-xs font-semibold text-primary">AI 요약</div>
               <p className="whitespace-pre-line text-sm font-medium leading-relaxed text-zinc-900">
                 {summary}
               </p>
               {lot.featuredSource === '1010' && (
-                <p className="mt-3 pt-2 border-t border-blue-200 text-xs text-blue-700/80">
+                <p className="mt-3 pt-2 border-t border-primary/20 text-xs text-primary/70">
                   📺 10시10분 유튜브 채널에 소개된 주차장
                 </p>
               )}

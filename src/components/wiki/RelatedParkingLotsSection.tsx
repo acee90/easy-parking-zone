@@ -25,7 +25,7 @@ export function RelatedParkingLotsSection({ lot, lots }: { lot: ParkingLot; lots
               key={related.id}
               to="/wiki/$slug"
               params={{ slug: makeParkingSlug(related.name, related.id) }}
-              className="flex items-center gap-2 py-2.5 text-sm transition-colors hover:text-blue-600"
+              className="flex items-center gap-2 py-2.5 text-sm transition-colors hover:text-primary/80"
             >
               <span
                 className={`size-2.5 shrink-0 rounded-full ${getDifficultyColor(related.difficulty.score)}`}
@@ -34,7 +34,7 @@ export function RelatedParkingLotsSection({ lot, lots }: { lot: ParkingLot; lots
               <span className="sr-only">{getDifficultyLabel(related.difficulty.score)}</span>
               <span className="min-w-0 flex-1 truncate font-medium">{related.name}</span>
               <span className="flex shrink-0 items-center gap-1">
-                <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
+                <span className="rounded-full bg-primary/5 px-2 py-0.5 text-xs font-medium text-primary">
                   {formatDistanceLabel(distance)}
                 </span>
                 {related.totalSpaces > 0 && (

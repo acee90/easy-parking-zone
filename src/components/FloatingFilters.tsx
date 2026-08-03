@@ -75,7 +75,7 @@ export function FloatingFilters({
       <div className="flex size-8 items-center justify-center rounded-full bg-white shadow-md border border-border relative">
         <SlidersHorizontal className="size-4 text-zinc-600" />
         {activeCount > 0 && (
-          <span className="absolute -top-1 -right-1 flex size-4 items-center justify-center rounded-full bg-blue-500 text-[10px] font-bold text-white">
+          <span className="absolute -top-1 -right-1 flex size-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-white">
             {activeCount}
           </span>
         )}
@@ -87,7 +87,7 @@ export function FloatingFilters({
           onClick={() => onToggle(key)}
           className={`rounded-full px-3 py-1.5 text-xs font-medium shadow-md border transition-colors ${
             filters[key]
-              ? 'bg-blue-500 text-white border-blue-500'
+              ? 'bg-primary text-primary-foreground border-primary'
               : 'bg-white text-zinc-700 border-border hover:bg-zinc-50'
           }`}
         >
@@ -102,7 +102,7 @@ export function FloatingFilters({
           onClick={() => setFeeOpen(!feeOpen)}
           className={`rounded-full px-3 py-1.5 text-xs font-medium shadow-md border transition-colors flex items-center gap-1 ${
             filters.feeRange !== 'any'
-              ? 'bg-blue-500 text-white border-blue-500'
+              ? 'bg-primary text-primary-foreground border-primary'
               : 'bg-white text-zinc-700 border-border hover:bg-zinc-50'
           }`}
         >
@@ -121,10 +121,10 @@ export function FloatingFilters({
                   setFeeOpen(false)
                 }}
                 className={`flex w-full items-center gap-2 px-3 py-2 text-left text-xs hover:bg-zinc-50 transition-colors ${
-                  filters.feeRange === value ? 'font-medium text-blue-600' : 'text-zinc-700'
+                  filters.feeRange === value ? 'font-medium text-primary' : 'text-zinc-700'
                 }`}
               >
-                {filters.feeRange === value && <Check className="size-3 text-blue-500 shrink-0" />}
+                {filters.feeRange === value && <Check className="size-3 text-primary shrink-0" />}
                 <span className={filters.feeRange === value ? '' : 'pl-5'}>{label}</span>
               </button>
             ))}
@@ -138,7 +138,7 @@ export function FloatingFilters({
         onClick={onToggleMinSpaces}
         className={`rounded-full px-3 py-1.5 text-xs font-medium shadow-md border transition-colors ${
           filters.minSpaces !== null
-            ? 'bg-blue-500 text-white border-blue-500'
+            ? 'bg-primary text-primary-foreground border-primary'
             : 'bg-white text-zinc-700 border-border hover:bg-zinc-50'
         }`}
       >
@@ -152,7 +152,7 @@ export function FloatingFilters({
           onClick={() => setDiffOpen(!diffOpen)}
           className={`rounded-full px-3 py-1.5 text-xs font-medium shadow-md border transition-colors flex items-center gap-1 ${
             diffOff > 0
-              ? 'bg-blue-500 text-white border-blue-500'
+              ? 'bg-primary text-primary-foreground border-primary'
               : 'bg-white text-zinc-700 border-border hover:bg-zinc-50'
           }`}
         >
@@ -173,7 +173,7 @@ export function FloatingFilters({
                 >
                   <span
                     className={`flex size-4 shrink-0 items-center justify-center rounded border transition-colors ${
-                      checked ? 'bg-blue-500 border-blue-500' : 'border-zinc-300 bg-white'
+                      checked ? 'bg-primary border-primary' : 'border-zinc-300 bg-white'
                     }`}
                   >
                     {checked && <Check className="size-3 text-white" strokeWidth={3} />}

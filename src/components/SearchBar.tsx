@@ -176,7 +176,7 @@ function SearchResults({
                 className="w-full text-left px-3 py-2.5 hover:bg-gray-50 border-b last:border-b-0 transition-colors"
               >
                 <div className="flex items-center gap-2">
-                  <MapPin className="size-3.5 text-blue-500 shrink-0" />
+                  <MapPin className="size-3.5 text-primary shrink-0" />
                   <span className="text-sm font-medium truncate">{lot.name}</span>
                   <span className="shrink-0 text-xs">
                     {getDifficultyIcon(lot.difficulty.score)}

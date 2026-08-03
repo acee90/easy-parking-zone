@@ -37,10 +37,7 @@ function ContactPage() {
           순차적으로 답변드립니다.
         </p>
         <p className="text-base font-semibold text-foreground">
-          <a
-            href={`mailto:${CONTACT_EMAIL}`}
-            className="text-blue-600 underline underline-offset-2"
-          >
+          <a href={`mailto:${CONTACT_EMAIL}`} className="text-primary underline underline-offset-2">
             {CONTACT_EMAIL}
           </a>
         </p>

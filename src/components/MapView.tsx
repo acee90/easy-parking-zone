@@ -397,9 +397,9 @@ export function MapView({
         title="내 위치"
       >
         {locationLoading ? (
-          <Loader2 className="size-5 text-blue-500 animate-spin" />
+          <Loader2 className="size-5 text-primary animate-spin" />
         ) : (
-          <Locate className="size-5 text-blue-500" />
+          <Locate className="size-5 text-primary" />
         )}
       </button>
 

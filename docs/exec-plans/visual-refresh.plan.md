@@ -10,11 +10,14 @@
 - no-op `tracking-normal` 10곳 제거, 큰 헤드라인(text-2xl+)에 `tracking-tight`
 - 효과 최대·리스크 최소. 레이아웃 시프트만 확인하면 됨.
 
-### 2. 디자인 토큰 정비
-- `--primary`를 브랜드 블루(#3b82f6 계열 oklch)로 교체, `--ring`을 보이는 값으로 수정(WCAG 3:1)
-- `--destructive-foreground` 버그 수정
-- 중립 스케일 zinc로 통일 방침 결정(신규 코드부터, 기존 gray는 만나는 김에 교체)
-- 하드코딩 blue-500 → `bg-primary` 계열로 점진 치환 (한 번에 전부 X — 화면별 검증하며)
+### 2. 디자인 토큰 정비 ✅ (2026-08-03)
+- `--primary` = blue-600(oklch 0.546 0.245 262.881, 흰 글자 대비 AA), dark는 blue-500. `--ring` = blue-500, `--destructive-foreground` 버그 수정
+- 하드코딩 blue-* → primary 토큰 치환 완료 (26개 파일). 액션 블루는 전부 토큰 경유:
+  - 솔리드: `bg-primary` + `hover:bg-primary/90` + `active:bg-primary/80`
+  - 틴트: 선택 상태 `bg-primary/10 text-primary`, 리스트 hover/active `bg-primary/5`, AI 요약 카드 `border-primary/15 bg-primary/5`
+  - 링크: `text-primary hover:text-primary/80`
+- 보류: BlogPostCard 출처별 뱃지(카테고리 색, 3단계에서), MapView 인라인 hex(6단계), event 페이지·admin·test-designs
+- 중립 스케일 zinc 통일 방침: 신규 코드부터, 기존 gray는 만나는 김에 교체
 
 ### 3. 카드/뱃지 표면 통일
 - radius 2단계(컨테이너 rounded-xl / 내부 rounded-lg), shadow 2단계(없음 / shadow-xs)로 축소
