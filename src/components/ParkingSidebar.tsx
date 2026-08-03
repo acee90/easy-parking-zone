@@ -116,7 +116,7 @@ export function ParkingSidebar({
                   onClick={() => onSelect(lot)}
                   onMouseEnter={() => onHover(lot.id)}
                   onMouseLeave={() => onHover(null)}
-                  aria-label={selected ? `${lot.name} 자세히 보기` : `${lot.name} 선택`}
+                  aria-label={selected ? `${lot.name} 상세보기` : `${lot.name} 선택`}
                 >
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
@@ -163,7 +163,13 @@ export function ParkingSidebar({
                     </div>
                   </div>
                   {selected && (
-                    <ChevronRight aria-hidden="true" className="size-5 shrink-0 text-primary" />
+                    <span
+                      aria-hidden="true"
+                      className="flex shrink-0 items-center gap-0.5 rounded-full bg-primary py-1 pr-1.5 pl-2.5 text-xs font-semibold text-primary-foreground"
+                    >
+                      상세보기
+                      <ChevronRight className="size-3.5" />
+                    </span>
                   )}
                 </button>
               )
