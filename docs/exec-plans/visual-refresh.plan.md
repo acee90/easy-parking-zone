@@ -21,7 +21,7 @@
 
 ### 3. 카드/뱃지 표면 통일 ✅ (2026-08-03) — 시안 D(A+C 하이브리드) 채택
 - **표면 규칙**: 페이지 바닥 `bg-zinc-50` / 탭 가능한 카드·콘텐츠 시트 = `rounded-2xl bg-white` (border·shadow 없음) / 회색 필(`bg-zinc-50~100`)은 인풋·정보 웰·pressed 전용 / 내부 칩 `rounded-md bg-zinc-100`
-- **인터랙션**: hover는 그림자 금지(flat) → `hover:bg-zinc-100/70` 틴트, active는 `scale-[0.99]` 또는 짙은 틴트 (사용자 피드백 반영)
+- **인터랙션**: 카드 hover는 그림자·배경 틴트 모두 금지(flat) → 타이틀 `group-hover:text-primary` + 화살표 페이드인. 리스트 row는 bg 틴트 hover 허용. active는 `scale-[0.99]` 또는 짙은 틴트 (사용자 피드백 2회 반영)
 - 적용: 둘러보기(/wiki), 상세($slug.index — 문서 콘텐츠는 흰 시트 1장+내부 디바이더, FAQ 카드 나열 제거), reviews/media/blog 탭, all 목록
 - 리뷰 폼·제보 폼 노란 테마 제거 → 중립 시트 + zinc-50 인풋 + primary 버튼. 별점 노랑은 유지
 - 시안 비교는 dev 전용 /test-designs 페이지에 보존
