@@ -111,21 +111,21 @@ function RankingCard({ lot }: { lot: RankingLot }) {
         <p className="line-clamp-1 text-sm font-medium text-primary">{lot.curationReason}</p>
       )}
 
-      <div className="mt-auto space-y-2.5 pt-3">
-        <div className="flex items-baseline gap-2.5">
+      <div className="mt-auto flex items-end justify-between gap-2 pt-3">
+        <div className="min-w-0 space-y-1">
           <span className="flex items-center gap-1 text-base font-bold text-zinc-900">
             <Star className="size-4 shrink-0 fill-yellow-400 text-yellow-400" />
             <span className="tabular-nums">{score === null ? '-' : score.toFixed(1)}</span>
           </span>
-          {counts && (
-            <span className="flex gap-2 text-xs font-medium text-muted-foreground">
+          {counts && (counts.reviews > 0 || counts.media > 0 || counts.web > 0) && (
+            <span className="flex flex-wrap gap-x-2 text-xs font-medium text-muted-foreground">
               {counts.reviews > 0 && <span className="tabular-nums">리뷰 {counts.reviews}</span>}
               {counts.media > 0 && <span className="tabular-nums">영상 {counts.media}</span>}
               {counts.web > 0 && <span className="tabular-nums">블로그 {counts.web}</span>}
             </span>
           )}
         </div>
-        <div className="flex flex-wrap gap-1.5 text-xs font-medium text-zinc-600">
+        <div className="flex shrink-0 flex-wrap justify-end gap-1.5 text-xs font-medium text-zinc-600">
           {lot.totalSpaces > 0 && (
             <span className="rounded-md bg-zinc-100 px-2 py-1">{lot.totalSpaces}면</span>
           )}
