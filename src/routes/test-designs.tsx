@@ -136,6 +136,86 @@ function SampleLabel({ children }: { children: string }) {
   return <p className="mt-8 mb-2 text-xs font-medium text-zinc-400 first:mt-0">{children}</p>
 }
 
+/* ---------- 배경 대비 비교: 페이지 배경색 후보 ---------- */
+
+const BG_OPTIONS = [
+  {
+    key: 'zinc-50',
+    label: '현재 · zinc-50',
+    note: '#fafafa — 카드와 명도차 ~2%',
+    stageClass: 'bg-zinc-50',
+  },
+  {
+    key: 'zinc-100',
+    label: '후보 A · zinc-100',
+    note: '#f4f4f5 — 명도차 ~4.5% (권장)',
+    stageClass: 'bg-zinc-100',
+  },
+  {
+    key: 'zinc-200',
+    label: '후보 B · zinc-200',
+    note: '#e4e4e7 — 명도차 ~11%',
+    stageClass: 'bg-zinc-200',
+  },
+]
+
+const mockRegions = [
+  { label: '서울', count: '2,141곳' },
+  { label: '경기', count: '5,494곳' },
+]
+
+function BgCompareStage({ stageClass }: { stageClass: string }) {
+  return (
+    <div className={`flex flex-col gap-3 p-4 pb-5 ${stageClass}`}>
+      <div className="flex cursor-pointer flex-col gap-2 rounded-2xl bg-white p-5 transition-transform active:scale-[0.99]">
+        <LotCardBody />
+        <LotMeta />
+      </div>
+      <div className="divide-y divide-zinc-100 overflow-hidden rounded-2xl bg-white">
+        <RankRows rowClass="flex cursor-pointer items-center gap-2.5 px-4 py-3.5 text-base transition-colors active:bg-zinc-50" />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        {mockRegions.map((region) => (
+          <div
+            key={region.label}
+            className="group flex cursor-pointer flex-col gap-0.5 rounded-2xl bg-white p-4 transition-colors hover:bg-zinc-50 active:bg-zinc-100"
+          >
+            <span className="flex items-center justify-between gap-1 text-base font-bold">
+              {region.label}
+              <ChevronRight className="size-3.5 shrink-0 text-muted-foreground" />
+            </span>
+            <span className="text-xs font-medium tabular-nums text-muted-foreground">
+              {region.count}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function VariantBgCompare() {
+  return (
+    <section className="rounded-2xl bg-white p-5 md:p-8" id="variant-bg">
+      <VariantHeader
+        title="배경 대비 비교. 페이지 배경색"
+        desc="카드는 전부 동일한 white·borderless·flat. 페이지 배경만 zinc-50(현재) → zinc-100 / zinc-200으로 바꿔 카드 가시성을 비교합니다. 인풋·웰·호버의 zinc-50/100은 그대로 두는 전제입니다."
+      />
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        {BG_OPTIONS.map((option) => (
+          <div key={option.key} className="overflow-hidden rounded-2xl ring-1 ring-zinc-200">
+            <div className="bg-zinc-900 px-4 py-2.5 text-xs font-bold text-white">
+              {option.label}
+              <span className="ml-1.5 font-normal text-zinc-400">{option.note}</span>
+            </div>
+            <BgCompareStage stageClass={option.stageClass} />
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
 /* ---------- 시안 A: 톤 대비형 ---------- */
 
 function VariantA() {
@@ -387,6 +467,7 @@ export function TestDesignsPage() {
             방식으로 렌더한 비교 시안입니다.
           </p>
         </div>
+        <VariantBgCompare />
         <VariantD />
         <VariantA />
         <VariantB />

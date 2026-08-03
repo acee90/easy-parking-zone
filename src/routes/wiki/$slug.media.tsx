@@ -63,7 +63,7 @@ function MediaListPage() {
   const phoneLabel = formatPhone(lot.phone)
 
   return (
-    <div className="min-h-screen bg-zinc-50">
+    <div className="min-h-screen bg-zinc-100">
       <main className="mx-auto grid max-w-6xl grid-cols-1 gap-6 px-4 py-6 md:grid-cols-[minmax(260px,0.85fr)_minmax(0,2fr)]">
         <ParkingInfoPanel
           lot={lot}
