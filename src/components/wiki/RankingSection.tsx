@@ -88,24 +88,43 @@ export function RankingSection({
 }
 
 function RankingCard({ lot }: { lot: RankingLot }) {
+  const score = lot.difficulty.score
+  const counts = lot.contentCounts
+
   return (
     <Link
       to="/wiki/$slug"
       params={{ slug: makeParkingSlug(lot.name, lot.id) }}
-      className="group flex h-full w-full flex-col gap-3 rounded-2xl bg-white p-5 transition-transform duration-200 active:scale-[0.99]"
+      className="group flex h-full w-full flex-col gap-1.5 rounded-2xl bg-white p-5 transition-transform duration-200 active:scale-[0.99]"
     >
       <div className="flex items-center gap-2">
         <div
           className={`size-3 shrink-0 rounded-full ${getDifficultyColor(lot.difficulty.score)}`}
         />
-        <h3 className="line-clamp-1 text-lg font-bold transition-colors group-hover:text-primary">
+        <h3 className="line-clamp-1 text-lg font-bold tracking-tight transition-colors group-hover:text-primary">
           {lot.name}
         </h3>
         <ArrowUpRight className="ml-auto size-4 shrink-0 text-primary opacity-0 transition-opacity group-hover:opacity-100" />
       </div>
       <p className="line-clamp-1 text-sm text-muted-foreground">{lot.address}</p>
+      {lot.curationReason && (
+        <p className="line-clamp-1 text-sm font-medium text-primary">{lot.curationReason}</p>
+      )}
 
-      <div className="mt-auto flex items-end justify-between pt-2">
+      <div className="mt-auto space-y-2.5 pt-3">
+        <div className="flex items-baseline gap-2.5">
+          <span className="flex items-center gap-1 text-base font-bold text-zinc-900">
+            <Star className="size-4 shrink-0 fill-yellow-400 text-yellow-400" />
+            <span className="tabular-nums">{score === null ? '-' : score.toFixed(1)}</span>
+          </span>
+          {counts && (
+            <span className="flex gap-2 text-xs font-medium text-muted-foreground">
+              {counts.reviews > 0 && <span className="tabular-nums">리뷰 {counts.reviews}</span>}
+              {counts.media > 0 && <span className="tabular-nums">영상 {counts.media}</span>}
+              {counts.web > 0 && <span className="tabular-nums">블로그 {counts.web}</span>}
+            </span>
+          )}
+        </div>
         <div className="flex flex-wrap gap-1.5 text-xs font-medium text-zinc-600">
           {lot.totalSpaces > 0 && (
             <span className="rounded-md bg-zinc-100 px-2 py-1">{lot.totalSpaces}면</span>
@@ -114,7 +133,6 @@ function RankingCard({ lot }: { lot: RankingLot }) {
             {lot.pricing.isFree ? '무료' : '유료'}
           </span>
         </div>
-        <LotEvidenceLarge lot={lot} />
       </div>
     </Link>
   )
@@ -174,27 +192,6 @@ function LotEvidence({ lot }: { lot: RankingLot }) {
           </>
         )}
       </span>
-    </div>
-  )
-}
-
-function LotEvidenceLarge({ lot }: { lot: RankingLot }) {
-  const score = lot.difficulty.score
-  const counts = lot.contentCounts
-  const totalSources = counts ? counts.reviews + counts.media + counts.web : 0
-
-  return (
-    <div className="flex shrink-0 items-center gap-3 text-base font-bold text-zinc-900">
-      <span className="flex items-center gap-1.5">
-        <Star className="size-4 shrink-0 fill-yellow-400 text-yellow-400" />
-        <span className="tabular-nums">{score === null ? '-' : score.toFixed(1)}</span>
-      </span>
-      {counts && totalSources > 0 && (
-        <span className="flex items-center gap-1.5">
-          <MapPinPen className="size-4 shrink-0 text-muted-foreground" />
-          <span className="tabular-nums text-muted-foreground">{totalSources}</span>
-        </span>
-      )}
     </div>
   )
 }

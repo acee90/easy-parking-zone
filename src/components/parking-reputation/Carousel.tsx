@@ -143,7 +143,7 @@ export function CarouselSlide({
   let sizeClass = 'basis-[80%] sm:basis-[300px]'
 
   if (size === 'ranking') {
-    sizeClass = 'basis-[70%] sm:basis-[240px]'
+    sizeClass = 'basis-[78%] sm:basis-[300px]'
   }
 
   return <div className={`flex min-w-0 shrink-0 grow-0 ${sizeClass}`}>{children}</div>
