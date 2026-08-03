@@ -82,37 +82,33 @@ function WikiDetailPage() {
         // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON.stringify output is safe
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
       />
-      <section className="relative border-b bg-white">
-        <div className="relative mx-auto grid max-w-6xl grid-cols-1 gap-5 px-4 py-4 md:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)] md:py-6">
-          <WikiMiniMap lat={lot.lat} lng={lot.lng} name={lot.name} />
-
-          <div className="flex flex-col justify-between gap-5">
-            <div className="space-y-4">
-              <nav
-                aria-label="breadcrumb"
-                className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground"
-              >
+      <section className="border-b bg-white">
+        <div className="mx-auto max-w-6xl px-4 py-4 md:py-6">
+          <nav
+            aria-label="breadcrumb"
+            className="mb-4 flex flex-wrap items-center gap-1 text-xs text-muted-foreground"
+          >
+            <Link to="/wiki" className="transition-colors hover:text-foreground hover:underline">
+              둘러보기
+            </Link>
+            {region && (
+              <>
+                <ChevronRight className="size-3 shrink-0" />
                 <Link
-                  to="/wiki"
+                  to="/wiki/all"
+                  search={{ region: region.prefix }}
                   className="transition-colors hover:text-foreground hover:underline"
                 >
-                  둘러보기
+                  {region.label} 주차장
                 </Link>
-                {region && (
-                  <>
-                    <ChevronRight className="size-3 shrink-0" />
-                    <Link
-                      to="/wiki/all"
-                      search={{ region: region.prefix }}
-                      className="transition-colors hover:text-foreground hover:underline"
-                    >
-                      {region.label} 주차장
-                    </Link>
-                  </>
-                )}
-                <ChevronRight className="size-3 shrink-0" />
-                <span className="font-medium text-foreground">{lot.name}</span>
-              </nav>
+              </>
+            )}
+            <ChevronRight className="size-3 shrink-0" />
+            <span className="font-medium text-foreground">{lot.name}</span>
+          </nav>
+
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
+            <div className="flex flex-col gap-5">
               <div className="space-y-2">
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge variant={lot.pricing.isFree ? 'default' : 'outline'}>
@@ -170,15 +166,10 @@ function WikiDetailPage() {
 
               <ParkingActionGroup lotId={lot.id} lat={lot.lat} lng={lot.lng} name={lot.name} />
             </div>
+
+            <WikiMiniMap lat={lot.lat} lng={lot.lng} name={lot.name} />
           </div>
         </div>
-        <Link
-          to="/wiki"
-          className="absolute left-4 top-4 rounded-lg bg-white/90 p-2 shadow-sm transition-colors hover:bg-white"
-          aria-label="지도로 돌아가기"
-        >
-          <ChevronRight className="size-5 rotate-180" />
-        </Link>
       </section>
 
       {/* 컨텐츠 */}
