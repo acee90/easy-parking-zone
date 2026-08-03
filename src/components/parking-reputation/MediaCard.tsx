@@ -8,7 +8,7 @@ export function MediaCard({ media, lotId }: { media: ParkingMedia; lotId: string
   const description = media.description ? decodeHtmlEntities(media.description) : ''
 
   return (
-    <div className="group relative flex h-full w-full flex-col overflow-hidden rounded-2xl bg-white transition-colors hover:bg-zinc-100/70">
+    <div className="group relative flex h-full w-full flex-col overflow-hidden rounded-2xl bg-white">
       <a
         href={media.url}
         target="_blank"
@@ -35,7 +35,7 @@ export function MediaCard({ media, lotId }: { media: ParkingMedia; lotId: string
           </div>
         </div>
         <div className="flex min-w-0 flex-1 flex-col p-4">
-          <p className="mb-2 line-clamp-2 text-base font-bold leading-snug text-zinc-900">
+          <p className="mb-2 line-clamp-2 text-base font-bold leading-snug text-zinc-900 transition-colors group-hover:text-primary">
             {title}
           </p>
           {description && (

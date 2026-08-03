@@ -92,13 +92,16 @@ function RankingCard({ lot }: { lot: RankingLot }) {
     <Link
       to="/wiki/$slug"
       params={{ slug: makeParkingSlug(lot.name, lot.id) }}
-      className="flex h-full w-full flex-col gap-3 rounded-2xl bg-white p-5 transition-[background-color,transform] duration-200 hover:bg-zinc-100/70 active:scale-[0.99]"
+      className="group flex h-full w-full flex-col gap-3 rounded-2xl bg-white p-5 transition-transform duration-200 active:scale-[0.99]"
     >
       <div className="flex items-center gap-2">
         <div
           className={`size-3 shrink-0 rounded-full ${getDifficultyColor(lot.difficulty.score)}`}
         />
-        <h3 className="line-clamp-1 text-lg font-bold">{lot.name}</h3>
+        <h3 className="line-clamp-1 text-lg font-bold transition-colors group-hover:text-primary">
+          {lot.name}
+        </h3>
+        <ChevronRight className="ml-auto size-4 shrink-0 text-primary opacity-0 transition-opacity group-hover:opacity-100" />
       </div>
       <p className="line-clamp-1 text-sm text-muted-foreground">{lot.address}</p>
 
