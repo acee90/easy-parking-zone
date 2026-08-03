@@ -157,8 +157,8 @@ function WikiDetailPage() {
                   </div>
                 </div>
 
-                <div className="rounded-xl bg-zinc-50 p-4">
-                  <div className="flex justify-evenly text-center">
+                <div className="rounded-xl bg-zinc-50 p-4 flex items-center">
+                  <div className="flex w-full justify-around text-center">
                     <div>
                       <div className="text-xs font-medium text-muted-foreground">리뷰</div>
                       <div className="mt-2 text-3xl font-black leading-none tabular-nums">
