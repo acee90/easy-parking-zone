@@ -114,7 +114,7 @@ function AllLotsPage() {
   const canonicalUrl = buildAllLotsCanonical(region, page)
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen bg-zinc-50 py-8">
       <link rel="canonical" href={canonicalUrl} />
       <div className="mx-auto max-w-4xl px-4">
         <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -131,13 +131,13 @@ function AllLotsPage() {
           </Link>
         </div>
 
-        <div className="divide-y rounded-xl border bg-white overflow-hidden shadow-sm">
+        <div className="divide-y divide-zinc-100 rounded-2xl bg-white overflow-hidden">
           {lots.map((lot) => (
             <Link
               key={lot.id}
               to="/wiki/$slug"
               params={{ slug: makeParkingSlug(lot.name, lot.id) }}
-              className="flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
+              className="flex items-center justify-between p-4 transition-colors hover:bg-zinc-50 active:bg-zinc-100"
             >
               <div className="min-w-0 flex-1">
                 <div className="font-bold text-zinc-900 truncate">{lot.name}</div>
@@ -158,14 +158,14 @@ function AllLotsPage() {
               to="/wiki/all"
               search={(prev) => ({ ...prev, page: page - 1 })}
               aria-label="이전 페이지"
-              className="flex size-10 items-center justify-center rounded-lg border bg-white shadow-sm transition-colors hover:bg-gray-50"
+              className="flex size-10 items-center justify-center rounded-lg bg-white transition-colors hover:bg-zinc-100 active:bg-zinc-200"
             >
               <ChevronLeft className="size-4" />
             </Link>
           ) : (
             <span
               aria-hidden="true"
-              className="flex size-10 cursor-not-allowed items-center justify-center rounded-lg border bg-white opacity-50 shadow-sm"
+              className="flex size-10 cursor-not-allowed items-center justify-center rounded-lg bg-white opacity-50"
             >
               <ChevronLeft className="size-4" />
             </span>
@@ -178,14 +178,14 @@ function AllLotsPage() {
               to="/wiki/all"
               search={(prev) => ({ ...prev, page: page + 1 })}
               aria-label="다음 페이지"
-              className="flex size-10 items-center justify-center rounded-lg border bg-white shadow-sm transition-colors hover:bg-gray-50"
+              className="flex size-10 items-center justify-center rounded-lg bg-white transition-colors hover:bg-zinc-100 active:bg-zinc-200"
             >
               <ChevronRight className="size-4" />
             </Link>
           ) : (
             <span
               aria-hidden="true"
-              className="flex size-10 cursor-not-allowed items-center justify-center rounded-lg border bg-white opacity-50 shadow-sm"
+              className="flex size-10 cursor-not-allowed items-center justify-center rounded-lg bg-white opacity-50"
             >
               <ChevronRight className="size-4" />
             </span>

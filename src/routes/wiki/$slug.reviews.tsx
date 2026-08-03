@@ -49,14 +49,14 @@ function ReviewsListPage() {
   const avgScore = lot.difficulty.score
 
   return (
-    <div className="min-h-screen bg-zinc-50/50">
+    <div className="min-h-screen bg-zinc-50">
       <header className="sticky top-0 z-10 border-b bg-white/95 backdrop-blur">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
             <Link
               to="/wiki/$slug"
               params={{ slug }}
-              className="flex size-9 items-center justify-center rounded-full border bg-white text-zinc-600 transition-colors hover:bg-zinc-50 hover:text-zinc-900"
+              className="flex size-9 items-center justify-center rounded-full bg-white text-zinc-600 transition-colors hover:bg-zinc-100 active:bg-zinc-200 hover:text-zinc-900"
               aria-label="주차장 상세로 돌아가기"
             >
               <ChevronLeft className="size-5" />
@@ -71,9 +71,9 @@ function ReviewsListPage() {
 
       <main className="mx-auto max-w-5xl px-4 py-8">
         {/* 요약 섹션 */}
-        <section className="mb-10 rounded-3xl border bg-white p-8 shadow-sm">
+        <section className="mb-10 rounded-2xl bg-white p-8">
           <div className="flex flex-col items-center gap-6 text-center md:flex-row md:text-left">
-            <div className="flex flex-col items-center gap-2 md:items-start md:border-r md:pr-10">
+            <div className="flex flex-col items-center gap-2 md:items-start md:border-r md:border-zinc-100 md:pr-10">
               <span className="text-sm font-bold text-zinc-500">쉬움 평균 점수</span>
               <div className="flex items-baseline gap-2">
                 <span className="text-6xl font-black text-zinc-900">
@@ -119,7 +119,7 @@ function ReviewsListPage() {
             <Link
               to="/wiki/$slug"
               params={{ slug }}
-              className="mt-6 rounded-xl bg-primary px-6 py-3 text-sm font-bold text-white shadow-lg shadow-primary/30 transition-transform hover:scale-105 active:scale-95"
+              className="mt-6 rounded-xl bg-primary px-6 py-3 text-sm font-bold text-primary-foreground transition-colors hover:bg-primary/90 active:bg-primary/80"
             >
               리뷰 작성하러 가기
             </Link>

@@ -63,7 +63,7 @@ function MediaListPage() {
   const phoneLabel = formatPhone(lot.phone)
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-zinc-50">
       <main className="mx-auto grid max-w-6xl grid-cols-1 gap-6 px-4 py-6 md:grid-cols-[minmax(260px,0.85fr)_minmax(0,2fr)]">
         <ParkingInfoPanel
           lot={lot}
@@ -86,13 +86,13 @@ function MediaListPage() {
           </div>
 
           {media.length > 0 ? (
-            <div className="divide-y rounded-xl border bg-white">
+            <div className="divide-y divide-zinc-100 rounded-2xl bg-white">
               {media.map((item) => (
                 <MediaListItem key={item.id} media={item} lotId={lot.id} />
               ))}
             </div>
           ) : (
-            <div className="flex min-h-72 flex-col items-center justify-center rounded-xl border bg-white px-6 text-center">
+            <div className="flex min-h-72 flex-col items-center justify-center rounded-2xl bg-white px-6 text-center">
               <div className="mb-4 flex size-14 items-center justify-center rounded-full bg-zinc-100">
                 <Play className="size-7 text-zinc-300" />
               </div>
@@ -127,7 +127,7 @@ function ParkingInfoPanel({
 }: InfoPanelProps) {
   return (
     <aside className="space-y-4 md:sticky md:top-6 md:self-start">
-      <section className="rounded-xl border bg-white p-5">
+      <section className="rounded-2xl bg-white p-5">
         <Link
           to="/wiki/$slug"
           params={{ slug }}
@@ -152,7 +152,7 @@ function ParkingInfoPanel({
         </div>
       </section>
 
-      <section className="rounded-xl border bg-white p-5">
+      <section className="rounded-2xl bg-white p-5">
         <h2 className="mb-4 text-base font-bold text-zinc-900">주차장 기본정보</h2>
         <div className="space-y-3 text-sm">
           <InfoRow icon={<Clock className="size-4" />}>
@@ -180,7 +180,7 @@ function ParkingInfoPanel({
           {phoneLabel && (
             <a
               href={`tel:${phoneLabel}`}
-              className="inline-flex h-9 w-full min-w-0 items-center justify-center gap-2 rounded-full bg-gray-100 px-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200"
+              className="inline-flex h-9 w-full min-w-0 items-center justify-center gap-2 rounded-full bg-zinc-100 px-3 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-200 active:bg-zinc-300"
             >
               <Phone className="size-4 shrink-0" />
               <span className="min-w-0 truncate">{phoneLabel}</span>
@@ -245,7 +245,7 @@ function MiniReviewForm({ lotId }: { lotId: string }) {
   }
 
   return (
-    <section className="rounded-xl border border-yellow-100 bg-yellow-50/50 p-4">
+    <section className="rounded-2xl bg-white p-4">
       <div className="flex flex-col items-center gap-2 text-center">
         <p className="flex items-center gap-1.5 text-sm font-semibold text-zinc-900">
           <Star className="size-4 text-yellow-500" />
@@ -255,7 +255,7 @@ function MiniReviewForm({ lotId }: { lotId: string }) {
       </div>
 
       {hasScore && (
-        <div className="mt-4 space-y-3 border-t border-yellow-100 pt-4">
+        <div className="mt-4 space-y-3 border-t border-zinc-100 pt-4">
           {!session && (
             <input
               type="text"
@@ -263,7 +263,7 @@ function MiniReviewForm({ lotId }: { lotId: string }) {
               onChange={(e) => setGuestNickname(e.target.value)}
               placeholder="닉네임 (선택)"
               maxLength={20}
-              className="h-9 w-full rounded-md border bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-300"
+              className="h-9 w-full rounded-lg bg-zinc-50 px-3 text-sm transition-shadow focus:outline-none focus:ring-2 focus:ring-ring/60"
             />
           )}
 
@@ -273,7 +273,7 @@ function MiniReviewForm({ lotId }: { lotId: string }) {
             maxLength={200}
             rows={3}
             placeholder="진입로, 주차면, 통로 여유를 짧게 남겨주세요"
-            className="w-full resize-none rounded-md border bg-white px-3 py-2 text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-yellow-300"
+            className="w-full resize-none rounded-lg bg-zinc-50 px-3 py-2 text-sm leading-relaxed transition-shadow focus:outline-none focus:ring-2 focus:ring-ring/60"
           />
 
           {error && <p className="text-xs text-red-500">{error}</p>}
@@ -283,7 +283,7 @@ function MiniReviewForm({ lotId }: { lotId: string }) {
             type="button"
             onClick={handleSubmit}
             disabled={submitting}
-            className="h-9 w-full cursor-pointer rounded-md bg-yellow-500 text-sm font-semibold text-white transition-colors hover:bg-yellow-600 disabled:cursor-not-allowed disabled:opacity-50"
+            className="h-9 w-full cursor-pointer rounded-lg bg-primary text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 active:bg-primary/80 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {submitting ? '등록 중...' : '평가 등록'}
           </button>
