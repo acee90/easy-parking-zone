@@ -64,7 +64,7 @@ export function ReviewForm({
   const hasScore = overallScore >= 0.5
 
   return (
-    <div className="rounded-xl border-2 border-yellow-100 bg-gradient-to-br from-yellow-50 to-white p-5">
+    <div className="rounded-2xl bg-white p-5">
       <div className="mb-4 text-center">
         <p className="text-base font-semibold text-zinc-900">주차하기 쉬웠나요?</p>
         <p className="mt-1 text-xs text-muted-foreground">
@@ -77,7 +77,7 @@ export function ReviewForm({
       </div>
 
       {hasScore && (
-        <div className="space-y-3 border-t border-yellow-100 pt-4">
+        <div className="space-y-3 border-t border-zinc-100 pt-4">
           {!session && (
             <input
               type="text"
@@ -85,7 +85,7 @@ export function ReviewForm({
               onChange={(e) => setGuestNickname(e.target.value)}
               placeholder="닉네임 (선택)"
               maxLength={20}
-              className="w-full rounded-md border bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-300"
+              className="w-full rounded-lg bg-zinc-50 px-3 py-2 text-sm transition-shadow focus:outline-none focus:ring-2 focus:ring-ring/60"
             />
           )}
 
@@ -95,7 +95,7 @@ export function ReviewForm({
             maxLength={200}
             rows={3}
             placeholder="진입로, 주차면 크기, 통로 여유, 출차 난이도 등 경험을 적어주세요 (선택)"
-            className="w-full resize-none rounded-md border bg-white px-3 py-2 text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-yellow-300"
+            className="w-full resize-none rounded-lg bg-zinc-50 px-3 py-2 text-sm leading-relaxed transition-shadow focus:outline-none focus:ring-2 focus:ring-ring/60"
           />
 
           {error && <p className="text-xs text-red-500">{error}</p>}
@@ -104,7 +104,7 @@ export function ReviewForm({
             type="button"
             onClick={handleSubmit}
             disabled={submitting}
-            className="w-full cursor-pointer rounded-md bg-yellow-500 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-yellow-600 disabled:cursor-not-allowed disabled:opacity-50"
+            className="w-full cursor-pointer rounded-lg bg-primary py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 active:bg-primary/80 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {submitting ? '등록 중...' : '평가 등록'}
           </button>

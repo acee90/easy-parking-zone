@@ -53,33 +53,26 @@ export function ParkingReputationSections({
 
   if (expanded) {
     return (
-      <div>
+      <div className="space-y-10 pt-2">
         <ReviewSection
           lotId={lotId}
           count={counts.reviews}
           initialReviews={initialReviews}
           onRefreshCount={refreshCounts}
-          className="border-t-2 border-zinc-300 pt-7 pb-8"
           viewAllSlug={viewAllSlug}
           refreshKey={reviewRefreshKey}
         />
-        <WriteReviewSection
-          lotId={lotId}
-          onSubmitted={handleReviewSubmitted}
-          className="border-t-2 border-zinc-300 pt-7 pb-8"
-        />
+        <WriteReviewSection lotId={lotId} onSubmitted={handleReviewSubmitted} />
         <MediaSection
           lotId={lotId}
           count={counts.media}
           initialMedia={initialMedia}
-          className="border-t-2 border-zinc-300 pt-7 pb-8"
           viewAllSlug={viewAllSlug}
         />
         <RelatedWebsitesSection
           lotId={lotId}
           count={counts.blog}
           initialBlogPosts={initialBlogPosts}
-          className="border-t-2 border-zinc-300 pt-7"
           viewAllSlug={viewAllSlug}
         />
       </div>

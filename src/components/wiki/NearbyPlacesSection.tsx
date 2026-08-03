@@ -15,7 +15,7 @@ export function NearbyPlacesSection({ places }: { places: NearbyPlaceInfo[] }) {
   if (places.length === 0) return null
 
   return (
-    <section className="bg-white rounded-xl border p-5 space-y-4">
+    <section className="bg-white rounded-2xl p-5 space-y-4">
       <div className="space-y-1">
         <div className="flex items-center gap-2">
           <h2 className="text-xl font-bold">여기 주차하고 가볼 곳</h2>
@@ -33,7 +33,7 @@ export function NearbyPlacesSection({ places }: { places: NearbyPlaceInfo[] }) {
           return (
             <div
               key={place.id}
-              className="flex items-start gap-3 rounded-lg border p-3 hover:bg-gray-50 transition-colors overflow-hidden"
+              className="flex items-start gap-3 rounded-xl bg-zinc-50 p-3 overflow-hidden"
             >
               {place.thumbnailUrl ? (
                 <img
@@ -43,7 +43,7 @@ export function NearbyPlacesSection({ places }: { places: NearbyPlaceInfo[] }) {
                   loading="lazy"
                 />
               ) : (
-                <span className="size-14 rounded-lg bg-gray-100 flex items-center justify-center text-xl shrink-0">
+                <span className="size-14 rounded-lg bg-white flex items-center justify-center text-xl shrink-0">
                   {meta.icon}
                 </span>
               )}

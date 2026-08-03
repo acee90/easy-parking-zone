@@ -10,14 +10,14 @@ export function RelatedParkingLotsSection({ lot, lots }: { lot: ParkingLot; lots
   if (lots.length === 0) return null
 
   return (
-    <section className="rounded-xl border bg-white p-5">
+    <section className="rounded-2xl bg-white p-5">
       <div className="mb-3 flex items-center justify-between gap-2">
         <h2 className="text-xl font-bold">주변 주차장</h2>
         <Badge variant="secondary" className="text-xs">
           {lots.length}곳
         </Badge>
       </div>
-      <div className="divide-y">
+      <div className="divide-y divide-zinc-100">
         {lots.map((related) => {
           const distance = getDistance(lot.lat, lot.lng, related.lat, related.lng)
           return (
@@ -38,7 +38,7 @@ export function RelatedParkingLotsSection({ lot, lots }: { lot: ParkingLot; lots
                   {formatDistanceLabel(distance)}
                 </span>
                 {related.totalSpaces > 0 && (
-                  <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">
+                  <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-600">
                     {related.totalSpaces}면
                   </span>
                 )}
