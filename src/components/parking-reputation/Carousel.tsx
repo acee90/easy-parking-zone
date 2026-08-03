@@ -80,7 +80,7 @@ export function CarouselArrows() {
   if (!canScrollPrev && !canScrollNext) return null
 
   const buttonClass =
-    'flex size-8 items-center justify-center rounded-full bg-white text-zinc-600 transition-[background-color,opacity] disabled:cursor-default disabled:opacity-30 hover:enabled:bg-zinc-100 active:enabled:bg-zinc-200 cursor-pointer'
+    'flex size-8 items-center justify-center rounded-full bg-zinc-100 text-zinc-700 transition-colors disabled:cursor-default disabled:bg-transparent disabled:text-zinc-300 hover:enabled:bg-zinc-200 active:enabled:bg-zinc-300 cursor-pointer'
 
   return (
     <div className="hidden shrink-0 items-center gap-1 sm:flex">
