@@ -89,7 +89,7 @@ export function ParkingDetailPanel({ lot }: ParkingDetailPanelProps) {
                   </Badge>
                 )}
               </div>
-              <h2 className="text-2xl font-bold leading-tight tracking-normal">{lot.name}</h2>
+              <h2 className="text-2xl font-bold leading-tight tracking-tight">{lot.name}</h2>
               <div className="flex items-start gap-2 text-sm text-muted-foreground">
                 <MapPin className="mt-0.5 size-4 shrink-0" />
                 <span>{lot.address}</span>

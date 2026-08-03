@@ -76,7 +76,7 @@ function MediaListPage() {
 
         <section className="min-w-0">
           <div className="mb-5">
-            <h1 className="flex items-baseline gap-2 text-3xl font-bold leading-tight tracking-normal text-zinc-900">
+            <h1 className="flex items-baseline gap-2 text-3xl font-bold leading-tight tracking-tight text-zinc-900">
               관련 영상
               <span className="text-base font-semibold text-muted-foreground">
                 {media.length}건
@@ -142,7 +142,7 @@ function ParkingInfoPanel({
           </Badge>
           <Badge variant="outline">{lot.type}</Badge>
         </div>
-        <h2 className="text-lg font-bold leading-snug tracking-normal text-zinc-900">{lot.name}</h2>
+        <h2 className="text-lg font-bold leading-snug tracking-tight text-zinc-900">{lot.name}</h2>
         <div className="mt-3 grid grid-cols-[20px_minmax(0,1fr)] gap-2 text-sm text-muted-foreground">
           <MapPin className="mt-0.5 size-4 justify-self-center" />
           <span className="min-w-0">{lot.address}</span>

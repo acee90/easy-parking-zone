@@ -132,7 +132,7 @@ function WikiDetailPage() {
                     </Badge>
                   )}
                 </div>
-                <h1 className="text-3xl font-bold leading-tight tracking-normal md:text-4xl">
+                <h1 className="text-3xl font-bold leading-tight tracking-tight md:text-4xl">
                   {lot.name}
                 </h1>
                 <div className="flex items-start gap-2 text-sm text-muted-foreground">

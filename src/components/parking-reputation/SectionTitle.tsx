@@ -21,7 +21,7 @@ const TAB_TO_PATH = {
 export function SectionTitle({ title, count, viewAll, actions }: SectionTitleProps) {
   return (
     <div className="mb-4 flex items-center justify-between gap-2">
-      <h2 className="flex items-baseline gap-2 text-xl font-bold tracking-normal text-zinc-950">
+      <h2 className="flex items-baseline gap-2 text-xl font-bold tracking-tight text-zinc-950">
         {title}
         {count > 0 && <span className="text-sm font-normal text-muted-foreground">({count})</span>}
       </h2>

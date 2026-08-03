@@ -264,7 +264,7 @@ export function ParkingCard({ lot, onClose, userLat, userLng, userLocated }: Par
                   </Badge>
                 )}
               </div>
-              <h2 className="text-xl font-bold leading-tight tracking-normal flex items-center gap-2">
+              <h2 className="text-xl font-bold leading-tight tracking-tight flex items-center gap-2">
                 <span
                   className={`size-2.5 rounded-full shrink-0 ${getDifficultyColor(score)}`}
                   aria-hidden="true"

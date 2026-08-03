@@ -241,7 +241,7 @@ function WikiHomePage() {
         <section className="space-y-4">
           <div className="flex items-end justify-between gap-4">
             <div className="space-y-2">
-              <h1 className="text-3xl font-bold leading-tight tracking-normal md:text-4xl">
+              <h1 className="text-3xl font-bold leading-tight tracking-tight md:text-4xl">
                 전국 주차장 둘러보기
               </h1>
               <p className="max-w-3xl text-base leading-relaxed text-muted-foreground">
