@@ -19,10 +19,13 @@
 - 보류: BlogPostCard 출처별 뱃지(카테고리 색, 3단계에서), MapView 인라인 hex(6단계), event 페이지·admin·test-designs
 - 중립 스케일 zinc 통일 방침: 신규 코드부터, 기존 gray는 만나는 김에 교체
 
-### 3. 카드/뱃지 표면 통일
-- radius 2단계(컨테이너 rounded-xl / 내부 rounded-lg), shadow 2단계(없음 / shadow-xs)로 축소
-- 수제 카드 5종 → `Card` 또는 공용 클래스 경유, 수제 pill → `Badge` variant 경유
-- 둘러보기/상세 페이지의 섹션별 표면 위계 부여 (audit의 페이지 진단 참조)
+### 3. 카드/뱃지 표면 통일 ✅ (2026-08-03) — 시안 D(A+C 하이브리드) 채택
+- **표면 규칙**: 페이지 바닥 `bg-zinc-50` / 탭 가능한 카드·콘텐츠 시트 = `rounded-2xl bg-white` (border·shadow 없음) / 회색 필(`bg-zinc-50~100`)은 인풋·정보 웰·pressed 전용 / 내부 칩 `rounded-md bg-zinc-100`
+- **인터랙션**: hover는 그림자 금지(flat) → `hover:bg-zinc-100/70` 틴트, active는 `scale-[0.99]` 또는 짙은 틴트 (사용자 피드백 반영)
+- 적용: 둘러보기(/wiki), 상세($slug.index — 문서 콘텐츠는 흰 시트 1장+내부 디바이더, FAQ 카드 나열 제거), reviews/media/blog 탭, all 목록
+- 리뷰 폼·제보 폼 노란 테마 제거 → 중립 시트 + zinc-50 인풋 + primary 버튼. 별점 노랑은 유지
+- 시안 비교는 dev 전용 /test-designs 페이지에 보존
+- 보류: event 페이지, BlogPostCard 출처 뱃지 색상 정리
 
 ### 4. 인터랙션 상태 일괄 추가
 - 모든 탭 가능 요소에 `active:`(scale/bg), 커스텀 버튼에 `focus-visible:` 링

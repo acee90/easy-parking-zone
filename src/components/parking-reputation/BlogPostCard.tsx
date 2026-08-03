@@ -17,7 +17,7 @@ export function BlogPostCard({ post, lotId }: { post: BlogPost; lotId: string })
   }
 
   return (
-    <div className="group relative rounded-2xl bg-white p-5 transition-shadow hover:shadow-md hover:shadow-zinc-900/5">
+    <div className="group relative rounded-2xl bg-white p-5 transition-colors hover:bg-zinc-100/70">
       <a href={post.sourceUrl} target="_blank" rel="nofollow noopener noreferrer" className="block">
         <div className="mb-3 flex items-start justify-between gap-4">
           <div className="flex-1">
