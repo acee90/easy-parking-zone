@@ -17,15 +17,12 @@
  *      해당 페이지는 wiki/$slug.tsx에서 noindex 메타로 색인 차단.
  */
 
+import { PARKING_REGIONS } from '@/lib/parking-regions'
+
 const URLS_PER_SITEMAP = 5000
 const BASE = 'https://easy-parking.xyz'
 // 정적 페이지(/, /wiki)의 lastmod 기준일. 콘텐츠 구조가 바뀔 때 수동으로 갱신.
-const STATIC_LASTMOD = '2026-05-27'
-
-// /wiki/all 지역 허브 sitemap용 prefix.
-// ⚠️ src/routes/wiki/index.tsx·src/components/Footer.tsx의 REGIONS prefix와 반드시 일치.
-//    값이 어긋나면 sitemap이 존재하지 않는 필터 URL을 가리키게 된다.
-const REGION_PREFIXES = ['서울', '경기', '부산', '인천', '대구', '대전', '광주', '울산', '제주']
+const STATIC_LASTMOD = '2026-08-03'
 
 function toSlug(name: string): string {
   return name
@@ -182,10 +179,10 @@ function staticUrlEntries(now: string): string {
     <priority>0.8</priority>
   </url>`
 
-  // 지역 허브: /wiki/all?region=<prefix>. 인코딩은 all.tsx의 canonical(URLSearchParams)과 일치.
-  const regionEntries = REGION_PREFIXES.map(
-    (prefix) => `  <url>
-    <loc>${BASE}/wiki/all?region=${encodeURIComponent(prefix)}</loc>
+  // 지역 허브: /wiki/region/<label>. 인코딩은 region.$region.tsx의 canonical과 일치.
+  const regionEntries = PARKING_REGIONS.map(
+    (region) => `  <url>
+    <loc>${BASE}/wiki/region/${encodeURIComponent(region.label)}</loc>
     <lastmod>${now}</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>

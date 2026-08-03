@@ -62,7 +62,7 @@ function WikiDetailPage() {
   const breadcrumbJsonLd = buildBreadcrumbJsonLd(lot, region)
 
   return (
-    <div className="min-h-screen bg-zinc-50">
+    <div className="min-h-screen bg-zinc-100">
       <link rel="canonical" href={canonicalUrl} />
       <script
         type="application/ld+json"
@@ -94,8 +94,8 @@ function WikiDetailPage() {
               <>
                 <ChevronRight className="size-3 shrink-0" />
                 <Link
-                  to="/wiki/all"
-                  search={{ region: region.prefix }}
+                  to="/wiki/region/$region"
+                  params={{ region: region.label }}
                   className="transition-colors hover:text-foreground hover:underline"
                 >
                   {region.label} 주차장

@@ -1,27 +1,18 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
 import { sql } from 'drizzle-orm'
-import {
-  ChevronRight,
-  Clock,
-  CreditCard,
-  MapPin,
-  MapPinPen,
-  ParkingSquare,
-  Star,
-} from 'lucide-react'
-import { type ReactNode, useState } from 'react'
+import { ChevronRight, Clock, CreditCard, ParkingSquare, Star } from 'lucide-react'
+import type { ReactNode } from 'react'
 import { RankingSection } from '@/components/wiki/RankingSection'
 import { getDb } from '@/db'
-import { makeParkingSlug } from '@/lib/slug'
+import { PARKING_REGIONS } from '@/lib/parking-regions'
 import { fetchSiteStats } from '@/server/parking'
 import { type ParkingLotRow, rowToParkingLot } from '@/server/transforms'
 import type { ParkingLot } from '@/types/parking'
 
-interface RegionGroup {
+interface RegionCount {
   label: string
-  prefix: string
-  lots: WikiParkingLot[]
+  count: number
 }
 
 type WikiParkingLot = ParkingLot & {
@@ -31,18 +22,6 @@ type WikiParkingLot = ParkingLot & {
     web: number
   }
 }
-
-const REGIONS = [
-  { label: '서울', prefix: '서울' },
-  { label: '경기', prefix: '경기' },
-  { label: '부산', prefix: '부산' },
-  { label: '인천', prefix: '인천' },
-  { label: '대구', prefix: '대구' },
-  { label: '대전', prefix: '대전' },
-  { label: '광주', prefix: '광주' },
-  { label: '울산', prefix: '울산' },
-  { label: '제주', prefix: '제주' },
-]
 
 const LOT_SELECT = `SELECT p.*,
   s.final_score as avg_score,
@@ -149,29 +128,22 @@ const fetchWikiHome = createServerFn({ method: 'GET' }).handler(async () => {
     ),
   )
 
-  const regions = await Promise.all(
-    REGIONS.map(async (region): Promise<RegionGroup> => {
-      const rows = await db.all(
-        sql.raw(
-          `${LOT_SELECT}
-          FROM parking_lots p
-          LEFT JOIN parking_lot_stats s ON s.parking_lot_id = p.id
-          WHERE p.address LIKE '${region.prefix}%'
-            AND (
-              p.curation_reason IS NOT NULL
-              OR p.total_spaces >= 100
-              OR EXISTS (SELECT 1 FROM web_sources ws WHERE ws.parking_lot_id = p.id)
-            )
-          ORDER BY
-            CASE WHEN p.curation_reason IS NOT NULL THEN 1 ELSE 0 END DESC,
-            COALESCE(s.final_score, 0) DESC,
-            p.total_spaces DESC
-          LIMIT 8`,
-        ),
-      )
-      return { ...region, lots: toLots(rows) }
-    }),
-  )
+  // 지역별 주차장 수 — prefixes는 PARKING_REGIONS 상수라 sql.raw 안전.
+  const regionCaseSql = PARKING_REGIONS.flatMap((region) =>
+    region.prefixes.map((prefix) => `WHEN p.address LIKE '${prefix}%' THEN '${region.label}'`),
+  ).join(' ')
+  const regionCountRows = (await db.all(
+    sql.raw(
+      `SELECT CASE ${regionCaseSql} END AS label, COUNT(*) AS cnt
+      FROM parking_lots p
+      GROUP BY label`,
+    ),
+  )) as Array<{ label: string | null; cnt: number }>
+  const countByLabel = new Map(regionCountRows.map((row) => [row.label, Number(row.cnt)]))
+  const regions: RegionCount[] = PARKING_REGIONS.map((region) => ({
+    label: region.label,
+    count: countByLabel.get(region.label) ?? 0,
+  })).filter((region) => region.count > 0)
 
   const siteStats = await fetchSiteStats()
 
@@ -232,11 +204,8 @@ function WikiHomePage() {
   const { spacious, easy, free, popular, recentlyReviewed, regions, siteStats } =
     Route.useLoaderData()
 
-  const validRegions = regions.filter((region) => region.lots.length > 0)
-  const [activeRegionPrefix, setActiveRegionPrefix] = useState(validRegions[0]?.prefix || '')
-
   return (
-    <div className="min-h-screen bg-zinc-50">
+    <div className="min-h-screen bg-zinc-100">
       <div className="max-w-6xl mx-auto px-4 py-6 space-y-6">
         <section className="space-y-2">
           <div className="flex items-center justify-between gap-4">
@@ -295,43 +264,28 @@ function WikiHomePage() {
 
         <section>
           <div className="mb-4 px-1 space-y-1">
-            <h2 className="text-xl font-bold">지역별 대표 주차장</h2>
+            <h2 className="text-xl font-bold">지역별 주차장</h2>
             <p className="text-sm leading-relaxed text-muted-foreground">
-              지역별 목록은 주차면 수, 난이도, 큐레이션 사유, 웹 언급량이 있는 주차장을 우선합니다.
+              시·도를 선택하면 구·시·군별 분류와 지역 대표 주차장을 볼 수 있습니다.
             </p>
           </div>
 
-          <div className="mb-6 px-1 flex flex-wrap gap-2">
-            {validRegions.map((region) => (
-              <button
-                key={region.prefix}
-                type="button"
-                onClick={() => setActiveRegionPrefix(region.prefix)}
-                className={`px-4 py-2 rounded-full text-sm font-semibold transition-[background-color,transform] cursor-pointer active:scale-[0.97] ${
-                  activeRegionPrefix === region.prefix
-                    ? 'bg-zinc-900 text-white'
-                    : 'bg-white text-zinc-600 hover:bg-zinc-100'
-                }`}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+            {regions.map((region) => (
+              <Link
+                key={region.label}
+                to="/wiki/region/$region"
+                params={{ region: region.label }}
+                className="group flex flex-col gap-0.5 rounded-2xl bg-white p-4 transition-colors hover:bg-zinc-50 active:bg-zinc-100"
               >
-                {region.label}
-              </button>
-            ))}
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {validRegions.map((region) => (
-              <div
-                key={region.prefix}
-                className={
-                  activeRegionPrefix === region.prefix
-                    ? 'col-span-1 md:col-span-2 lg:col-span-3'
-                    : 'hidden'
-                }
-              >
-                <div className="md:w-1/2 lg:w-1/3">
-                  <RegionList region={region} />
-                </div>
-              </div>
+                <span className="flex items-center justify-between gap-1 text-base font-bold">
+                  {region.label}
+                  <ChevronRight className="size-3.5 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground" />
+                </span>
+                <span className="text-xs font-medium tabular-nums text-muted-foreground">
+                  {region.count.toLocaleString()}곳
+                </span>
+              </Link>
             ))}
           </div>
         </section>
@@ -365,40 +319,6 @@ function WikiHomePage() {
           본 서비스의 일부 주차장 기본 정보는 공공데이터포털(data.go.kr)의
           전국주차장정보표준데이터를 활용하였습니다.
         </div>
-      </div>
-    </div>
-  )
-}
-
-function RegionList({ region }: { region: RegionGroup }) {
-  return (
-    <div>
-      <div className="mb-3 px-1 flex items-center justify-between gap-1.5 text-sm font-bold">
-        <div className="flex items-center gap-1.5">
-          <MapPin className="size-4 text-muted-foreground" />
-          {region.label}
-        </div>
-        <Link
-          to="/wiki/all"
-          search={{ region: region.prefix }}
-          className="text-xs font-medium text-primary hover:underline"
-        >
-          더 보기
-        </Link>
-      </div>
-      <div className="divide-y divide-zinc-100 rounded-2xl bg-white overflow-hidden">
-        {region.lots.map((lot) => (
-          <Link
-            key={lot.id}
-            to="/wiki/$slug"
-            params={{ slug: makeParkingSlug(lot.name, lot.id) }}
-            className="flex items-center gap-2 px-4 py-3.5 text-base transition-colors hover:bg-zinc-50 active:bg-zinc-100"
-          >
-            <span className="min-w-0 flex-1 truncate font-medium">{lot.name}</span>
-            <LotEvidence lot={lot} />
-            <ChevronRight className="size-3.5 shrink-0 text-muted-foreground" />
-          </Link>
-        ))}
       </div>
     </div>
   )
@@ -455,28 +375,6 @@ function CriteriaItem({
         {title}
       </div>
       <p className="text-sm leading-relaxed text-muted-foreground">{children}</p>
-    </div>
-  )
-}
-
-function LotEvidence({ lot }: { lot: WikiParkingLot }) {
-  const score = lot.difficulty.score
-  const totalSources = lot.contentCounts.reviews + lot.contentCounts.media + lot.contentCounts.web
-
-  return (
-    <div className="flex w-[6.5rem] shrink-0 items-center justify-end gap-3 text-sm font-semibold text-muted-foreground">
-      <span className="flex w-12 items-center gap-1.5">
-        <Star className="size-3.5 fill-yellow-400 text-yellow-400 shrink-0" />
-        <span className="tabular-nums">{score === null ? '-' : score.toFixed(1)}</span>
-      </span>
-      <span className="flex w-10 items-center gap-1.5 font-medium">
-        {totalSources > 0 && (
-          <>
-            <MapPinPen className="size-3.5 shrink-0" />
-            <span className="tabular-nums">{totalSources}</span>
-          </>
-        )}
-      </span>
     </div>
   )
 }

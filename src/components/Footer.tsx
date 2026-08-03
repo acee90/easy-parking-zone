@@ -1,16 +1,5 @@
 import { Link } from '@tanstack/react-router'
-
-const REGIONS = [
-  { label: '서울', prefix: '서울' },
-  { label: '경기', prefix: '경기' },
-  { label: '부산', prefix: '부산' },
-  { label: '인천', prefix: '인천' },
-  { label: '대구', prefix: '대구' },
-  { label: '대전', prefix: '대전' },
-  { label: '광주', prefix: '광주' },
-  { label: '울산', prefix: '울산' },
-  { label: '제주', prefix: '제주' },
-]
+import { PARKING_REGIONS } from '@/lib/parking-regions'
 
 export function Footer() {
   return (
@@ -34,11 +23,11 @@ export function Footer() {
               지역별 주차장
             </h3>
             <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-zinc-400">
-              {REGIONS.map((region) => (
+              {PARKING_REGIONS.map((region) => (
                 <Link
-                  key={region.prefix}
-                  to="/wiki/all"
-                  search={{ region: region.prefix }}
+                  key={region.label}
+                  to="/wiki/region/$region"
+                  params={{ region: region.label }}
                   className="transition-colors hover:text-white hover:underline"
                 >
                   {region.label} 주차장

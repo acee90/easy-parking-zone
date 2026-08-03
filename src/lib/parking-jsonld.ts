@@ -63,7 +63,7 @@ export function getParkingCanonicalUrl(lot: ParkingLot): string {
 /**
  * 상세 페이지 breadcrumb 구조화데이터: 둘러보기 › {지역} 주차장 › {상세}.
  * region이 null이면 지역 단계를 생략한다.
- * 지역 URL 인코딩은 all.tsx의 self-canonical(URLSearchParams)과 일치시킨다.
+ * 지역 단계는 지역 허브(/wiki/region/<label>)를 가리킨다 — region.$region.tsx의 canonical과 일치.
  */
 export function buildBreadcrumbJsonLd(lot: ParkingLot, region: ParkingRegion | null) {
   const items: Array<{ name: string; url: string }> = [
@@ -72,7 +72,7 @@ export function buildBreadcrumbJsonLd(lot: ParkingLot, region: ParkingRegion | n
   if (region) {
     items.push({
       name: `${region.label} 주차장`,
-      url: `${SITE_URL}/wiki/all?region=${encodeURIComponent(region.prefix)}`,
+      url: `${SITE_URL}/wiki/region/${encodeURIComponent(region.label)}`,
     })
   }
   items.push({ name: lot.name, url: getParkingCanonicalUrl(lot) })

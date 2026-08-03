@@ -26,6 +26,7 @@ import { Route as AdminReviewsRouteImport } from './routes/admin/reviews'
 import { Route as AdminReportsRouteImport } from './routes/admin/reports'
 import { Route as WikiSlugIndexRouteImport } from './routes/wiki/$slug.index'
 import { Route as EventHalfpriceTravelIndexRouteImport } from './routes/event/halfprice-travel/index'
+import { Route as WikiRegionRegionRouteImport } from './routes/wiki/region.$region'
 import { Route as WikiSlugReviewsRouteImport } from './routes/wiki/$slug.reviews'
 import { Route as WikiSlugMediaRouteImport } from './routes/wiki/$slug.media'
 import { Route as WikiSlugBlogRouteImport } from './routes/wiki/$slug.blog'
@@ -118,6 +119,11 @@ const EventHalfpriceTravelIndexRoute =
     path: '/event/halfprice-travel/',
     getParentRoute: () => rootRouteImport,
   } as any)
+const WikiRegionRegionRoute = WikiRegionRegionRouteImport.update({
+  id: '/wiki/region/$region',
+  path: '/wiki/region/$region',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const WikiSlugReviewsRoute = WikiSlugReviewsRouteImport.update({
   id: '/reviews',
   path: '/reviews',
@@ -166,6 +172,7 @@ export interface FileRoutesByFullPath {
   '/wiki/$slug/blog': typeof WikiSlugBlogRoute
   '/wiki/$slug/media': typeof WikiSlugMediaRoute
   '/wiki/$slug/reviews': typeof WikiSlugReviewsRoute
+  '/wiki/region/$region': typeof WikiRegionRegionRoute
   '/event/halfprice-travel/': typeof EventHalfpriceTravelIndexRoute
   '/wiki/$slug/': typeof WikiSlugIndexRoute
 }
@@ -188,6 +195,7 @@ export interface FileRoutesByTo {
   '/wiki/$slug/blog': typeof WikiSlugBlogRoute
   '/wiki/$slug/media': typeof WikiSlugMediaRoute
   '/wiki/$slug/reviews': typeof WikiSlugReviewsRoute
+  '/wiki/region/$region': typeof WikiRegionRegionRoute
   '/event/halfprice-travel': typeof EventHalfpriceTravelIndexRoute
   '/wiki/$slug': typeof WikiSlugIndexRoute
 }
@@ -213,6 +221,7 @@ export interface FileRoutesById {
   '/wiki/$slug/blog': typeof WikiSlugBlogRoute
   '/wiki/$slug/media': typeof WikiSlugMediaRoute
   '/wiki/$slug/reviews': typeof WikiSlugReviewsRoute
+  '/wiki/region/$region': typeof WikiRegionRegionRoute
   '/event/halfprice-travel/': typeof EventHalfpriceTravelIndexRoute
   '/wiki/$slug/': typeof WikiSlugIndexRoute
 }
@@ -239,6 +248,7 @@ export interface FileRouteTypes {
     | '/wiki/$slug/blog'
     | '/wiki/$slug/media'
     | '/wiki/$slug/reviews'
+    | '/wiki/region/$region'
     | '/event/halfprice-travel/'
     | '/wiki/$slug/'
   fileRoutesByTo: FileRoutesByTo
@@ -261,6 +271,7 @@ export interface FileRouteTypes {
     | '/wiki/$slug/blog'
     | '/wiki/$slug/media'
     | '/wiki/$slug/reviews'
+    | '/wiki/region/$region'
     | '/event/halfprice-travel'
     | '/wiki/$slug'
   id:
@@ -285,6 +296,7 @@ export interface FileRouteTypes {
     | '/wiki/$slug/blog'
     | '/wiki/$slug/media'
     | '/wiki/$slug/reviews'
+    | '/wiki/region/$region'
     | '/event/halfprice-travel/'
     | '/wiki/$slug/'
   fileRoutesById: FileRoutesById
@@ -302,6 +314,7 @@ export interface RootRouteChildren {
   WikiIndexRoute: typeof WikiIndexRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   EventHalfpriceTravelSlugRoute: typeof EventHalfpriceTravelSlugRoute
+  WikiRegionRegionRoute: typeof WikiRegionRegionRoute
   EventHalfpriceTravelIndexRoute: typeof EventHalfpriceTravelIndexRoute
 }
 
@@ -426,6 +439,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EventHalfpriceTravelIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/wiki/region/$region': {
+      id: '/wiki/region/$region'
+      path: '/wiki/region/$region'
+      fullPath: '/wiki/region/$region'
+      preLoaderRoute: typeof WikiRegionRegionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/wiki/$slug/reviews': {
       id: '/wiki/$slug/reviews'
       path: '/reviews'
@@ -513,6 +533,7 @@ const rootRouteChildren: RootRouteChildren = {
   WikiIndexRoute: WikiIndexRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   EventHalfpriceTravelSlugRoute: EventHalfpriceTravelSlugRoute,
+  WikiRegionRegionRoute: WikiRegionRegionRoute,
   EventHalfpriceTravelIndexRoute: EventHalfpriceTravelIndexRoute,
 }
 export const routeTree = rootRouteImport
