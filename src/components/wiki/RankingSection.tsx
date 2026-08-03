@@ -1,5 +1,5 @@
 import { Link } from '@tanstack/react-router'
-import { ChevronRight, MapPinPen, Star } from 'lucide-react'
+import { ArrowUpRight, ChevronRight, MapPinPen, Star } from 'lucide-react'
 import {
   Carousel,
   CarouselArrows,
@@ -101,7 +101,7 @@ function RankingCard({ lot }: { lot: RankingLot }) {
         <h3 className="line-clamp-1 text-lg font-bold transition-colors group-hover:text-primary">
           {lot.name}
         </h3>
-        <ChevronRight className="ml-auto size-4 shrink-0 text-primary opacity-0 transition-opacity group-hover:opacity-100" />
+        <ArrowUpRight className="ml-auto size-4 shrink-0 text-primary opacity-0 transition-opacity group-hover:opacity-100" />
       </div>
       <p className="line-clamp-1 text-sm text-muted-foreground">{lot.address}</p>
 

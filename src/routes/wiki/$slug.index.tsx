@@ -188,7 +188,7 @@ function WikiDetailPage() {
             {/* 문서형 콘텐츠: 흰 시트 1장 */}
             <div className="rounded-2xl bg-white p-5 md:p-6">
               {summary && (
-                <section className="rounded-xl bg-primary/5 p-5">
+                <section>
                   <div className="mb-2 text-xs font-semibold text-primary">AI 요약</div>
                   <p className="whitespace-pre-line text-base font-medium leading-relaxed text-zinc-900">
                     {summary}
@@ -198,9 +198,11 @@ function WikiDetailPage() {
 
               {/* AI 팁 */}
               {(lot.aiTipPricing || lot.aiTipVisit || lot.aiTipAlternative) && (
-                <section className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                <section
+                  className={`space-y-4 ${summary ? 'mt-6 border-t border-zinc-100 pt-6' : ''}`}
+                >
                   {lot.aiTipPricing && (
-                    <div className="rounded-xl bg-zinc-50 px-4 py-3 text-sm leading-relaxed text-zinc-700">
+                    <div className="text-sm leading-relaxed text-zinc-700">
                       <span className="mb-1 block text-base font-semibold text-zinc-900">
                         {lot.pricing.isFree ? '요금 (무료)' : '요금 (유료)'}
                       </span>
@@ -208,7 +210,7 @@ function WikiDetailPage() {
                     </div>
                   )}
                   {lot.aiTipVisit && (
-                    <div className="rounded-xl bg-zinc-50 px-4 py-3 text-sm leading-relaxed text-zinc-700">
+                    <div className="text-sm leading-relaxed text-zinc-700">
                       <span className="mb-1 block text-base font-semibold text-zinc-900">
                         {lot.difficulty.score !== null && lot.difficulty.score >= 4.0
                           ? '방문 팁 (초보 추천)'
@@ -220,7 +222,7 @@ function WikiDetailPage() {
                     </div>
                   )}
                   {lot.aiTipAlternative && (
-                    <div className="rounded-xl bg-zinc-50 px-4 py-3 text-sm leading-relaxed text-zinc-700">
+                    <div className="text-sm leading-relaxed text-zinc-700">
                       <span className="mb-1 block text-base font-semibold text-zinc-900">
                         주변 주차장 대안
                       </span>

@@ -97,7 +97,7 @@ export function ParkingDetailPanel({ lot }: ParkingDetailPanelProps) {
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-lg border bg-white p-3">
+              <div className="rounded-xl bg-zinc-50 p-3">
                 <div className="flex items-center gap-1.5">
                   <span className="text-xs font-medium text-muted-foreground">쉬움 점수</span>
                   {reliabilityBadge && (
@@ -117,7 +117,7 @@ export function ParkingDetailPanel({ lot }: ParkingDetailPanelProps) {
                 </div>
               </div>
 
-              <div className="rounded-lg border bg-white p-3">
+              <div className="rounded-xl bg-zinc-50 p-3">
                 <div className="text-xs font-medium text-muted-foreground">리뷰/영상/블로그</div>
                 <div className="mt-2 text-3xl font-black leading-none">{sourceCount}</div>
               </div>
@@ -128,7 +128,7 @@ export function ParkingDetailPanel({ lot }: ParkingDetailPanelProps) {
               <Link
                 to="/wiki/$slug"
                 params={{ slug }}
-                className="inline-flex items-center gap-1 px-2.5 py-2 text-sm font-medium rounded-lg border hover:bg-gray-50 transition-colors"
+                className="inline-flex items-center gap-1 px-2.5 py-2 text-sm font-medium rounded-lg bg-zinc-100 hover:bg-zinc-200 active:bg-zinc-300 transition-colors"
               >
                 자세히
                 <ChevronRight className="size-3" />
@@ -140,13 +140,13 @@ export function ParkingDetailPanel({ lot }: ParkingDetailPanelProps) {
         {/* 컨텐츠 */}
         <div className="px-5 py-5 space-y-4">
           {summary && (
-            <section className="rounded-xl border border-primary/15 bg-primary/5 p-4">
+            <section className="border-t border-zinc-100 pt-4">
               <div className="mb-2 text-xs font-semibold text-primary">AI 요약</div>
               <p className="whitespace-pre-line text-sm font-medium leading-relaxed text-zinc-900">
                 {summary}
               </p>
               {lot.featuredSource === '1010' && (
-                <p className="mt-3 pt-2 border-t border-primary/20 text-xs text-primary/70">
+                <p className="mt-3 pt-2 border-t border-zinc-100 text-xs text-muted-foreground">
                   📺 10시10분 유튜브 채널에 소개된 주차장
                 </p>
               )}
@@ -154,22 +154,22 @@ export function ParkingDetailPanel({ lot }: ParkingDetailPanelProps) {
           )}
 
           {hasAiTips && (
-            <section className="grid grid-cols-1 gap-2">
+            <section className="grid grid-cols-1 gap-3 border-t border-zinc-100 pt-4">
               {lot.aiTipPricing && (
-                <div className="rounded-lg border bg-white px-4 py-3 text-sm leading-relaxed text-gray-700">
-                  <span className="mb-1 block text-sm font-semibold text-gray-900">요금</span>
+                <div className="text-sm leading-relaxed text-zinc-700">
+                  <span className="mb-1 block text-sm font-semibold text-zinc-900">요금</span>
                   {lot.aiTipPricing}
                 </div>
               )}
               {lot.aiTipVisit && (
-                <div className="rounded-lg border bg-white px-4 py-3 text-sm leading-relaxed text-gray-700">
-                  <span className="mb-1 block text-sm font-semibold text-gray-900">방문 팁</span>
+                <div className="text-sm leading-relaxed text-zinc-700">
+                  <span className="mb-1 block text-sm font-semibold text-zinc-900">방문 팁</span>
                   {lot.aiTipVisit}
                 </div>
               )}
               {lot.aiTipAlternative && (
-                <div className="rounded-lg border bg-white px-4 py-3 text-sm leading-relaxed text-gray-700">
-                  <span className="mb-1 block text-sm font-semibold text-gray-900">대안</span>
+                <div className="text-sm leading-relaxed text-zinc-700">
+                  <span className="mb-1 block text-sm font-semibold text-zinc-900">대안</span>
                   {lot.aiTipAlternative}
                 </div>
               )}
@@ -177,9 +177,7 @@ export function ParkingDetailPanel({ lot }: ParkingDetailPanelProps) {
           )}
 
           {/* 기본 정보 */}
-          <section
-            className={hasContentAbove ? 'border-t-2 border-zinc-300 pt-6 pb-2' : 'pt-1 pb-2'}
-          >
+          <section className={hasContentAbove ? 'border-t border-zinc-100 pt-5 pb-2' : 'pt-1 pb-2'}>
             <h3 className="mb-3 text-base font-bold">주차장 정보</h3>
             <div className="space-y-3 text-sm">
               <div className="flex items-start gap-2.5">
@@ -224,7 +222,7 @@ export function ParkingDetailPanel({ lot }: ParkingDetailPanelProps) {
                   <span className="min-w-0 flex-1">{phoneLabel}</span>
                   <a
                     href={`tel:${phoneLabel}`}
-                    className="inline-flex h-8 shrink-0 items-center rounded-full bg-gray-100 px-3 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-200"
+                    className="inline-flex h-8 shrink-0 items-center rounded-full bg-zinc-100 px-3 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-200 active:bg-zinc-300"
                   >
                     전화
                   </a>
