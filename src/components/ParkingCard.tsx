@@ -194,7 +194,6 @@ export function ParkingCard({ lot, onClose, userLat, userLng, userLocated }: Par
   const slug = makeParkingSlug(lot.name, lot.id)
   const hasAiTips = Boolean(lot.aiTipPricing || lot.aiTipVisit || lot.aiTipAlternative)
   const hasContentAbove = Boolean(summary) || hasAiTips
-  const sourceCount = tabCounts.reviews + tabCounts.blog + tabCounts.media
   const distance =
     userLocated && userLat && userLng ? getDistance(userLat, userLng, lot.lat, lot.lng) : null
 
@@ -305,8 +304,26 @@ export function ParkingCard({ lot, onClose, userLat, userLng, userLocated }: Par
               </div>
 
               <div className="rounded-xl bg-zinc-50 p-3">
-                <div className="text-xs font-medium text-muted-foreground">리뷰/영상/블로그</div>
-                <div className="mt-2 text-3xl font-black leading-none">{sourceCount}</div>
+                <div className="flex justify-evenly gap-2 text-center">
+                  <div>
+                    <div className="text-xs font-medium text-muted-foreground">리뷰</div>
+                    <div className="mt-2 text-2xl font-black leading-none tabular-nums">
+                      {tabCounts.reviews}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs font-medium text-muted-foreground">영상</div>
+                    <div className="mt-2 text-2xl font-black leading-none tabular-nums">
+                      {tabCounts.media}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs font-medium text-muted-foreground">블로그</div>
+                    <div className="mt-2 text-2xl font-black leading-none tabular-nums">
+                      {tabCounts.blog}
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
