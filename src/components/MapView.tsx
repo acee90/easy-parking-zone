@@ -125,7 +125,7 @@ function escapeHtml(s: string): string {
 }
 
 function displayName(name: string): string {
-  return escapeHtml(name.replace(/\s*(공영|노외|노상|부설)?\s*주차장$/, '').trim())
+  return escapeHtml(name.replace(/\s*(노외|노상|부설)?\s*주차장$/, '').trim())
 }
 
 function markerHtml(lot: ParkingLot, selected: boolean, hovered: boolean): string {
