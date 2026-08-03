@@ -236,7 +236,7 @@ function WikiHomePage() {
   const [activeRegionPrefix, setActiveRegionPrefix] = useState(validRegions[0]?.prefix || '')
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-zinc-50">
       <div className="max-w-6xl mx-auto px-4 py-6 space-y-6">
         <section className="space-y-4">
           <div className="flex items-end justify-between gap-4">
@@ -263,7 +263,7 @@ function WikiHomePage() {
         {/* 반값여행 이벤트 배너 */}
         <Link
           to="/event/halfprice-travel"
-          className="block bg-linear-to-r from-primary/5 to-primary/10 rounded-xl border border-primary/15 p-5 hover:border-primary/40 transition-all"
+          className="block rounded-2xl bg-primary/5 p-5 transition-colors hover:bg-primary/10 active:bg-primary/15"
         >
           <div className="flex items-center justify-between">
             <div>
@@ -331,10 +331,10 @@ function WikiHomePage() {
                 key={region.prefix}
                 type="button"
                 onClick={() => setActiveRegionPrefix(region.prefix)}
-                className={`px-4 py-2 rounded-full text-sm font-semibold transition-colors border cursor-pointer ${
+                className={`px-4 py-2 rounded-full text-sm font-semibold transition-[background-color,transform] cursor-pointer active:scale-[0.97] ${
                   activeRegionPrefix === region.prefix
-                    ? 'bg-zinc-900 text-white border-zinc-900'
-                    : 'bg-white text-zinc-600 hover:bg-gray-50 border-gray-200 shadow-sm'
+                    ? 'bg-zinc-900 text-white'
+                    : 'bg-white text-zinc-600 hover:bg-zinc-100'
                 }`}
               >
                 {region.label}
@@ -410,13 +410,13 @@ function RegionList({ region }: { region: RegionGroup }) {
           더 보기
         </Link>
       </div>
-      <div className="divide-y rounded-xl border bg-white overflow-hidden shadow-xs">
+      <div className="divide-y divide-zinc-100 rounded-2xl bg-white overflow-hidden">
         {region.lots.map((lot) => (
           <Link
             key={lot.id}
             to="/wiki/$slug"
             params={{ slug: makeParkingSlug(lot.name, lot.id) }}
-            className="flex items-center gap-2 px-4 py-3.5 text-base transition-colors hover:bg-gray-50"
+            className="flex items-center gap-2 px-4 py-3.5 text-base transition-colors hover:bg-zinc-50 active:bg-zinc-100"
           >
             <span className="min-w-0 flex-1 truncate font-medium">{lot.name}</span>
             <LotEvidence lot={lot} />
@@ -441,13 +441,13 @@ function SiteStatsBar({
 }) {
   return (
     <div className="flex flex-wrap gap-2 text-sm">
-      <span className="rounded-full border bg-white px-3 py-1 font-medium">
+      <span className="rounded-full bg-white px-3 py-1 font-medium text-zinc-600">
         주차장 <strong className="text-foreground">{formatCount(siteStats.parkingLots)}</strong>
       </span>
-      <span className="rounded-full border bg-white px-3 py-1 font-medium">
+      <span className="rounded-full bg-white px-3 py-1 font-medium text-zinc-600">
         리뷰 <strong className="text-foreground">{formatCount(siteStats.reviews)}</strong>
       </span>
-      <span className="rounded-full border bg-white px-3 py-1 font-medium">
+      <span className="rounded-full bg-white px-3 py-1 font-medium text-zinc-600">
         영상/포스팅 <strong className="text-foreground">{formatCount(siteStats.mediaPosts)}</strong>
       </span>
     </div>
@@ -464,7 +464,7 @@ function CriteriaItem({
   children: ReactNode
 }) {
   return (
-    <div className="rounded-xl border bg-white p-5 shadow-xs">
+    <div className="rounded-2xl bg-white p-5">
       <div className="mb-2 flex items-center gap-2 text-sm font-bold">
         <span className="text-muted-foreground">{icon}</span>
         {title}

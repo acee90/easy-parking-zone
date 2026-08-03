@@ -70,11 +70,15 @@ export function RankingSection({
             <p className="mt-1 text-sm text-muted-foreground">{description}</p>
           </div>
           <div
-            className={`rounded-xl border bg-white overflow-hidden shadow-xs ${isWide ? 'grid grid-cols-1 md:grid-cols-2' : ''}`}
+            className={`rounded-2xl bg-white overflow-hidden ${isWide ? 'grid grid-cols-1 md:grid-cols-2' : ''}`}
           >
             <RankingList lots={col1} startIndex={0} />
             {col2.length > 0 && (
-              <RankingList lots={col2} startIndex={mid} className="md:border-l" />
+              <RankingList
+                lots={col2}
+                startIndex={mid}
+                className="md:border-l md:border-zinc-100"
+              />
             )}
           </div>
         </>
@@ -88,7 +92,7 @@ function RankingCard({ lot }: { lot: RankingLot }) {
     <Link
       to="/wiki/$slug"
       params={{ slug: makeParkingSlug(lot.name, lot.id) }}
-      className="flex h-full w-full flex-col gap-3 rounded-xl border bg-white p-5 shadow-xs transition-colors hover:border-primary/40"
+      className="flex h-full w-full flex-col gap-3 rounded-2xl bg-white p-5 transition-[box-shadow,transform] duration-200 hover:shadow-md hover:shadow-zinc-900/5 active:scale-[0.99]"
     >
       <div className="flex items-center gap-2">
         <div
@@ -99,13 +103,11 @@ function RankingCard({ lot }: { lot: RankingLot }) {
       <p className="line-clamp-1 text-sm text-muted-foreground">{lot.address}</p>
 
       <div className="mt-auto flex items-end justify-between pt-2">
-        <div className="flex flex-wrap gap-2 text-xs">
+        <div className="flex flex-wrap gap-1.5 text-xs font-medium text-zinc-600">
           {lot.totalSpaces > 0 && (
-            <span className="rounded-full bg-gray-100 px-2.5 py-1 text-gray-700">
-              {lot.totalSpaces}면
-            </span>
+            <span className="rounded-md bg-zinc-100 px-2 py-1">{lot.totalSpaces}면</span>
           )}
-          <span className="rounded-full bg-gray-100 px-2.5 py-1 text-gray-700">
+          <span className="rounded-md bg-zinc-100 px-2 py-1">
             {lot.pricing.isFree ? '무료' : '유료'}
           </span>
         </div>
@@ -125,13 +127,13 @@ function RankingList({
   className?: string
 }) {
   return (
-    <div className={`divide-y ${className ?? ''}`}>
+    <div className={`divide-y divide-zinc-100 ${className ?? ''}`}>
       {lots.map((lot, i) => (
         <Link
           key={lot.id}
           to="/wiki/$slug"
           params={{ slug: makeParkingSlug(lot.name, lot.id) }}
-          className="flex items-center gap-3 px-4 py-4 transition-colors hover:bg-gray-50"
+          className="flex items-center gap-3 px-4 py-4 transition-colors hover:bg-zinc-50 active:bg-zinc-100"
         >
           <span className="w-5 shrink-0 text-right text-sm font-medium text-muted-foreground">
             {startIndex + i + 1}
