@@ -15,6 +15,8 @@ interface MediaSectionProps {
   showTitle?: boolean
   className?: string
   viewAllSlug?: string
+  /** 흰 배경 컨텍스트에서 카드 테두리 표시 */
+  bordered?: boolean
 }
 
 export function MediaSection({
@@ -24,6 +26,7 @@ export function MediaSection({
   showTitle = true,
   className,
   viewAllSlug,
+  bordered,
 }: MediaSectionProps) {
   const [media, setMedia] = useState<ParkingMedia[]>(initialMedia ?? [])
   const [loading, setLoading] = useState(initialMedia === undefined)
@@ -61,7 +64,7 @@ export function MediaSection({
           <Carousel>
             {visibleMedia.map((item) => (
               <CarouselSlide key={item.id} size="media">
-                <MediaCard media={item} lotId={lotId} />
+                <MediaCard media={item} lotId={lotId} bordered={bordered} />
               </CarouselSlide>
             ))}
           </Carousel>

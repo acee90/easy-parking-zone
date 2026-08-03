@@ -3,12 +3,23 @@ import { ReportButton } from '@/components/ReportDialog'
 import type { ParkingMedia } from '@/types/parking'
 import { decodeHtmlEntities } from './utils'
 
-export function MediaCard({ media, lotId }: { media: ParkingMedia; lotId: string }) {
+export function MediaCard({
+  media,
+  lotId,
+  bordered,
+}: {
+  media: ParkingMedia
+  lotId: string
+  /** 흰 배경 컨텍스트(지도 패널 등)에서 카드 경계를 위해 테두리 표시 */
+  bordered?: boolean
+}) {
   const title = media.title ? decodeHtmlEntities(media.title) : '제목 없음'
   const description = media.description ? decodeHtmlEntities(media.description) : ''
 
   return (
-    <div className="group relative flex h-full w-full flex-col overflow-hidden rounded-2xl bg-white">
+    <div
+      className={`group relative flex h-full w-full flex-col overflow-hidden rounded-2xl bg-white ${bordered ? 'border border-zinc-200' : ''}`}
+    >
       <a
         href={media.url}
         target="_blank"

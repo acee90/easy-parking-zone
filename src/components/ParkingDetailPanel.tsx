@@ -255,6 +255,7 @@ export function ParkingDetailPanel({ lot }: ParkingDetailPanelProps) {
             <ParkingReputationSections
               lotId={lot.id}
               expanded
+              bordered
               viewAllSlug={slug}
               initialTabCounts={tabCounts}
             />

@@ -7,13 +7,18 @@ export function UserReviewCard({
   review,
   lotId,
   onDelete,
+  bordered,
 }: {
   review: UserReview
   lotId: string
   onDelete?: () => void
+  /** 흰 배경 컨텍스트(지도 패널 등)에서 카드 경계를 위해 테두리 표시 */
+  bordered?: boolean
 }) {
   return (
-    <div className="group relative flex h-[228px] w-full flex-col rounded-2xl bg-white p-5">
+    <div
+      className={`group relative flex h-[228px] w-full flex-col rounded-2xl bg-white p-5 ${bordered ? 'border border-zinc-200' : ''}`}
+    >
       {!review.isMine && (
         <div className="absolute right-3 top-3 opacity-0 transition-opacity group-hover:opacity-100">
           <ReportButton targetType="review" targetId={review.id} parkingLotId={lotId} />

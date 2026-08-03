@@ -446,6 +446,7 @@ export function ParkingCard({ lot, onClose, userLat, userLng, userLocated }: Par
               <ParkingReputationSections
                 lotId={lot.id}
                 expanded
+                bordered
                 viewAllSlug={slug}
                 initialTabCounts={tabCounts}
               />

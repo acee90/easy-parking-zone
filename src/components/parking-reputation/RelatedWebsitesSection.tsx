@@ -15,6 +15,8 @@ interface RelatedWebsitesSectionProps {
   showTitle?: boolean
   className?: string
   viewAllSlug?: string
+  /** 흰 배경 컨텍스트에서 카드 테두리 표시 */
+  bordered?: boolean
 }
 
 export function RelatedWebsitesSection({
@@ -24,6 +26,7 @@ export function RelatedWebsitesSection({
   showTitle = true,
   className,
   viewAllSlug,
+  bordered,
 }: RelatedWebsitesSectionProps) {
   const [blogPosts, setBlogPosts] = useState<BlogPost[]>(initialBlogPosts ?? [])
   const [loading, setLoading] = useState(initialBlogPosts === undefined)
@@ -61,7 +64,7 @@ export function RelatedWebsitesSection({
           <Carousel>
             {visiblePosts.map((post) => (
               <CarouselSlide key={post.sourceUrl} size="review">
-                <BlogPostCard post={post} lotId={lotId} />
+                <BlogPostCard post={post} lotId={lotId} bordered={bordered} />
               </CarouselSlide>
             ))}
           </Carousel>

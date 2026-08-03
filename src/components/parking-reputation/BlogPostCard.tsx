@@ -10,14 +10,25 @@ const SOURCE_CONFIG: Record<string, { label: string; className: string }> = {
   naver_place: { label: '플레이스', className: 'bg-green-50 text-green-700 border-green-100' },
 }
 
-export function BlogPostCard({ post, lotId }: { post: BlogPost; lotId: string }) {
+export function BlogPostCard({
+  post,
+  lotId,
+  bordered,
+}: {
+  post: BlogPost
+  lotId: string
+  /** 흰 배경 컨텍스트(지도 패널 등)에서 카드 경계를 위해 테두리 표시 */
+  bordered?: boolean
+}) {
   const config = SOURCE_CONFIG[post.source] ?? {
     label: post.source,
     className: 'bg-zinc-50 text-zinc-700 border-zinc-100',
   }
 
   return (
-    <div className="group relative rounded-2xl bg-white p-5">
+    <div
+      className={`group relative rounded-2xl bg-white p-5 ${bordered ? 'border border-zinc-200' : ''}`}
+    >
       <a href={post.sourceUrl} target="_blank" rel="nofollow noopener noreferrer" className="block">
         <div className="mb-3 flex items-start justify-between gap-4">
           <div className="flex-1">

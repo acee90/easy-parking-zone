@@ -17,6 +17,8 @@ interface ReviewSectionProps {
   viewAllSlug?: string
   /** 외부에서 변경 시 다시 불러오기 위한 트리거 (WriteReviewSection 제출 후 증가) */
   refreshKey?: number
+  /** 흰 배경 컨텍스트에서 카드 테두리 표시 */
+  bordered?: boolean
 }
 
 export function ReviewSection({
@@ -28,6 +30,7 @@ export function ReviewSection({
   onRefreshCount,
   viewAllSlug,
   refreshKey = 0,
+  bordered,
 }: ReviewSectionProps) {
   const [reviews, setReviews] = useState<UserReview[]>(initialReviews ?? [])
 
@@ -73,6 +76,7 @@ export function ReviewSection({
                 <UserReviewCard
                   review={review}
                   lotId={lotId}
+                  bordered={bordered}
                   onDelete={review.isMine ? () => handleDelete(review.id) : undefined}
                 />
               </CarouselSlide>

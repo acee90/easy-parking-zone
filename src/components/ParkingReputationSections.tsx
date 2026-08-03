@@ -16,6 +16,8 @@ interface ParkingReputationSectionsProps {
   initialTabCounts?: { reviews: number; blog: number; media: number }
   /** 전체 보기 라우팅용 slug. 미지정 시 "전체 보기" 링크 미노출 */
   viewAllSlug?: string
+  /** 흰 배경 컨텍스트(지도 패널/바텀시트)에서 카드 테두리 표시 */
+  bordered?: boolean
 }
 
 export function ParkingReputationSections({
@@ -26,6 +28,7 @@ export function ParkingReputationSections({
   initialReviews,
   initialTabCounts,
   viewAllSlug,
+  bordered,
 }: ParkingReputationSectionsProps) {
   const [activeTab, setActiveTab] = useState<'reviews' | 'media' | 'blog'>('reviews')
   const [counts, setCounts] = useState(initialTabCounts ?? { reviews: 0, blog: 0, media: 0 })
@@ -61,6 +64,7 @@ export function ParkingReputationSections({
           onRefreshCount={refreshCounts}
           viewAllSlug={viewAllSlug}
           refreshKey={reviewRefreshKey}
+          bordered={bordered}
         />
         <WriteReviewSection lotId={lotId} onSubmitted={handleReviewSubmitted} />
         <MediaSection
@@ -68,12 +72,14 @@ export function ParkingReputationSections({
           count={counts.media}
           initialMedia={initialMedia}
           viewAllSlug={viewAllSlug}
+          bordered={bordered}
         />
         <RelatedWebsitesSection
           lotId={lotId}
           count={counts.blog}
           initialBlogPosts={initialBlogPosts}
           viewAllSlug={viewAllSlug}
+          bordered={bordered}
         />
       </div>
     )
@@ -138,13 +144,19 @@ export function ParkingReputationSections({
             count={counts.reviews}
             showTitle={false}
             onRefreshCount={refreshCounts}
+            bordered={bordered}
           />
         )}
         {activeTab === 'media' && (
-          <MediaSection lotId={lotId} count={counts.media} showTitle={false} />
+          <MediaSection lotId={lotId} count={counts.media} showTitle={false} bordered={bordered} />
         )}
         {activeTab === 'blog' && (
-          <RelatedWebsitesSection lotId={lotId} count={counts.blog} showTitle={false} />
+          <RelatedWebsitesSection
+            lotId={lotId}
+            count={counts.blog}
+            showTitle={false}
+            bordered={bordered}
+          />
         )}
       </div>
     </div>
