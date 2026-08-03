@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { deleteReview, fetchUserReviews } from '@/server/reviews'
 import type { UserReview } from '@/types/parking'
-import { Carousel, CarouselSlide } from './Carousel'
+import { Carousel, CarouselArrows, CarouselProvider, CarouselSlide } from './Carousel'
 import { SectionTitle } from './SectionTitle'
 import { UserReviewCard } from './UserReviewCard'
 
@@ -56,31 +56,34 @@ export function ReviewSection({
 
   return (
     <section className={className}>
-      {showTitle && (
-        <SectionTitle
-          title="리뷰"
-          count={count}
-          viewAll={hasMore && viewAllSlug ? { slug: viewAllSlug, tab: 'reviews' } : undefined}
-        />
-      )}
+      <CarouselProvider>
+        {showTitle && (
+          <SectionTitle
+            title="리뷰"
+            count={count}
+            viewAll={hasMore && viewAllSlug ? { slug: viewAllSlug, tab: 'reviews' } : undefined}
+            actions={<CarouselArrows />}
+          />
+        )}
 
-      {visibleReviews.length > 0 ? (
-        <Carousel>
-          {visibleReviews.map((review) => (
-            <CarouselSlide key={review.id} size="review">
-              <UserReviewCard
-                review={review}
-                lotId={lotId}
-                onDelete={review.isMine ? () => handleDelete(review.id) : undefined}
-              />
-            </CarouselSlide>
-          ))}
-        </Carousel>
-      ) : (
-        <p className="py-6 text-center text-xs text-muted-foreground">
-          아직 리뷰가 없습니다. 첫 리뷰를 남겨보세요!
-        </p>
-      )}
+        {visibleReviews.length > 0 ? (
+          <Carousel>
+            {visibleReviews.map((review) => (
+              <CarouselSlide key={review.id} size="review">
+                <UserReviewCard
+                  review={review}
+                  lotId={lotId}
+                  onDelete={review.isMine ? () => handleDelete(review.id) : undefined}
+                />
+              </CarouselSlide>
+            ))}
+          </Carousel>
+        ) : (
+          <p className="py-6 text-center text-xs text-muted-foreground">
+            아직 리뷰가 없습니다. 첫 리뷰를 남겨보세요!
+          </p>
+        )}
+      </CarouselProvider>
     </section>
   )
 }

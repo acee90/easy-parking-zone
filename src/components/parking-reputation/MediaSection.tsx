@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { fetchParkingMedia } from '@/server/parking'
 import type { ParkingMedia } from '@/types/parking'
-import { Carousel, CarouselSlide } from './Carousel'
+import { Carousel, CarouselArrows, CarouselProvider, CarouselSlide } from './Carousel'
 import { LoadingState } from './LoadingState'
 import { MediaCard } from './MediaCard'
 import { SectionTitle } from './SectionTitle'
@@ -47,27 +47,30 @@ export function MediaSection({
 
   return (
     <section className={className}>
-      {showTitle && (
-        <SectionTitle
-          title="영상"
-          count={count}
-          viewAll={hasMore && viewAllSlug ? { slug: viewAllSlug, tab: 'media' } : undefined}
-        />
-      )}
+      <CarouselProvider>
+        {showTitle && (
+          <SectionTitle
+            title="영상"
+            count={count}
+            viewAll={hasMore && viewAllSlug ? { slug: viewAllSlug, tab: 'media' } : undefined}
+            actions={<CarouselArrows />}
+          />
+        )}
 
-      {visibleMedia.length > 0 ? (
-        <Carousel>
-          {visibleMedia.map((item) => (
-            <CarouselSlide key={item.id} size="media">
-              <MediaCard media={item} lotId={lotId} />
-            </CarouselSlide>
-          ))}
-        </Carousel>
-      ) : loading ? (
-        <LoadingState />
-      ) : (
-        <p className="py-6 text-center text-xs text-muted-foreground">관련 영상이 없습니다</p>
-      )}
+        {visibleMedia.length > 0 ? (
+          <Carousel>
+            {visibleMedia.map((item) => (
+              <CarouselSlide key={item.id} size="media">
+                <MediaCard media={item} lotId={lotId} />
+              </CarouselSlide>
+            ))}
+          </Carousel>
+        ) : loading ? (
+          <LoadingState />
+        ) : (
+          <p className="py-6 text-center text-xs text-muted-foreground">관련 영상이 없습니다</p>
+        )}
+      </CarouselProvider>
     </section>
   )
 }

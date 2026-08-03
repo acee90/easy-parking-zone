@@ -1,9 +1,32 @@
 import useEmblaCarousel from 'embla-carousel-react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import type { ReactNode } from 'react'
-import { useCallback, useEffect, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 
-export function Carousel({ children }: { children: ReactNode }) {
+interface CarouselContextValue {
+  emblaRef: ReturnType<typeof useEmblaCarousel>[0]
+  scrollPrev: () => void
+  scrollNext: () => void
+  canScrollPrev: boolean
+  canScrollNext: boolean
+  selectedIndex: number
+  scrollSnaps: number[]
+}
+
+const CarouselContext = createContext<CarouselContextValue | null>(null)
+
+function useCarousel() {
+  const ctx = useContext(CarouselContext)
+  if (!ctx) throw new Error('Carousel/CarouselArrows는 <CarouselProvider> 안에서만 사용할 수 있다')
+  return ctx
+}
+
+/**
+ * 캐러셀 상태 공급자. 화살표를 슬라이드 위가 아니라 섹션 타이틀 행에 두기 위해
+ * embla 인스턴스를 헤더와 뷰포트가 함께 쓸 수 있도록 분리했다.
+ * 타이틀과 <Carousel>을 모두 감싸야 한다.
+ */
+export function CarouselProvider({ children }: { children: ReactNode }) {
   const [emblaRef, emblaApi] = useEmblaCarousel({
     align: 'start',
     containScroll: 'trimSnaps',
@@ -33,31 +56,64 @@ export function Carousel({ children }: { children: ReactNode }) {
     }
   }, [emblaApi, onSelect])
 
+  const value = useMemo<CarouselContextValue>(
+    () => ({
+      emblaRef,
+      scrollPrev: () => emblaApi?.scrollPrev(),
+      scrollNext: () => emblaApi?.scrollNext(),
+      canScrollPrev,
+      canScrollNext,
+      selectedIndex,
+      scrollSnaps,
+    }),
+    [emblaRef, emblaApi, canScrollPrev, canScrollNext, selectedIndex, scrollSnaps],
+  )
+
+  return <CarouselContext.Provider value={value}>{children}</CarouselContext.Provider>
+}
+
+/** 섹션 타이틀 행 우측에 놓는 이전/다음 버튼 (데스크톱 전용, 모바일은 하단 dots) */
+export function CarouselArrows() {
+  const { scrollPrev, scrollNext, canScrollPrev, canScrollNext } = useCarousel()
+
+  // 스크롤할 것이 없으면 표시하지 않는다 (슬라이드가 한 화면에 다 들어오는 경우)
+  if (!canScrollPrev && !canScrollNext) return null
+
+  const buttonClass =
+    'flex size-8 items-center justify-center rounded-full border bg-white text-gray-600 shadow-sm transition-opacity disabled:cursor-default disabled:opacity-30 hover:enabled:bg-gray-50 cursor-pointer'
+
+  return (
+    <div className="hidden shrink-0 items-center gap-1 sm:flex">
+      <button
+        type="button"
+        onClick={scrollPrev}
+        disabled={!canScrollPrev}
+        className={buttonClass}
+        aria-label="이전"
+      >
+        <ChevronLeft className="size-4.5" />
+      </button>
+      <button
+        type="button"
+        onClick={scrollNext}
+        disabled={!canScrollNext}
+        className={buttonClass}
+        aria-label="다음"
+      >
+        <ChevronRight className="size-4.5" />
+      </button>
+    </div>
+  )
+}
+
+export function Carousel({ children }: { children: ReactNode }) {
+  const { emblaRef, selectedIndex, scrollSnaps } = useCarousel()
+
   return (
     <div className="relative">
       <div className="-mx-4 overflow-hidden px-[6vw] sm:mx-0 sm:px-0" ref={emblaRef}>
         <div className="flex items-stretch gap-3">{children}</div>
       </div>
-
-      {/* Desktop Arrows */}
-      <button
-        type="button"
-        onClick={() => emblaApi?.scrollPrev()}
-        disabled={!canScrollPrev}
-        className="absolute left-2 top-1/2 -translate-y-1/2 hidden sm:flex size-9 items-center justify-center rounded-full bg-white border shadow-sm z-10 transition-opacity disabled:opacity-30 disabled:cursor-default cursor-pointer text-gray-600 hover:enabled:bg-gray-50"
-        aria-label="이전"
-      >
-        <ChevronLeft className="size-5" />
-      </button>
-      <button
-        type="button"
-        onClick={() => emblaApi?.scrollNext()}
-        disabled={!canScrollNext}
-        className="absolute right-2 top-1/2 -translate-y-1/2 hidden sm:flex size-9 items-center justify-center rounded-full bg-white border shadow-sm z-10 transition-opacity disabled:opacity-30 disabled:cursor-default cursor-pointer text-gray-600 hover:enabled:bg-gray-50"
-        aria-label="다음"
-      >
-        <ChevronRight className="size-5" />
-      </button>
 
       {scrollSnaps.length > 1 && (
         <div className="mt-3 flex items-center justify-center gap-1.5 sm:hidden" aria-hidden="true">

@@ -1,6 +1,11 @@
 import { Link } from '@tanstack/react-router'
 import { ChevronRight, MapPinPen, Star } from 'lucide-react'
-import { Carousel, CarouselSlide } from '@/components/parking-reputation/Carousel'
+import {
+  Carousel,
+  CarouselArrows,
+  CarouselProvider,
+  CarouselSlide,
+} from '@/components/parking-reputation/Carousel'
 import { getDifficultyColor } from '@/lib/geo-utils'
 import { makeParkingSlug } from '@/lib/slug'
 import type { ParkingLot } from '@/types/parking'
@@ -39,27 +44,40 @@ export function RankingSection({
 
   return (
     <section className={`flex flex-col ${className ?? ''}`}>
-      <div className="mb-4 px-1">
-        <h2 className="text-xl font-bold">{title}</h2>
-        <p className="mt-1 text-sm text-muted-foreground">{description}</p>
-      </div>
       {layout === 'carousel' ? (
-        <div className="pb-1">
-          <Carousel>
-            {visible.map((lot, i) => (
-              <CarouselSlide key={lot.id} size="ranking">
-                <RankingCard lot={lot} rank={i + 1} />
-              </CarouselSlide>
-            ))}
-          </Carousel>
-        </div>
+        <CarouselProvider>
+          <div className="mb-4 flex items-start justify-between gap-2 px-1">
+            <div>
+              <h2 className="text-xl font-bold">{title}</h2>
+              <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+            </div>
+            <CarouselArrows />
+          </div>
+          <div className="pb-1">
+            <Carousel>
+              {visible.map((lot, i) => (
+                <CarouselSlide key={lot.id} size="ranking">
+                  <RankingCard lot={lot} rank={i + 1} />
+                </CarouselSlide>
+              ))}
+            </Carousel>
+          </div>
+        </CarouselProvider>
       ) : (
-        <div
-          className={`rounded-xl border bg-white overflow-hidden shadow-xs ${isWide ? 'grid grid-cols-1 md:grid-cols-2' : ''}`}
-        >
-          <RankingList lots={col1} startIndex={0} />
-          {col2.length > 0 && <RankingList lots={col2} startIndex={mid} className="md:border-l" />}
-        </div>
+        <>
+          <div className="mb-4 px-1">
+            <h2 className="text-xl font-bold">{title}</h2>
+            <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+          </div>
+          <div
+            className={`rounded-xl border bg-white overflow-hidden shadow-xs ${isWide ? 'grid grid-cols-1 md:grid-cols-2' : ''}`}
+          >
+            <RankingList lots={col1} startIndex={0} />
+            {col2.length > 0 && (
+              <RankingList lots={col2} startIndex={mid} className="md:border-l" />
+            )}
+          </div>
+        </>
       )}
     </section>
   )

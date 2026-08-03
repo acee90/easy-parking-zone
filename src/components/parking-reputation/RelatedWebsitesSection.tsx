@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { fetchBlogPosts } from '@/server/parking'
 import type { BlogPost } from '@/types/parking'
 import { BlogPostCard } from './BlogPostCard'
-import { Carousel, CarouselSlide } from './Carousel'
+import { Carousel, CarouselArrows, CarouselProvider, CarouselSlide } from './Carousel'
 import { LoadingState } from './LoadingState'
 import { SectionTitle } from './SectionTitle'
 
@@ -47,29 +47,32 @@ export function RelatedWebsitesSection({
 
   return (
     <section className={className}>
-      {showTitle && (
-        <SectionTitle
-          title="방문자 후기"
-          count={count}
-          viewAll={hasMore && viewAllSlug ? { slug: viewAllSlug, tab: 'blog' } : undefined}
-        />
-      )}
+      <CarouselProvider>
+        {showTitle && (
+          <SectionTitle
+            title="방문자 후기"
+            count={count}
+            viewAll={hasMore && viewAllSlug ? { slug: viewAllSlug, tab: 'blog' } : undefined}
+            actions={<CarouselArrows />}
+          />
+        )}
 
-      {visiblePosts.length > 0 ? (
-        <Carousel>
-          {visiblePosts.map((post) => (
-            <CarouselSlide key={post.sourceUrl} size="review">
-              <BlogPostCard post={post} lotId={lotId} />
-            </CarouselSlide>
-          ))}
-        </Carousel>
-      ) : loading ? (
-        <LoadingState />
-      ) : (
-        <p className="py-6 text-center text-xs text-muted-foreground">
-          관련 웹사이트 글이 없습니다
-        </p>
-      )}
+        {visiblePosts.length > 0 ? (
+          <Carousel>
+            {visiblePosts.map((post) => (
+              <CarouselSlide key={post.sourceUrl} size="review">
+                <BlogPostCard post={post} lotId={lotId} />
+              </CarouselSlide>
+            ))}
+          </Carousel>
+        ) : loading ? (
+          <LoadingState />
+        ) : (
+          <p className="py-6 text-center text-xs text-muted-foreground">
+            관련 웹사이트 글이 없습니다
+          </p>
+        )}
+      </CarouselProvider>
     </section>
   )
 }
