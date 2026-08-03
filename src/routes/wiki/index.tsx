@@ -238,49 +238,25 @@ function WikiHomePage() {
   return (
     <div className="min-h-screen bg-zinc-50">
       <div className="max-w-6xl mx-auto px-4 py-6 space-y-6">
-        <section className="space-y-4">
-          <div className="flex items-end justify-between gap-4">
-            <div className="space-y-2">
-              <h1 className="text-3xl font-bold leading-tight tracking-tight md:text-4xl">
-                전국 주차장 둘러보기
-              </h1>
-              <p className="max-w-3xl text-base leading-relaxed text-muted-foreground">
-                주차 전에 미리 확인하세요. 요금, 운영시간, 주차면 수, 초보 운전자 난이도까지 한눈에
-                비교할 수 있습니다. 실제 블로그·유튜브 후기를 모아 정리했으며, 아래 목록은 정보가
-                가장 잘 정리된 주차장부터 보여드립니다.
-              </p>
-            </div>
+        <section className="space-y-2">
+          <div className="flex items-center justify-between gap-4">
+            <h1 className="text-2xl font-bold leading-tight tracking-tight md:text-3xl">
+              전국 주차장 둘러보기
+            </h1>
             <Link
               to="/wiki/all"
-              className="hidden sm:inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline"
+              className="inline-flex h-8 shrink-0 items-center gap-0.5 rounded-full border border-zinc-200 bg-white pl-3 pr-2 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-50 active:bg-zinc-100"
             >
-              전체 목록 <ChevronRight className="size-4" />
+              전체 목록
+              <ChevronRight className="size-3.5" />
             </Link>
           </div>
+          <p className="max-w-xl text-sm leading-relaxed text-muted-foreground">
+            요금, 운영시간, 주차면 수, 초보 난이도를 실제 블로그·유튜브 후기 기반으로 비교할 수
+            있습니다.
+          </p>
           <SiteStatsBar siteStats={siteStats} />
         </section>
-
-        {/* 반값여행 이벤트 배너 */}
-        <Link
-          to="/event/halfprice-travel"
-          className="block rounded-2xl bg-primary/5 p-5 transition-colors hover:bg-primary/10 active:bg-primary/15"
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <span className="bg-primary text-white px-2 py-0.5 rounded-full text-xs font-bold">
-                  반값여행
-                </span>
-                <span className="text-xs text-muted-foreground">4~6월 · 여행비 50% 환급</span>
-              </div>
-              <h2 className="text-lg font-bold">16개 지역 관광지 + 주차 가이드</h2>
-              <p className="mt-0.5 text-sm text-muted-foreground">
-                관광지별 주변 주차장 안내 · 1인 최대 10만원 환급
-              </p>
-            </div>
-            <ChevronRight className="size-5 text-primary/60 shrink-0" />
-          </div>
-        </Link>
 
         {/* 전국 랭킹 */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-12">
@@ -440,15 +416,24 @@ function SiteStatsBar({
   siteStats: { parkingLots: number; reviews: number; mediaPosts: number }
 }) {
   return (
-    <div className="flex flex-wrap gap-2 text-sm">
-      <span className="rounded-full bg-white px-3 py-1 font-medium text-zinc-600">
-        주차장 <strong className="text-foreground">{formatCount(siteStats.parkingLots)}</strong>
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pt-1 text-sm text-muted-foreground">
+      <span>
+        주차장{' '}
+        <strong className="font-semibold tabular-nums text-foreground">
+          {formatCount(siteStats.parkingLots)}
+        </strong>
       </span>
-      <span className="rounded-full bg-white px-3 py-1 font-medium text-zinc-600">
-        리뷰 <strong className="text-foreground">{formatCount(siteStats.reviews)}</strong>
+      <span>
+        리뷰{' '}
+        <strong className="font-semibold tabular-nums text-foreground">
+          {formatCount(siteStats.reviews)}
+        </strong>
       </span>
-      <span className="rounded-full bg-white px-3 py-1 font-medium text-zinc-600">
-        영상/포스팅 <strong className="text-foreground">{formatCount(siteStats.mediaPosts)}</strong>
+      <span>
+        영상/포스팅{' '}
+        <strong className="font-semibold tabular-nums text-foreground">
+          {formatCount(siteStats.mediaPosts)}
+        </strong>
       </span>
     </div>
   )
