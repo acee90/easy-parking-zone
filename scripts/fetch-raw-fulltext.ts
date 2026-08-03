@@ -30,6 +30,7 @@ const CONCURRENCY = parseInt(
   10,
 )
 const SLEEP_MS = parseInt(args.find((a) => a.startsWith('--sleep='))?.split('=')[1] ?? '500', 10)
+const IDS_ARG = args.find((a) => a.startsWith('--ids='))?.split('=')[1] ?? ''
 const OUTPUT_DIR =
   args.find((a) => a.startsWith('--output-dir='))?.split('=')[1] ?? '/tmp/raw-ft-out'
 const ROWS_PER_FILE = 500
@@ -61,12 +62,22 @@ async function sleep(ms: number): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  const rows = d1Query<PendingRow>(
-    `SELECT id, source, source_url FROM web_sources_raw
-     WHERE full_text_status = 'pending' AND source_url LIKE 'http%'
-     ORDER BY id LIMIT ${LIMIT}`,
+  // --ids 지정 시: status 무관, 특정 raw_id 타게팅 (purged/error 재시도용)
+  const idList = IDS_ARG
+    ? IDS_ARG.split(',')
+        .map((s) => parseInt(s.trim(), 10))
+        .filter((n) => Number.isFinite(n))
+    : []
+  const sql = idList.length
+    ? `SELECT id, source, source_url FROM web_sources_raw
+       WHERE id IN (${idList.join(',')}) AND source_url LIKE 'http%'`
+    : `SELECT id, source, source_url FROM web_sources_raw
+       WHERE full_text_status = 'pending' AND source_url LIKE 'http%'
+       ORDER BY id LIMIT ${LIMIT}`
+  const rows = d1Query<PendingRow>(sql)
+  console.log(
+    `📥 대상: ${rows.length}건 ${idList.length ? `(--ids ${idList.length}개)` : `(limit=${LIMIT})`}`,
   )
-  console.log(`📥 대상: ${rows.length}건 (limit=${LIMIT})`)
   if (rows.length === 0) return
 
   const buf: string[] = []
