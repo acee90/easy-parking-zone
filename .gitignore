@@ -78,8 +78,8 @@ backups/
 # 이슈 #135 long-form 재생성 임시 산출물
 data/top-sources-by-lot*.json
 data/top-sources-by-lot*.sql
-data/regen-applied.sql
-data/regen-rejected.json
+data/regen-*.sql
+data/regen-*.json
 data/ai-summary-*.sql
 data/filter-out/
 data/filter-v2-recheck/
@@ -95,6 +95,14 @@ data/place-check.json
 data/eval-lot-match-*.json
 data/relink-existing-*.sql
 data/backup-relinked-websources-*.json
+
+# 신규 lot 등록 배치 산출물 (register-new-lots.ts, 재생성 가능)
+data/new-lots-*.sql
+data/new-lots-review-*.md
+data/enrich-new-lots-*.sql
+
+# 파이프라인 ai-filter 중간산출물
+ai-results-*.json
 
 # .claude — agents/commands/skills는 추적, 개인/메타 파일은 제외
 .claude/settings.local.json
