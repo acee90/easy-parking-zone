@@ -573,9 +573,17 @@ type C4aiStatus = 'ok' | 'blocked' | 'not_found' | 'too_short' | 'timeout' | 'er
 function toMobileUrl(url: string, source: string): string {
   try {
     const u = new URL(url)
-    if (source === 'naver_blog' && u.hostname === 'blog.naver.com') {
-      u.hostname = 'm.blog.naver.com'
-      return u.toString()
+    if (source === 'naver_blog') {
+      // 원본/모바일(m.blog) URL은 로그인·본문 셸만 반환하므로,
+      // 본문 실체인 PostView.naver(iframe) URL로 변환한다.
+      // 경로 형태: /{blogId}/{logNo}
+      if (u.hostname === 'blog.naver.com' || u.hostname === 'm.blog.naver.com') {
+        const segs = u.pathname.split('/').filter(Boolean)
+        if (segs.length >= 2 && /^\d+$/.test(segs[1])) {
+          const [blogId, logNo] = segs
+          return `https://blog.naver.com/PostView.naver?blogId=${blogId}&logNo=${logNo}&redirect=Dlog&widgetTypeCall=true&directAccess=false`
+        }
+      }
     }
     if (source === 'naver_cafe' && u.hostname === 'cafe.naver.com') {
       u.hostname = 'm.cafe.naver.com'
@@ -592,7 +600,16 @@ async function fetchViaC4ai(url: string): Promise<{ status: C4aiStatus; text: st
     const res = await fetch(`${CRAWL4AI_URL}/crawl`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ urls: [url], word_count_threshold: 10 }),
+      body: url.includes('blog.naver.com/PostView.naver')
+        ? JSON.stringify({
+            urls: [url],
+            // naver_blog PostView는 chrome(네비/모달)이 대량 포함 → 본문 컨테이너만 추출
+            crawler_config: {
+              css_selector: '.se-main-container, #postViewArea, .se_component_wrap, .post_ct',
+              word_count_threshold: 10,
+            },
+          })
+        : JSON.stringify({ urls: [url], word_count_threshold: 10 }),
       signal: AbortSignal.timeout(C4AI_TIMEOUT_MS),
     })
     if (!res.ok) return { text: '', status: 'error' }

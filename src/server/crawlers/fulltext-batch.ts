@@ -4,13 +4,26 @@
  * web_sources에서 full_text_status='pending'인 항목을 crawl4ai로 본문 추출.
  * 모든 소스(brave_search, ddg_search, naver_blog, naver_cafe)를 crawl4ai 경유:
  *   - crawl4ai 서버 IP로 요청 → Cloudflare Workers IP 차단 우회
- *   - naver_blog: m.blog.naver.com 모바일 URL로 변환 (iframe 없는 단순 구조)
+ *   - naver_blog: PostView.naver(iframe 본문) URL로 변환 (m.blog는 로그인 셸만 반환)
  *   - naver_cafe: m.cafe.naver.com 모바일 URL로 변환
  */
 
 const BATCH_LIMIT = 25
 const FETCH_TIMEOUT = 30_000
 const MIN_TEXT_LENGTH = 200
+
+// naver_blog PostView는 본문 외 네비게이션/모달 chrome이 대량 포함되므로
+// 본문 컨테이너만 CSS로 추출한다 (SmartEditor ONE + legacy 셀렉터).
+const NAVER_BLOG_SELECTOR = '.se-main-container, #postViewArea, .se_component_wrap, .post_ct'
+function crawlBody(url: string): string {
+  if (url.includes('blog.naver.com/PostView.naver')) {
+    return JSON.stringify({
+      urls: [url],
+      crawler_config: { css_selector: NAVER_BLOG_SELECTOR, word_count_threshold: 10 },
+    })
+  }
+  return JSON.stringify({ urls: [url], word_count_threshold: 10 })
+}
 
 type FullTextStatus = 'ok' | 'blocked' | 'not_found' | 'too_short' | 'error'
 
@@ -23,9 +36,17 @@ interface PendingRow {
 function toMobileUrl(url: string, source: string): string {
   try {
     const u = new URL(url)
-    if (source === 'naver_blog' && u.hostname === 'blog.naver.com') {
-      u.hostname = 'm.blog.naver.com'
-      return u.toString()
+    if (source === 'naver_blog') {
+      // 원본/모바일(m.blog) URL은 로그인·본문 셸만 반환하므로,
+      // 본문 실체인 PostView.naver(iframe) URL로 변환한다.
+      // 경로 형태: /{blogId}/{logNo}
+      if (u.hostname === 'blog.naver.com' || u.hostname === 'm.blog.naver.com') {
+        const segs = u.pathname.split('/').filter(Boolean)
+        if (segs.length >= 2 && /^\d+$/.test(segs[1])) {
+          const [blogId, logNo] = segs
+          return `https://blog.naver.com/PostView.naver?blogId=${blogId}&logNo=${logNo}&redirect=Dlog&widgetTypeCall=true&directAccess=false`
+        }
+      }
     }
     if (source === 'naver_cafe' && u.hostname === 'cafe.naver.com') {
       u.hostname = 'm.cafe.naver.com'
@@ -45,7 +66,7 @@ async function fetchViaC4ai(
     const res = await fetch(`${crawl4aiUrl}/crawl`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ urls: [url], word_count_threshold: 10 }),
+      body: crawlBody(url),
       signal: AbortSignal.timeout(FETCH_TIMEOUT),
     })
 
