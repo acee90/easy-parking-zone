@@ -27,10 +27,12 @@ function useCarousel() {
  * 타이틀과 <Carousel>을 모두 감싸야 한다.
  */
 export function CarouselProvider({ children }: { children: ReactNode }) {
+  // 모바일: 활성 카드를 가운데 정렬해 양옆 카드가 살짝 보이게. 데스크톱: 화살표 탐색이라 start 정렬.
   const [emblaRef, emblaApi] = useEmblaCarousel({
-    align: 'start',
+    align: 'center',
     containScroll: 'trimSnaps',
     dragFree: false,
+    breakpoints: { '(min-width: 640px)': { align: 'start' } },
   })
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [scrollSnaps, setScrollSnaps] = useState<number[]>([])
