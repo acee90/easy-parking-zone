@@ -141,6 +141,15 @@ export function isRelevant(candidate: string, r: AnnotatedResult): boolean {
 }
 
 /**
+ * 이름토큰 일치만으로 관련성 판정 (region_score 무시).
+ * 신규 lot 생성처럼 좌표가 진실을 보장하지 못하는 경로에서, 결과명이
+ * 후보 핵심토큰을 실제로 포함하는지 엄격 검증한다. ("같은 동네 다른 lot" 차단)
+ */
+export function hasNameTokenMatch(candidate: string, resultName: string): boolean {
+  return candidateCoreTokens(candidate).some((t) => resultName.includes(t))
+}
+
+/**
  * 장소검색 결과를 신규/기존/노이즈로 판정.
  * @param candidateName 정규화된 후보 장소명 (관련성 검증용)
  * @param items Naver Local Search 결과
