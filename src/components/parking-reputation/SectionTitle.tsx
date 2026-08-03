@@ -21,16 +21,18 @@ const TAB_TO_PATH = {
 export function SectionTitle({ title, count, viewAll, actions }: SectionTitleProps) {
   return (
     <div className="mb-4 flex items-center justify-between gap-2">
-      <h2 className="flex items-baseline gap-2 text-xl font-bold tracking-tight text-zinc-950">
+      <h2 className="flex items-baseline gap-1.5 text-xl font-bold tracking-tight text-zinc-950">
         {title}
-        {count > 0 && <span className="text-sm font-normal text-muted-foreground">({count})</span>}
+        {count > 0 && (
+          <span className="text-base font-semibold tabular-nums text-zinc-400">{count}</span>
+        )}
       </h2>
-      <div className="flex shrink-0 items-center gap-3">
+      <div className="flex shrink-0 items-center gap-2">
         {viewAll && (
           <Link
             to={TAB_TO_PATH[viewAll.tab]}
             params={{ slug: viewAll.slug }}
-            className="flex items-center gap-0.5 text-sm font-medium text-primary hover:text-primary/80"
+            className="inline-flex h-8 items-center gap-0.5 rounded-full border border-zinc-200 bg-white pl-3 pr-2 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-50 active:bg-zinc-100"
           >
             전체 보기
             <ChevronRight className="size-3.5" />

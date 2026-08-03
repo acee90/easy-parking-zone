@@ -50,7 +50,7 @@ export function RelatedWebsitesSection({
       <CarouselProvider>
         {showTitle && (
           <SectionTitle
-            title="방문자 후기"
+            title="블로그 후기"
             count={count}
             viewAll={hasMore && viewAllSlug ? { slug: viewAllSlug, tab: 'blog' } : undefined}
             actions={<CarouselArrows />}
