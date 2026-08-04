@@ -33,6 +33,7 @@ import {
   scoreBlogRelevance,
   stripHtml,
 } from '../src/server/crawlers/lib/scoring'
+import { detectSummaryPollution } from '../src/server/crawlers/lib/summary-guard'
 import { d1Query, isRemote, localDbPath } from './lib/d1'
 import { classify, NOISE_TYPES, normalizeName } from './lib/missed-classify'
 import { searchNaverLocal } from './lib/naver-api'
@@ -502,6 +503,18 @@ function buildMissedLotInsertSql(raw: RawRow, detectedName: string): string {
   return `INSERT OR IGNORE INTO web_sources_missed (${cols.join(', ')}) VALUES (${vals});`
 }
 
+/** 가드에 걸려 NULL 처리된 ai_summary 집계 (사유별). data-apply 단계 끝에서 리포트한다. */
+const summaryRejections = new Map<string, number>()
+
+export function reportSummaryRejections(): void {
+  if (summaryRejections.size === 0) return
+  const total = [...summaryRejections.values()].reduce((a, b) => a + b, 0)
+  console.log(`  [guard] ai_summary 오염으로 NULL 처리: ${total}건`)
+  for (const [reason, n] of [...summaryRejections.entries()].sort((a, b) => b[1] - a[1])) {
+    console.log(`          - ${reason}: ${n}`)
+  }
+}
+
 function buildInsertSql(
   raw: RawRow,
   lot: LotRow,
@@ -514,7 +527,15 @@ function buildInsertSql(
     : raw.ai_difficulty_keywords
 
   // ai_summary: pipeline-ai-filter agent가 통합 단계에서 직접 생성. 빈 문자열이면 '시도했으나 실패'로 마킹.
-  const aiSummary = aiResult?.summary ?? null
+  // agent가 요약 대신 원문 스크랩을 뱉는 사고가 반복돼(2026-08 운영 D1에서 4,265건 확인) 가드를 건다.
+  // 오염이면 NULL로 저장한다 — '' 로 두면 BlogPostCard의 `summary ?? snippet` 폴백이
+  // 빈 문자열을 통과시켜 스니펫까지 사라진다.
+  const rawSummary = aiResult?.summary ?? null
+  const pollution = detectSummaryPollution(rawSummary)
+  if (pollution) {
+    summaryRejections.set(pollution, (summaryRejections.get(pollution) ?? 0) + 1)
+  }
+  const aiSummary = pollution ? null : rawSummary
   // sqlVal이 SQL 키워드를 못 다루므로 ISO 문자열로 시각 기록 (SQLite TEXT 호환)
   const aiSummaryUpdatedAt = aiSummary !== null ? new Date().toISOString() : null
 
@@ -1373,6 +1394,8 @@ async function main() {
     if (recovered > 0) console.log(`  좌표회수 ${recovered}건  (이름매칭 실패 → 좌표로 기존 lot)`)
     console.log(`  missed ${missed}건  (lot DB에 없음)`)
   }
+
+  reportSummaryRejections()
 
   if (emittedFiles.length > 0) {
     console.log(`\n[SQL Files]  ${tmpDir}`)

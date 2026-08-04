@@ -18,6 +18,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { dirname, resolve } from 'path'
 import { MIN_SUMMARY_LENGTH } from '../src/server/crawlers/lib/ai-filter'
+import { detectSummaryPollution } from '../src/server/crawlers/lib/summary-guard'
 import { d1ExecFile, d1Query, isRemote } from './lib/d1'
 
 // ── CLI ──
@@ -122,37 +123,8 @@ function escSql(s: string): string {
   return s.replace(/'/g, "''")
 }
 
-// ── Chrome / boilerplate / 인젝션 패턴 ──
-// agent가 본문 raw markdown을 그대로 복사한 케이스 차단.
-// ai-summary-prompt.ts의 boilerplate 사양과 일치.
-const CHROME_PATTERNS: { name: string; re: RegExp }[] = [
-  { name: 'naver_blog_menu', re: /MY메뉴 열기|_My Menu|클립만들기|블로그 앱|내 상품 관리 NEW/ },
-  { name: 'naver_blog_chrome', re: /이 블로그의 체크인|이 장소의 다른 글/ },
-  { name: 'naver_blog_font_ctrl', re: /본문 폰트 크기 (조정|작게|크게)|본문 기타 기능/ },
-  { name: 'naver_cafe_chrome', re: /홈 로그인하기|로그인이 필요합니다|useCafeId=false/ },
-  { name: 'markdown_residue', re: /\]\(https?:\/\/m\. com\//i },
-  { name: 'markdown_image', re: /!\[[^\]]*\]\(https?:/ },
-  { name: 'markdown_header', re: /(?:^|\n)#{1,6} [^\n]+\n/ },
-  { name: 'markdown_link_dump', re: /(?:\]\(https?:[^)]+\)[^.]{0,30}){3,}/ },
-  { name: 'llm_injection', re: /OpenAI GPT|이 텍스트를 자동으로 처리|저작권 보호를 받습니다/ },
-  { name: 'network_error', re: /로딩중입니다|네트워크 문제/ },
-  { name: 'coupang_partners', re: /쿠팡 파트너스/ },
-  {
-    name: 'meta_only',
-    re: /(정보를?\s*제공합니다|정보를?\s*확인할 수 있습니다|상세\s*정보를?\s*포함합니다|정책 변경 여부를?\s*확인)/,
-  },
-  { name: 'ai_disclosure', re: /(AI[가]? 분석|데이터에 따르면|본 페이지는 자동|AI 생성 콘텐츠)/ },
-  { name: 'qa_template', re: /(Q\.\s*[^A]+A\.\s*)/ },
-]
-
-const MAX_SUMMARY_LENGTH = 800
-
-function detectChrome(s: string): string | null {
-  for (const { name, re } of CHROME_PATTERNS) {
-    if (re.test(s)) return name
-  }
-  return null
-}
+// Chrome/보일러플레이트/스크랩 아티팩트 판정은 summary-guard.ts가 single source of truth.
+// run-pipeline-149.ts(신규 적재 경로)와 동일한 기준을 쓴다.
 
 // ── Main ──
 function main() {
@@ -196,30 +168,17 @@ function main() {
       continue
     }
 
-    // chrome / boilerplate / 인젝션 패턴 검출 → 거부
-    const chromeMatch = detectChrome(p.newSummary)
-    if (chromeMatch) {
+    // chrome / 스크랩 아티팩트 / 과길이 검출 → 거부 (summary-guard.ts 공용 기준)
+    const pollution = detectSummaryPollution(p.newSummary)
+    if (pollution) {
       rejected.push({
         id: p.id,
-        reason: 'chrome_detected',
+        reason: pollution === 'too_long' ? 'too_long' : 'chrome_detected',
         old_len: oldLen,
         new_len: newLen,
         old_summary: old.slice(0, 80),
         new_summary: p.newSummary.slice(0, 80),
-        matched_pattern: chromeMatch,
-      })
-      continue
-    }
-
-    // 너무 긴 summary → agent가 본문을 raw로 복사한 신호. 거부.
-    if (newLen > MAX_SUMMARY_LENGTH) {
-      rejected.push({
-        id: p.id,
-        reason: 'too_long',
-        old_len: oldLen,
-        new_len: newLen,
-        old_summary: old.slice(0, 80),
-        new_summary: p.newSummary.slice(0, 80),
+        matched_pattern: pollution,
       })
       continue
     }
