@@ -25,6 +25,12 @@ export function BlogPostCard({
     className: 'bg-zinc-50 text-zinc-700 border-zinc-100',
   }
 
+  // ai_summary는 파이프라인이 '시도했으나 실패'를 빈 문자열로 마킹하고,
+  // 오염 요약 정리 시에도 빈 값이 남는다. ?? 로 폴백하면 ''가 통과해
+  // 스니펫까지 사라지므로(본문 없는 카드) 공백만 있는 요약은 없는 것으로 본다.
+  const summary = post.summary?.trim() || null
+  const body = summary ?? post.snippet
+
   return (
     <div
       className={`group relative rounded-2xl bg-white p-5 ${bordered ? 'border border-zinc-200' : ''}`}
@@ -46,16 +52,14 @@ export function BlogPostCard({
           </div>
         </div>
 
-        {(post.summary ?? post.snippet) && (
+        {body && (
           <div className="mb-4">
-            {post.summary && (
+            {summary && (
               <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
                 핵심 요약
               </span>
             )}
-            <p className="line-clamp-3 text-sm leading-relaxed text-zinc-600">
-              {post.summary ?? post.snippet}
-            </p>
+            <p className="line-clamp-3 text-sm leading-relaxed text-zinc-600">{body}</p>
           </div>
         )}
 
