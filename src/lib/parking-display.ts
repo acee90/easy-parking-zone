@@ -54,7 +54,11 @@ export function formatPricing(pricing: ParkingLot['pricing']): PricingDisplay {
     return { primary: `요금 ${NO_INFO}`, isUnknown: true }
   }
 
-  const primary = `기본 ${pricing.baseTime}분 ${pricing.baseFee.toLocaleString()}원`
+  // 기본요금 0원 = "최초 N분 무료" 정책(백화점·마트 등). "기본 30분 0원"은 사용자가 읽기 어렵다.
+  const primary =
+    pricing.baseFee <= 0
+      ? `최초 ${pricing.baseTime}분 무료`
+      : `기본 ${pricing.baseTime}분 ${pricing.baseFee.toLocaleString()}원`
   const extras: string[] = []
 
   if (pricing.extraTime > 0 && pricing.extraFee > 0) {
