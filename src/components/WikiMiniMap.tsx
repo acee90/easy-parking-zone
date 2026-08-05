@@ -10,7 +10,8 @@ import {
 import { getBearing, getDistance } from '@/lib/geo-utils'
 import { loadNaverMapSdk } from '@/lib/naver-map-sdk'
 
-const MEDIA_HEIGHT_CLASS = 'h-[210px]'
+/** 데스크톱에서 지도 열이 넓어진 만큼 높이도 키워 비율을 맞춘다. */
+const MEDIA_HEIGHT_CLASS = 'h-[240px] md:h-[300px]'
 
 type ViewMode = 'map' | 'roadview'
 type RoadviewState = 'idle' | 'loading' | 'ready' | 'unavailable' | 'error'
@@ -217,11 +218,12 @@ export function WikiMiniMap({ lat, lng, name }: WikiMiniMapProps) {
   }
 
   return (
-    <section className="overflow-hidden rounded-xl border bg-zinc-100">
+    <section className={`relative overflow-hidden rounded-2xl bg-zinc-100 ${MEDIA_HEIGHT_CLASS}`}>
+      {/* 탭을 별도 바로 쌓지 않고 미디어 위에 띄운다 — 표면 중첩을 없애고 지도 높이를 확보. */}
       <div
         role="tablist"
         aria-label="주차장 위치 미디어"
-        className="flex h-10 items-center gap-1 border-b bg-white px-1.5"
+        className="absolute left-3 top-3 z-10 flex gap-0.5 rounded-full bg-white/90 p-0.5 backdrop-blur-sm"
       >
         {(['map', 'roadview'] as const).map((mode) => {
           const isSelected = viewMode === mode
@@ -232,10 +234,8 @@ export function WikiMiniMap({ lat, lng, name }: WikiMiniMapProps) {
               role="tab"
               aria-selected={isSelected}
               aria-controls={`parking-location-${mode}`}
-              className={`h-7 rounded-md px-3 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                isSelected
-                  ? 'bg-zinc-100 text-foreground shadow-xs'
-                  : 'text-muted-foreground hover:bg-zinc-50 hover:text-foreground'
+              className={`h-7 cursor-pointer rounded-full px-3.5 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                isSelected ? 'bg-zinc-900 text-white' : 'text-zinc-600 hover:text-zinc-900'
               }`}
               onClick={() => selectView(mode)}
             >
@@ -245,7 +245,7 @@ export function WikiMiniMap({ lat, lng, name }: WikiMiniMapProps) {
         })}
       </div>
 
-      <div className={`relative ${MEDIA_HEIGHT_CLASS}`}>
+      <div className="relative h-full">
         {viewMode === 'map' ? (
           <div id="parking-location-map" role="tabpanel" className="h-full w-full">
             {mapError ? (
@@ -282,7 +282,7 @@ export function WikiMiniMap({ lat, lng, name }: WikiMiniMapProps) {
                 </p>
                 <button
                   type="button"
-                  className="inline-flex h-7 items-center gap-1.5 rounded-md border bg-white px-2.5 text-xs font-medium text-foreground shadow-xs transition-colors hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-full bg-white px-3.5 text-xs font-semibold text-foreground transition-colors hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   onClick={() => setRoadviewRetryKey((key) => key + 1)}
                 >
                   <RefreshCw className="size-3" />

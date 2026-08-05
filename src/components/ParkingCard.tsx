@@ -329,7 +329,7 @@ export function ParkingCard({ lot, onClose, userLat, userLng, userLocated }: Par
 
             {/* 액션 그룹 */}
             <div className="space-y-2">
-              <ParkingActionGroup lotId={lot.id} lat={lot.lat} lng={lot.lng} name={lot.name} />
+              <ParkingActionGroup lat={lot.lat} lng={lot.lng} name={lot.name} />
               <Link
                 to="/wiki/$slug"
                 params={{ slug }}

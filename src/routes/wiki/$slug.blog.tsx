@@ -187,7 +187,7 @@ function ParkingInfoPanel({
           <span className="min-w-0">{lot.address}</span>
         </div>
         <div className="mt-4">
-          <ParkingActionGroup lotId={lot.id} lat={lot.lat} lng={lot.lng} name={lot.name} />
+          <ParkingActionGroup lat={lot.lat} lng={lot.lng} name={lot.name} />
         </div>
       </section>
 

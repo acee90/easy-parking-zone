@@ -11,7 +11,9 @@ export function FaqSection({ lot, relatedLots }: FaqSectionProps) {
   if (items.length < 3) return null
 
   return (
-    <section aria-labelledby="faq-heading" className="mt-6 border-t border-zinc-100 pt-6">
+    // 페이지 최하단 독립 섹션. 상세 시트 안에 있을 때는 구분선만 썼지만
+    // 이제 자체 표면을 갖는다.
+    <section aria-labelledby="faq-heading" className="rounded-2xl bg-white p-5 md:p-6">
       <h2 id="faq-heading" className="mb-3 text-xl font-bold tracking-tight">
         자주 묻는 질문
       </h2>

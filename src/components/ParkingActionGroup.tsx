@@ -1,16 +1,17 @@
 import { NavigationButton } from '@/components/NavigationButton'
-import { VoteBookmarkBar } from '@/components/VoteBookmarkBar'
 
 interface ParkingActionGroupProps {
-  lotId: string
   lat: number
   lng: number
   name: string
   navigationButtonClassName?: string
 }
 
+/**
+ * 주차장 액션 행. 현재는 길찾기 버튼 하나뿐이지만,
+ * 5개 화면이 같은 자리를 공유하므로 슬롯으로 유지한다.
+ */
 export function ParkingActionGroup({
-  lotId,
   lat,
   lng,
   name,
@@ -25,7 +26,6 @@ export function ParkingActionGroup({
         wrapperClassName="min-w-0 flex-1"
         buttonClassName={`w-full ${navigationButtonClassName ?? ''}`}
       />
-      <VoteBookmarkBar lotId={lotId} />
     </div>
   )
 }
