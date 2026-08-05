@@ -50,6 +50,7 @@ const REASON_LABELS: Record<string, string> = {
   broken_link: '링크 깨짐',
   duplicate: '중복',
   inappropriate: '부적절',
+  not_parking_review: '주차장 리뷰 글 아님',
   fake_review: '허위 리뷰',
   abusive: '욕설/비방',
   spam: '스팸',

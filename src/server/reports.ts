@@ -31,6 +31,7 @@ const WEB_SOURCE_REASONS = [
   'broken_link',
   'duplicate',
   'inappropriate',
+  'not_parking_review',
   'other',
 ] as const
 
@@ -41,6 +42,7 @@ const MEDIA_REASONS = [
   'advertisement',
   'broken_link',
   'inappropriate',
+  'not_parking_review',
   'other',
 ] as const
 
@@ -113,6 +115,7 @@ export const getReportReasons = createServerFn({ method: 'GET' })
       broken_link: '링크 깨짐/접근 불가',
       duplicate: '중복 콘텐츠',
       inappropriate: '부적절한 콘텐츠',
+      not_parking_review: '주차장 리뷰 글이 아님',
       // 리뷰
       fake_review: '허위/조작 리뷰',
       abusive: '욕설/비방',
