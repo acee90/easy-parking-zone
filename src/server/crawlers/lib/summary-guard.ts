@@ -53,7 +53,8 @@ const CHROME_PATTERNS: { name: string; re: RegExp }[] = [
  */
 const SCRAPE_ARTIFACTS: { name: string; re: RegExp }[] = [
   // 요약에 URL이 남아 있으면 원문이다. 사양상 요약은 URL을 포함하지 않는다.
-  { name: 'url', re: /https?:\/\// },
+  // `//`를 요구하지 않는다 — 스킴만 남고 잘린 형태(`,source:https:blog`)가 실제로 있었다.
+  { name: 'url', re: /https?:/ },
   // 네이버 블로그 본문 스크랩의 지문. 정상 생성 요약에는 나올 수 없다. (실측 2,053건)
   { name: 'zero_width', re: /​/ },
   // 마크다운 강조/링크 잔재.

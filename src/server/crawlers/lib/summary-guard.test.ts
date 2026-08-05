@@ -17,6 +17,13 @@ describe('detectSummaryPollution — 실제 오염 데이터', () => {
     expect(detectSummaryPollution(s)).toBe('artifact:url')
   })
 
+  it('스킴만 남고 잘린 URL도 잡는다', () => {
+    // `//` 없이 `https:`만 남은 메타데이터 잔재 (id=437724)
+    expect(detectSummaryPollution('유성온천 크리스마스마켓 주차장 총정리,source:https:blog')).toBe(
+      'artifact:url',
+    )
+  })
+
   it('제로폭 공백이 섞인 네이버 블로그 원문을 잡는다', () => {
     const s =
       '야외주차장 넓고, 1층에 하나로마트 있어서 애들 간식이랑 필요한것도 샀어요~ ​ ​ ​ ' +
