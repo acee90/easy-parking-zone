@@ -35,7 +35,7 @@ import {
   searchKakaoKeyword,
 } from './lib/kakao-api'
 import { classify, NOISE_TYPES, normalizeName, SEARCH_ELIGIBLE_TYPES } from './lib/missed-classify'
-import { searchNaverLocal } from './lib/naver-api'
+import { isInKorea, searchNaverLocal } from './lib/naver-api'
 import {
   extractHints,
   hasNameTokenMatch,
@@ -179,8 +179,34 @@ function inferType(name: string, category: string): string {
   return '부설'
 }
 
-function lotInsert(p: KakaoPlace, lotId: string, name: string): string {
-  const { lat, lng } = parseKakaoCoords(p)
+/**
+ * 신규 lot 좌표 결정 — **Naver 1순위, Kakao 2순위**.
+ *
+ * ID는 Kakao만 발급할 수 있어(Naver Local API는 placeId를 반환하지 않음)
+ * ID 출처와 좌표 출처가 갈린다. 좌표를 Naver로 두는 이유:
+ *   - 로드뷰·지도가 모두 네이버라, 좌표도 네이버 기준이어야 파노라마가 제자리에 잡힌다
+ *   - Kakao POI 좌표는 건물/부지 중심점이라 출입구와 어긋나는 사례가 많다
+ *
+ * confirmWithKakao()가 두 좌표가 KAKAO_RADIUS_M 이내임을 이미 보장하므로,
+ * 어느 쪽을 쓰든 같은 장소를 가리킨다.
+ */
+function pickLotCoords(
+  naver: { lat: number; lng: number },
+  kakao: { lat: number; lng: number },
+): { lat: number; lng: number; source: 'naver_local' | 'kakao_keyword' } {
+  if (Number.isFinite(naver.lat) && Number.isFinite(naver.lng) && isInKorea(naver.lat, naver.lng)) {
+    return { lat: naver.lat, lng: naver.lng, source: 'naver_local' }
+  }
+  return { lat: kakao.lat, lng: kakao.lng, source: 'kakao_keyword' }
+}
+
+function lotInsert(
+  p: KakaoPlace,
+  lotId: string,
+  name: string,
+  coords: { lat: number; lng: number; source: string },
+): string {
+  const { lat, lng, source } = coords
   const address = p.road_address_name || p.address_name
   const cols = [
     'id',
@@ -209,7 +235,7 @@ function lotInsert(p: KakaoPlace, lotId: string, name: string): string {
     0,
     3.0,
     p.phone || null,
-    'kakao_keyword',
+    source,
     "datetime('now')",
     "datetime('now')",
     "datetime('now')",
@@ -355,7 +381,9 @@ async function main() {
       f.kakao_confirmed++
 
       const lotId = `KA-${match.id}`
-      const { lat, lng } = parseKakaoCoords(match)
+      // 좌표는 Naver 우선(o.best), Kakao는 폴백. ID만 Kakao에서 가져온다.
+      const coords = pickLotCoords(o.best, parseKakaoCoords(match))
+      const { lat, lng } = coords
       const near = nearestLot(lat, lng, lots)
       const collides = existingIds.has(lotId) || (near !== null && near.dist <= DEDUP_RADIUS_M)
 
@@ -378,7 +406,7 @@ async function main() {
       f.new_insert++
       const lotAddr = match.road_address_name || match.address_name
       const lotName = finalLotName(match.place_name, lotAddr, existingNameKeys)
-      lotStmts.push(lotInsert(match, lotId, lotName))
+      lotStmts.push(lotInsert(match, lotId, lotName, coords))
 
       // web_sources 승격 (관련성 게이트)
       let promotedHere = 0
