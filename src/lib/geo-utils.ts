@@ -13,6 +13,19 @@ function toRad(deg: number) {
   return (deg * Math.PI) / 180
 }
 
+/**
+ * 정방위각(from → to). 0 = 정북, 시계방향으로 증가(동 = 90).
+ * 네이버 Panorama의 `pov.pan`과 같은 규약이라 그대로 넘길 수 있다.
+ */
+export function getBearing(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const φ1 = toRad(lat1)
+  const φ2 = toRad(lat2)
+  const Δλ = toRad(lng2 - lng1)
+  const y = Math.sin(Δλ) * Math.cos(φ2)
+  const x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ)
+  return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360
+}
+
 /** Default center: 서울 시청 */
 export const DEFAULT_CENTER = { lat: 37.5666, lng: 126.9784 }
 export const DEFAULT_ZOOM = Number(import.meta.env.VITE_DEFAULT_ZOOM) || 17
