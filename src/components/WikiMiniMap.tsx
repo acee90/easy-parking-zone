@@ -9,6 +9,12 @@ import {
 } from 'react-naver-maps'
 import { getBearing, getDistance } from '@/lib/geo-utils'
 import { loadNaverMapSdk } from '@/lib/naver-map-sdk'
+import {
+  buildProbeGrid,
+  NEAR_ENOUGH_M,
+  type PanoCandidate,
+  selectPanorama,
+} from '@/lib/roadview-select'
 
 /** 데스크톱에서 지도 열이 넓어진 만큼 높이도 키워 비율을 맞춘다. */
 const MEDIA_HEIGHT_CLASS = 'h-[240px] md:h-[300px]'
@@ -30,6 +36,8 @@ interface PanoramaPov {
 
 /** getLocation()이 돌려주는 실제 파노라마 위치. coord는 LatLng이라 lat()/lng() 호출이 필요하다. */
 interface PanoramaLocation {
+  panoId?: string
+  photodate?: string
   coord?: { lat: () => number; lng: () => number }
 }
 
@@ -38,6 +46,8 @@ interface PanoramaInstance {
   /** 서브모듈 버전에 따라 없을 수 있어 optional로 둔다 */
   getLocation?: () => PanoramaLocation | null
   setPov?: (pov: PanoramaPov) => void
+  setPosition?: (position: object) => void
+  setPanoId?: (panoId: string) => void
 }
 
 type PanoramaMaps = {
@@ -96,6 +106,33 @@ function MediaLoadingState({ label }: { label: string }) {
 /** 로드뷰 초기 시야각(수평). 넓게 잡아 주변 맥락을 함께 보여준다. */
 const ROADVIEW_FOV = 100
 
+/** 프로브 1회당 pano_status 대기 한계. 넘으면 그 좌표는 후보 없음으로 넘긴다. */
+const PROBE_TIMEOUT_MS = 4000
+
+/** 파노라마의 실제 좌표. 못 읽으면 null. */
+function readCoord(panorama: PanoramaInstance) {
+  try {
+    const coord = panorama.getLocation?.()?.coord
+    if (!coord || typeof coord.lat !== 'function') return null
+    const lat = coord.lat()
+    const lng = coord.lng()
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null
+    return { lat, lng }
+  } catch (error) {
+    console.error('[Naver Maps] roadview 좌표 조회 실패:', error)
+    return null
+  }
+}
+
+/** 선택 규칙에 넣을 후보 형태로 읽는다. panoId가 없으면 후보로 쓸 수 없다. */
+function readCandidate(panorama: PanoramaInstance): PanoCandidate | null {
+  const coord = readCoord(panorama)
+  if (!coord) return null
+  const location = panorama.getLocation?.()
+  if (!location?.panoId) return null
+  return { panoId: location.panoId, ...coord, photodate: location.photodate }
+}
+
 /**
  * 파노라마가 주차장 쪽을 바라보도록 pan을 보정한다.
  *
@@ -106,18 +143,83 @@ const ROADVIEW_FOV = 100
  * 좌표를 못 얻으면 조용히 넘어간다 — 방향이 어긋날 뿐 로드뷰 자체는 정상 동작한다.
  */
 function aimAtLot(panorama: PanoramaInstance, lat: number, lng: number) {
+  const coord = readCoord(panorama)
+  if (!coord) return
+  aimFrom(panorama, coord, lat, lng)
+}
+
+/** 파노라마 좌표를 이미 알고 있을 때의 pov 보정 */
+function aimFrom(
+  panorama: PanoramaInstance,
+  from: { lat: number; lng: number },
+  lat: number,
+  lng: number,
+) {
+  // 파노라마가 주차장과 사실상 같은 지점이면 방위각이 무의미하다.
+  if (getDistance(from.lat, from.lng, lat, lng) * 1000 < 1) return
+  panorama.setPov?.({ pan: getBearing(from.lat, from.lng, lat, lng), tilt: 0, fov: ROADVIEW_FOV })
+}
+
+/**
+ * 주차장 주변을 훑어 파노라마 후보를 모은다.
+ *
+ * 인스턴스 하나를 만들어 `setPosition()`으로 옮겨 다닌다. 네이버 답변상 지도 로딩 이후의
+ * Panorama 조작은 호출 건수에 포함되지 않으므로 반복 이동에 과금 부담이 없다.
+ *
+ * 재사용 인스턴스는 조회에 실패해도 직전 위치 값을 그대로 들고 있다. 그래서
+ * `pano_status === 'OK'`일 때만 읽는다 — 이 가드가 없으면 같은 후보를 중복 수집한다.
+ */
+async function probeCandidates(
+  maps: PanoramaMaps,
+  container: HTMLElement,
+  lat: number,
+  lng: number,
+  isCancelled: () => boolean,
+): Promise<PanoCandidate[]> {
+  const grid = buildProbeGrid(lat, lng)
+  const found = new Map<string, PanoCandidate>()
+
+  container.replaceChildren()
+  let deliverStatus: ((status: string) => void) | null = null
+
+  const probe = new maps.Panorama(container, {
+    position: new maps.LatLng(grid[0].lat, grid[0].lng),
+    pov: { pan: 0, tilt: 0, fov: ROADVIEW_FOV },
+    aroundControl: false,
+  })
+  const listener = maps.Event.addListener(probe, 'pano_status', (status) => {
+    deliverStatus?.(String(status))
+  })
+
+  const nextStatus = () =>
+    new Promise<string>((resolve) => {
+      const timer = setTimeout(() => {
+        deliverStatus = null
+        resolve('TIMEOUT')
+      }, PROBE_TIMEOUT_MS)
+      deliverStatus = (status) => {
+        clearTimeout(timer)
+        deliverStatus = null
+        resolve(status)
+      }
+    })
+
   try {
-    const coord = panorama.getLocation?.()?.coord
-    if (!coord || typeof coord.lat !== 'function') return
-    const panoLat = coord.lat()
-    const panoLng = coord.lng()
-    if (!Number.isFinite(panoLat) || !Number.isFinite(panoLng)) return
-    // 파노라마가 주차장과 사실상 같은 지점이면 방위각이 무의미하다.
-    if (getDistance(panoLat, panoLng, lat, lng) * 1000 < 1) return
-    panorama.setPov?.({ pan: getBearing(panoLat, panoLng, lat, lng), tilt: 0, fov: ROADVIEW_FOV })
-  } catch (error) {
-    console.error('[Naver Maps] roadview pov 보정 실패:', error)
+    for (const [index, point] of grid.entries()) {
+      if (isCancelled()) break
+      // 0번 좌표는 생성 시점에 이미 조회가 시작됐다.
+      if (index > 0) probe.setPosition?.(new maps.LatLng(point.lat, point.lng))
+      if ((await nextStatus()) !== 'OK') continue
+      const candidate = readCandidate(probe)
+      if (candidate && !found.has(candidate.panoId)) found.set(candidate.panoId, candidate)
+    }
+  } finally {
+    maps.Event.removeListener(listener)
+    probe.setVisible(false)
+    container.replaceChildren()
   }
+
+  return [...found.values()]
 }
 
 function RoadviewPanel({
@@ -130,13 +232,54 @@ function RoadviewPanel({
   onStateChange: (state: RoadviewState) => void
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
+  const probeContainerRef = useRef<HTMLDivElement>(null)
   const panoramaRef = useRef<PanoramaInstance | null>(null)
 
   useEffect(() => {
     let cancelled = false
     let listener: object | null = null
+    // 프로브는 한 번만. setPanoId 이후 pano_status가 다시 오므로 재진입을 막는다.
+    let refineStarted = false
+    // 사용자가 시야를 돌린 뒤에 화면을 바꾸면 조작을 빼앗는 꼴이 된다.
+    let userTookOver = false
+    const takeOver = () => {
+      userTookOver = true
+    }
 
     onStateChange('loading')
+
+    /**
+     * 최근접 파노라마가 주차장에서 멀 때만, 첫 화면이 뜬 뒤에 주변을 훑어 더 나은 후보로 바꾼다.
+     * 실측상 이 경로를 타는 주차장은 약 22%다.
+     */
+    const refine = async (
+      maps: PanoramaMaps,
+      panorama: PanoramaInstance,
+      origin: PanoCandidate,
+    ) => {
+      const probeContainer = probeContainerRef.current
+      if (!probeContainer) return
+
+      const probed = await probeCandidates(maps, probeContainer, lat, lng, () => cancelled)
+      if (cancelled || userTookOver) return
+
+      const selection = selectPanorama([origin, ...probed], lat, lng)
+      if (import.meta.env.DEV && selection) {
+        console.info(
+          `[roadview] 후보 ${selection.candidateCount} · ${selection.reason} · ` +
+            `최근접 ${selection.nearest.distanceM.toFixed(1)}m → ` +
+            `선택 ${selection.chosen.distanceM.toFixed(1)}m (${selection.chosen.photodate ?? '-'})`,
+        )
+      }
+      if (!selection || selection.chosen.panoId === origin.panoId) return
+
+      const { chosen } = selection
+      if (panorama.setPanoId) panorama.setPanoId(chosen.panoId)
+      else panorama.setPosition?.(new maps.LatLng(chosen.lat, chosen.lng))
+      // 좌표를 이미 알고 있으므로 pano_status를 기다리지 않고 바로 맞춘다. 교체가 끝나면
+      // pano_status(OK)가 한 번 더 오는데, 그 경로의 aimAtLot()도 같은 값을 계산한다.
+      aimFrom(panorama, chosen, lat, lng)
+    }
 
     const initialize = async () => {
       try {
@@ -150,6 +293,8 @@ function RoadviewPanel({
 
         const container = containerRef.current
         container.replaceChildren()
+        container.addEventListener('pointerdown', takeOver)
+        container.addEventListener('wheel', takeOver, { passive: true })
 
         const panorama = new maps.Panorama(container, {
           position: new maps.LatLng(lat, lng),
@@ -162,8 +307,22 @@ function RoadviewPanel({
         const eventApi = maps.Event as unknown as PanoramaEventApi
         listener = eventApi.addListener(panorama, 'pano_status', (status) => {
           if (cancelled) return
-          if (status === 'OK') aimAtLot(panorama, lat, lng)
-          onStateChange(status === 'OK' ? 'ready' : 'unavailable')
+          if (status !== 'OK') {
+            onStateChange('unavailable')
+            return
+          }
+          aimAtLot(panorama, lat, lng)
+          onStateChange('ready')
+
+          if (refineStarted) return
+          refineStarted = true
+          const origin = readCandidate(panorama)
+          // 이미 주차장 앞이면(78%) 프로브할 이유가 없다. panoId를 못 읽으면 비교가 불가능하다.
+          if (!origin) return
+          if (getDistance(origin.lat, origin.lng, lat, lng) * 1000 <= NEAR_ENOUGH_M) return
+          refine(maps, panorama, origin).catch((error) => {
+            console.error('[Naver Maps] roadview 후보 탐색 실패:', error)
+          })
         })
       } catch (error) {
         console.error('[Naver Maps] roadview load failed:', error)
@@ -179,13 +338,29 @@ function RoadviewPanel({
       if (listener && maps) {
         maps.Event.removeListener(listener)
       }
+      containerRef.current?.removeEventListener('pointerdown', takeOver)
+      containerRef.current?.removeEventListener('wheel', takeOver)
       panoramaRef.current?.setVisible(false)
       panoramaRef.current = null
       containerRef.current?.replaceChildren()
+      probeContainerRef.current?.replaceChildren()
     }
   }, [lat, lng, onStateChange])
 
-  return <div ref={containerRef} className="h-full w-full bg-zinc-100" />
+  return (
+    <>
+      <div ref={containerRef} className="h-full w-full bg-zinc-100" />
+      {/*
+        후보 탐색용 파노라마. 화면 밖에 두되 SDK가 정상 렌더할 만한 크기는 남긴다
+        (0px 컨테이너에서는 pano_status가 오지 않을 수 있다).
+      */}
+      <div
+        ref={probeContainerRef}
+        aria-hidden="true"
+        className="pointer-events-none absolute -left-[9999px] top-0 size-32"
+      />
+    </>
+  )
 }
 
 export function WikiMiniMap({ lat, lng, name }: WikiMiniMapProps) {

@@ -30,17 +30,47 @@ vi.mock('react-naver-maps', () => {
   }
 })
 
+const LOT = { lat: 37.5, lng: 127 }
+
+/** 주차장에서 정북으로 distanceM 떨어진 좌표 (위도 1도 ≈ 111,320m) */
+function northOfLot(distanceM: number) {
+  return { lat: LOT.lat + distanceM / 111_320, lng: LOT.lng }
+}
+
+interface FakeLocation {
+  panoId?: string
+  photodate?: string
+  coord: { lat: () => number; lng: () => number }
+}
+
+function fakeLocation(panoId: string, distanceM: number, photodate: string): FakeLocation {
+  const { lat, lng } = northOfLot(distanceM)
+  return { panoId, photodate, coord: { lat: () => lat, lng: () => lng } }
+}
+
 describe('WikiMiniMap', () => {
   const roadviewHandlers: Array<(status: string) => void> = []
-  const panoramaInstances: Array<{
+  interface FakePanoramaLike {
+    isProbe: boolean
+    handlers: Array<(status: string) => void>
     setPov: ReturnType<typeof vi.fn>
+    setPanoId: ReturnType<typeof vi.fn>
+    setPosition: ReturnType<typeof vi.fn>
     getLocation: ReturnType<typeof vi.fn>
-  }> = []
+  }
+  const panoramaInstances: FakePanoramaLike[] = []
+  /** 표시용 파노라마가 돌려줄 위치. 기본값은 panoId 없음 → 후보 탐색을 타지 않는다. */
+  let displayLocation: FakeLocation | null
+  /** 프로브 인스턴스가 순서대로 돌려줄 응답 */
+  let probeReplies: Array<{ status: string; location?: FakeLocation }>
 
   beforeEach(() => {
     roadviewHandlers.length = 0
     loadNaverMapSdkMock.mockReset()
     loadNaverMapSdkMock.mockResolvedValue(undefined)
+    // 주차장(37.5, 127) 기준 남서쪽에 있는 파노라마 → 주차장은 북동(약 45도) 방향
+    displayLocation = { coord: { lat: () => 37.499, lng: () => 126.9987 } }
+    probeReplies = []
 
     class FakeLatLng {
       constructor(
@@ -50,12 +80,28 @@ describe('WikiMiniMap', () => {
     }
 
     class FakePanorama {
+      // 패널은 표시용을 먼저 만들고, 필요할 때만 프로브용을 추가로 만든다.
+      isProbe = panoramaInstances.length > 0
+      handlers: Array<(status: string) => void> = []
+      location: FakeLocation | null = null
       setVisible = vi.fn()
       setPov = vi.fn()
-      // 주차장(37.5, 127) 기준 남서쪽에 있는 파노라마 → 주차장은 북동(약 45도) 방향
-      getLocation = vi.fn(() => ({
-        coord: { lat: () => 37.499, lng: () => 126.9987 },
-      }))
+      setPanoId = vi.fn()
+      setPosition = vi.fn(() => this.replyNext())
+      getLocation = vi.fn(() => (this.isProbe ? this.location : displayLocation))
+
+      constructor() {
+        if (this.isProbe) this.replyNext()
+      }
+
+      /** 실제 SDK처럼 비동기로 pano_status를 흘린다. 실패 시 직전 위치를 그대로 둔다. */
+      replyNext() {
+        queueMicrotask(() => {
+          const reply = probeReplies.shift() ?? { status: 'ERROR' }
+          if (reply.status === 'OK' && reply.location) this.location = reply.location
+          for (const handler of this.handlers) handler(reply.status)
+        })
+      }
     }
     panoramaInstances.length = 0
     const PanoramaSpy = new Proxy(FakePanorama, {
@@ -69,8 +115,11 @@ describe('WikiMiniMap', () => {
     const maps = {
       Event: {
         addListener: vi.fn(
-          (_target: object, _eventName: string, handler: (status: string) => void) => {
-            roadviewHandlers.push(handler)
+          (target: object, _eventName: string, handler: (status: string) => void) => {
+            const instance = target as FakePanoramaLike
+            instance.handlers.push(handler)
+            // 표시용 파노라마의 핸들러만 테스트에서 직접 호출한다.
+            if (!instance.isProbe) roadviewHandlers.push(handler)
             return handler
           },
         ),
@@ -85,6 +134,16 @@ describe('WikiMiniMap', () => {
       value: { maps },
     })
   })
+
+  /** 로드뷰 탭을 열고 표시용 파노라마의 pano_status 리스너가 붙을 때까지 기다린다 */
+  async function openRoadview() {
+    render(<WikiMiniMap lat={LOT.lat} lng={LOT.lng} name="테스트 주차장" />)
+    await waitFor(() => expect(screen.getByRole('tab', { name: '로드뷰' })).toBeTruthy())
+    await act(async () => {
+      screen.getByRole('tab', { name: '로드뷰' }).click()
+    })
+    await waitFor(() => expect(roadviewHandlers).toHaveLength(1))
+  }
 
   it('renders the map by default and does not request panorama until selected', async () => {
     render(<WikiMiniMap lat={37.5} lng={127} name="테스트 주차장" />)
@@ -161,6 +220,69 @@ describe('WikiMiniMap', () => {
     act(() => roadviewHandlers[0]?.('OK'))
 
     expect(panorama?.setPov).not.toHaveBeenCalled()
+    expect(screen.queryByText('로드뷰를 불러오지 못했습니다')).toBeNull()
+  })
+
+  // 대다수 주차장이 이 경우다. 이미 주차장 앞이면 프로브는 낭비다.
+  it('최근접 파노라마가 가드 안이면 후보를 탐색하지 않는다', async () => {
+    displayLocation = fakeLocation('near', 12, '2025-01-22')
+    await openRoadview()
+
+    await act(async () => {
+      roadviewHandlers[0]?.('OK')
+    })
+
+    expect(panoramaInstances).toHaveLength(1)
+    expect(panoramaInstances[0]?.setPanoId).not.toHaveBeenCalled()
+  })
+
+  // 이마트 월계점 패턴: 56m 뒷골목 대신 86m 정문을 골라야 한다.
+  it('최근접이 멀면 후보를 탐색해 촬영일이 최신인 파노라마로 바꾼다', async () => {
+    displayLocation = fakeLocation('back-alley', 56, '2025-01-22')
+    probeReplies = [{ status: 'OK', location: fakeLocation('front-gate', 86, '2026-02-23') }]
+    await openRoadview()
+
+    await act(async () => {
+      roadviewHandlers[0]?.('OK')
+    })
+
+    const display = panoramaInstances[0]
+    await waitFor(() => expect(display?.setPanoId).toHaveBeenCalledWith('front-gate'))
+    // 교체한 파노라마 기준으로 시야도 다시 맞춘다 — 정문은 남쪽(180도)에 있다.
+    const lastPov = display?.setPov.mock.calls.at(-1)?.[0]
+    expect(lastPov.pan).toBeCloseTo(180, 0)
+  })
+
+  it('후보 탐색 중 사용자가 로드뷰를 조작하면 화면을 바꾸지 않는다', async () => {
+    displayLocation = fakeLocation('back-alley', 56, '2025-01-22')
+    probeReplies = [{ status: 'OK', location: fakeLocation('front-gate', 86, '2026-02-23') }]
+    await openRoadview()
+
+    await act(async () => {
+      roadviewHandlers[0]?.('OK')
+      // 프로브가 첫 응답을 받기 전(마이크로태스크 실행 전)에 사용자가 시야를 잡는다.
+      document
+        .getElementById('parking-location-roadview')
+        ?.firstElementChild?.dispatchEvent(new Event('pointerdown'))
+    })
+
+    await waitFor(() => expect(panoramaInstances).toHaveLength(2))
+    await act(async () => {})
+    expect(panoramaInstances[0]?.setPanoId).not.toHaveBeenCalled()
+  })
+
+  it('후보를 하나도 못 찾으면 처음 잡힌 파노라마를 유지한다', async () => {
+    displayLocation = fakeLocation('back-alley', 56, '2025-01-22')
+    probeReplies = [] // 전부 ERROR
+    await openRoadview()
+
+    await act(async () => {
+      roadviewHandlers[0]?.('OK')
+    })
+
+    await waitFor(() => expect(panoramaInstances).toHaveLength(2))
+    await act(async () => {})
+    expect(panoramaInstances[0]?.setPanoId).not.toHaveBeenCalled()
     expect(screen.queryByText('로드뷰를 불러오지 못했습니다')).toBeNull()
   })
 })
