@@ -103,6 +103,23 @@ function MediaLoadingState({ label }: { label: string }) {
   )
 }
 
+/** 실패한 미디어는 반드시 되돌릴 길을 준다 — 새로고침 말고는 방법이 없으면 그대로 죽는다. */
+function MediaErrorState({ label, onRetry }: { label: string; onRetry: () => void }) {
+  return (
+    <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-zinc-100 p-4 text-center">
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <button
+        type="button"
+        className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-full bg-white px-3.5 text-xs font-semibold text-foreground transition-colors hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        onClick={onRetry}
+      >
+        <RefreshCw className="size-3" />
+        다시 시도
+      </button>
+    </div>
+  )
+}
+
 /** 로드뷰 초기 시야각(수평). 넓게 잡아 주변 맥락을 함께 보여준다. */
 const ROADVIEW_FOV = 100
 
@@ -369,9 +386,12 @@ export function WikiMiniMap({ lat, lng, name }: WikiMiniMapProps) {
   const [sdkReady, setSdkReady] = useState(false)
   const [roadviewState, setRoadviewState] = useState<RoadviewState>('idle')
   const [roadviewRetryKey, setRoadviewRetryKey] = useState(0)
+  const [mapRetryKey, setMapRetryKey] = useState(0)
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: mapRetryKey는 본문에서 읽지 않고 재시도 트리거로만 쓴다
   useEffect(() => {
     let cancelled = false
+    setMapError(false)
 
     loadNaverMapSdk(import.meta.env.VITE_NAVER_MAP_CLIENT_ID)
       .then(() => {
@@ -385,7 +405,7 @@ export function WikiMiniMap({ lat, lng, name }: WikiMiniMapProps) {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [mapRetryKey])
 
   const selectView = (nextView: ViewMode) => {
     setViewMode(nextView)
@@ -424,7 +444,10 @@ export function WikiMiniMap({ lat, lng, name }: WikiMiniMapProps) {
         {viewMode === 'map' ? (
           <div id="parking-location-map" role="tabpanel" className="h-full w-full">
             {mapError ? (
-              <MediaLoadingState label="지도를 불러올 수 없습니다" />
+              <MediaErrorState
+                label="지도를 불러오지 못했습니다"
+                onRetry={() => setMapRetryKey((key) => key + 1)}
+              />
             ) : sdkReady ? (
               <NavermapsProvider ncpKeyId={import.meta.env.VITE_NAVER_MAP_CLIENT_ID}>
                 <MapDiv style={{ width: '100%', height: '100%' }}>
@@ -449,21 +472,14 @@ export function WikiMiniMap({ lat, lng, name }: WikiMiniMapProps) {
               </div>
             )}
             {(roadviewState === 'unavailable' || roadviewState === 'error') && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-zinc-100 p-4 text-center">
-                <p className="text-xs text-muted-foreground">
-                  {roadviewState === 'unavailable'
+              <MediaErrorState
+                label={
+                  roadviewState === 'unavailable'
                     ? '이 위치에는 표시할 로드뷰가 없습니다'
-                    : '로드뷰를 불러오지 못했습니다'}
-                </p>
-                <button
-                  type="button"
-                  className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-full bg-white px-3.5 text-xs font-semibold text-foreground transition-colors hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  onClick={() => setRoadviewRetryKey((key) => key + 1)}
-                >
-                  <RefreshCw className="size-3" />
-                  다시 시도
-                </button>
-              </div>
+                    : '로드뷰를 불러오지 못했습니다'
+                }
+                onRetry={() => setRoadviewRetryKey((key) => key + 1)}
+              />
             )}
           </div>
         )}

@@ -1,4 +1,8 @@
-const MAP_SDK_LOAD_TIMEOUT_MS = 8000
+/**
+ * 모바일 3G/혼잡 구간에서 8초는 정상 응답까지 잘라내기에 충분히 짧았다.
+ * (실측: 9초에 도착한 SDK를 기다리지 못하고 지도가 에러로 떨어짐)
+ */
+const MAP_SDK_LOAD_TIMEOUT_MS = 15000
 
 let naverMapSdkPromise: Promise<void> | null = null
 let naverMapPanoramaPromise: Promise<void> | null = null
@@ -34,7 +38,7 @@ function loadNaverMapCore(ncpKeyId: string): Promise<void> {
   if (maps?.jsContentLoaded) return Promise.resolve()
   if (naverMapSdkPromise) return naverMapSdkPromise
 
-  naverMapSdkPromise = new Promise((resolve, reject) => {
+  const corePromise = new Promise<void>((resolve, reject) => {
     const src = `https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${encodeURIComponent(
       ncpKeyId,
     )}`
@@ -74,6 +78,13 @@ function loadNaverMapCore(ncpKeyId: string): Promise<void> {
       reject(new Error('Naver Maps SDK request failed'))
     }
     document.head.appendChild(script)
+  })
+
+  // 실패한 promise를 그대로 캐시하면 이후 모든 호출이 같은 rejection을 돌려받아
+  // SPA 세션 내내 지도가 죽는다(스크립트 재요청조차 하지 않음). 패노라마 로더와 동일하게 비운다.
+  naverMapSdkPromise = corePromise.catch((error) => {
+    naverMapSdkPromise = null
+    throw error
   })
 
   return naverMapSdkPromise
