@@ -243,7 +243,7 @@ export function SearchBar({ onSelect, onPlaceSelect }: SearchBarProps) {
       <button
         type="button"
         onClick={() => setDialogOpen(true)}
-        className="sm:hidden flex size-8 items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
+        className="sm:hidden flex size-8 shrink-0 items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
       >
         <Search className="size-4 text-muted-foreground" />
       </button>

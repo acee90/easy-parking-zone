@@ -78,7 +78,7 @@ function UserMenu() {
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-1.5 cursor-pointer rounded-md px-2 py-1 hover:bg-gray-100 transition-colors"
+        className="flex items-center gap-1.5 cursor-pointer rounded-md px-1.5 sm:px-2 py-1 hover:bg-gray-100 transition-colors"
       >
         {session.user.image ? (
           <img src={session.user.image} alt="" className="size-6 rounded-full" />
@@ -87,7 +87,8 @@ function UserMenu() {
             {(session.user.name ?? 'U')[0]}
           </div>
         )}
-        <span className="text-xs hidden sm:inline">{session.user.name}</span>
+        {/* 긴 닉네임이 검색바 몫까지 밀어내지 않도록 잘라 준다 */}
+        <span className="text-xs hidden sm:inline max-w-24 truncate">{session.user.name}</span>
         <ChevronDown className="size-3 text-muted-foreground" />
       </button>
       {open && (
@@ -114,8 +115,10 @@ function formatCount(n: number): string {
   return n.toLocaleString()
 }
 
+// 좁은 화면(360px 이하)에서 로그인 상태의 사용자 메뉴까지 얹히면 폭이 모자라
+// 라벨이 줄바꿈되며 헤더 높이를 밀어낸다. nowrap으로 줄바꿈 자체를 막고 여백을 줄인다.
 const navItemBase =
-  'inline-flex cursor-pointer items-center gap-1.5 px-3 py-1 rounded-md text-sm font-medium transition-colors'
+  'inline-flex cursor-pointer items-center gap-1.5 whitespace-nowrap px-2 sm:px-3 py-1 rounded-md text-sm font-medium transition-colors'
 const navActive = `${navItemBase} bg-gray-100 text-foreground`
 const navInactive = `${navItemBase} text-muted-foreground hover:text-foreground hover:bg-gray-50`
 
@@ -125,12 +128,12 @@ export function Header({ active = 'map', onSearchSelect, onPlaceSelect, siteStat
 
   return (
     <>
-      <header className="z-30 flex h-[52px] shrink-0 items-center gap-3 border-b bg-white px-4">
+      <header className="z-30 flex h-[52px] shrink-0 items-center gap-2 sm:gap-3 border-b bg-white px-3 sm:px-4">
         <Link to="/" className="flex items-center gap-2 shrink-0">
           <img src="/IMG_5843.PNG" alt="" className="size-7 rounded-md" />
           <span className="font-bold text-base hidden sm:inline">쉬운주차장</span>
         </Link>
-        <nav className="flex items-center gap-1">
+        <nav className="flex shrink-0 items-center gap-0.5 sm:gap-1">
           <Link to="/" className={active === 'map' ? navActive : navInactive}>
             <MapIcon className="size-3.5" />
             지도
