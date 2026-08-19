@@ -677,10 +677,16 @@ async function runFullTextFetchStage() {
   }
 
   const buildFetchUpdate = (id: number, status: C4aiStatus, text: string): string => {
-    const fullTextVal = status === 'ok' ? sqlVal(text) : 'NULL'
+    // 본문은 web_sources_raw_body에 분리 저장 (0048).
+    // 본문 INSERT를 상태 UPDATE보다 먼저 두어, 중간 실패 시 status가 'pending'으로 남아
+    // 다음 라운드에 재시도된다 (본문 없는 'ok' 행이 생기지 않음).
+    const bodyStmt =
+      status === 'ok'
+        ? `INSERT OR REPLACE INTO web_sources_raw_body (raw_id, body) VALUES (${id}, ${sqlVal(text)});\n`
+        : `DELETE FROM web_sources_raw_body WHERE raw_id = ${id};\n`
     // remote에 push 시 이미 처리된 row(status≠'pending')는 덮어쓰지 않도록 가드.
     // local-pending 모드에서 local·remote 가 divergent 인 경우 (remote가 더 진척) 안전장치.
-    return `UPDATE web_sources_raw SET full_text = ${fullTextVal}, full_text_status = '${status}', full_text_fetched_at = datetime('now') WHERE id = ${id} AND full_text_status = 'pending';`
+    return `${bodyStmt}UPDATE web_sources_raw SET full_text_status = '${status}', full_text_fetched_at = datetime('now') WHERE id = ${id} AND full_text_status = 'pending';`
   }
 
   const queue = [...rows]
@@ -734,10 +740,12 @@ async function runFilterStage() {
     full_text: string | null
     full_text_status: string | null
   }>(
-    `SELECT id, title, full_text, full_text_status
-     FROM web_sources_raw
-     WHERE ai_filtered_at IS NULL AND full_text_status = 'ok'
-     ORDER BY id LIMIT ${LIMIT}`,
+    // 본문은 web_sources_raw_body에 분리 저장 (0048) — JOIN으로 조회한다.
+    `SELECT r.id, r.title, b.body AS full_text, r.full_text_status
+     FROM web_sources_raw r
+     LEFT JOIN web_sources_raw_body b ON b.raw_id = r.id
+     WHERE r.ai_filtered_at IS NULL AND r.full_text_status = 'ok'
+     ORDER BY r.id LIMIT ${LIMIT}`,
   )
   console.log(`  대상: ${rows.length}건`)
   if (rows.length === 0) return { processed: 0, high: 0, medium: 0, low: 0 }
@@ -794,10 +802,12 @@ async function runMatchDumpStage() {
   for (let b = 0; b < allIds.length; b += FETCH_BATCH) {
     const batchIds = allIds.slice(b, b + FETCH_BATCH).join(',')
     const batch = d1Query<RawRow>(
-      `SELECT id, source, source_id, source_url, title, content, author, published_at,
-              sentiment_score, ai_difficulty_keywords,
-              full_text, full_text_status, full_text_fetched_at, filter_tier
-       FROM web_sources_raw WHERE id IN (${batchIds})`,
+      // 본문은 web_sources_raw_body에 분리 저장 (0048) — JOIN으로 조회한다.
+      `SELECT r.id, r.source, r.source_id, r.source_url, r.title, r.content, r.author, r.published_at,
+              r.sentiment_score, r.ai_difficulty_keywords,
+              b.body AS full_text, r.full_text_status, r.full_text_fetched_at, r.filter_tier
+       FROM web_sources_raw r LEFT JOIN web_sources_raw_body b ON b.raw_id = r.id
+       WHERE r.id IN (${batchIds})`,
     )
     rows.push(...batch)
     process.stdout.write(`\r  rows 로드: ${rows.length}/${allIds.length}`)
@@ -1040,10 +1050,12 @@ async function runMatchApplyStage() {
   for (let b = 0; b < uniqueIds.length; b += FETCH_BATCH) {
     const batchIds = uniqueIds.slice(b, b + FETCH_BATCH).join(', ')
     const batch = d1Query<RawRow>(
-      `SELECT id, source, source_id, source_url, title, content, author, published_at,
-              sentiment_score, ai_difficulty_keywords,
-              full_text, full_text_status, full_text_fetched_at, filter_tier
-       FROM web_sources_raw WHERE id IN (${batchIds})`,
+      // 본문은 web_sources_raw_body에 분리 저장 (0048) — JOIN으로 조회한다.
+      `SELECT r.id, r.source, r.source_id, r.source_url, r.title, r.content, r.author, r.published_at,
+              r.sentiment_score, r.ai_difficulty_keywords,
+              b.body AS full_text, r.full_text_status, r.full_text_fetched_at, r.filter_tier
+       FROM web_sources_raw r LEFT JOIN web_sources_raw_body b ON b.raw_id = r.id
+       WHERE r.id IN (${batchIds})`,
     )
     rawRows.push(...batch)
   }
@@ -1115,10 +1127,12 @@ async function runAiFilterDumpStage() {
   const rows: RawRow[] = []
   for (let b = 0; b < allIds.length; b += FETCH_BATCH) {
     const batch = d1Query<RawRow>(
-      `SELECT id, source, source_id, source_url, title, content, author, published_at,
-              sentiment_score, ai_difficulty_keywords,
-              full_text, full_text_status, full_text_fetched_at, filter_tier
-       FROM web_sources_raw WHERE id IN (${allIds.slice(b, b + FETCH_BATCH).join(',')})`,
+      // 본문은 web_sources_raw_body에 분리 저장 (0048) — JOIN으로 조회한다.
+      `SELECT r.id, r.source, r.source_id, r.source_url, r.title, r.content, r.author, r.published_at,
+              r.sentiment_score, r.ai_difficulty_keywords,
+              b.body AS full_text, r.full_text_status, r.full_text_fetched_at, r.filter_tier
+       FROM web_sources_raw r LEFT JOIN web_sources_raw_body b ON b.raw_id = r.id
+       WHERE r.id IN (${allIds.slice(b, b + FETCH_BATCH).join(',')})`,
     )
     rows.push(...batch)
   }
@@ -1217,10 +1231,12 @@ async function runLotMatchStage() {
   const rawRows: RawRow[] = []
   for (let b = 0; b < uniqueIds.length; b += FETCH_BATCH) {
     const batch = d1Query<RawRow>(
-      `SELECT id, source, source_id, source_url, title, content, author, published_at,
-              sentiment_score, ai_difficulty_keywords,
-              full_text, full_text_status, full_text_fetched_at, filter_tier
-       FROM web_sources_raw WHERE id IN (${uniqueIds.slice(b, b + FETCH_BATCH).join(',')})`,
+      // 본문은 web_sources_raw_body에 분리 저장 (0048) — JOIN으로 조회한다.
+      `SELECT r.id, r.source, r.source_id, r.source_url, r.title, r.content, r.author, r.published_at,
+              r.sentiment_score, r.ai_difficulty_keywords,
+              b.body AS full_text, r.full_text_status, r.full_text_fetched_at, r.filter_tier
+       FROM web_sources_raw r LEFT JOIN web_sources_raw_body b ON b.raw_id = r.id
+       WHERE r.id IN (${uniqueIds.slice(b, b + FETCH_BATCH).join(',')})`,
     )
     rawRows.push(...batch)
   }

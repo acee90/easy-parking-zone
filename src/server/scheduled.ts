@@ -157,6 +157,38 @@ export async function handleScheduled(env: Env): Promise<void> {
     .bind(changedLotIds.length)
     .run()
 
+  // ── 6. 본문 purge (terminal 행만) ──
+  //
+  // 처리가 끝난 raw의 본문은 더 이상 필요 없다. 이 단계가 없으면 본문이 무한 누적된다
+  // (2026-08 실측: 하루 약 60MB, 6일간 1.18GB→1.54GB).
+  //
+  // ⚠️ 조건을 `ai_filtered_at IS NOT NULL`로 바꾸지 말 것.
+  //    ai_filtered_at은 AI가 아니라 rule filter가 설정하고, lot-match가 아직 본문을
+  //    필요로 하므로 매칭 대기 행의 본문까지 지워 영구 zombie가 된다 (2026-06-09 사고).
+  //    본문이 정말 불필요해지는 시점은 rule 탈락(filter_passed=0) 또는 매칭 완료(matched_at)다.
+  try {
+    const purge = await env.DB.prepare(
+      `DELETE FROM web_sources_raw_body
+       WHERE raw_id IN (
+         SELECT id FROM web_sources_raw
+         WHERE full_text_status = 'ok'
+           AND (filter_passed = 0 OR matched_at IS NOT NULL)
+       )`,
+    ).run()
+
+    const purged = purge.meta?.changes ?? 0
+    if (purged > 0) {
+      await env.DB.prepare(
+        `UPDATE web_sources_raw SET full_text_status = 'purged'
+         WHERE full_text_status = 'ok'
+           AND (filter_passed = 0 OR matched_at IS NOT NULL)`,
+      ).run()
+      results.push(`purge: ${purged} bodies`)
+    }
+  } catch (err) {
+    results.push(`purge: error - ${(err as Error).message}`)
+  }
+
   console.log(`[scheduled] ${new Date().toISOString()} | ${results.join(' | ')}`)
 }
 

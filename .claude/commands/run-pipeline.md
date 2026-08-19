@@ -203,10 +203,15 @@ done
 
 > **purge 시점 (2026-06-09 zombie 사고 후 수정)**: 과거에는 `ai_filtered_at IS NOT NULL`로 purge했는데, `ai_filtered_at`은 **rule filter(Stage 1)** 에서 이미 설정되므로 `filter_passed=1`이지만 아직 lot-match(Stage 4)를 안 거친 in-flight 후보의 full_text까지 비워버렸다. → 이 row들은 본문이 사라진 채 `filter_passed=1 AND matched_at IS NULL`로 남아 매 라운드 재dump되는 zombie가 됐다. 수정: terminal 조건(`filter_passed=0` 즉 rule-rejected, **또는** `matched_at IS NOT NULL` 즉 match 완료)인 row만 purge하고, in-flight 후보(`filter_passed=1 AND matched_at IS NULL`)는 full_text를 보존한다.
 
+> **2026-08-19 변경 (migration 0048)**: 본문은 `web_sources_raw`가 아니라 별도 테이블 **`web_sources_raw_body(raw_id, body)`** 에 저장한다. purge는 `UPDATE ... SET full_text=NULL`이 아니라 **`DELETE`** 다. 통합 테이블 시절에는 본문을 비워도 페이지가 반납되지 않아 원장 행이 2.05KB씩(압축 시 0.08KB) 점유했으나, 분리 후에는 DELETE로 페이지가 통째로 freelist에 반납·재사용된다. 또한 이 purge는 이제 `scheduled.ts`가 매 cron 사이클마다 자동 실행하므로, 아래는 수동 라운드 보정용이다.
+
 ```bash
-PURGE="UPDATE web_sources_raw SET full_text=NULL, full_text_status='purged' WHERE full_text_status='ok' AND full_text IS NOT NULL AND (filter_passed=0 OR matched_at IS NOT NULL)"
-bunx wrangler d1 execute parking-db --local  --command "$PURGE"
-bunx wrangler d1 execute parking-db --remote --command "$PURGE"
+PURGE_BODY="DELETE FROM web_sources_raw_body WHERE raw_id IN (SELECT id FROM web_sources_raw WHERE full_text_status='ok' AND (filter_passed=0 OR matched_at IS NOT NULL))"
+PURGE_STAT="UPDATE web_sources_raw SET full_text_status='purged' WHERE full_text_status='ok' AND (filter_passed=0 OR matched_at IS NOT NULL)"
+for T in --local --remote; do
+  bunx wrangler d1 execute parking-db $T --command "$PURGE_BODY"
+  bunx wrangler d1 execute parking-db $T --command "$PURGE_STAT"
+done
 ```
 
 ## 전체 플로우 요약

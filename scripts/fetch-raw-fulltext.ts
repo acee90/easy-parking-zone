@@ -53,8 +53,12 @@ function buildUpdate(row: PendingRow, result: FetchResult): string {
   const status =
     result.status === 'ok' && result.text.length > MAX_FULLTEXT_BYTES ? 'error' : result.status
   const escapedText = result.text.replace(/'/g, "''")
-  const fullTextValue = status === 'ok' ? `'${escapedText}'` : 'NULL'
-  return `UPDATE web_sources_raw SET full_text = ${fullTextValue}, full_text_status = '${status}', full_text_fetched_at = datetime('now') WHERE id = ${row.id};`
+  // 본문은 web_sources_raw_body에 분리 저장 (0048). 본문 write를 상태 UPDATE보다 먼저 둔다.
+  const bodyStmt =
+    status === 'ok'
+      ? `INSERT OR REPLACE INTO web_sources_raw_body (raw_id, body) VALUES (${row.id}, '${escapedText}');\n`
+      : `DELETE FROM web_sources_raw_body WHERE raw_id = ${row.id};\n`
+  return `${bodyStmt}UPDATE web_sources_raw SET full_text_status = '${status}', full_text_fetched_at = datetime('now') WHERE id = ${row.id};`
 }
 
 async function sleep(ms: number): Promise<void> {

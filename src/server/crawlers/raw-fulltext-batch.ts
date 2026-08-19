@@ -122,15 +122,24 @@ export async function runRawFullTextBatch(
     if (status === 'ok') ok++
     else skipped++
 
+    // 본문은 web_sources_raw_body에 분리 저장한다 (0048). 원장은 상태만 갖는다.
+    // 본문 write를 상태 UPDATE보다 먼저 해야, 중간 실패 시 status가 'pending'으로 남아
+    // 다음 사이클에 재시도된다 (본문 없는 'ok' 행이 생기지 않음).
+    if (status === 'ok') {
+      await db
+        .prepare(`INSERT OR REPLACE INTO web_sources_raw_body (raw_id, body) VALUES (?1, ?2)`)
+        .bind(row.id, text)
+        .run()
+    }
+
     await db
       .prepare(
         `UPDATE web_sources_raw
-         SET full_text        = ?1,
-             full_text_status = ?2,
+         SET full_text_status = ?1,
              full_text_fetched_at = datetime('now')
-         WHERE id = ?3`,
+         WHERE id = ?2`,
       )
-      .bind(status === 'ok' ? text : null, status, row.id)
+      .bind(status, row.id)
       .run()
   }
 

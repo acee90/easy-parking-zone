@@ -144,12 +144,14 @@ export async function runMatchBatch(
 ): Promise<{ matched: number; lotLinks: number; aiVerified: number }> {
   const rows = await db
     .prepare(
-      `SELECT id, source, source_id, source_url, title, content, author, published_at,
-              sentiment_score, ai_difficulty_keywords, ai_summary,
-              full_text, full_text_status, full_text_fetched_at, filter_tier
-       FROM web_sources_raw
-       WHERE filter_passed = 1 AND matched_at IS NULL
-       ORDER BY id
+      // 본문은 web_sources_raw_body에 분리 저장 (0048) — JOIN으로 조회한다.
+      `SELECT r.id, r.source, r.source_id, r.source_url, r.title, r.content, r.author, r.published_at,
+              r.sentiment_score, r.ai_difficulty_keywords, r.ai_summary,
+              b.body AS full_text, r.full_text_status, r.full_text_fetched_at, r.filter_tier
+       FROM web_sources_raw r
+       LEFT JOIN web_sources_raw_body b ON b.raw_id = r.id
+       WHERE r.filter_passed = 1 AND r.matched_at IS NULL
+       ORDER BY r.id
        LIMIT ?1`,
     )
     .bind(MAX_PER_RUN)

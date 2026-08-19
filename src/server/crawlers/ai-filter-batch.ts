@@ -26,12 +26,14 @@ export async function runAiFilterBatch(
   // rule-filter의 길이 임계(500자)에 영상 description은 부족 → cron 파이프라인 우회.
   const rows = await db
     .prepare(
-      `SELECT id, title, content, full_text, full_text_status
-       FROM web_sources_raw
-       WHERE ai_filtered_at IS NULL
-         AND full_text_status = 'ok'
-         AND source != 'youtube_video'
-       ORDER BY id ASC
+      // 본문은 web_sources_raw_body에 분리 저장 (0048) — JOIN으로 조회한다.
+      `SELECT r.id, r.title, r.content, b.body AS full_text, r.full_text_status
+       FROM web_sources_raw r
+       LEFT JOIN web_sources_raw_body b ON b.raw_id = r.id
+       WHERE r.ai_filtered_at IS NULL
+         AND r.full_text_status = 'ok'
+         AND r.source != 'youtube_video'
+       ORDER BY r.id ASC
        LIMIT ?1`,
     )
     .bind(MAX_PER_RUN)
