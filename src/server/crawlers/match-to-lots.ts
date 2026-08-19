@@ -160,7 +160,7 @@ async function searchCandidateLots(db: D1Database, keywords: string[]): Promise<
 
 export async function runMatchBatch(
   db: D1Database,
-  env?: { ANTHROPIC_API_KEY?: string },
+  env?: { UNSLOTH_API_KEY?: string; AI_MODEL?: string; AI_BASE_URL?: string },
 ): Promise<{ matched: number; lotLinks: number; aiVerified: number }> {
   // 배치마다 lot 캐시를 비운다 — isolate 재사용 시 신규 주차장이 누락되지 않도록.
   // (배치 1회당 최대 1번 로드이므로 쿼리 절감 효과는 그대로다.)
@@ -225,7 +225,7 @@ export async function runMatchBatch(
     }
 
     // 4. rule=medium 또는 match=medium → lot_name + full_text로 AI 판정
-    if (mediumMatches.length > 0 && env?.ANTHROPIC_API_KEY) {
+    if (mediumMatches.length > 0 && env?.UNSLOTH_API_KEY) {
       const inputs: FilterV2Input[] = mediumMatches.map(({ lot }) => ({
         id: raw.id,
         lot_name: lot.name,
@@ -235,7 +235,12 @@ export async function runMatchBatch(
       }))
 
       try {
-        const results = await callPostMatchFilter(inputs, env.ANTHROPIC_API_KEY)
+        const results = await callPostMatchFilter(
+          inputs,
+          env.UNSLOTH_API_KEY,
+          env.AI_MODEL || undefined,
+          env.AI_BASE_URL || undefined,
+        )
         for (let j = 0; j < mediumMatches.length; j++) {
           const { lot, score } = mediumMatches[j]
           const aiResult = results[j]
@@ -315,52 +320,77 @@ function buildInsert(
     )
 }
 
-const HAIKU_MODEL = 'claude-haiku-4-5-20251001'
-const API_URL = 'https://api.anthropic.com/v1/messages'
+/**
+ * 셀프호스팅 Unsloth(llama.cpp) OpenAI 호환 엔드포인트.
+ *
+ * Anthropic 에서 전환한 이유: 운영 ANTHROPIC_API_KEY 가 만료되어 이 단계가 통째로
+ * 실패하고 있었다(로그에 401 authentication_error 반복, 에러를 삼켜 드러나지 않음).
+ *
+ * 서버 특성 (2026-08-19 실측, system_fingerprint b1-dd9280a):
+ *  - `response_format: json_object` 를 **받아들이지만 강제하지는 않는다** — 응답이
+ *    ```json 펜스로 감싸여 온다. 파싱 전 펜스 제거 필수.
+ *  - reasoning 모델이라 json 모드에선 추론이 `reasoning_content` 로 분리되지만,
+ *    모드가 없으면 `<think>…</think>` 가 본문에 섞인다. 양쪽 모두 방어한다.
+ */
+const DEFAULT_AI_MODEL = 'unsloth/gemma-4-E4B-it-GGUF'
+const DEFAULT_AI_BASE_URL = 'https://unsloth.arttoken.biz/v1'
 
 async function callPostMatchFilter(
   inputs: FilterV2Input[],
   apiKey: string,
+  model = DEFAULT_AI_MODEL,
+  baseUrl = DEFAULT_AI_BASE_URL,
 ): Promise<FilterV2Output[]> {
   if (inputs.length === 0) return []
 
-  const res = await fetch(API_URL, {
+  // JSON 모드는 최상위가 객체여야 하므로 {"results":[...]} 로 감싸 받는다.
+  const res = await fetch(`${baseUrl}/chat/completions`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
+      Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: HAIKU_MODEL,
-      max_tokens: 150 * inputs.length,
-      system: FILTER_V2_SYSTEM_PROMPT,
+      model,
+      // reasoning 모델이라 답을 내기 전에 사고 토큰을 먼저 쓴다. 실측(1건 기준)
+      // reasoning 약 500토큰 + 본문 약 50토큰이고, reasoning 은 건수와 거의 무관한
+      // 상수항이다. 부족하면 finish_reason='length' 로 잘려 content 가 **빈 문자열**이
+      // 되므로(에러가 아니라 조용한 실패) 상수항을 넉넉히 잡는다.
+      max_tokens: 1200 + 200 * inputs.length,
+      response_format: { type: 'json_object' },
       messages: [
+        { role: 'system', content: FILTER_V2_SYSTEM_PROMPT },
         {
           role: 'user',
-          content: `Process the following ${inputs.length} record(s). Return a JSON array, one element per record in the same order. Include the input id in each element.\n\n${buildFilterV2UserPrompt(inputs)}`,
+          content: `Process the following ${inputs.length} record(s). Respond with a JSON object of the form {"results": [...]} containing one element per record in the same order. Include the input id in each element.\n\n${buildFilterV2UserPrompt(inputs)}`,
         },
       ],
     }),
-    signal: AbortSignal.timeout(30_000),
+    signal: AbortSignal.timeout(120_000), // 셀프호스팅 소형모델이라 응답이 느리다
   })
 
   if (!res.ok) {
-    throw new Error(`Haiku API ${res.status}: ${await res.text()}`)
+    throw new Error(`AI API ${res.status}: ${await res.text()}`)
   }
 
-  const data = (await res.json()) as { content: Array<{ type: string; text: string }> }
-  const text = data.content[0]?.text ?? ''
+  const data = (await res.json()) as {
+    choices: Array<{ message: { content: string } }>
+  }
+  const text = data.choices[0]?.message?.content ?? ''
 
   try {
     const jsonText = text
-      .replace(/^```(?:json)?\n?/, '')
-      .replace(/\n?```$/, '')
+      .replace(/<think>[\s\S]*?<\/think>/g, '') // reasoning 인라인 출력 제거
+      .replace(/^[\s\S]*?```(?:json)?\n?/, '') // 앞쪽 잡담 + 펜스 시작 제거
+      .replace(/```[\s\S]*$/, '') // 펜스 종료 이후 제거
       .trim()
-    // 단일 객체일 경우 배열로 감싸기
-    const parsed = JSON.parse(
-      jsonText.startsWith('[') ? jsonText : `[${jsonText}]`,
-    ) as FilterV2Output[]
+    // {"results":[...]} / 배열 / 단일 객체 모두 허용
+    const raw = JSON.parse(jsonText.startsWith('[') ? `{"results":${jsonText}}` : jsonText) as
+      | { results?: FilterV2Output[] }
+      | FilterV2Output
+    const parsed: FilterV2Output[] = Array.isArray((raw as { results?: FilterV2Output[] }).results)
+      ? ((raw as { results: FilterV2Output[] }).results ?? [])
+      : [raw as FilterV2Output]
 
     const byId = new Map(parsed.map((p) => [p.id, p]))
     return inputs.map((input, idx) => {

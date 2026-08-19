@@ -30,7 +30,9 @@ interface Env {
   YOUTUBE_API_KEY: string
   BRAVE_SEARCH_API_KEY: string
   CRAWL4AI_URL: string
-  ANTHROPIC_API_KEY: string
+  UNSLOTH_API_KEY: string
+  AI_MODEL?: string
+  AI_BASE_URL?: string
 }
 
 export async function handleScheduled(env: Env): Promise<void> {
@@ -95,10 +97,10 @@ export async function handleScheduled(env: Env): Promise<void> {
 
   // ── 3. rule 필터 (full_text_status='ok' & 미분류 → high/low 즉시 판정, medium은 match로) ──
 
-  if (env.ANTHROPIC_API_KEY) {
+  if (env.UNSLOTH_API_KEY) {
     try {
       const r = await runAiFilterBatch(env.DB, {
-        ANTHROPIC_API_KEY: env.ANTHROPIC_API_KEY,
+        UNSLOTH_API_KEY: env.UNSLOTH_API_KEY,
       })
       if (r.filtered > 0) {
         results.push(`ai-filter: ${r.filtered} processed, ${r.passed} passed, ${r.removed} removed`)
@@ -111,7 +113,11 @@ export async function handleScheduled(env: Env): Promise<void> {
   // ── 4. 주차장 매칭 + post-match AI 품질 판정 (filter_passed=1 & 미매칭 → web_sources) ──
 
   try {
-    const r = await runMatchBatch(env.DB, { ANTHROPIC_API_KEY: env.ANTHROPIC_API_KEY })
+    const r = await runMatchBatch(env.DB, {
+      UNSLOTH_API_KEY: env.UNSLOTH_API_KEY,
+      AI_MODEL: env.AI_MODEL,
+      AI_BASE_URL: env.AI_BASE_URL,
+    })
     if (r.matched > 0) {
       results.push(
         `match: ${r.matched} sources → ${r.lotLinks} lot links (${r.aiVerified} AI verified)`,

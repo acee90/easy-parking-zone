@@ -20,7 +20,7 @@ interface UnfilteredRow {
 
 export async function runAiFilterBatch(
   db: D1Database,
-  _env?: { ANTHROPIC_API_KEY?: string },
+  _env?: { UNSLOTH_API_KEY?: string },
 ): Promise<{ filtered: number; passed: number; removed: number }> {
   // youtube_video는 별도 검증 스크립트(scripts/verify-youtube-raw.ts)에서 처리.
   // rule-filter의 길이 임계(500자)에 영상 description은 부족 → cron 파이프라인 우회.
