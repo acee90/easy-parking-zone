@@ -127,11 +127,12 @@ export async function handleScheduled(env: Env): Promise<void> {
 
   const lastScoringRun = scoringProgress?.last_run_at ?? '2000-01-01'
 
+  // web_sources.matched_at을 직접 본다 (0049). 과거에는 web_sources_raw를 JOIN했는데,
+  // raw는 처리 완료 후 삭제되는 임시 데이터라 JOIN이 조용히 0건이 된다.
   const changedRows = await env.DB.prepare(
     `SELECT DISTINCT ws.parking_lot_id
        FROM web_sources ws
-       JOIN web_sources_raw r ON r.id = ws.raw_source_id
-       WHERE r.matched_at > ?1`,
+       WHERE ws.matched_at > ?1`,
   )
     .bind(lastScoringRun)
     .all<{ parking_lot_id: string }>()

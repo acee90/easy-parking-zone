@@ -266,11 +266,13 @@ function buildInsert(
   // web_sources는 정제된 데이터(요약/sentiment/관계)만 보유.
   return db
     .prepare(
+      // matched_at은 web_sources가 자기완결적으로 갖는다 (0049) — 스코어링 재계산이
+      // raw를 JOIN하지 않도록. raw는 처리 완료 후 삭제되는 임시 데이터다.
       `INSERT OR IGNORE INTO web_sources
        (parking_lot_id, source, source_id, title, content, source_url,
         author, published_at, relevance_score, raw_source_id,
-        sentiment_score, ai_difficulty_keywords, ai_summary)
-       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)`,
+        sentiment_score, ai_difficulty_keywords, ai_summary, matched_at)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, datetime('now'))`,
     )
     .bind(
       lot.lot_id,

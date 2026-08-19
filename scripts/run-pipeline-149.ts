@@ -561,6 +561,9 @@ function buildInsertSql(
     'filter_passed_v2',
     'filter_v2_reason',
     'filter_v2_evaluated_at',
+    // matched_at은 web_sources가 자기완결적으로 갖는다 (0049) — 스코어링 재계산이
+    // raw를 JOIN하지 않도록. raw는 처리 완료 후 삭제되는 임시 데이터다.
+    'matched_at',
   ]
   const vals = [
     lot.lot_id,
@@ -580,6 +583,7 @@ function buildInsertSql(
     1,
     'ai_pass',
     new Date().toISOString(),
+    new Date().toISOString().replace('T', ' ').slice(0, 19), // matched_at (SQLite datetime 형식)
   ]
     .map(sqlVal)
     .join(', ')
