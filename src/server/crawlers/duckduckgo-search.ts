@@ -7,6 +7,8 @@
  *
  * 검색 결과를 web_sources_raw에 URL 단위로 저장.
  */
+
+import { bumpQueue, selectFromQueue } from './lib/crawl-queue'
 import { extractRegion, hashUrl, isGenericName, stripHtml } from './lib/scoring'
 
 const BATCH_SIZE = 50
@@ -151,32 +153,9 @@ function parseDdgHtml(html: string): DdgResult[] {
 // ── 우선순위 큐 ──
 
 async function selectPriorityLots(db: D1Database, limit: number): Promise<LotRow[]> {
-  const rows = await db
-    .prepare(
-      `SELECT p.id, p.name, p.address
-       FROM parking_lots p
-       LEFT JOIN parking_lot_stats s ON p.id = s.parking_lot_id
-       LEFT JOIN crawl_progress cp
-         ON cp.crawler_id = 'ddg_lot:' || p.id
-       WHERE
-         (cp.last_run_at IS NULL
-          OR julianday('now') - julianday(cp.last_run_at) > ?1)
-       ORDER BY
-         CASE s.reliability
-           WHEN 'none' THEN 0
-           WHEN 'structural' THEN 1
-           WHEN 'reference' THEN 2
-           WHEN 'estimated' THEN 3
-           ELSE 4
-         END,
-         cp.last_run_at ASC NULLS FIRST,
-         p.id
-       LIMIT ?2`,
-    )
-    .bind(RECRAWL_DAYS, limit)
-    .all<LotRow>()
-
-  return rows.results ?? []
+  // crawl_queue 인덱스 조회로 위임 (0052). 과거에는 parking_lots 31,994행을 매번
+  // 스캔했다 — ORDER BY 1순위가 LEFT JOIN 된 reliability 라 인덱스 불가였다.
+  return selectFromQueue(db, 'ddg', limit)
 }
 
 // ── 메인 배치 ──
@@ -250,6 +229,8 @@ export async function runDuckDuckGoBatch(
     if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) break
 
     progressBatch.push(
+      // crawl_queue 의 next_at 도 함께 미룬다 (0052)
+      bumpQueue(db, 'ddg', lot.id, RECRAWL_DAYS),
       db
         .prepare(
           `INSERT INTO crawl_progress (crawler_id, last_parking_lot_id, completed_count, last_run_at)

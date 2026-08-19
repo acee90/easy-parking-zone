@@ -16,6 +16,7 @@
 import { runAiFilterBatch } from './crawlers/ai-filter-batch'
 import { runBraveSearchBatch } from './crawlers/brave-search'
 import { runDuckDuckGoBatch } from './crawlers/duckduckgo-search'
+import { syncQueue } from './crawlers/lib/crawl-queue'
 import { recomputeStats } from './crawlers/lib/scoring-engine'
 import { runMatchBatch } from './crawlers/match-to-lots'
 import { runNaverBlogsBatch } from './crawlers/naver-blogs'
@@ -157,6 +158,29 @@ export async function handleScheduled(env: Env): Promise<void> {
   )
     .bind(changedLotIds.length)
     .run()
+
+  // ── 5.5 crawl_queue 동기화 (하루 1회) ──
+  //
+  // 신규 주차장을 큐에 넣고, 스코어링으로 바뀐 reliability 를 priority 에 반영한다.
+  // 전 주차장을 훑으므로 비싸다 — 매 사이클 돌리면 crawl_queue 가 없애려던 비용이 그대로
+  // 돌아온다. crawl_progress 의 'crawl_queue_sync' 레코드로 하루 1회만 실행되게 막는다.
+  try {
+    const lastSync = await env.DB.prepare(
+      "SELECT last_run_at FROM crawl_progress WHERE crawler_id = 'crawl_queue_sync'",
+    ).first<{ last_run_at: string | null }>()
+    const today = new Date().toISOString().slice(0, 10)
+    if (lastSync?.last_run_at?.slice(0, 10) !== today) {
+      const r = await syncQueue(env.DB)
+      await env.DB.prepare(
+        `INSERT INTO crawl_progress (crawler_id, last_parking_lot_id, completed_count, last_run_at)
+           VALUES ('crawl_queue_sync', '', 0, datetime('now'))
+           ON CONFLICT(crawler_id) DO UPDATE SET last_run_at = datetime('now')`,
+      ).run()
+      results.push(`queue-sync: +${r.inserted} new, ${r.repriced} repriced`)
+    }
+  } catch (err) {
+    results.push(`queue-sync: error - ${(err as Error).message}`)
+  }
 
   // ── 6. 본문 purge (terminal 행만) ──
   //

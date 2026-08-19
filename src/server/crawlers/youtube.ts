@@ -14,6 +14,8 @@
  *
  * 영상 AI 요약은 별도 이슈로 미룸 (자막 fetch 도입 필요).
  */
+
+import { bumpQueue, selectFromQueue } from './lib/crawl-queue'
 import { extractRegion, hashUrl, stripHtml } from './lib/scoring'
 
 const BATCH_SIZE = 4 // search 100 units × 4 × 24h = 9,600 units/day (10K quota 안전선)
@@ -98,25 +100,9 @@ async function fetchVideoDetails(
 // ── 우선순위 큐 (naver/ddg와 동일 패턴) ──
 
 async function selectPriorityLots(db: D1Database, limit: number): Promise<LotRow[]> {
-  const rows = await db
-    .prepare(
-      `SELECT p.id, p.name, p.address
-       FROM parking_lots p
-       LEFT JOIN crawl_progress cp
-         ON cp.crawler_id = 'youtube_lot:' || p.id
-       WHERE
-         (p.is_curated = 1 OR p.total_spaces >= 200)
-         AND (cp.last_run_at IS NULL
-              OR julianday('now') - julianday(cp.last_run_at) > ?1)
-       ORDER BY
-         cp.last_run_at ASC NULLS FIRST,
-         p.id
-       LIMIT ?2`,
-    )
-    .bind(RECRAWL_DAYS, limit)
-    .all<LotRow>()
-
-  return rows.results ?? []
+  // crawl_queue 인덱스 조회로 위임 (0052). 과거에는 parking_lots 31,994행을 매번
+  // 스캔했다 — ORDER BY 1순위가 LEFT JOIN 된 reliability 라 인덱스 불가였다.
+  return selectFromQueue(db, 'youtube', limit)
 }
 
 export async function runYoutubeBatch(
@@ -152,6 +138,8 @@ export async function runYoutubeBatch(
       }
       // 그 외 에러: 해당 lot 스킵, progress 갱신
       progressBatch.push(
+        // crawl_queue 의 next_at 도 함께 미룬다 (0052)
+        bumpQueue(db, 'youtube', lot.id, RECRAWL_DAYS),
         db
           .prepare(
             `INSERT INTO crawl_progress (crawler_id, last_parking_lot_id, completed_count, last_run_at)
@@ -244,6 +232,8 @@ export async function runYoutubeBatch(
     savedMedia += lotSaved
 
     progressBatch.push(
+      // crawl_queue 의 next_at 도 함께 미룬다 (0052)
+      bumpQueue(db, 'youtube', lot.id, RECRAWL_DAYS),
       db
         .prepare(
           `INSERT INTO crawl_progress (crawler_id, last_parking_lot_id, completed_count, last_run_at)
