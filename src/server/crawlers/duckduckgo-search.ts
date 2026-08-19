@@ -215,14 +215,21 @@ export async function runDuckDuckGoBatch(
         for (const item of items) {
           const sourceId = await hashUrl(item.url)
 
+          // 중복 판정은 seen_sources 로 한다 (0050). web_sources_raw 는 처리 완료 후
+          // 삭제되는 임시 데이터라 UNIQUE 제약만으로는 재크롤을 막지 못한다.
           insertBatch.push(
             db
               .prepare(
                 `INSERT OR IGNORE INTO web_sources_raw
                (source, source_id, source_url, title, content)
-               VALUES (?1, ?2, ?3, ?4, ?5)`,
+               SELECT ?1, ?2, ?3, ?4, ?5
+                WHERE NOT EXISTS (
+                  SELECT 1 FROM seen_sources WHERE source = ?1 AND source_id = ?2)`,
               )
               .bind('ddg_search', sourceId, item.url, item.title, item.description),
+            db
+              .prepare(`INSERT OR IGNORE INTO seen_sources (source, source_id) VALUES (?1, ?2)`)
+              .bind('ddg_search', sourceId),
           )
           saved++
         }

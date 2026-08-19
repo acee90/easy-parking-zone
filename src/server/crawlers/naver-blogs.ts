@@ -155,12 +155,16 @@ async function processSearchResults(
     const author = source === 'naver_blog' ? (item.bloggername ?? '') : (item.cafename ?? '')
 
     // web_sources_raw에 URL 단위 저장 (매칭은 별도 단계)
+    // 중복 판정은 seen_sources 로 한다 (0050). web_sources_raw 는 처리 완료 후
+    // 삭제되는 임시 데이터라 UNIQUE 제약만으로는 재크롤을 막지 못한다.
     insertBatch.push(
       db
         .prepare(
           `INSERT OR IGNORE INTO web_sources_raw
          (source, source_id, source_url, title, content, author, published_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)`,
+         SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7
+          WHERE NOT EXISTS (
+            SELECT 1 FROM seen_sources WHERE source = ?1 AND source_id = ?2)`,
         )
         .bind(
           source,
@@ -171,6 +175,9 @@ async function processSearchResults(
           author,
           parsePostdate(item.postdate),
         ),
+      db
+        .prepare(`INSERT OR IGNORE INTO seen_sources (source, source_id) VALUES (?1, ?2)`)
+        .bind(source, sourceId),
     )
     saved++
   }

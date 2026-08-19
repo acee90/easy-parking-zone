@@ -203,13 +203,18 @@ export async function runYoutubeBatch(
 
       // 본문은 web_sources_raw_body에 분리 저장 (0048).
       // 배치 실행이라 auto-generated id를 알 수 없으므로 source_id로 되찾아 넣는다.
+      // 중복 판정은 seen_sources 로 한다 (0050). web_sources_raw 는 처리 완료 후
+      // 삭제되는 임시 데이터라 UNIQUE 제약만으로는 재크롤을 막지 못한다.
       rawInserts.push(
         db
           .prepare(
             `INSERT OR IGNORE INTO web_sources_raw
                (source, source_id, source_url, title, content, author, published_at,
                 full_text_status, full_text_fetched_at, search_lot_hint)
-             VALUES ('youtube_video', ?1, ?2, ?3, ?4, ?5, ?6, 'ok', datetime('now'), ?7)`,
+             SELECT 'youtube_video', ?1, ?2, ?3, ?4, ?5, ?6, 'ok', datetime('now'), ?7
+              WHERE NOT EXISTS (
+                SELECT 1 FROM seen_sources
+                 WHERE source = 'youtube_video' AND source_id = ?1)`,
           )
           .bind(
             sourceId,
@@ -227,6 +232,11 @@ export async function runYoutubeBatch(
               WHERE source = 'youtube_video' AND source_id = ?1`,
           )
           .bind(sourceId, fullTextParts),
+        db
+          .prepare(
+            `INSERT OR IGNORE INTO seen_sources (source, source_id) VALUES ('youtube_video', ?1)`,
+          )
+          .bind(sourceId),
       )
       lotSaved++
     }
