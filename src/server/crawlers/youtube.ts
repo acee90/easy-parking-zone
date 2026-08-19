@@ -201,13 +201,15 @@ export async function runYoutubeBatch(
         .filter(Boolean)
         .join('\n\n')
 
+      // 본문은 web_sources_raw_body에 분리 저장 (0048).
+      // 배치 실행이라 auto-generated id를 알 수 없으므로 source_id로 되찾아 넣는다.
       rawInserts.push(
         db
           .prepare(
             `INSERT OR IGNORE INTO web_sources_raw
                (source, source_id, source_url, title, content, author, published_at,
-                full_text, full_text_status, full_text_fetched_at, search_lot_hint)
-             VALUES ('youtube_video', ?1, ?2, ?3, ?4, ?5, ?6, ?7, 'ok', datetime('now'), ?8)`,
+                full_text_status, full_text_fetched_at, search_lot_hint)
+             VALUES ('youtube_video', ?1, ?2, ?3, ?4, ?5, ?6, 'ok', datetime('now'), ?7)`,
           )
           .bind(
             sourceId,
@@ -216,9 +218,15 @@ export async function runYoutubeBatch(
             description.slice(0, 1000),
             channel,
             publishedAt,
-            fullTextParts,
             lot.id,
           ),
+        db
+          .prepare(
+            `INSERT OR REPLACE INTO web_sources_raw_body (raw_id, body)
+             SELECT id, ?2 FROM web_sources_raw
+              WHERE source = 'youtube_video' AND source_id = ?1`,
+          )
+          .bind(sourceId, fullTextParts),
       )
       lotSaved++
     }
