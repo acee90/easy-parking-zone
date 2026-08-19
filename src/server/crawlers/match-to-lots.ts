@@ -86,6 +86,27 @@ function extractSearchKeywords(title: string, content: string): string[] {
   return [...new Set(words)].slice(0, 5)
 }
 
+/**
+ * LIKE 폴백용 lot 캐시 — 배치 1회만 로드한다.
+ *
+ * 과거에는 폴백마다 `parking_lots WHERE name LIKE '%kw%'` 를 날렸는데, 선행 와일드카드라
+ * 인덱스를 못 타고 31,994행 풀스캔이 된다(EXPLAIN: SCAN parking_lots). raw 50행 x 키워드
+ * 3개면 회당 4.8M행, 하루 48회면 **230M행**으로 D1 rows_read 의 최대 소비처였다.
+ * parking_lots 는 3만 행짜리 거의 변하지 않는 테이블이므로 한 번 읽어 메모리에서 거른다.
+ * (회당 4.8M → 32k, 약 150배 감소)
+ */
+let lotCache: Array<LotRow & { nameLower: string }> | null = null
+
+async function getLotCache(db: D1Database): Promise<Array<LotRow & { nameLower: string }>> {
+  if (lotCache) return lotCache
+  const rows = await db
+    .prepare(`SELECT id AS lot_id, name, address FROM parking_lots`)
+    .all<LotRow>()
+  // SQLite LIKE 는 ASCII 대소문자를 구분하지 않는다 — includes 로 바꾸면서 동작을 맞춘다.
+  lotCache = (rows.results ?? []).map((r) => ({ ...r, nameLower: r.name.toLowerCase() }))
+  return lotCache
+}
+
 async function searchCandidateLots(db: D1Database, keywords: string[]): Promise<LotRow[]> {
   if (keywords.length === 0) return []
 
@@ -113,19 +134,18 @@ async function searchCandidateLots(db: D1Database, keywords: string[]): Promise<
     /* FTS 쿼리 실패 시 폴백으로 */
   }
 
-  // 2. LIKE 폴백
+  // 2. LIKE 폴백 — DB 쿼리 대신 메모리 캐시에서 거른다 (위 getLotCache 주석 참조)
   if (results.length < 3) {
+    const lots = await getLotCache(db)
     for (const kw of keywords.slice(0, 3)) {
       if (kw.length < 2) continue
-      const likeRows = await db
-        .prepare(
-          `SELECT id as lot_id, name, address FROM parking_lots
-           WHERE name LIKE ?1 LIMIT ?2`,
-        )
-        .bind(`%${kw}%`, FTS_CANDIDATE_LIMIT - results.length)
-        .all<LotRow>()
-
-      for (const row of likeRows.results ?? []) {
+      const kwLower = kw.toLowerCase()
+      let taken = 0
+      const budget = FTS_CANDIDATE_LIMIT - results.length
+      for (const row of lots) {
+        if (taken >= budget) break
+        if (!row.nameLower.includes(kwLower)) continue
+        taken++
         if (!seen.has(row.lot_id)) {
           seen.add(row.lot_id)
           results.push(row)
@@ -142,6 +162,10 @@ export async function runMatchBatch(
   db: D1Database,
   env?: { ANTHROPIC_API_KEY?: string },
 ): Promise<{ matched: number; lotLinks: number; aiVerified: number }> {
+  // 배치마다 lot 캐시를 비운다 — isolate 재사용 시 신규 주차장이 누락되지 않도록.
+  // (배치 1회당 최대 1번 로드이므로 쿼리 절감 효과는 그대로다.)
+  lotCache = null
+
   const rows = await db
     .prepare(
       // 본문은 web_sources_raw_body에 분리 저장 (0048) — JOIN으로 조회한다.
