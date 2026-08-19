@@ -11,10 +11,24 @@
 		"BETTER_AUTH_URL": "https://easy-parking.xyz"
 		// CRAWL4AI_URL: Cloudflare Secrets로 관리 (wrangler secret put CRAWL4AI_URL)
 	},
+	// 매시 → 2시간 간격 (2026-08-19). D1 rows_read 절감 목적.
+	//
+	// selectPriorityLots 는 상위 N개를 고르려고 parking_lots 31,994행을 매번 스캔한다
+	// (ORDER BY 1순위가 LEFT JOIN 된 parking_lot_stats.reliability 라 어떤 인덱스도 못 탐).
+	// 호출당 약 96k행 × 크롤러 3종 × 24회/일 ≈ 7M행/일 — 무료 한도 5M/일을 이것만으로 초과.
+	// 실행 횟수를 절반으로 줄이면 이 비용도 절반이 된다.
+	//
+	// 배치 크기는 **올리지 않는다**: subrequest 1,000개/invocation 한도가 있고
+	// naver 만으로 이미 ~500개를 쓴다(naver-blogs.ts 주석). 2배로 올리면 한도를 넘겨
+	// 같은 invocation 의 youtube/fulltext/match 가 실패한다.
+	// 따라서 크롤 처리량은 절반이 된다 — 전 주차장 재크롤 주기가 약 13일 → 26일로 늘지만
+	// RECRAWL_DAYS=30 정책 안이라 문제 없다.
+	//
+	// 근본 해결은 crawl_queue materialize (선택을 인덱스 조회로 전환, 호출당 ~50행).
 	"triggers": {
 		"crons": [
-			"0 */1 * * *",
-			"30 */1 * * *"
+			"0 */2 * * *",
+			"30 */2 * * *"
 		]
 	},
 	"observability": {
