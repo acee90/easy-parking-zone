@@ -36,7 +36,7 @@ export const fetchDestination = createServerFn({ method: 'GET' })
   .handler(async ({ data }): Promise<Destination | null> => {
     const db = getDb()
     const rows = await db.all(
-      sql`SELECT id, name, slug, category, lat, lng, address, lot_count, free_count, published_at
+      sql`SELECT id, name, slug, category, lat, lng, address, lot_count, free_count, published_at, source
           FROM destinations WHERE id = ${data.id} LIMIT 1`,
     )
     const row = (rows as unknown as DestinationRow[])[0]

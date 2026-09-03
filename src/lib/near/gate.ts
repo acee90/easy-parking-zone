@@ -45,7 +45,7 @@ export interface RankedLot extends CandidateLot {
 }
 
 export type GateResult =
-  | { pass: true; lots: RankedLot[]; freeCount: number }
+  | { pass: true; lots: RankedLot[]; freeCount: number; twins: [string, string][] }
   | { pass: false; reason: GateFailReason; detail: string }
 
 export type GateFailReason = 'no_coords' | 'too_few_lots' | 'too_few_lots_with_data' | 'no_evidence'
@@ -117,8 +117,9 @@ export function evaluateGate(
   }
   const { lat, lng } = candidate
 
-  const inRadius = dedupeTwins(lotsInBbox)
-    .kept.map((lot) => ({ lot, distanceM: Math.round(distanceMeters(lat, lng, lot.lat, lot.lng)) }))
+  const deduped = dedupeTwins(lotsInBbox)
+  const inRadius = deduped.kept
+    .map((lot) => ({ lot, distanceM: Math.round(distanceMeters(lat, lng, lot.lat, lot.lng)) }))
     .filter((x) => x.distanceM <= opts.radiusM)
     .sort((a, b) => a.distanceM - b.distanceM)
 
@@ -153,5 +154,5 @@ export function evaluateGate(
     distanceM: x.distanceM,
     rank: i + 1,
   }))
-  return { pass: true, lots, freeCount: lots.filter((l) => l.isFree).length }
+  return { pass: true, lots, freeCount: lots.filter((l) => l.isFree).length, twins: deduped.twins }
 }

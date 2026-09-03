@@ -19,7 +19,8 @@ const args = process.argv.slice(2)
 const arg = (k: string, d: string) => args.find((a) => a.startsWith(`--${k}=`))?.split('=')[1] ?? d
 const IN = arg('in', 'data/near/stations.csv')
 const OUT = arg('out', 'data/near/candidates.json')
-const MERGE_RADIUS_M = 200
+// 서울역·홍대입구처럼 큰 역은 노선별 노드가 200m 넘게 흩어진다 → 500m. 동명 역이 다른 도시에 있는 경우는 훨씬 멀다
+const MERGE_RADIUS_M = 500
 
 export interface StationCandidate {
   key: string // '석촌역@37.5054,127.1067'

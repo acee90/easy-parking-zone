@@ -22,6 +22,7 @@ import { clusterByRadius } from '../../src/lib/near/cluster'
 import {
   type CandidateLot,
   DEFAULT_GATE,
+  distanceMeters,
   evaluateGate,
   type GateFailReason,
   type RankedLot,
@@ -97,17 +98,20 @@ function loadLots(c: StationCandidate): CandidateLot[] {
 function nextIdAllocator() {
   const row = d1Query<{ m: string | null }>(`SELECT MAX(id) AS m FROM destinations`)[0]
   let n = row?.m ? Number.parseInt(row.m.slice(2), 10) : 0
-  const existing = new Map(
-    d1Query<{ slug: string; id: string }>(`SELECT slug, id FROM destinations`).map((r) => [
-      r.slug,
-      r.id,
-    ]),
+  const existing = d1Query<{ id: string; name: string; lat: number; lng: number }>(
+    `SELECT id, name, lat, lng FROM destinations`,
   )
-  return (slugWithoutId: string): string => {
-    // slug 는 '이름-D-0001' 이라 이름만으로는 못 찾는다. 이름 prefix 로 재사용을 판단한다
-    for (const [slug, id] of existing) if (slug.startsWith(`${slugWithoutId}-D-`)) return id
+  // 같은 이름 + 500m 안이면 같은 목적지로 보고 id 를 재사용한다. 이름만으로 판단하면
+  // 서울 용산역과 대구 용산역이 한 id 로 합쳐진다.
+  return (name: string, lat: number, lng: number): string => {
+    const hit = existing.find(
+      (e) => e.name === name && distanceMeters(e.lat, e.lng, lat, lng) <= 500,
+    )
+    if (hit) return hit.id
     n += 1
-    return `D-${String(n).padStart(4, '0')}`
+    const id = `D-${String(n).padStart(4, '0')}`
+    existing.push({ id, name, lat, lng })
+    return id
   }
 }
 
@@ -143,6 +147,7 @@ function main() {
       rejected.push({ name: c.name, key: c.key, reason: r.reason, detail: r.detail })
       continue
     }
+    if (r.twins.length) twins.push({ candidate: c.name, pairs: r.twins })
     passed.push({
       c,
       lots: r.lots,
@@ -163,13 +168,14 @@ function main() {
   )
   const byKey = new Map(passed.map((p) => [p.c.key, p]))
   const allocate = nextIdAllocator()
-  const sqlLines: string[] = ['BEGIN TRANSACTION;']
+  // D1 execute --file 은 명시적 BEGIN/COMMIT 을 받지 않는다 (파일 전체가 한 배치로 실행된다)
+  const sqlLines: string[] = []
   let published = 0
 
   for (const repKey of cluster.representatives) {
     const p = byKey.get(repKey)
     if (!p) continue
-    const id = allocate(p.c.name)
+    const id = allocate(p.c.name, p.c.lat, p.c.lng)
     const slug = makeDestinationSlug(p.c.name, id)
     const absorbed = passed.filter(
       (q) => q.c.key !== repKey && cluster.representativeOf.get(q.c.key) === repKey,
@@ -203,7 +209,6 @@ function main() {
     }
     published += 1
   }
-  sqlLines.push('COMMIT;')
 
   mkdirSync(OUT_DIR, { recursive: true })
   const sqlPath = `${OUT_DIR}/publish-${stamp}.sql`

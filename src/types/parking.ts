@@ -173,6 +173,8 @@ export interface Destination {
   lotCount: number
   freeCount: number
   publishedAt: string
+  /** 'public_data:15013205' | 'osm:overpass' … 좌표 출처. osm 이면 ODbL 표기가 필요하다 */
+  source: string
 }
 
 /** 목적지에 연결된 주차장 한 줄. ParkingLot 에 목적지 기준 거리를 얹은 것 */

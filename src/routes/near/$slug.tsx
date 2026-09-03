@@ -112,7 +112,11 @@ function DestinationPage() {
           <DestinationLotList lots={lots} />
           <SectionShell
             title="위치"
-            note="목적지 핀입니다. 주차장 핀은 지도에서 보기로 확인하세요."
+            note={
+              dest.source.startsWith('osm:')
+                ? '목적지 좌표 © OpenStreetMap contributors (ODbL). 주차장 핀은 지도에서 보기로 확인하세요.'
+                : '목적지 핀입니다. 주차장 핀은 지도에서 보기로 확인하세요.'
+            }
           >
             <WikiMiniMap lat={dest.lat} lng={dest.lng} name={dest.name} />
             <div className="mt-3">

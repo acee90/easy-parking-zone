@@ -317,6 +317,7 @@ export interface DestinationRow {
   lot_count: number
   free_count: number
   published_at: string
+  source: string
 }
 
 const DESTINATION_CATEGORIES = new Set(['station', 'market', 'mall', 'tourist'])
@@ -336,6 +337,7 @@ export function rowToDestination(row: DestinationRow): Destination {
     lotCount: row.lot_count,
     freeCount: row.free_count,
     publishedAt: row.published_at,
+    source: row.source,
   }
 }
 
