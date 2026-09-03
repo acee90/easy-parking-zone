@@ -31,7 +31,7 @@
  * 갈라지면 한쪽이 거부하는 요약이 다른 쪽으로 그대로 들어간다.
  */
 
-import { appendFileSync } from 'node:fs'
+import { appendFileSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { webQuotaFor } from '../src/server/crawlers/lib/lot-summary-input'
 import {
   buildLotSummaryUserPrompt,
@@ -53,6 +53,20 @@ const minSources = parseInt(
 )
 // SQL 파일만 만들고 D1에는 적용하지 않는다 (적용 전 검토용).
 const noApply = args.includes('--no-apply')
+const CALL_RETRIES = 3
+const RETRY_BASE_MS = 5000
+/**
+ * 연속 실패가 이 횟수를 넘으면 남은 대상을 포기한다.
+ * 2026-09-03 첫 백필에서 130번째 호출쯤 사용량 한도에 걸린 뒤 남은 399곳을 그대로
+ * 헛돌았다. 한도는 재시도로 풀리지 않으므로 빨리 멈추고 다음 창에서 이어가는 편이 낫다.
+ */
+const ABORT_AFTER_CONSECUTIVE_FAILURES = 12
+/**
+ * `--file` 은 크기가 커지면 D1 import API 로 넘어가고, OAuth 토큰에서는 거기서
+ * Authentication error [code: 10000] 이 난다 (2026-09-03 116건 적용 실패).
+ * 작은 조각으로 나눠 일반 경로로 적용한다.
+ */
+const APPLY_CHUNK = 20
 const isBatch = args.includes('--batch')
 const isSave = args.includes('--save')
 const lotIdArg = args.find((a) => a.startsWith('--lotId='))?.split('=')[1]
@@ -98,7 +112,12 @@ function resolveLots(): LotRow[] {
     )
   }
   if (isBatch) {
-    // 유효한 web_sources.ai_summary가 하나라도 있으면 처리 대상
+    // 근거 개수 조건은 `prefetchSources` 가 실제로 넣는 조건과 같아야 한다.
+    // 달랐던 탓에 애그리게이터·저관련 행만 가진 lot 이 대상으로 뽑혀 입력 0건으로 건너뛰었다.
+    //
+    // ⚠️ SQL 안에 `--` 주석을 쓰지 말 것. d1Query 는 `--command` 로 넘기는데
+    //    이스케이프 과정에서 줄바꿈이 사라지면 `--` 뒤가 전부 주석이 되어
+    //    `incomplete input: SQLITE_ERROR [code: 7500]` 이 난다 (2026-09-03 실측).
     return d1Query<LotRow>(`
       SELECT p.id, p.name, p.address
       FROM parking_lots p
@@ -108,6 +127,8 @@ function resolveLots(): LotRow[] {
           SELECT COUNT(*) FROM web_sources w
           WHERE w.parking_lot_id = p.id
             AND w.ai_summary IS NOT NULL AND w.ai_summary != ''
+            AND w.filter_v2_reason IS NOT 'aggregator_site'
+            AND w.relevance_score >= 40
         ) >= ${minSources}
       ORDER BY COALESCE(s.final_score, 0) DESC
       LIMIT ${batchLimit}
@@ -201,7 +222,28 @@ function sourcesFor(lotId: string): {
 }
 
 // ── Claude CLI 서브에이전트 호출 ──
-async function callClaude(userPrompt: string): Promise<AiSummaryResult> {
+/**
+ * 실패를 삼키지 않는다. 첫 백필에서 588곳 중 399곳이 실패했는데 예외가 `JSON.parse`
+ * 스택뿐이라 원인을 알 수 없었다. CLI 가 JSON 대신 안내문("You ...")을 stdout 으로
+ * 돌려준 것이었고 그 본문이 어디에도 남지 않았다. exit code·stderr·stdout 앞부분을
+ * 사유에 실어 올린다.
+ */
+class ClaudeCallError extends Error {
+  constructor(
+    message: string,
+    readonly raw: string,
+    readonly quotaLike: boolean,
+  ) {
+    super(message)
+  }
+}
+
+/** 사용량·속도 제한 안내로 보이는 응답. 재시도해도 풀리지 않으므로 즉시 포기한다. */
+function looksLikeQuota(text: string): boolean {
+  return /usage limit|rate limit|quota|too many requests|사용량|한도|일일 한도/i.test(text)
+}
+
+async function callClaudeOnce(userPrompt: string): Promise<AiSummaryResult> {
   const proc = Bun.spawn(
     [
       'claude',
@@ -218,9 +260,61 @@ async function callClaude(userPrompt: string): Promise<AiSummaryResult> {
     { stdout: 'pipe', stderr: 'pipe' },
   )
 
-  const text = (await new Response(proc.stdout).text()).trim()
-  const jsonText = text.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '')
-  return JSON.parse(jsonText) as AiSummaryResult
+  const [text, errText, exitCode] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+    proc.exited,
+  ])
+  const out = text.trim()
+  const both = `${out}\n${errText}`
+
+  if (exitCode !== 0) {
+    throw new ClaudeCallError(
+      `exit=${exitCode} ${errText.trim().slice(0, 160).replace(/\s+/g, ' ')}`,
+      out,
+      looksLikeQuota(both),
+    )
+  }
+  if (!out) {
+    throw new ClaudeCallError(
+      `빈 응답 (stderr: ${errText.trim().slice(0, 120).replace(/\s+/g, ' ')})`,
+      '',
+      looksLikeQuota(both),
+    )
+  }
+
+  // ```json 펜스를 벗기고, 그래도 아니면 본문에서 첫 JSON 객체를 긁어낸다.
+  const unfenced = out.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '')
+  const candidate = unfenced.startsWith('{')
+    ? unfenced
+    : (unfenced.match(/\{[\s\S]*\}/)?.[0] ?? unfenced)
+
+  try {
+    return JSON.parse(candidate) as AiSummaryResult
+  } catch {
+    throw new ClaudeCallError(
+      `JSON 아님: ${out.slice(0, 140).replace(/\s+/g, ' ')}`,
+      out,
+      looksLikeQuota(both),
+    )
+  }
+}
+
+/** 일시적 실패는 지수 백오프로 재시도하되, 한도로 보이면 바로 올린다. */
+async function callClaude(userPrompt: string): Promise<AiSummaryResult> {
+  let lastErr: unknown
+  for (let attempt = 0; attempt < CALL_RETRIES; attempt++) {
+    try {
+      return await callClaudeOnce(userPrompt)
+    } catch (e) {
+      lastErr = e
+      if (e instanceof ClaudeCallError && e.quotaLike) throw e
+      if (attempt < CALL_RETRIES - 1) {
+        await Bun.sleep(RETRY_BASE_MS * 2 ** attempt + Math.random() * 1000)
+      }
+    }
+  }
+  throw lastErr
 }
 
 // ── 품질 가드 ──
@@ -300,6 +394,9 @@ ON CONFLICT(parking_lot_id) DO UPDATE SET
 `
 }
 
+/** upsertSql 이 만드는 문장의 끝. applyQueued 가 이걸로 잘라 청크를 만든다. */
+const STMT_END = '  ai_summary_stale = 0;\n'
+
 function queueSave(lotId: string, result: AiSummaryResult): void {
   appendFileSync(sqlOutPath, upsertSql(lotId, result))
   queuedStatements++
@@ -316,7 +413,22 @@ function applyQueued(): void {
     console.log(`  bunx wrangler d1 execute parking-db --remote --file="${sqlOutPath}"`)
     return
   }
-  d1ExecFile(sqlOutPath)
+  const parts = readFileSync(sqlOutPath, 'utf-8')
+    .split(STMT_END)
+    .filter((part) => part.trim())
+  const chunkPath = `${sqlOutPath}.chunk`
+  let applied = 0
+  for (let i = 0; i < parts.length; i += APPLY_CHUNK) {
+    const body = parts
+      .slice(i, i + APPLY_CHUNK)
+      .map((part) => part + STMT_END)
+      .join('')
+    writeFileSync(chunkPath, body)
+    d1ExecFile(chunkPath)
+    applied += Math.min(APPLY_CHUNK, parts.length - i)
+    console.log(`  적용 ${applied}/${parts.length}`)
+  }
+  rmSync(chunkPath, { force: true })
   console.log('D1 적용 완료')
 }
 
@@ -380,8 +492,12 @@ async function main() {
   let skipped = 0
   let rejected = 0
   const rejectReasons = new Map<string, number>()
+  const failReasons = new Map<string, number>()
+  let consecutiveFailures = 0
+  let aborted = false
 
   const processLot = async (lot: LotRow): Promise<AiSummaryResult | null> => {
+    if (aborted) return null
     const { web, reviews, seedReviews } = sourcesFor(lot.id)
     console.log(
       `\n▶ ${lot.name} (${lot.id}) — web_summary ${web.length}건, review ${reviews.length}건`,
@@ -416,8 +532,19 @@ async function main() {
     try {
       result = await callClaude(userPrompt)
     } catch (e) {
-      console.error('  Claude 호출 실패:', e)
+      const err = e instanceof ClaudeCallError ? e : null
+      const reason = err ? err.message : String(e).slice(0, 140)
+      console.error(`  ✗ 호출 실패: ${reason}`)
       skipped++
+      failReasons.set(reason.slice(0, 70), (failReasons.get(reason.slice(0, 70)) ?? 0) + 1)
+      consecutiveFailures++
+      if (err?.quotaLike || consecutiveFailures >= ABORT_AFTER_CONSECUTIVE_FAILURES) {
+        aborted = true
+        console.error(
+          `\n■ 중단: ${err?.quotaLike ? '사용량 한도로 보이는 응답' : `연속 실패 ${consecutiveFailures}회`}. ` +
+            '남은 대상은 다음 실행에서 이어서 처리한다.',
+        )
+      }
       return null
     }
 
@@ -429,6 +556,7 @@ async function main() {
       rejectReasons.set(outcome.reason, (rejectReasons.get(outcome.reason) ?? 0) + 1)
       return null
     }
+    consecutiveFailures = 0
     const clean = outcome.value
 
     console.log('  summary:', clean.summary)
@@ -462,6 +590,17 @@ async function main() {
   if (!isDryRun) applyQueued()
 
   console.log(`\n=== 완료 === 생성 ${generated}건, 건너뜀 ${skipped}건, 가드 거부 ${rejected}건`)
+  if (aborted) {
+    console.log(
+      '\n■ 한도/연속 실패로 중단됐다. 생성분은 위에서 이미 적용됐고, 나머지는 같은 명령을 다시 실행하면 이어진다.',
+    )
+  }
+  if (failReasons.size > 0) {
+    console.log('  호출 실패 사유:')
+    for (const [reason, count] of [...failReasons].sort((a, b) => b[1] - a[1]).slice(0, 8)) {
+      console.log(`    ${count}건  ${reason}`)
+    }
+  }
   if (rejectReasons.size > 0) {
     const total = generated + rejected
     const rate = total > 0 ? ((rejected / total) * 100).toFixed(1) : '0.0'
