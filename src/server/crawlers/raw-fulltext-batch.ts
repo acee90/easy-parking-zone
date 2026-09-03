@@ -4,7 +4,8 @@
  * web_sources_raw에서 full_text_status='pending'인 항목을 crawl4ai로 본문 추출.
  * fulltext를 raw 단계에서 먼저 채워야 AI 필터가 fulltext 기반으로 동작할 수 있음 (#149).
  *
- * fulltext-batch.ts(web_sources용)와 동일 로직, 대상 테이블만 다름.
+ * (과거 web_sources 용 fulltext-batch.ts 가 있었으나 대상 컬럼이 마이그레이션 0043 에서
+ *  사라져 2026-09-03 삭제했다. 지금은 이 모듈이 유일한 본문 수집 경로다.)
  */
 
 const BATCH_LIMIT = 100

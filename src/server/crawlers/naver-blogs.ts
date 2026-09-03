@@ -11,6 +11,7 @@
  * Workers Cron 타임아웃: 30초
  */
 
+import { isAggregatorUrl } from './lib/aggregator-domains'
 import { bumpQueue, selectFromQueue } from './lib/crawl-queue'
 import { extractRegion, hashUrl, isGenericName, parsePostdate, stripHtml } from './lib/scoring'
 
@@ -130,6 +131,8 @@ async function processSearchResults(
   let saved = 0
 
   for (const item of items) {
+    // 정보 모음 사이트는 수집 단계에서 버린다 — 본문 fetch 예산까지 아낀다
+    if (isAggregatorUrl(item.link)) continue
     const sourceId = await hashUrl(item.link)
     const author = source === 'naver_blog' ? (item.bloggername ?? '') : (item.cafename ?? '')
 

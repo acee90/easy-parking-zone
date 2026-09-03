@@ -8,11 +8,18 @@
 import { createStartHandler, defaultRenderHandler } from '@tanstack/react-start/server'
 import { NodeHtmlMarkdown } from 'node-html-markdown'
 import { processScoreRecomputeMessages, type ScoreRecomputeMessage } from './queues/score-recompute'
-import { handleDdgScheduled, handleScheduled } from './scheduled'
+import {
+  markSourceFilterTerminal,
+  processSourceFilterMessages,
+  type SourceFilterMessage,
+  TERMINAL_ATTEMPT,
+} from './queues/source-filter'
+import { handleDdgScheduled, handleLotSummaryScheduled, handleScheduled } from './scheduled'
 
 interface Env {
   DB: D1Database
   SCORE_RECOMPUTE_QUEUE: Queue<ScoreRecomputeMessage>
+  SOURCE_FILTER_QUEUE: Queue<SourceFilterMessage>
   NAVER_CLIENT_ID: string
   NAVER_CLIENT_SECRET: string
   YOUTUBE_API_KEY: string
@@ -228,8 +235,13 @@ export default {
     const url = new URL(request.url)
 
     // /__scheduled 경로로 수동 트리거 (dev/testing용)
-    if (url.pathname === '/__scheduled' || url.pathname === '/__scheduled/ddg') {
+    if (
+      url.pathname === '/__scheduled' ||
+      url.pathname === '/__scheduled/ddg' ||
+      url.pathname === '/__scheduled/lot-summary'
+    ) {
       const isDdg = url.pathname.includes('ddg')
+      const isLotSummary = url.pathname.includes('lot-summary')
       const logs: string[] = []
       const origLog = console.log
       console.log = (...args: unknown[]) => {
@@ -237,7 +249,8 @@ export default {
         origLog(...args)
       }
       try {
-        if (isDdg) await handleDdgScheduled(env)
+        if (isLotSummary) await handleLotSummaryScheduled(env)
+        else if (isDdg) await handleDdgScheduled(env)
         else await handleScheduled(env)
       } catch (err) {
         logs.push(`FATAL: ${(err as Error).message}`)
@@ -290,23 +303,79 @@ export default {
     return withMarkdownNegotiation(request, discoveredResponse)
   },
   async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext) {
-    // 매시 0분: 메인 파이프라인 (naver, youtube, brave, AI필터, 매칭, 스코어링)
-    // 매시 30분: DDG 크롤링 (별도 subrequest 한도)
-    if (controller.cron === '30 */1 * * *') {
+    // 2시간마다 0분: 메인 파이프라인 (naver, youtube, brave, AI필터, 매칭, 스코어링)
+    // 2시간마다 30분: DDG 크롤링 (별도 subrequest 한도)
+    // 매시 45분: 종합 요약 (별도 wall time)
+    //
+    // ⚠️ cron 문자열 전체 비교는 하지 않는다. 예전에 `'30 */1 * * *'` 와 정확히 비교했는데
+    //    2026-08-19 에 주기를 매시→2시간(`30 */2 * * *`)으로 바꾸면서 이 줄을 놓쳤다.
+    //    조건이 영원히 거짓이 되어 :30 트리거가 else 로 떨어졌고, DDG 는 한 번도 돌지 않은 채
+    //    메인 파이프라인만 두 번 돌았다 (2026-09-03 실측: 7일간 ddg 유입 0건).
+    //    분(minute) 필드만 본다 — 주기를 바꿔도 라우팅은 그대로 맞는다.
+    const minute = controller.cron.split(' ')[0]
+    if (minute === '45') {
+      ctx.waitUntil(handleLotSummaryScheduled(env))
+    } else if (minute === '30') {
       ctx.waitUntil(handleDdgScheduled(env))
     } else {
       ctx.waitUntil(handleScheduled(env))
     }
   },
-  async queue(batch: MessageBatch<ScoreRecomputeMessage>, env: Env, _ctx: ExecutionContext) {
+  async queue(
+    batch: MessageBatch<ScoreRecomputeMessage | SourceFilterMessage>,
+    env: Env,
+    _ctx: ExecutionContext,
+  ) {
+    // 큐마다 소비자를 나눈다. 실패 처리 방식이 다르기 때문이다 —
+    // 재계산은 다음 회차가 어차피 다시 줍지만, 필터는 그 행이 영영 안 넘어간다.
+    if (batch.queue === 'source-filter-queue') {
+      const messages = batch.messages as Message<SourceFilterMessage>[]
+      try {
+        const result = await processSourceFilterMessages(
+          env.DB,
+          messages.map((message) => message.body),
+        )
+        console.log(
+          `[source-filter-queue] ${result.filtered}/${result.requested} filtered (${result.passed} passed, ${result.removed} removed)`,
+        )
+        for (const message of messages) message.ack()
+      } catch (err) {
+        // 처리는 멱등(`ai_filtered_at IS NULL`)이라 일부가 이미 반영됐어도 두 번 쓰지 않는다.
+        //
+        // 다만 무한정 재시도하면 안 된다. 생산자 조회 조건이 `ai_filtered_at IS NULL` 이라
+        // DLQ 로 간 행도 두 시간 뒤 다시 큐에 들어온다. 마지막 시도까지 실패한 행은
+        // 종결 표시해 그 고리를 끊는다.
+        const exhausted = messages.filter((m) => m.attempts >= TERMINAL_ATTEMPT)
+        const retryable = messages.filter((m) => m.attempts < TERMINAL_ATTEMPT)
+        console.error(
+          `[source-filter-queue] batch failed (retry ${retryable.length}, terminal ${exhausted.length})`,
+          err,
+        )
+        if (exhausted.length > 0) {
+          try {
+            await markSourceFilterTerminal(
+              env.DB,
+              exhausted.map((m) => m.body.rawId),
+            )
+            for (const message of exhausted) message.ack()
+          } catch (markErr) {
+            console.error('[source-filter-queue] terminal mark failed', markErr)
+            for (const message of exhausted) message.retry()
+          }
+        }
+        for (const message of retryable) message.retry()
+      }
+      return
+    }
+
     if (batch.queue !== 'score-recompute-queue') return
 
     const result = await processScoreRecomputeMessages(
       env.DB,
-      batch.messages.map((message) => message.body),
+      (batch.messages as Message<ScoreRecomputeMessage>[]).map((message) => message.body),
     )
     console.log(
-      `[score-recompute-queue] ${result.updated}/${result.lotIds.length} lots recomputed from ${result.messageCount} messages`,
+      `[score-recompute-queue] ${result.updated}/${result.lotIds.length} lots recomputed from ${result.messageCount} messages (summary stale +${result.staleMarked})`,
     )
 
     for (const message of batch.messages) {

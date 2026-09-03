@@ -8,6 +8,7 @@
  * 검색 결과를 web_sources_raw에 URL 단위로 저장.
  */
 
+import { isAggregatorUrl } from './lib/aggregator-domains'
 import { bumpQueue, selectFromQueue } from './lib/crawl-queue'
 import { extractRegion, hashUrl, isGenericName, stripHtml } from './lib/scoring'
 
@@ -192,6 +193,8 @@ export async function runDuckDuckGoBatch(
         consecutiveFailures = 0
 
         for (const item of items) {
+          // 정보 모음 사이트는 수집 단계에서 버린다 — 본문 fetch 예산까지 아낀다
+          if (isAggregatorUrl(item.url)) continue
           const sourceId = await hashUrl(item.url)
 
           // 중복 판정은 seen_sources 로 한다 (0050). web_sources_raw 는 처리 완료 후

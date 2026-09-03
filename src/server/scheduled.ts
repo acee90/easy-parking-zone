@@ -4,9 +4,12 @@
  * 매시간 실행. 파이프라인 (#149 fulltext-first):
  *   1. 크롤링 → web_sources_raw (URL 단위, full_text_status='pending')
  *   2. raw fulltext batch → web_sources_raw.full_text 채움
- *   3. AI 필터 → rule(high/low 즉시) + Haiku(medium만), fulltext 입력
+ *   3. 필터 대상 선정 → source-filter-queue (판정은 소비자가 배치 100으로)
  *   4. 주차장 매칭 → filter_passed=1 → web_sources (정제 데이터만; full_text는 raw 유지, raw_source_id JOIN)
- *   5. 스코어링 재계산
+ *   5. 스코어링 재계산 (큐가 없을 때만 — 평소엔 score-recompute-queue 담당)
+ *
+ * 종합 요약 cron (매시 45분):
+ *   ai_summary_stale=1 인 주차장의 parking_lot_stats.ai_summary 생성
  *
  * DDG cron (매시 30분):
  *   1. DDG 크롤링
@@ -18,10 +21,12 @@ import { runBraveSearchBatch } from './crawlers/brave-search'
 import { runDuckDuckGoBatch } from './crawlers/duckduckgo-search'
 import { syncQueue } from './crawlers/lib/crawl-queue'
 import { recomputeStats } from './crawlers/lib/scoring-engine'
+import { runLotSummaryBatch } from './crawlers/lot-summary-batch'
 import { runMatchBatch } from './crawlers/match-to-lots'
 import { runNaverBlogsBatch } from './crawlers/naver-blogs'
 import { runRawFullTextBatch } from './crawlers/raw-fulltext-batch'
 import { runYoutubeBatch } from './crawlers/youtube'
+import { enqueueScoreRecomputeBatch } from './queues/score-recompute'
 
 interface Env {
   DB: D1Database
@@ -95,19 +100,21 @@ export async function handleScheduled(env: Env): Promise<void> {
     }
   }
 
-  // ── 3. rule 필터 (full_text_status='ok' & 미분류 → high/low 즉시 판정, medium은 match로) ──
-
-  if (env.UNSLOTH_API_KEY) {
-    try {
-      const r = await runAiFilterBatch(env.DB, {
-        UNSLOTH_API_KEY: env.UNSLOTH_API_KEY,
-      })
-      if (r.filtered > 0) {
-        results.push(`ai-filter: ${r.filtered} processed, ${r.passed} passed, ${r.removed} removed`)
-      }
-    } catch (err) {
-      results.push(`ai-filter: error - ${(err as Error).message}`)
+  // ── 3. rule 필터 대상 선정 → source-filter-queue ──
+  //
+  // 여기서는 id 만 골라 넘긴다. 판정은 소비자가 배치 100으로 한다.
+  // 예전처럼 크론 안에서 직접 돌리면 회당 100건에 묶여 백로그가 자란다.
+  try {
+    const r = await runAiFilterBatch(env.DB)
+    if (r.enqueued > 0) {
+      results.push(`filter-enqueue: ${r.enqueued} raws → queue`)
+    } else if (r.filtered > 0) {
+      results.push(
+        `ai-filter: ${r.filtered} processed inline, ${r.passed} passed, ${r.removed} removed (queue 없음)`,
+      )
     }
+  } catch (err) {
+    results.push(`filter-enqueue: error - ${(err as Error).message}`)
   }
 
   // ── 4. 주차장 매칭 + post-match AI 품질 판정 (filter_passed=1 & 미매칭 → web_sources) ──
@@ -120,14 +127,28 @@ export async function handleScheduled(env: Env): Promise<void> {
     })
     if (r.matched > 0) {
       results.push(
-        `match: ${r.matched} sources → ${r.lotLinks} lot links (${r.aiVerified} AI verified)`,
+        `match: ${r.matched} sources → ${r.lotLinks} lot links (${r.aiVerified} AI verified, ${r.summarized} summarized)`,
       )
     }
+    // 시간 예산에 걸려 중단됐다는 뜻이다. 남은 raw 는 다음 회차가 이어받지만,
+    // 이게 계속 찍히면 처리량이 유입을 못 따라가고 있다는 신호다.
+    if (r.budgetExceeded) results.push('match: AI budget exceeded (다음 회차 이어받음)')
   } catch (err) {
     results.push(`match: error - ${(err as Error).message}`)
   }
 
-  // ── 5. 스코어링 재계산 (crawl_progress 기반 — last_run_at 이후 매칭 건) ──
+  // ── 5. 스코어링 보정 (crawl_progress 기반 — last_run_at 이후 매칭 건) ──
+  //
+  // 평상시엔 큐(score-recompute-queue)가 매칭 직후에 lot 단위로 이미 재계산한다.
+  // 그런데 큐로 안 들어가는 경로가 둘 있다.
+  //   (a) 매칭 루프가 시간 예산에 걸려 중간에 끊긴 경우 — 행은 flush 로 이미 들어갔는데
+  //       enqueue 는 루프가 끝나야 돈다
+  //   (b) sendBatch 자체가 실패한 경우 — 삼키고 로그만 남긴다
+  // 그래서 이 단계는 **재계산이 아니라 재투입**을 한다. 여기서 직접 계산하면 큐가 이미
+  // 한 일을 한 번 더 하게 되고, rows_read 를 줄이려고 크론 주기까지 늘린 게 무의미해진다.
+  //
+  // `matched_at > computed_at` 조건이 핵심이다 — 큐가 이미 처리한 lot 은 computed_at 이
+  // 앞서 있어 걸리지 않는다. 즉 정상 경로에서는 0건이고, 빠진 것만 잡힌다.
   const scoringProgress = await env.DB.prepare(
     "SELECT last_run_at FROM crawl_progress WHERE crawler_id = 'scoring'",
   ).first<{ last_run_at: string | null }>()
@@ -139,7 +160,9 @@ export async function handleScheduled(env: Env): Promise<void> {
   const changedRows = await env.DB.prepare(
     `SELECT DISTINCT ws.parking_lot_id
        FROM web_sources ws
-       WHERE ws.matched_at > ?1`,
+       LEFT JOIN parking_lot_stats s ON s.parking_lot_id = ws.parking_lot_id
+       WHERE ws.matched_at > ?1
+         AND (s.computed_at IS NULL OR ws.matched_at > s.computed_at)`,
   )
     .bind(lastScoringRun)
     .all<{ parking_lot_id: string }>()
@@ -147,8 +170,16 @@ export async function handleScheduled(env: Env): Promise<void> {
   const changedLotIds = (changedRows.results ?? []).map((r) => r.parking_lot_id)
   if (changedLotIds.length > 0) {
     try {
-      const r = await recomputeStats(env.DB, changedLotIds)
-      results.push(`scoring: ${r.updated} lots recomputed`)
+      const enq = await enqueueScoreRecomputeBatch(
+        changedLotIds.map((lotId) => ({ lotId, reason: 'web_source_matched' as const })),
+      )
+      if (enq.enqueued > 0) {
+        results.push(`scoring: ${enq.enqueued} lots re-enqueued (큐에서 누락된 분)`)
+      } else {
+        // 큐가 아예 없는 환경(바인딩 누락)에서는 직접 계산한다.
+        const r = await recomputeStats(env.DB, changedLotIds)
+        results.push(`scoring: ${r.updated} lots recomputed (queue 없음, 폴백)`)
+      }
     } catch (err) {
       results.push(`scoring: error - ${(err as Error).message}`)
     }
@@ -251,4 +282,34 @@ export async function handleDdgScheduled(env: Env): Promise<void> {
   }
 
   console.log(`[scheduled-ddg] ${new Date().toISOString()} | ${results.join(' | ')}`)
+}
+
+/**
+ * 종합 요약 전용 cron
+ *
+ * 메인 파이프라인에 붙이지 않은 이유는 wall time 이다. 메인은 이미 크롤·본문·필터·매칭을
+ * 한 호출에 담고 있고, 매칭 단계만으로 AI 호출이 수십 건이다. 여기에 요약 호출을 더하면
+ * 15분 한도를 넘긴다. subrequest 한도(1,000/invocation)도 따로 쓴다.
+ */
+export async function handleLotSummaryScheduled(env: Env): Promise<void> {
+  const results: string[] = []
+  try {
+    const r = await runLotSummaryBatch(env.DB, {
+      UNSLOTH_API_KEY: env.UNSLOTH_API_KEY,
+      AI_MODEL: env.AI_MODEL,
+      AI_BASE_URL: env.AI_BASE_URL,
+    })
+    if (r.picked > 0) {
+      results.push(
+        `lot-summary: ${r.generated}/${r.picked} generated (no-input ${r.noInput}, rejected ${r.rejected}, failed ${r.failed})`,
+      )
+    }
+    if (r.budgetExceeded) results.push('lot-summary: budget exceeded')
+  } catch (err) {
+    results.push(`lot-summary: error - ${(err as Error).message}`)
+  }
+
+  if (results.length > 0) {
+    console.log(`[scheduled:lot-summary] ${new Date().toISOString()} | ${results.join(' | ')}`)
+  }
 }

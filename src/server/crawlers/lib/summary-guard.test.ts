@@ -134,3 +134,27 @@ describe('hangulRatio', () => {
     expect(hangulRatio('')).toBe(0)
   })
 })
+
+describe('detectSummaryPollution — 요약이 아니라 요약 소개문인 경우', () => {
+  it('문서 자기소개로 시작하는 요약을 막는다', () => {
+    expect(
+      detectSummaryPollution('본 문서는 부천 지역 주차장 정보를 집계하여 제공하는 가이드입니다.'),
+    ).toBe('chrome:doc_meta_opener')
+  })
+
+  it('프롬프트 지시문을 되뱉은 요약을 막는다', () => {
+    expect(
+      detectSummaryPollution(
+        '본문에서 주차장 관련 구체적 정보를 추출하여 200~600자로 재작성한 주차 가이드입니다.',
+      ),
+    ).toBe('chrome:prompt_echo')
+  })
+
+  it('정상 요약의 문장 중간에 나온 "글"은 막지 않는다', () => {
+    expect(
+      detectSummaryPollution(
+        '진입로가 좁아 대형 차량은 주의가 필요합니다. 이 글은 참고만 하시고 현장 안내를 따르시기 바랍니다.',
+      ),
+    ).toBeNull()
+  })
+})

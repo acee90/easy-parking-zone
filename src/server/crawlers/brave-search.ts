@@ -6,6 +6,7 @@
  * 네이버 검색에 없는 구글 인덱스 콘텐츠 보완용.
  */
 
+import { isAggregatorUrl } from './lib/aggregator-domains'
 import { bumpQueue, selectFromQueue } from './lib/crawl-queue'
 import { extractRegion, hashUrl, isGenericName, stripHtml } from './lib/scoring'
 
@@ -134,6 +135,8 @@ export async function runBraveSearchBatch(
 
       const items = result.web?.results ?? []
       for (const item of items) {
+        // 정보 모음 사이트는 수집 단계에서 버린다 — 본문 fetch 예산까지 아낀다
+        if (isAggregatorUrl(item.url)) continue
         const sourceId = await hashUrl(item.url)
         const publishedAt = item.page_age?.slice(0, 10) ?? null
 

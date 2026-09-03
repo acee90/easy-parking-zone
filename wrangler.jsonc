@@ -28,7 +28,10 @@
 	"triggers": {
 		"crons": [
 			"0 */2 * * *",
-			"30 */2 * * *"
+			"30 */2 * * *",
+			// 종합 요약 전용. 메인과 wall time·subrequest 한도를 분리한다.
+			// 라우팅은 worker-entry.ts 가 **분(minute) 필드**로 판정한다.
+			"45 * * * *"
 		]
 	},
 	"observability": {
@@ -37,19 +40,39 @@
 			"invocation_logs": true
 		}
 	},
+	// 메시지 단위는 **작업 1건**이다 (raw 1건 / lot 1곳).
+	// 여러 건을 한 메시지에 담으면 1건이 실패할 때 묶음 전체가 재시도된다 — 크론에서
+	// 벗어나려던 이유가 그거였다. 배치는 max_batch_size 가 대신 한다.
+	// 비용은 판단 근거가 아니다: 월 약 36만 작업으로 무료 한도(100만) 안이다.
 	"queues": {
 		"producers": [
 			{
 				"binding": "SCORE_RECOMPUTE_QUEUE",
 				"queue": "score-recompute-queue"
+			},
+			{
+				"binding": "SOURCE_FILTER_QUEUE",
+				"queue": "source-filter-queue"
 			}
 		],
 		"consumers": [
 			{
+				// ⚠️ 25를 올리지 말 것. scoring-engine 이 lot id 를 두 번 바인딩해서
+				//    (25 → 50개) D1 의 쿼리당 바인딩 한도 100에 걸린다.
 				"queue": "score-recompute-queue",
 				"max_batch_size": 25,
 				"max_batch_timeout": 5,
 				"max_retries": 3
+			},
+			{
+				// AI 없음(건당 10ms 미만) → 배치를 최대로. 100건을 쿼리 두 번으로 처리한다.
+				// 배치가 작으면 D1 왕복이 그만큼 늘어난다 — 크론 주기까지 늘려 아껴온 자원이다.
+				"queue": "source-filter-queue",
+				"max_batch_size": 100,
+				"max_batch_timeout": 5,
+				"max_retries": 3,
+				// 최종 실패를 눈에 보이게 남긴다. 크론에는 이런 자리가 없었다.
+				"dead_letter_queue": "source-filter-dlq"
 			}
 		]
 	},

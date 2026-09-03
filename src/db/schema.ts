@@ -147,6 +147,8 @@ export const parkingLotStats = sqliteTable('parking_lot_stats', {
   aiTipAlternative: text('ai_tip_alternative'),
   aiTipUpdatedAt: text('ai_tip_updated_at'),
   computedAt: text('computed_at').default(now),
+  // 종합 요약 재생성 대기 표시 (0054). 큐가 세우고 크론이 내린다.
+  aiSummaryStale: integer('ai_summary_stale').notNull().default(0),
 })
 
 // ============================================================
@@ -201,6 +203,13 @@ export const webSources = sqliteTable('web_sources', {
   aiSummaryUpdatedAt: text('ai_summary_updated_at'),
   isPositive: integer('is_positive'),
   sentimentScore: real('sentiment_score'),
+  // AI 가 뽑은 난이도 키워드 JSON 배열 (예: `["\uc881","\ud63c\uc7a1"]`).
+  // D1 에는 있었는데 이 스키마에만 빠져 있어 select 시 undefined 로 조용히 흘렀다.
+  aiDifficultyKeywords: text('ai_difficulty_keywords'),
+  aiFilteredAt: text('ai_filtered_at'),
+  rawSourceId: integer('raw_source_id'),
+  matchedAt: text('matched_at'),
+  missedLotName: text('missed_lot_name'),
 
   // v2 filter + relevance (migration 0038, #148).
   // Re-evaluation of raw-stage filter/relevance using the full_text body.

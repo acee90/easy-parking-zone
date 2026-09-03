@@ -1,4 +1,12 @@
 /**
+ * ⚠️ 크론 파이프라인에서는 쓰지 않는다 (2026-09-03 확인).
+ *
+ * 현재 참조처는 `scripts/match-sources.ts` 와 `scripts/archive/reclassify-legacy-sources.ts` 뿐이다.
+ * 그리고 이 모듈은 **만료된 ANTHROPIC_API_KEY** 를 쓴다 — 운영 AI 판정은 match-to-lots.ts 가
+ * 셀프호스팅 Unsloth(OpenAI 호환)로 전환했다(2a3269a). 그 스크립트들을 다시 돌리려면
+ * 모델 호출부를 먼저 옮겨야 한다.
+ */
+/**
  * AI 필터링 모듈 (Anthropic Haiku) — raw 단계 진입점
  *
  * 신규 크롤링된 검색 결과(`web_sources_raw`)를 Haiku로 분류:
