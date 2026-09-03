@@ -418,3 +418,62 @@ export const nearbyPlaces = sqliteTable(
   },
   (table) => [index('idx_nearby_places_lot').on(table.parkingLotId)],
 )
+
+// ============================================================
+// 목적지 축 페이지 (#166) — /near/{목적지}
+// 행이 있다 = 게이트를 통과해 발행됐다. 중간 상태 없음. migrations/0055 참조
+// ============================================================
+
+export const destinations = sqliteTable(
+  'destinations',
+  {
+    id: text('id').primaryKey(), // 'D-0001'
+    name: text('name').notNull(),
+    slug: text('slug').notNull().unique(), // '석촌역-D-0001'
+    category: text('category').notNull(), // station | market | mall | tourist
+    lat: real('lat').notNull(),
+    lng: real('lng').notNull(),
+    address: text('address'),
+    source: text('source').notNull(), // 'public_data:15013205'
+    sourceId: text('source_id'),
+    clusterId: text('cluster_id'),
+    lotCount: integer('lot_count').notNull(),
+    freeCount: integer('free_count').notNull().default(0),
+    publishedAt: text('published_at').notNull().default(now),
+    updatedAt: text('updated_at').notNull().default(now),
+  },
+  (table) => [index('idx_destinations_geo').on(table.lat, table.lng)],
+)
+
+export const destinationAliases = sqliteTable(
+  'destination_aliases',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    destinationId: text('destination_id')
+      .notNull()
+      .references(() => destinations.id),
+    alias: text('alias').notNull(),
+    kind: text('kind').notNull(), // spacing | line | search_term
+  },
+  (table) => [uniqueIndex('idx_destination_aliases_unique').on(table.destinationId, table.alias)],
+)
+
+export const destinationLots = sqliteTable(
+  'destination_lots',
+  {
+    destinationId: text('destination_id')
+      .notNull()
+      .references(() => destinations.id),
+    parkingLotId: text('parking_lot_id')
+      .notNull()
+      .references(() => parkingLots.id),
+    distanceM: integer('distance_m').notNull(),
+    walkMinutes: integer('walk_minutes').notNull(), // 직선거리 기준
+    evidence: text('evidence'), // 'web_source:<id>' | null
+    rank: integer('rank').notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.destinationId, table.parkingLotId] }),
+    index('idx_destination_lots_lot').on(table.parkingLotId),
+  ],
+)

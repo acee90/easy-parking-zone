@@ -16,6 +16,7 @@ import { useParkingFilters } from '@/hooks/useParkingFilters'
 import { type MapFeature, useSuperCluster } from '@/hooks/useSuperCluster'
 import { loadNaverMapSdk } from '@/lib/naver-map-sdk'
 import { Route as RootRoute } from '@/routes/__root'
+import { fetchDestination } from '@/server/destinations'
 import type { ParkingPoint } from '@/server/parking'
 import { fetchAllParkingPoints, fetchParkingDetail, fetchParkingLots } from '@/server/parking'
 import type { MapBounds, ParkingLot } from '@/types/parking'
@@ -26,6 +27,9 @@ const FILTER_LEFT = 12 + PANEL_WIDTH + 8
 export const Route = createFileRoute('/')({
   validateSearch: (search: Record<string, unknown>) => ({
     lotId: typeof search.lotId === 'string' ? search.lotId : undefined,
+    // 목적지 페이지의 "지도에서 보기" (#166). 'D-0001' 형식만 받는다
+    near:
+      typeof search.near === 'string' && /^D-\d{1,8}$/.test(search.near) ? search.near : undefined,
   }),
   head: () => ({
     links: [{ rel: 'canonical', href: 'https://easy-parking.xyz' }],
@@ -35,7 +39,7 @@ export const Route = createFileRoute('/')({
 
 function App() {
   const siteStats = RootRoute.useLoaderData()
-  const { lotId } = Route.useSearch()
+  const { lotId, near } = Route.useSearch()
   const {
     lat: userLat,
     lng: userLng,
@@ -181,6 +185,20 @@ function App() {
     },
     [selectedLot],
   )
+
+  // /near/{목적지} 에서 넘어온 경우 그 좌표로 연다. 목적지가 없으면 지금과 같이 동작한다
+  useEffect(() => {
+    if (!near) return
+    let cancelled = false
+    fetchDestination({ data: { id: near } })
+      .then((d) => {
+        if (!cancelled && d) setMoveTo({ lat: d.lat, lng: d.lng })
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [near])
 
   const handleSearchSelect = useCallback((lot: ParkingLot) => {
     // 검색은 명시적 의도이므로 detail로 직행

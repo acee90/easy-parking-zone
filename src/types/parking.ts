@@ -157,3 +157,40 @@ export interface UserReview {
   sourceType?: string // 'clien' 등 외부 커뮤니티 출처
   sourceUrl?: string // 원본 URL
 }
+
+// ============================================================
+// 목적지 축 페이지 (#166) — /near/{목적지}
+// ============================================================
+
+export interface Destination {
+  id: string // 'D-0001'
+  name: string
+  slug: string
+  category: 'station' | 'market' | 'mall' | 'tourist'
+  lat: number
+  lng: number
+  address?: string
+  lotCount: number
+  freeCount: number
+  publishedAt: string
+  /** 'public_data:15013205' | 'osm:overpass' … 좌표 출처. osm 이면 ODbL 표기가 필요하다 */
+  source: string
+}
+
+/** 목적지에 연결된 주차장 한 줄. ParkingLot 에 목적지 기준 거리를 얹은 것 */
+export interface DestinationLot {
+  lot: ParkingLot
+  distanceM: number
+  walkMinutes: number // 직선거리 기준
+  rank: number
+  evidenceSourceId: number | null
+}
+
+/** 주차장 상세페이지의 "이 주차장으로 갈 수 있는 곳" 한 줄 */
+export interface DestinationLink {
+  id: string
+  name: string
+  slug: string
+  category: Destination['category']
+  distanceM: number
+}

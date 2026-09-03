@@ -20,6 +20,7 @@ import { Route as WikiIndexRouteImport } from './routes/wiki/index'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as WikiAllRouteImport } from './routes/wiki/all'
 import { Route as WikiSlugRouteImport } from './routes/wiki/$slug'
+import { Route as NearSlugRouteImport } from './routes/near/$slug'
 import { Route as AdminWebSourcesRouteImport } from './routes/admin/web-sources'
 import { Route as AdminToolsRouteImport } from './routes/admin/tools'
 import { Route as AdminReviewsRouteImport } from './routes/admin/reviews'
@@ -86,6 +87,11 @@ const WikiAllRoute = WikiAllRouteImport.update({
 const WikiSlugRoute = WikiSlugRouteImport.update({
   id: '/wiki/$slug',
   path: '/wiki/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NearSlugRoute = NearSlugRouteImport.update({
+  id: '/near/$slug',
+  path: '/near/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminWebSourcesRoute = AdminWebSourcesRouteImport.update({
@@ -163,6 +169,7 @@ export interface FileRoutesByFullPath {
   '/admin/reviews': typeof AdminReviewsRoute
   '/admin/tools': typeof AdminToolsRoute
   '/admin/web-sources': typeof AdminWebSourcesRoute
+  '/near/$slug': typeof NearSlugRoute
   '/wiki/$slug': typeof WikiSlugRouteWithChildren
   '/wiki/all': typeof WikiAllRoute
   '/admin/': typeof AdminIndexRoute
@@ -187,6 +194,7 @@ export interface FileRoutesByTo {
   '/admin/reviews': typeof AdminReviewsRoute
   '/admin/tools': typeof AdminToolsRoute
   '/admin/web-sources': typeof AdminWebSourcesRoute
+  '/near/$slug': typeof NearSlugRoute
   '/wiki/all': typeof WikiAllRoute
   '/admin': typeof AdminIndexRoute
   '/wiki': typeof WikiIndexRoute
@@ -212,6 +220,7 @@ export interface FileRoutesById {
   '/admin/reviews': typeof AdminReviewsRoute
   '/admin/tools': typeof AdminToolsRoute
   '/admin/web-sources': typeof AdminWebSourcesRoute
+  '/near/$slug': typeof NearSlugRoute
   '/wiki/$slug': typeof WikiSlugRouteWithChildren
   '/wiki/all': typeof WikiAllRoute
   '/admin/': typeof AdminIndexRoute
@@ -239,6 +248,7 @@ export interface FileRouteTypes {
     | '/admin/reviews'
     | '/admin/tools'
     | '/admin/web-sources'
+    | '/near/$slug'
     | '/wiki/$slug'
     | '/wiki/all'
     | '/admin/'
@@ -263,6 +273,7 @@ export interface FileRouteTypes {
     | '/admin/reviews'
     | '/admin/tools'
     | '/admin/web-sources'
+    | '/near/$slug'
     | '/wiki/all'
     | '/admin'
     | '/wiki'
@@ -287,6 +298,7 @@ export interface FileRouteTypes {
     | '/admin/reviews'
     | '/admin/tools'
     | '/admin/web-sources'
+    | '/near/$slug'
     | '/wiki/$slug'
     | '/wiki/all'
     | '/admin/'
@@ -309,6 +321,7 @@ export interface RootRouteChildren {
   PrivacyRoute: typeof PrivacyRoute
   TermsRoute: typeof TermsRoute
   TestDesignsRoute: typeof TestDesignsRoute
+  NearSlugRoute: typeof NearSlugRoute
   WikiSlugRoute: typeof WikiSlugRouteWithChildren
   WikiAllRoute: typeof WikiAllRoute
   WikiIndexRoute: typeof WikiIndexRoute
@@ -395,6 +408,13 @@ declare module '@tanstack/react-router' {
       path: '/wiki/$slug'
       fullPath: '/wiki/$slug'
       preLoaderRoute: typeof WikiSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/near/$slug': {
+      id: '/near/$slug'
+      path: '/near/$slug'
+      fullPath: '/near/$slug'
+      preLoaderRoute: typeof NearSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/web-sources': {
@@ -528,6 +548,7 @@ const rootRouteChildren: RootRouteChildren = {
   PrivacyRoute: PrivacyRoute,
   TermsRoute: TermsRoute,
   TestDesignsRoute: TestDesignsRoute,
+  NearSlugRoute: NearSlugRoute,
   WikiSlugRoute: WikiSlugRouteWithChildren,
   WikiAllRoute: WikiAllRoute,
   WikiIndexRoute: WikiIndexRoute,
