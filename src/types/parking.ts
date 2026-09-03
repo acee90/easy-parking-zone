@@ -194,3 +194,15 @@ export interface DestinationLink {
   category: Destination['category']
   distanceM: number
 }
+
+/** 목적지 목록 페이지(/near)와 검색 자동완성 한 줄 */
+export interface DestinationSummary {
+  id: string
+  name: string
+  slug: string
+  category: Destination['category']
+  lotCount: number
+  freeCount: number
+  /** 가장 가까운 주차장 주소로 판정한 지역 라벨(서울, 경기 …). 판정 불가면 null */
+  region: string | null
+}

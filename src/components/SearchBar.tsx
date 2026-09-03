@@ -1,11 +1,13 @@
-import { MapPin, Navigation, Search, X } from 'lucide-react'
+import { Link } from '@tanstack/react-router'
+import { ArrowUpRight, MapPin, Navigation, Search, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { getDifficultyIcon } from '@/lib/geo-utils'
 import { dedupePlacesAgainstLots } from '@/lib/search-query'
+import { searchDestinations } from '@/server/destinations'
 import { searchParkingLots, searchPlaces } from '@/server/parking'
-import type { ParkingLot, Place } from '@/types/parking'
+import type { DestinationSummary, ParkingLot, Place } from '@/types/parking'
 
 interface SearchBarProps {
   onSelect: (lot: ParkingLot) => void
@@ -19,6 +21,7 @@ function useSearch(
   const [query, setQuery] = useState('')
   const [lotResults, setLotResults] = useState<ParkingLot[]>([])
   const [placeResults, setPlaceResults] = useState<Place[]>([])
+  const [destResults, setDestResults] = useState<DestinationSummary[]>([])
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const timerRef = useRef<ReturnType<typeof setTimeout>>()
@@ -30,18 +33,24 @@ function useSearch(
       if (trimmed.length < 1) {
         setLotResults([])
         setPlaceResults([])
+        setDestResults([])
         setOpen(false)
         return
       }
       setLoading(true)
       try {
-        const [lots, places] = await Promise.all([
+        const [lots, places, dests] = await Promise.all([
           searchParkingLots({ data: { query: trimmed } }),
           onPlaceSelect && trimmed.length >= 2
             ? searchPlaces({ data: { query: trimmed } })
             : Promise.resolve([]),
+          // 발행된 목적지 페이지(#166). "석촌역" 을 치면 "석촌역 근처 주차장" 페이지 한 줄이 맨 위에 뜬다
+          trimmed.length >= 2
+            ? searchDestinations({ data: { query: trimmed } }).catch(() => [])
+            : Promise.resolve([]),
         ])
         setLotResults(lots)
+        setDestResults(dests)
         // 우리 DB 주차장과 이름이 겹치는 카카오 장소는 중복이므로 숨긴다
         setPlaceResults(dedupePlacesAgainstLots(places, lots))
         // 비동기 완료 시점에 입력이 이미 지워졌으면 열지 않음
@@ -88,6 +97,7 @@ function useSearch(
     queryRef.current = ''
     setLotResults([])
     setPlaceResults([])
+    setDestResults([])
     setOpen(false)
   }, [])
 
@@ -95,6 +105,7 @@ function useSearch(
     query,
     lotResults,
     placeResults,
+    destResults,
     open,
     loading,
     setOpen,
@@ -110,13 +121,17 @@ function SearchResults({
   loading,
   lotResults,
   placeResults,
+  destResults = [],
   onSelectLot,
   onSelectPlace,
+  onSelectDest,
   maxHeight,
 }: {
   loading: boolean
   lotResults: ParkingLot[]
   placeResults: Place[]
+  destResults?: DestinationSummary[]
+  onSelectDest?: () => void
   onSelectLot: (lot: ParkingLot) => void
   onSelectPlace: (place: Place) => void
   maxHeight?: string
@@ -125,7 +140,7 @@ function SearchResults({
     return <div className="px-3 py-4 text-sm text-muted-foreground text-center">검색 중...</div>
   }
 
-  if (lotResults.length === 0 && placeResults.length === 0) {
+  if (lotResults.length === 0 && placeResults.length === 0 && destResults.length === 0) {
     return (
       <div className="px-3 py-4 text-sm text-muted-foreground text-center">
         검색 결과가 없습니다
@@ -139,6 +154,28 @@ function SearchResults({
         className="search-dropdown-scroll overscroll-contain flex-1"
         style={maxHeight ? { maxHeight } : undefined}
       >
+        {destResults.length > 0 && (
+          <>
+            <div className="px-3 py-1.5 text-[11px] font-medium text-muted-foreground bg-gray-50 sticky top-0">
+              목적지별 주차장 안내
+            </div>
+            {destResults.map((d) => (
+              <Link
+                key={d.id}
+                to="/near/$slug"
+                params={{ slug: d.slug }}
+                onClick={onSelectDest}
+                className="group flex w-full items-center gap-2 px-3 py-2.5 text-left hover:bg-gray-50 border-b last:border-b-0 transition-colors"
+              >
+                <ArrowUpRight className="size-3.5 text-primary shrink-0" />
+                <span className="text-sm font-medium truncate">{d.name} 근처 주차장</span>
+                <span className="shrink-0 text-[11px] text-muted-foreground">
+                  {d.lotCount}곳{d.freeCount > 0 ? ` · 무료 ${d.freeCount}` : ''}
+                </span>
+              </Link>
+            ))}
+          </>
+        )}
         {placeResults.length > 0 && (
           <>
             <div className="px-3 py-1.5 text-[11px] font-medium text-muted-foreground bg-gray-50 sticky top-0">
@@ -281,8 +318,10 @@ export function SearchBar({ onSelect, onPlaceSelect }: SearchBarProps) {
               loading={search.loading}
               lotResults={search.lotResults}
               placeResults={search.placeResults}
+              destResults={search.destResults}
               onSelectLot={search.handleSelectLot}
               onSelectPlace={search.handleSelectPlace}
+              onSelectDest={() => search.setOpen(false)}
             />
           </div>
         )}
@@ -320,8 +359,10 @@ export function SearchBar({ onSelect, onPlaceSelect }: SearchBarProps) {
                 loading={search.loading}
                 lotResults={search.lotResults}
                 placeResults={search.placeResults}
+                destResults={search.destResults}
                 onSelectLot={handleDialogSelectLot}
                 onSelectPlace={handleDialogSelectPlace}
+                onSelectDest={() => setDialogOpen(false)}
                 maxHeight="55vh"
               />
             ) : (

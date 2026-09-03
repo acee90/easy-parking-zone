@@ -17,6 +17,8 @@
  *
  * 다시 실행해도 안전하다: id 는 DB 의 MAX(id) 다음부터 발급하고, 이미 있는 slug 는 그 id 를 재사용한다.
  */
+
+import { execSync } from 'node:child_process'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { clusterByRadius } from '../../src/lib/near/cluster'
 import {
@@ -39,6 +41,9 @@ const IN = arg('in', 'data/near/candidates.json')
 const LIMIT = Number.parseInt(arg('limit', '0'), 10)
 const OUT_DIR = 'data/near'
 const stamp = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 12) // YYYYMMDDHHMM
+// --existing=remote: 이미 발행된 목적지(id 재사용·발행 취소 판단)는 remote 에서 읽는다.
+// 평가 자체는 로컬 스냅샷으로 빠르게 돌리고, 발행 상태만 remote 를 기준으로 삼는 조합이다.
+const EXISTING_FROM_REMOTE = arg('existing', 'local') === 'remote'
 const BBOX_DEG = 0.012 // ≈1.3km. 게이트가 반경 1km 로 다시 자른다
 
 interface LotRow {
@@ -95,10 +100,19 @@ function loadLots(c: StationCandidate): CandidateLot[] {
   }))
 }
 
+/** 발행 상태 조회. --existing=remote 면 wrangler 로 remote 를 한 번 읽는다 */
+function queryExisting<T = Record<string, unknown>>(sqlText: string): T[] {
+  if (!EXISTING_FROM_REMOTE) return d1Query<T>(sqlText)
+  const cmd = `npx wrangler d1 execute parking-db --remote --json --command "${sqlText.replace(/\s+/g, ' ').replace(/"/g, '\\"')}"`
+  const out = execSync(cmd, { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'] })
+  const parsed = JSON.parse(out) as { results: T[] }[]
+  return parsed[0]?.results ?? []
+}
+
 function nextIdAllocator() {
-  const row = d1Query<{ m: string | null }>(`SELECT MAX(id) AS m FROM destinations`)[0]
+  const row = queryExisting<{ m: string | null }>(`SELECT MAX(id) AS m FROM destinations`)[0]
   let n = row?.m ? Number.parseInt(row.m.slice(2), 10) : 0
-  const existing = d1Query<{ id: string; name: string; lat: number; lng: number }>(
+  const existing = queryExisting<{ id: string; name: string; lat: number; lng: number }>(
     `SELECT id, name, lat, lng FROM destinations`,
   )
   // 같은 이름 + 500m 안이면 같은 목적지로 보고 id 를 재사용한다. 이름만으로 판단하면
@@ -210,6 +224,27 @@ function main() {
     published += 1
   }
 
+  // 지난 실행에서 발행됐지만 이번에는 게이트를 못 넘은 목적지는 내린다 ("행이 있다 = 발행" 을 지키려면
+  // 실패한 행을 남겨 둘 수 없다). 같은 원천(source)의 행만 대상으로 해서 다른 원천의 발행분은 건드리지 않는다.
+  const source = targets[0]?.source
+  const publishedIds = new Set<string>()
+  for (const line of sqlLines) {
+    const m = line.match(/^INSERT OR IGNORE INTO destinations[\s\S]*?VALUES \('(D-\d+)'/)
+    if (m) publishedIds.add(m[1])
+  }
+  const stale = source
+    ? queryExisting<{ id: string; name: string }>(
+        `SELECT id, name FROM destinations WHERE source = '${esc(source)}'`,
+      ).filter((r) => !publishedIds.has(r.id))
+    : []
+  for (const r of stale) {
+    sqlLines.push(
+      `DELETE FROM destination_lots WHERE destination_id = '${r.id}';`,
+      `DELETE FROM destination_aliases WHERE destination_id = '${r.id}';`,
+      `DELETE FROM destinations WHERE id = '${r.id}';`,
+    )
+  }
+
   mkdirSync(OUT_DIR, { recursive: true })
   const sqlPath = `${OUT_DIR}/publish-${stamp}.sql`
   const rejPath = `${OUT_DIR}/rejected-${stamp}.json`
@@ -230,6 +265,7 @@ function main() {
     `- 게이트 통과: ${passed.length} (그중 50m 클러스터로 흡수 ${absorbedCount})`,
     `- **발행: ${published}**`,
     `- 탈락: ${rejected.length}`,
+    `- 발행 취소(지난 발행분 중 이번 게이트 미통과): ${stale.length}${stale.length ? ` — ${stale.map((r) => r.name).join(', ')}` : ''}`,
     '',
     '## 탈락 사유 상위',
     ...top.map(([k, v]) => `- ${k}: ${v}`),

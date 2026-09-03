@@ -49,6 +49,12 @@ describe('dedupeTwins', () => {
     expect(kept.map((l) => l.id)).toEqual(['123-1-000008'])
     expect(twins).toEqual([['123-1-000008', 'KA-365568988']])
   })
+  it('62m 떨어진 324면 쌍(석촌역 송파근린공원)도 같은 주차장이다', () => {
+    const pub = lot({ id: '123-2-000012', lat: 37.5059306, lng: 127.1097053, totalSpaces: 324 })
+    const ka = lot({ id: 'KA-9205222', lat: 37.5064642, lng: 127.1094802, totalSpaces: 324 })
+    const { kept } = dedupeTwins([ka, pub])
+    expect(kept.map((l) => l.id)).toEqual(['123-2-000012'])
+  })
   it('좌표가 12m 어긋나도 면수가 같으면 같은 주차장이다', () => {
     const ka = lot({ id: 'KA-1', name: '송파근린공원주차장', totalSpaces: 324 })
     const nv = lot({

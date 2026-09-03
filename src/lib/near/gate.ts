@@ -51,7 +51,9 @@ export type GateResult =
 export type GateFailReason = 'no_coords' | 'too_few_lots' | 'too_few_lots_with_data' | 'no_evidence'
 
 const EARTH_R = 6371000
-const TWIN_RADIUS_M = 60
+// 면수가 같은(0 제외) 두 행이 100m 안에 있으면 같은 주차장이다. 60m 로는 석촌역의
+// "송파근린공원주차장 / 송파근린공원 공영주차장"(324면, 62m) 이 빠져나가 라이브에 둘 다 실렸다
+const TWIN_RADIUS_M = 100
 
 /** 두 좌표 사이 직선거리(m). 하버사인 */
 export function distanceMeters(aLat: number, aLng: number, bLat: number, bLng: number): number {

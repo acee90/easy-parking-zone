@@ -4,14 +4,21 @@ import { getDifficultyIcon, getDifficultyLabel } from '@/lib/geo-utils'
 import { makeParkingSlug } from '@/lib/slug'
 import type { DestinationLot } from '@/types/parking'
 
-/** 난이도 점수를 믿을 수 있는 주차장만. reliability='none' 은 점수가 있어도 추천하지 않는다 */
+/**
+ * 실제 신호(후기·웹 글)로 계산된 난이도만 추천 근거로 쓴다.
+ * reliability 가 structural 인 점수는 주차장 유형·규모로 만든 사전값(prior)이라 "쉬운 곳" 추천의
+ * 근거가 못 된다 — 발행 목적지에 걸린 주차장 5,308곳 중 65% 가 structural 이다 (2026-09-03).
+ * reference(n_effective < 1)도 신호 한 조각뿐이라 제외한다. 남는 것이 없으면 섹션을 그리지 않는다.
+ */
+const TRUSTED = new Set(['estimated', 'confirmed'])
+
 export function pickEasiest(lots: DestinationLot[], limit = 3): DestinationLot[] {
   return lots
     .filter(
       (dl) =>
         dl.lot.difficulty.score !== null &&
         dl.lot.difficulty.reliability !== undefined &&
-        dl.lot.difficulty.reliability !== 'none',
+        TRUSTED.has(dl.lot.difficulty.reliability),
     )
     .sort((a, b) => (b.lot.difficulty.score ?? 0) - (a.lot.difficulty.score ?? 0))
     .slice(0, limit)
@@ -30,7 +37,7 @@ export function EasiestPicks({ picks }: { picks: DestinationLot[] }) {
     <SectionShell
       title="초보 운전자에게 쉬운 곳"
       sub={`${picks.length}곳`}
-      note="후기와 웹 글에서 계산한 주차 난이도 점수 순입니다. 점수를 믿기 어려운 곳은 제외했습니다."
+      note="실제 후기와 웹 글에서 계산한 난이도 점수 순입니다. 주차장 유형만으로 추정한 점수는 근거로 쓰지 않았습니다."
     >
       <ol className="m-0 flex list-none flex-col divide-y divide-zinc-100 p-0">
         {picks.map((dl, i) => {
