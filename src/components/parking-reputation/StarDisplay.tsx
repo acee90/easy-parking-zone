@@ -2,7 +2,7 @@ import { Star, StarHalf } from 'lucide-react'
 
 interface StarDisplayProps {
   score: number
-  size?: 'sm' | 'md' | 'lg'
+  size?: 'sm' | 'md' | 'lg' | 'xl'
   className?: string
 }
 
@@ -10,6 +10,8 @@ const SIZE_CLASS = {
   sm: 'size-3.5',
   md: 'size-4',
   lg: 'size-6',
+  // 입력용. 손가락으로 반 칸을 정확히 누르려면 이 정도는 돼야 한다
+  xl: 'size-9',
 } as const
 
 /** 0.5 단위 점수 표시. 풀별/반별/빈별 렌더 */
@@ -33,7 +35,7 @@ export function StarDisplay({ score, size = 'sm', className = '' }: StarDisplayP
         if (rounded >= n - 0.5) {
           return (
             <span key={n} className="relative inline-flex">
-              <Star className={`${sizeClass} text-gray-200`} aria-hidden="true" />
+              <Star className={`${sizeClass} text-zinc-300`} aria-hidden="true" />
               <StarHalf
                 className={`${sizeClass} absolute left-0 top-0 fill-yellow-400 text-yellow-400`}
                 aria-hidden="true"
@@ -41,7 +43,7 @@ export function StarDisplay({ score, size = 'sm', className = '' }: StarDisplayP
             </span>
           )
         }
-        return <Star key={n} className={`${sizeClass} text-gray-200`} aria-hidden="true" />
+        return <Star key={n} className={`${sizeClass} text-zinc-300`} aria-hidden="true" />
       })}
     </div>
   )

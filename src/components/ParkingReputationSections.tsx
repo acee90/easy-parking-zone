@@ -67,40 +67,43 @@ export function ParkingReputationSections({
 
   if (expanded) {
     const visible = sections ?? ALL_SECTIONS
-    return (
-      <div className="space-y-10 pt-2">
-        {visible.includes('reviews') && (
-          <ReviewSection
-            lotId={lotId}
-            count={counts.reviews}
-            initialReviews={initialReviews}
-            onRefreshCount={refreshCounts}
-            viewAllSlug={viewAllSlug}
-            refreshKey={reviewRefreshKey}
-            bordered={bordered}
-          />
-        )}
-        {visible.includes('write') && (
-          <WriteReviewSection lotId={lotId} onSubmitted={handleReviewSubmitted} />
-        )}
-        {visible.includes('media') && (
-          <MediaSection
-            lotId={lotId}
-            count={counts.media}
-            initialMedia={initialMedia}
-            bordered={bordered}
-          />
-        )}
-        {visible.includes('blog') && (
-          <RelatedWebsitesSection
-            lotId={lotId}
-            count={counts.blog}
-            initialBlogPosts={initialBlogPosts}
-            bordered={bordered}
-          />
-        )}
-      </div>
-    )
+    // `sections` 에 준 **순서대로** 그린다. 예전에는 컴포넌트 안에 순서가 박혀 있어
+    // 호출부에서 바꿀 수 없었다 — 후기 작성이 목록보다 먼저 나와야 하는 화면이 있다.
+    const render = {
+      reviews: (
+        <ReviewSection
+          key="reviews"
+          lotId={lotId}
+          count={counts.reviews}
+          initialReviews={initialReviews}
+          onRefreshCount={refreshCounts}
+          viewAllSlug={viewAllSlug}
+          refreshKey={reviewRefreshKey}
+          bordered={bordered}
+        />
+      ),
+      write: <WriteReviewSection key="write" lotId={lotId} onSubmitted={handleReviewSubmitted} />,
+      media: (
+        <MediaSection
+          key="media"
+          lotId={lotId}
+          count={counts.media}
+          initialMedia={initialMedia}
+          bordered={bordered}
+        />
+      ),
+      blog: (
+        <RelatedWebsitesSection
+          key="blog"
+          lotId={lotId}
+          count={counts.blog}
+          initialBlogPosts={initialBlogPosts}
+          bordered={bordered}
+        />
+      ),
+    } as const
+
+    return <div className="space-y-8 pt-1">{visible.map((k) => render[k])}</div>
   }
 
   const tabs = [

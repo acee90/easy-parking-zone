@@ -188,7 +188,10 @@ function WikiDetailPage() {
             expanded
             // 흰 시트 위 흰 카드는 경계가 안 보인다 (디자인 규칙 §8)
             bordered
-            sections={['reviews', 'write']}
+            // 후기 작성이 목록보다 먼저다. 후기를 모으는 게 이 사이트의 정체성인데
+            // 실사용자 리뷰가 87곳(0.27%)뿐이라, 대부분의 페이지에서 목록은 비어 있고
+            // 그 아래 폼은 눈에 띄지 않는다.
+            sections={['write', 'reviews']}
             initialReviews={reviews}
             initialTabCounts={tabCounts}
             viewAllSlug={slug}

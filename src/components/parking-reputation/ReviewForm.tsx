@@ -64,22 +64,32 @@ export function ReviewForm({
   const hasScore = overallScore >= 0.5
 
   return (
-    // 시트 안이라 표면을 덧씌우지 않는다 (디자인 규칙 §5).
-    // 별점만 받는 폼인데 세로로 쌓아 가운데 정렬하면 화면 한 장을 통째로 먹는다 —
-    // 질문과 별점을 한 줄에 두어 접힌 상태의 높이를 줄인다.
-    <div>
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    // 회색 필은 인풋 전용이다 (디자인 규칙 §2) — 이 블록이 정확히 그 용도다.
+    // 시트 안에서 유일하게 "여기는 눌러서 입력하는 곳"이라고 말하는 면이라,
+    // 표면을 덧씌우는 게 아니라 인풋임을 드러내는 것이다.
+    //
+    // 크게 그리는 이유: 후기를 모으는 게 이 사이트의 정체성인데, 앞서 여백을 줄이면서
+    // 한 줄로 눌러놨더니 페이지에서 가장 안 보이는 블록이 됐다.
+    <div className="rounded-[10px] bg-zinc-50 px-4 py-5 sm:px-5">
+      <div className="flex flex-col items-center gap-3 text-center">
         <div>
-          <p className="text-[14px] font-bold text-ink">주차하기 쉬웠나요?</p>
-          <p className="mt-0.5 text-[11.5px] text-faint">
-            {hasScore ? MICROCOPY[overallScore] : '별을 클릭해 평점을 남겨주세요'}
+          <p className="text-[17px] font-extrabold tracking-[-0.015em] text-ink">
+            주차하기 쉬웠나요?
+          </p>
+          <p className="mt-1 text-[13px] text-ink-2">
+            {hasScore ? MICROCOPY[overallScore] : '별 하나만 눌러주세요 · 30초면 됩니다'}
           </p>
         </div>
-        <StarRatingInput value={overallScore} onChange={setOverallScore} size="lg" />
+        <StarRatingInput value={overallScore} onChange={setOverallScore} size="xl" />
+        {!hasScore && (
+          <p className="text-[11.5px] text-faint">
+            다음에 여기 올 사람이 미리 알 수 있게 도와주세요
+          </p>
+        )}
       </div>
 
       {hasScore && (
-        <div className="mt-4 space-y-3 border-t border-zinc-100 pt-4">
+        <div className="mt-4 space-y-3 border-t border-zinc-200 pt-4">
           {!session && (
             <input
               type="text"
@@ -87,7 +97,7 @@ export function ReviewForm({
               onChange={(e) => setGuestNickname(e.target.value)}
               placeholder="닉네임 (선택)"
               maxLength={20}
-              className="w-full rounded-lg bg-zinc-50 px-3 py-2 text-sm transition-shadow focus:outline-none focus:ring-2 focus:ring-ring/60"
+              className="w-full rounded-lg bg-white px-3 py-2 text-sm transition-shadow focus:outline-none focus:ring-2 focus:ring-ring/60"
             />
           )}
 
@@ -97,7 +107,7 @@ export function ReviewForm({
             maxLength={200}
             rows={3}
             placeholder="진입로, 주차면 크기, 통로 여유, 출차 난이도 등 경험을 적어주세요 (선택)"
-            className="w-full resize-none rounded-lg bg-zinc-50 px-3 py-2 text-sm leading-relaxed transition-shadow focus:outline-none focus:ring-2 focus:ring-ring/60"
+            className="w-full resize-none rounded-lg bg-white px-3 py-2 text-sm leading-relaxed transition-shadow focus:outline-none focus:ring-2 focus:ring-ring/60"
           />
 
           {error && <p className="text-xs text-red-500">{error}</p>}

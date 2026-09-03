@@ -4,7 +4,7 @@ import { StarDisplay } from './StarDisplay'
 interface StarRatingInputProps {
   value: number
   onChange: (next: number) => void
-  size?: 'sm' | 'md' | 'lg'
+  size?: 'sm' | 'md' | 'lg' | 'xl'
 }
 
 /** 0.5점 단위 입력. 별 좌/우 절반 호버/클릭 영역 분리 */
