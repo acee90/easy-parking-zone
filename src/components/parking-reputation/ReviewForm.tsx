@@ -64,20 +64,22 @@ export function ReviewForm({
   const hasScore = overallScore >= 0.5
 
   return (
-    <div className="rounded-2xl bg-white p-5">
-      <div className="mb-4 text-center">
-        <p className="text-base font-semibold text-zinc-900">주차하기 쉬웠나요?</p>
-        <p className="mt-1 text-xs text-muted-foreground">
-          {hasScore ? MICROCOPY[overallScore] : '별을 클릭해 평점을 남겨주세요'}
-        </p>
-      </div>
-
-      <div className="mb-4 flex justify-center">
+    // 시트 안이라 표면을 덧씌우지 않는다 (디자인 규칙 §5).
+    // 별점만 받는 폼인데 세로로 쌓아 가운데 정렬하면 화면 한 장을 통째로 먹는다 —
+    // 질문과 별점을 한 줄에 두어 접힌 상태의 높이를 줄인다.
+    <div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-[14px] font-bold text-ink">주차하기 쉬웠나요?</p>
+          <p className="mt-0.5 text-[11.5px] text-faint">
+            {hasScore ? MICROCOPY[overallScore] : '별을 클릭해 평점을 남겨주세요'}
+          </p>
+        </div>
         <StarRatingInput value={overallScore} onChange={setOverallScore} size="lg" />
       </div>
 
       {hasScore && (
-        <div className="space-y-3 border-t border-zinc-100 pt-4">
+        <div className="mt-4 space-y-3 border-t border-zinc-100 pt-4">
           {!session && (
             <input
               type="text"

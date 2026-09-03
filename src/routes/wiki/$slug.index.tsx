@@ -1,29 +1,15 @@
 import { createFileRoute, getRouteApi, Link } from '@tanstack/react-router'
-import {
-  ChevronRight,
-  Clock,
-  CreditCard,
-  Flame,
-  MapPin,
-  ParkingSquare,
-  Phone,
-  Tag,
-  ThumbsUp,
-} from 'lucide-react'
-import { ParkingActionGroup } from '@/components/ParkingActionGroup'
+import { ChevronRight } from 'lucide-react'
 import { ParkingReputationSections } from '@/components/ParkingReputationSections'
-import { Badge } from '@/components/ui/badge'
-import { WikiMiniMap } from '@/components/WikiMiniMap'
+import { AlternativeLotsSection } from '@/components/wiki/AlternativeLotsSection'
+import { EvaluationSection } from '@/components/wiki/EvaluationSection'
 import { FaqSection } from '@/components/wiki/FaqSection'
+import { FeeCalculatorSection } from '@/components/wiki/FeeCalculatorSection'
+import { LotHeroSection } from '@/components/wiki/LotHeroSection'
+import { LotLocationSection } from '@/components/wiki/LotLocationSection'
 import { NearbyPlacesSection } from '@/components/wiki/NearbyPlacesSection'
 import { RelatedParkingLotsSection } from '@/components/wiki/RelatedParkingLotsSection'
-import { getReliabilityBadge } from '@/lib/geo-utils'
-import {
-  formatOperatingHours,
-  formatPhone,
-  formatPricing,
-  formatTotalSpaces,
-} from '@/lib/parking-display'
+import { WebSourceListSection } from '@/components/wiki/WebSourceListSection'
 import {
   buildBreadcrumbJsonLd,
   buildParkingFaqJsonLd,
@@ -40,23 +26,29 @@ export const Route = createFileRoute('/wiki/$slug/')({
 })
 
 function WikiDetailPage() {
-  const { lot, nearbyPlaces, blogPosts, media, reviews, tabCounts, relatedLots } =
-    parentRoute.useLoaderData()
+  const {
+    lot,
+    nearbyPlaces,
+    reviews,
+    tabCounts,
+    relatedLots,
+    webSentiment,
+    webSources,
+    alternativeLots,
+  } = parentRoute.useLoaderData()
 
-  const score = lot.difficulty.score
-  const reliabilityBadge = getReliabilityBadge(lot.difficulty.reliability)
   const summary = lot.aiSummary
-  const operatingHours = formatOperatingHours(lot.operatingHours)
-  const pricing = formatPricing(lot.pricing)
-  const totalSpacesLabel = formatTotalSpaces(lot.totalSpaces)
-  const phoneLabel = formatPhone(lot.phone)
   const slug = makeParkingSlug(lot.name, lot.id)
   const hasAiTips = Boolean(lot.aiTipPricing || lot.aiTipVisit || lot.aiTipAlternative)
-  const hasContentAbove = Boolean(summary) || hasAiTips
   // TanStack Start head API의 links/scripts가 SSR HTML에 직렬화 안 되어
   // React 19 metadata hoisting으로 head에 inject한다.
   const canonicalUrl = getParkingCanonicalUrl(lot)
-  const lotJsonLd = buildParkingLotJsonLd(lot)
+  // 별점 마크업은 실사용자 리뷰가 있을 때만 (시드 제외)
+  const lotJsonLd = buildParkingLotJsonLd(
+    lot,
+    tabCounts.realReviews ?? 0,
+    tabCounts.realReviewScore ?? null,
+  )
   const faqJsonLd = buildParkingFaqJsonLd(lot, relatedLots)
   const region = getRegionForAddress(lot.address)
   const breadcrumbJsonLd = buildBreadcrumbJsonLd(lot, region)
@@ -81,261 +73,150 @@ function WikiDetailPage() {
         // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON.stringify output is safe
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
       />
-      <section className="border-b bg-white">
-        <div className="mx-auto max-w-6xl px-4 py-4 md:py-6">
-          <nav
-            aria-label="breadcrumb"
-            className="mb-4 flex flex-wrap items-center gap-1 text-xs text-muted-foreground"
-          >
-            <Link to="/wiki" className="transition-colors hover:text-foreground hover:underline">
-              둘러보기
-            </Link>
-            {region && (
-              <>
-                <ChevronRight className="size-3 shrink-0" />
-                <Link
-                  to="/wiki/region/$region"
-                  params={{ region: region.label }}
-                  className="transition-colors hover:text-foreground hover:underline"
-                >
-                  {region.label} 주차장
-                </Link>
-              </>
-            )}
-            <ChevronRight className="size-3 shrink-0" />
-            <span className="font-medium text-foreground">{lot.name}</span>
-          </nav>
-
-          {/* 정보 4 : 지도 6 — 지도/로드뷰가 더 크게 보이도록 오른쪽에 무게를 준다 */}
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-[minmax(0,0.8fr)_minmax(360px,1.2fr)]">
-            <div className="flex flex-col gap-5">
-              <div className="space-y-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant={lot.pricing.isFree ? 'default' : 'outline'}>
-                    {lot.pricing.isFree ? '무료' : '유료'}
-                  </Badge>
-                  <Badge variant="outline">{lot.type}</Badge>
-                  {lot.difficulty.score !== null && lot.difficulty.score >= 4.0 && (
-                    <Badge className="gap-1 bg-green-100 text-green-700 hover:bg-green-100">
-                      <ThumbsUp className="size-3" />
-                      초보 추천
-                    </Badge>
-                  )}
-                  {lot.difficulty.score !== null && lot.difficulty.score < 2.0 && (
-                    <Badge variant="destructive" className="gap-1">
-                      <Flame className="size-3" />
-                      초보 주의
-                    </Badge>
-                  )}
-                </div>
-                <h1 className="text-3xl font-bold leading-tight tracking-tight md:text-4xl">
-                  {lot.name}
-                </h1>
-                <div className="flex items-start gap-2 text-sm text-muted-foreground">
-                  <MapPin className="mt-0.5 size-4 shrink-0" />
-                  <span>{lot.address}</span>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="rounded-xl bg-zinc-50 p-4">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs font-medium text-muted-foreground">쉬움 점수</span>
-                    {reliabilityBadge && (
-                      <Badge
-                        variant="outline"
-                        className={`text-[10px] ${reliabilityBadge.className}`}
-                      >
-                        {reliabilityBadge.label}
-                      </Badge>
-                    )}
-                  </div>
-                  <div className="mt-2 flex items-end gap-2">
-                    <span className="text-4xl font-black leading-none">
-                      {score === null ? '-' : score.toFixed(1)}
-                    </span>
-                    <span className="pb-1 text-sm font-semibold text-muted-foreground">/ 5</span>
-                  </div>
-                </div>
-
-                <div className="rounded-xl bg-zinc-50 p-4 flex items-center">
-                  <div className="flex w-full justify-around text-center">
-                    <div>
-                      <div className="text-xs font-medium text-muted-foreground">리뷰</div>
-                      <div className="mt-2 text-3xl font-black leading-none tabular-nums">
-                        {tabCounts.reviews}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-xs font-medium text-muted-foreground">영상</div>
-                      <div className="mt-2 text-3xl font-black leading-none tabular-nums">
-                        {tabCounts.media}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-xs font-medium text-muted-foreground">블로그</div>
-                      <div className="mt-2 text-3xl font-black leading-none tabular-nums">
-                        {tabCounts.blog}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* 기본 정보 — 방문 전 확인 항목이라 상단에 둔다.
-                  주소는 제목 아래에 이미 있으므로 중복 표기하지 않는다. */}
-              <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2 md:grid-cols-1">
-                <div className="flex items-start gap-2.5">
-                  <Clock className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-                  <div>
-                    <div className={operatingHours.isUnknown ? 'text-muted-foreground' : ''}>
-                      {operatingHours.primary}
-                    </div>
-                    {operatingHours.secondary && (
-                      <div className="text-xs text-muted-foreground">
-                        {operatingHours.secondary}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-2.5">
-                  <CreditCard className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-                  <div>
-                    <div className={pricing.isUnknown ? 'text-muted-foreground' : ''}>
-                      {pricing.primary}
-                    </div>
-                    {pricing.secondary && (
-                      <div className="text-xs text-muted-foreground">{pricing.secondary}</div>
-                    )}
-                  </div>
-                </div>
-
-                {totalSpacesLabel && (
-                  <div className="flex items-center gap-2.5">
-                    <ParkingSquare className="size-4 shrink-0 text-muted-foreground" />
-                    <span>{totalSpacesLabel}</span>
-                  </div>
-                )}
-
-                {lot.poiTags && lot.poiTags.length > 0 && (
-                  <div className="flex items-start gap-2.5">
-                    <Tag className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-                    <div className="flex flex-wrap gap-1.5">
-                      {lot.poiTags.map((tag) => (
-                        <Badge key={tag} variant="outline" className="text-xs">
-                          {tag}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* 액션은 한 줄로 — 길찾기가 주(主), 전화는 있을 때만 옆에 붙는다 */}
-              <div className="mt-auto flex items-center gap-2">
-                <ParkingActionGroup
-                  lat={lot.lat}
-                  lng={lot.lng}
-                  name={lot.name}
-                  navigationButtonClassName="h-10"
-                />
-                {phoneLabel && (
-                  <a
-                    href={`tel:${phoneLabel}`}
-                    aria-label={`전화 ${phoneLabel}`}
-                    className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-full bg-zinc-100 px-4 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-200 active:bg-zinc-300"
+      {/* 시안은 밴드로 나뉜 화면이 아니라 위에서 아래로 이어지는 한 장의 문서다.
+          섹션 사이 간격(26px)과 헤어라인이 구조를 만들고, 흰 카드는 쓰지 않는다. */}
+      {/* 상세페이지는 **흰 시트 1장 + 내부 디바이더**다 (디자인 규칙 §4).
+          섹션마다 카드를 씌우거나 회색 면을 깔지 않는다 — 시트 안의 시트가 되고(§5),
+          회색 위 본문은 읽기 어렵다(§2, 회색 필은 인풋 전용). */}
+      <div className="mx-auto max-w-[900px] px-4 py-5 text-[15px] leading-[1.65] md:px-5 md:py-6">
+        <div className="flex flex-col divide-y divide-zinc-100 rounded-[10px] bg-white [&>*]:px-4 [&>*]:py-5 md:[&>*]:px-6">
+          <div className="flex flex-col gap-4">
+            <nav
+              aria-label="breadcrumb"
+              className="mb-4 flex flex-wrap items-center gap-1 text-xs text-muted-foreground"
+            >
+              <Link to="/wiki" className="transition-colors hover:text-foreground hover:underline">
+                둘러보기
+              </Link>
+              {region && (
+                <>
+                  <ChevronRight className="size-3 shrink-0" />
+                  <Link
+                    to="/wiki/region/$region"
+                    params={{ region: region.label }}
+                    className="transition-colors hover:text-foreground hover:underline"
                   >
-                    <Phone className="size-4 shrink-0" />
-                    <span className="hidden sm:inline">{phoneLabel}</span>
-                  </a>
-                )}
-              </div>
-            </div>
+                    {region.label} 주차장
+                  </Link>
+                </>
+              )}
+              <ChevronRight className="size-3 shrink-0" />
+              <span className="font-medium text-foreground">{lot.name}</span>
+            </nav>
 
-            <WikiMiniMap lat={lot.lat} lng={lot.lng} name={lot.name} />
-          </div>
-        </div>
-      </section>
-
-      {/* 컨텐츠 */}
-      <div className="mx-auto max-w-6xl px-4 py-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="md:col-span-2 space-y-5">
-            {/* 문서형 콘텐츠: 흰 시트 1장. 요약·팁이 모두 없으면 빈 시트가 되므로 렌더하지 않는다. */}
-            {hasContentAbove && (
-              <div className="rounded-2xl bg-white p-5 md:p-6">
-                {summary && (
-                  <section>
-                    <div className="mb-2 text-xs font-semibold text-primary">AI 요약</div>
-                    <p className="whitespace-pre-line text-base font-medium leading-relaxed text-zinc-900">
-                      {summary}
-                    </p>
-                  </section>
-                )}
-
-                {/* AI 팁 */}
-                {(lot.aiTipPricing || lot.aiTipVisit || lot.aiTipAlternative) && (
-                  <section
-                    className={`space-y-4 ${summary ? 'mt-6 border-t border-zinc-100 pt-6' : ''}`}
-                  >
-                    {lot.aiTipPricing && (
-                      <div className="text-sm leading-relaxed text-zinc-700">
-                        <span className="mb-1 block text-base font-semibold text-zinc-900">
-                          {lot.pricing.isFree ? '요금 (무료)' : '요금 (유료)'}
-                        </span>
-                        {lot.aiTipPricing}
-                      </div>
-                    )}
-                    {lot.aiTipVisit && (
-                      <div className="text-sm leading-relaxed text-zinc-700">
-                        <span className="mb-1 block text-base font-semibold text-zinc-900">
-                          {lot.difficulty.score !== null && lot.difficulty.score >= 4.0
-                            ? '방문 팁 (초보 추천)'
-                            : lot.difficulty.score !== null && lot.difficulty.score < 2.0
-                              ? '방문 팁 (주의 필요)'
-                              : '방문 팁'}
-                        </span>
-                        {lot.aiTipVisit}
-                      </div>
-                    )}
-                    {lot.aiTipAlternative && (
-                      <div className="text-sm leading-relaxed text-zinc-700">
-                        <span className="mb-1 block text-base font-semibold text-zinc-900">
-                          주변 주차장 대안
-                        </span>
-                        {lot.aiTipAlternative}
-                      </div>
-                    )}
-                  </section>
-                )}
-              </div>
-            )}
-
-            {/* 리뷰/블로그/영상 섹션 (loader에서 prefetch → SSR로 봇 노출) */}
-            <ParkingReputationSections
-              lotId={lot.id}
-              expanded
-              initialBlogPosts={blogPosts}
-              initialMedia={media}
-              initialReviews={reviews}
-              initialTabCounts={tabCounts}
-              viewAllSlug={slug}
+            {/* 이름·주소·핵심 지표를 한 줄로 편다.
+              지도는 아래 「위치」 섹션으로 내렸다 — 옆에 붙여 두면 이름과 지표가 좁은 칸에 갇힌다. */}
+            <LotHeroSection
+              lot={lot}
+              realReviewCount={tabCounts.realReviews ?? 0}
+              realReviewScore={tabCounts.realReviewScore ?? null}
             />
           </div>
 
-          <div className="space-y-4">
-            {/* 내부 링크 */}
-            <RelatedParkingLotsSection lot={lot} lots={relatedLots} />
+          {/* 웹 후기 분위기 — 히어로의 이용자 별점 바로 아래에 붙인다.
+            둘 다 "이 주차장이 어떤가"에 답하는 값이라 떨어져 있으면 두 번 판단하게 된다.
+            이용자 별점은 히어로가 정본이고 여기서는 웹 글의 어조만 다룬다(중복 제거). */}
+          {/* 후기 종합 — 이 페이지에서 가장 읽을 값이 있는 블록이라 지표 바로 다음에 둔다.
+              시안은 「평가 남기기」 뒤였는데, 실제로 그리고 보니 스크롤 절반 아래로 밀려
+              눈에 띄지 않았다. 팁도 같은 종합에서 나온 값이라 함께 둔다. */}
+          {(summary || hasAiTips) && (
+            <section className="flex flex-col">
+              <div className="mb-[11px] flex flex-wrap items-center justify-between gap-2.5">
+                <h2 className="m-0 text-[17px] font-extrabold tracking-[-0.015em] text-ink">
+                  후기 종합
+                </h2>
+                {webSources.sources.length > 0 && (
+                  <span className="text-[11.5px] tabular-nums text-muted-foreground">
+                    후기 {webSources.sources.length.toLocaleString()}건 정리
+                  </span>
+                )}
+              </div>
+              {summary && (
+                // 페이지의 핵심 문단이다. 본문과 같은 크기로 두면 그냥 지나친다.
+                <p className="whitespace-pre-line text-[16.5px] leading-[1.8] text-ink">
+                  {summary}
+                </p>
+              )}
+              {hasAiTips && (
+                <div className={`space-y-3 ${summary ? 'mt-4' : ''}`}>
+                  {lot.aiTipPricing && (
+                    <div className="text-[14px] leading-relaxed text-ink-2">
+                      <span className="mb-0.5 block text-[13px] font-bold text-ink">
+                        {lot.pricing.isFree ? '요금 (무료)' : '요금 (유료)'}
+                      </span>
+                      {lot.aiTipPricing}
+                    </div>
+                  )}
+                  {lot.aiTipVisit && (
+                    <div className="text-[14px] leading-relaxed text-ink-2">
+                      <span className="mb-0.5 block text-[13px] font-bold text-ink">
+                        {lot.difficulty.score !== null && lot.difficulty.score >= 4.0
+                          ? '방문 팁 (초보 추천)'
+                          : lot.difficulty.score !== null && lot.difficulty.score < 2.0
+                            ? '방문 팁 (주의 필요)'
+                            : '방문 팁'}
+                      </span>
+                      {lot.aiTipVisit}
+                    </div>
+                  )}
+                  {lot.aiTipAlternative && (
+                    <div className="text-[14px] leading-relaxed text-ink-2">
+                      <span className="mb-0.5 block text-[13px] font-bold text-ink">
+                        주변 주차장 대안
+                      </span>
+                      {lot.aiTipAlternative}
+                    </div>
+                  )}
+                </div>
+              )}
+            </section>
+          )}
 
-            {/* 주변 갈만한 곳 */}
-            {nearbyPlaces.length > 0 && <NearbyPlacesSection places={nearbyPlaces} />}
-          </div>
-        </div>
+          {/* 위치 */}
+          <LotLocationSection lot={lot} />
 
-        {/* 자주 묻는 질문 — 상대적으로 중요도가 낮아 페이지 최하단에 둔다 */}
-        <div className="mt-5">
+          <EvaluationSection
+            userScore={tabCounts.realReviewScore ?? null}
+            userCount={tabCounts.realReviews ?? 0}
+            sentiment={webSentiment}
+          />
+
+          {/* 이용자 후기 + 평가 남기기 —— 사람이 쓴 것을 위에 둔다.
+              실사용자 리뷰가 87곳(0.27%)뿐이라 작성 폼이 하단에 있으면 참여가 늘 수 없다. */}
+          <ParkingReputationSections
+            lotId={lot.id}
+            expanded
+            // 흰 시트 위 흰 카드는 경계가 안 보인다 (디자인 규칙 §8)
+            bordered
+            sections={['reviews', 'write']}
+            initialReviews={reviews}
+            initialTabCounts={tabCounts}
+            viewAllSlug={slug}
+          />
+          {/* 요금 계산 — 요금 정보가 모자란 주차장에서는 스스로 렌더하지 않는다.
+              무료 주차장에서는 계산할 것이 없다 (「0원」만 크게 남는다). */}
+          {!lot.pricing.isFree && <FeeCalculatorSection lot={lot} />}
+
+          {/* 주변 주차장 비교표 — 사이드바에서 본문으로 옮겼다.
+            loader가 이미 8곳의 요금·면수·좌표를 들고 있어 추가 조회가 없다. */}
+          <RelatedParkingLotsSection lot={lot} lots={relatedLots} />
+
+          {/* 후기에서 함께 언급된 주차장 — "여기 말고 어디" 계열이라 비교표 바로 뒤에 둔다.
+            우리 DB 와 이름이 정확히 맞고 3km 이내인 것만 저장돼 있다. */}
+          <AlternativeLotsSection items={alternativeLots} />
+
+          {/* 자주 묻는 질문 — 우리가 쓴 문답이라 근거 목록보다 앞에 둔다 */}
           <FaqSection lot={lot} relatedLots={relatedLots} />
+
+          {/* 참고한 웹 글 — 제목·도메인·날짜·링크만. 기본 접힘.
+            원문은 한 조각도 그리지 않는다(저작권 + 긁어온 글 재게시 회피).
+            근거 목록이라 페이지 맨 끝이다. */}
+          <WebSourceListSection
+            sources={webSources.sources}
+            excludedCount={webSources.excludedCount}
+          />
+          {/* 주변 갈만한 곳 — 사이드바를 없앴다. 시안은 단일 흐름이다 */}
+          {nearbyPlaces.length > 0 && <NearbyPlacesSection places={nearbyPlaces} />}
         </div>
       </div>
     </div>

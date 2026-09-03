@@ -5,6 +5,7 @@
  */
 
 import { buildDifficultyCondition } from '@/lib/filter-utils'
+import { stripSiteChrome } from '@/server/crawlers/lib/strip-site-chrome'
 import type {
   BlogPost,
   ParkingFilters,
@@ -57,6 +58,25 @@ export interface ParkingLotRow {
   ai_tip_alternative?: string | null
 }
 
+/**
+ * D1 숫자 컬럼을 안전하게 읽는다.
+ *
+ * 요금 컬럼 일부에 **문자열 `'null'`** 이 들어 있다 (2026-09-03 실측 676곳).
+ * `?? 0` 은 이걸 못 거른다 — null 도 undefined 도 아니기 때문이다. 그대로 흘러가면
+ * `base_fee + units * extra_fee` 가 문자열 연결이 되어 화면에 `nullNaN원` 이 찍힌다.
+ * 숫자로 읽히지 않는 값은 **없는 것으로 본다.**
+ */
+function toNumber(value: unknown): number | null {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    if (trimmed === '' || trimmed === 'null' || trimmed === 'undefined') return null
+    const parsed = Number(trimmed)
+    return Number.isFinite(parsed) ? parsed : null
+  }
+  return null
+}
+
 export function rowToParkingLot(row: ParkingLotRow): ParkingLot {
   const score = row.avg_score ?? null
   return {
@@ -66,8 +86,8 @@ export function rowToParkingLot(row: ParkingLotRow): ParkingLot {
     address: row.address,
     lat: row.lat,
     lng: row.lng,
-    totalSpaces: row.total_spaces,
-    freeSpaces: row.free_spaces ?? undefined,
+    totalSpaces: toNumber(row.total_spaces) ?? 0,
+    freeSpaces: toNumber(row.free_spaces) ?? undefined,
     operatingHours: {
       weekday: { start: row.weekday_start, end: row.weekday_end },
       saturday: { start: row.saturday_start, end: row.saturday_end },
@@ -75,12 +95,12 @@ export function rowToParkingLot(row: ParkingLotRow): ParkingLot {
     },
     pricing: {
       isFree: row.is_free === 1,
-      baseTime: row.base_time ?? 0,
-      baseFee: row.base_fee ?? 0,
-      extraTime: row.extra_time ?? 0,
-      extraFee: row.extra_fee ?? 0,
-      dailyMax: row.daily_max ?? undefined,
-      monthlyPass: row.monthly_pass ?? undefined,
+      baseTime: toNumber(row.base_time) ?? 0,
+      baseFee: toNumber(row.base_fee) ?? 0,
+      extraTime: toNumber(row.extra_time) ?? 0,
+      extraFee: toNumber(row.extra_fee) ?? 0,
+      dailyMax: toNumber(row.daily_max) ?? undefined,
+      monthlyPass: toNumber(row.monthly_pass) ?? undefined,
     },
     difficulty: {
       score,
@@ -178,11 +198,16 @@ export interface BlogPostRow {
 }
 
 export function rowToBlogPost(row: BlogPostRow): BlogPost {
+  // 크롤 본문 앞뒤에 붙어 온 블로그 메뉴·버튼 글자를 걷어낸다.
+  // 생성 시점에 이미 저장돼 버린 값이 많아 조회 시점에서도 한 번 더 거른다.
+  // 걷어낸 뒤 남는 게 없으면(메뉴만 있던 글) 요약을 비워 원문 일부로 넘긴다.
+  const cleanedSummary = stripSiteChrome(row.summary).text
+  const cleanedSnippet = stripSiteChrome(row.content).text ?? row.content
   return {
     id: row.id,
     title: row.title,
-    snippet: row.content,
-    summary: row.summary ?? undefined,
+    snippet: cleanedSnippet,
+    summary: cleanedSummary ?? undefined,
     sourceUrl: row.source_url,
     source: row.source as BlogPost['source'],
     author: row.author,

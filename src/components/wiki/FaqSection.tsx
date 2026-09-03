@@ -13,8 +13,11 @@ export function FaqSection({ lot, relatedLots }: FaqSectionProps) {
   return (
     // 페이지 최하단 독립 섹션. 상세 시트 안에 있을 때는 구분선만 썼지만
     // 이제 자체 표면을 갖는다.
-    <section aria-labelledby="faq-heading" className="rounded-2xl bg-white p-5 md:p-6">
-      <h2 id="faq-heading" className="mb-3 text-xl font-bold tracking-tight">
+    <section aria-labelledby="faq-heading" className="flex flex-col">
+      <h2
+        id="faq-heading"
+        className="m-0 mb-[11px] text-[17px] font-extrabold tracking-[-0.015em] text-ink"
+      >
         자주 묻는 질문
       </h2>
       <dl className="divide-y divide-zinc-100">

@@ -18,7 +18,9 @@ export function NearbyPlacesSection({ places }: { places: NearbyPlaceInfo[] }) {
     <section className="bg-white rounded-2xl p-5 space-y-4">
       <div className="space-y-1">
         <div className="flex items-center gap-2">
-          <h2 className="text-xl font-bold">여기 주차하고 가볼 곳</h2>
+          <h2 className="m-0 text-[17px] font-extrabold tracking-[-0.015em] text-ink">
+            여기 주차하고 가볼 곳
+          </h2>
           <Badge variant="secondary" className="text-xs">
             {places.length}곳
           </Badge>

@@ -14,7 +14,6 @@ interface MediaSectionProps {
   initialMedia?: ParkingMedia[]
   showTitle?: boolean
   className?: string
-  viewAllSlug?: string
   /** 흰 배경 컨텍스트에서 카드 테두리 표시 */
   bordered?: boolean
 }
@@ -25,7 +24,6 @@ export function MediaSection({
   initialMedia,
   showTitle = true,
   className,
-  viewAllSlug,
   bordered,
 }: MediaSectionProps) {
   const [media, setMedia] = useState<ParkingMedia[]>(initialMedia ?? [])
@@ -46,19 +44,11 @@ export function MediaSection({
   }, [lotId, initialMedia])
 
   const visibleMedia = media.slice(0, CAROUSEL_LIMIT)
-  const hasMore = media.length > CAROUSEL_LIMIT || count > CAROUSEL_LIMIT
 
   return (
     <section className={className}>
       <CarouselProvider>
-        {showTitle && (
-          <SectionTitle
-            title="영상"
-            count={count}
-            viewAll={hasMore && viewAllSlug ? { slug: viewAllSlug, tab: 'media' } : undefined}
-            actions={<CarouselArrows />}
-          />
-        )}
+        {showTitle && <SectionTitle title="영상" count={count} actions={<CarouselArrows />} />}
 
         {visibleMedia.length > 0 ? (
           <Carousel>

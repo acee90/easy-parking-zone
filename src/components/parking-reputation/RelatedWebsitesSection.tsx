@@ -14,7 +14,6 @@ interface RelatedWebsitesSectionProps {
   initialBlogPosts?: BlogPost[]
   showTitle?: boolean
   className?: string
-  viewAllSlug?: string
   /** 흰 배경 컨텍스트에서 카드 테두리 표시 */
   bordered?: boolean
 }
@@ -25,7 +24,6 @@ export function RelatedWebsitesSection({
   initialBlogPosts,
   showTitle = true,
   className,
-  viewAllSlug,
   bordered,
 }: RelatedWebsitesSectionProps) {
   const [blogPosts, setBlogPosts] = useState<BlogPost[]>(initialBlogPosts ?? [])
@@ -46,18 +44,12 @@ export function RelatedWebsitesSection({
   }, [lotId, initialBlogPosts])
 
   const visiblePosts = blogPosts.slice(0, CAROUSEL_LIMIT)
-  const hasMore = blogPosts.length > CAROUSEL_LIMIT || count > CAROUSEL_LIMIT
 
   return (
     <section className={className}>
       <CarouselProvider>
         {showTitle && (
-          <SectionTitle
-            title="블로그 후기"
-            count={count}
-            viewAll={hasMore && viewAllSlug ? { slug: viewAllSlug, tab: 'blog' } : undefined}
-            actions={<CarouselArrows />}
-          />
+          <SectionTitle title="블로그 후기" count={count} actions={<CarouselArrows />} />
         )}
 
         {visiblePosts.length > 0 ? (

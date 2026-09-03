@@ -2,12 +2,13 @@ import { createFileRoute, Link, notFound, Outlet } from '@tanstack/react-router'
 import { shouldIndexParkingDetail } from '@/lib/seo-indexing'
 import { makeParkingSlug, parseIdFromSlug } from '@/lib/slug'
 import {
-  fetchBlogPosts,
+  fetchAlternativeLots,
   fetchNearbyPlaces,
   fetchParkingDetail,
-  fetchParkingMedia,
   fetchRelatedParkingLots,
   fetchTabCounts,
+  fetchWebSentiment,
+  fetchWebSourceRefs,
 } from '@/server/parking'
 import { fetchUserReviews } from '@/server/reviews'
 
@@ -17,10 +18,19 @@ export const Route = createFileRoute('/wiki/$slug')({
     if (!id) throw notFound()
     const lot = await fetchParkingDetail({ data: { id } })
     if (!lot) throw notFound()
-    const [nearbyPlaces, blogPosts, media, reviews, tabCounts, relatedLots] = await Promise.all([
+    const [
+      nearbyPlaces,
+      reviews,
+      tabCounts,
+      relatedLots,
+      webSentiment,
+      webSources,
+      alternativeLots,
+    ] = await Promise.all([
       fetchNearbyPlaces({ data: { parkingLotId: id } }),
-      fetchBlogPosts({ data: { parkingLotId: id, limit: 7 } }),
-      fetchParkingMedia({ data: { parkingLotId: id, limit: 7 } }),
+      // 블로그·영상은 더 이상 상세페이지에 없다 (하위 라우트도 삭제).
+      // 지도 패널·카드가 필요할 때 스스로 불러오므로 여기서 미리 조회하지 않는다 —
+      // 상세페이지 1회당 D1 조회 2건이 줄어든다.
       fetchUserReviews({ data: { parkingLotId: id, limit: 7 } }),
       fetchTabCounts({ data: { parkingLotId: id } }),
       fetchRelatedParkingLots({
@@ -32,8 +42,23 @@ export const Route = createFileRoute('/wiki/$slug')({
           limit: 8,
         },
       }),
+      // 웹 후기 분위기 + 자주 나온 말 (2-1 / 2-2)
+      fetchWebSentiment({ data: { parkingLotId: id } }),
+      // 참고한 웹 글 — 제목·도메인·날짜·링크만 (2-4)
+      fetchWebSourceRefs({ data: { parkingLotId: id } }),
+      // 후기에서 함께 언급된 주차장 (3-1)
+      fetchAlternativeLots({ data: { parkingLotId: id } }),
     ])
-    return { lot, nearbyPlaces, blogPosts, media, reviews, tabCounts, relatedLots }
+    return {
+      lot,
+      nearbyPlaces,
+      reviews,
+      tabCounts,
+      relatedLots,
+      webSentiment,
+      webSources,
+      alternativeLots,
+    }
   },
   head: ({ loaderData }) => {
     const lot = loaderData?.lot

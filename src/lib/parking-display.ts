@@ -2,7 +2,14 @@ import type { ParkingLot } from '@/types/parking'
 
 const NO_INFO = '정보 없음'
 
-const isUnsetTimeRange = (range: { start: string; end: string }): boolean => {
+/**
+ * 운영시간이 "모름"인가.
+ *
+ * 이 저장소는 값이 비었거나 `0:00-24:00` 인 경우를 미상으로 취급한다(공공데이터에서
+ * 채워지지 않은 행이 그렇게 들어온다). 구조화 데이터도 같은 판정을 써야 화면에 안 보이는
+ * 시간을 검색엔진에만 내보내는 일이 생기지 않는다.
+ */
+export const isUnsetTimeRange = (range: { start: string; end: string }): boolean => {
   if (!range.start || !range.end) return true
   const normalized = `${range.start.trim()}-${range.end.trim()}`
   return normalized === '0:00-24:00' || normalized === '00:00-24:00'

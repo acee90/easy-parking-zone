@@ -21,12 +21,18 @@ Add shadcn components with: `npx shadcn@latest add <component>`
 - [Reliability](docs/references/RELIABILITY.md) — 운영 안정성, 모니터링, 장애 대응
 - [Review](docs/references/REVIEW.md) — 코드 리뷰 체크리스트, PR 기준
 - [Security](docs/references/SECURITY.md) — 인증, 데이터 보호, 취약점 관리
+- [Competitors](docs/references/competitors.md) — 경쟁 사이트 목록·발견 방법, 집계 제외 도메인, 결손 보강 판단 근거
 - [Scheduler Pipeline](docs/references/scheduler-pipeline.md) — scheduled.ts 자동 크롤링 파이프라인 아키텍처
+- [Pipeline Architecture](docs/references/pipeline-architecture.md) — 크롤링 파이프라인 arc42 아키텍처·리스크·업데이트 계획
 - [Scoring / Recompute](docs/references/scoring-recompute.md) — 평점 산출 모델, Queue 재계산, scoring 컬럼 소유권
 - [Nearby Places Pipeline](docs/references/nearby-places-pipeline.md) — 주변 장소 AI 추출 파이프라인
 - [Web Sources AI Summary](docs/references/web-sources-ai-summary.md) — web_sources.ai_summary 재추출 스킬
+- [Surface Rules](docs/design-docs/surface-rules.md) — 표면·색·타이포 규칙 (회색 필 용도, 흰 시트 1장, 디바이더)
 - [AI Content QA Standard](docs/design-docs/ai-content-qa-standard.md) — AI 콘텐츠 품질 및 검수 기준
 - [AI Content Rollout Plan](docs/design-docs/ai-content-rollout-plan.md) — AI 콘텐츠 단계별 확대 및 측정 계획
+- [Own Content Strategy](docs/exec-plans/own-content-strategy.md) — 경쟁사 대비 자체 콘텐츠 전략, 색인 진단, 리뷰 플라이휠
+- [Detail Page v2](docs/exec-plans/detail-page-v2.md) — 상세페이지 v2 크롤링 데이터 정제 레이어 설계
+- [Detail Page v2 Rollout](docs/exec-plans/detail-page-v2-rollout.md) — 상세페이지 v2 단계별 실행 계획·진행 상태·배포 게이트
 - [Scoring / Recompute Design](docs/design-docs/scoring-recompute.design.md) — 평점 산출 모델 및 비동기 재계산 설계
 
 ### product-specs

@@ -15,8 +15,10 @@
  *   bun scripts/crawl-blogs.ts --lot-ids=KA-...,KA-...  # 특정 lot만
  *   bun scripts/crawl-blogs.ts --remote                 # remote D1
  */
+
 import { existsSync, unlinkSync } from 'fs'
 import { resolve } from 'path'
+import { isAggregatorUrl } from '../src/server/crawlers/lib/aggregator-domains'
 import { d1Query, isRemote } from './lib/d1'
 import { extractRegion, isGenericName, sleep } from './lib/geo'
 import { buildLotQueries } from './lib/lot-queries'
@@ -258,6 +260,10 @@ async function main() {
               progress.skippedLowRelevance++
               continue
             }
+            // 정보 모음 사이트(경쟁 애그리게이터)는 담지 않는다.
+            // 이 스크립트는 web_sources_raw 에 직접 적재하는 레거시 경로라
+            // cron 크롤러에만 차단을 걸어두면 여기로 새어 들어온다.
+            if (isAggregatorUrl(item.link)) continue
             const sourceId = await hashUrl(item.link)
             if (seenSourceIds.has(sourceId)) continue
             seenSourceIds.add(sourceId)

@@ -17,7 +17,7 @@ export function UserReviewCard({
 }) {
   return (
     <div
-      className={`group relative flex h-[228px] w-full flex-col rounded-2xl bg-white p-5 ${bordered ? 'border border-zinc-200' : ''}`}
+      className={`group relative flex h-[228px] w-full flex-col rounded-[10px] bg-white p-4 ${bordered ? 'border border-zinc-200' : ''}`}
     >
       {!review.isMine && (
         <div className="absolute right-3 top-3 opacity-0 transition-opacity group-hover:opacity-100">

@@ -2,6 +2,11 @@ import { env } from 'cloudflare:workers'
 import { createServerFn } from '@tanstack/react-start'
 import { and, count, desc, eq, sql } from 'drizzle-orm'
 import { getDb, schema } from '@/db'
+import { AGGREGATOR_DOMAINS, extractHost } from '@/server/crawlers/lib/aggregator-domains'
+import {
+  normalizeDifficultyKeywords,
+  parseKeywordJson,
+} from '@/server/crawlers/lib/difficulty-tags'
 import type { BlogPost, MapBounds, NearbyPlaceInfo, ParkingFilters, Place } from '@/types/parking'
 import {
   type BlogPostRow,
@@ -298,38 +303,289 @@ export const fetchRelatedParkingLots = createServerFn({ method: 'GET' })
   })
 
 /** 주차장 탭 카운트 (리뷰/블로그/영상) 한번에 조회 */
+/**
+ * 정보 모음 사이트(경쟁 애그리게이터) 제외 조건.
+ *
+ * 소급 마킹(filter_passed_v2 = 0)이 끝나기 전에도 즉시 걸리도록 URL 패턴으로도 함께 배제한다.
+ * 목록·근거: docs/references/competitors.md
+ */
+function notAggregator() {
+  // 도메인 패턴은 두 가지면 충분하다.
+  //   `%//도메인%`  → https://jucha.kr, https://jucha.kr/a, https://jucha.kr?q=1 을 모두 잡는다
+  //   `%.도메인%`   → 서브도메인(news.k114.co.kr). 앞의 점 때문에 notjucha.kr 은 안 걸린다
+  // 각 조건을 괄호로 싸는 이유: raw sql 조각은 우선순위를 스스로 지키지 못해서,
+  // 나중에 이 헬퍼가 or() 안에 들어가면 조용히 다른 뜻이 된다.
+  const urlConds = AGGREGATOR_DOMAINS.map(
+    (d) => sql`(${schema.webSources.sourceUrl} NOT LIKE ${`%//${d}%`}
+      AND ${schema.webSources.sourceUrl} NOT LIKE ${`%.${d}%`})`,
+  )
+  return and(
+    // 소급 마킹이 정본이다. URL 패턴은 마킹 전에 새로 들어온 행을 위한 안전망이다.
+    sql`(${schema.webSources.filterPassedV2} IS NULL OR ${schema.webSources.filterPassedV2} != 0)`,
+    ...urlConds,
+  )
+}
+
 export const fetchTabCounts = createServerFn({ method: 'GET' })
   .inputValidator((input: { parkingLotId: string }): { parkingLotId: string } => input)
-  .handler(async ({ data }): Promise<{ reviews: number; blog: number; media: number }> => {
-    const db = getDb()
-    const [reviews, blog, media] = await Promise.all([
-      db
-        .select({ cnt: count() })
-        .from(schema.userReviews)
-        .where(eq(schema.userReviews.parkingLotId, data.parkingLotId))
-        .get(),
-      db
-        .select({ cnt: count() })
+  .handler(
+    async ({
+      data,
+    }): Promise<{
+      reviews: number
+      blog: number
+      media: number
+      realReviews: number
+      realReviewScore: number | null
+    }> => {
+      const db = getDb()
+      const [reviews, realReviews, blog, media] = await Promise.all([
+        db
+          .select({ cnt: count() })
+          .from(schema.userReviews)
+          .where(eq(schema.userReviews.parkingLotId, data.parkingLotId))
+          .get(),
+        // 시드 리뷰(is_seed=1, 전체 234건 중 143건)를 뺀 실사용자 리뷰 수.
+        // 별점 구조화 데이터는 이 값이 0보다 클 때만 내보낸다.
+        db
+          .select({
+            cnt: count(),
+            avg: sql<number | null>`avg(${schema.userReviews.overallScore})`,
+          })
+          .from(schema.userReviews)
+          .where(
+            and(
+              eq(schema.userReviews.parkingLotId, data.parkingLotId),
+              eq(schema.userReviews.isSeed, false),
+            ),
+          )
+          .get(),
+        db
+          .select({ cnt: count() })
+          .from(schema.webSources)
+          .where(
+            and(
+              eq(schema.webSources.parkingLotId, data.parkingLotId),
+              sql`${schema.webSources.relevanceScore} >= 40`,
+              // 목록(fetchBlogPosts)과 조건이 같아야 한다. 빠지면 배지에 21이라 써놓고
+              // 열면 7건만 나오는 식으로 어긋난다.
+              notAggregator(),
+            ),
+          )
+          .get(),
+        db
+          .select({ cnt: count() })
+          .from(schema.parkingMedia)
+          .where(eq(schema.parkingMedia.parkingLotId, data.parkingLotId))
+          .get(),
+      ])
+      return {
+        reviews: reviews?.cnt ?? 0,
+        realReviews: realReviews?.cnt ?? 0,
+        // 시드를 뺀 실사용자 리뷰만의 평균.
+        // `lot.difficulty.score` 는 구조적 추정치라 리뷰가 0건이어도 값이 있다(31,939행, 99.8%).
+        // 그것을 '이용자 별점'으로 보여주면 AggregateRating 에서 고쳤던 왜곡을 화면에서 되풀이한다.
+        realReviewScore:
+          realReviews?.cnt && realReviews.avg != null
+            ? Math.round(Number(realReviews.avg) * 10) / 10
+            : null,
+        blog: blog?.cnt ?? 0,
+        media: media?.cnt ?? 0,
+      }
+    },
+  )
+
+/**
+ * 웹 후기 분위기 + 자주 나온 말 (2-1 / 2-2)
+ *
+ * `sentiment_score` 는 이미 1~5 스케일로 저장돼 있다. 새로 만들 필요가 없다.
+ * 다만 **이용자가 매긴 별점이 아니라 AI 추정값**이므로 화면에서도 별점처럼 보이면 안 되고
+ * schema.org AggregateRating 으로도 내보내지 않는다.
+ *
+ * 정보 모음 사이트(경쟁 애그리게이터)는 집계에서 뺀다 — 안 그러면 경쟁사 페이지 점수가 평균에 섞인다.
+ */
+export const fetchWebSentiment = createServerFn({ method: 'GET' })
+  .inputValidator((input: { parkingLotId: string }): { parkingLotId: string } => input)
+  .handler(
+    async ({
+      data,
+    }): Promise<{
+      average: number
+      count: number
+      buckets: { good: number; neutral: number; bad: number }
+      tags: Array<{
+        key: string
+        label: string
+        polarity: 'good' | 'bad' | 'neutral'
+        count: number
+      }>
+    } | null> => {
+      const db = getDb()
+      const rows = await db
+        .select({
+          sentiment: schema.webSources.sentimentScore,
+          keywords: schema.webSources.aiDifficultyKeywords,
+        })
         .from(schema.webSources)
         .where(
           and(
             eq(schema.webSources.parkingLotId, data.parkingLotId),
             sql`${schema.webSources.relevanceScore} >= 40`,
+            notAggregator(),
           ),
         )
-        .get(),
-      db
-        .select({ cnt: count() })
-        .from(schema.parkingMedia)
-        .where(eq(schema.parkingMedia.parkingLotId, data.parkingLotId))
-        .get(),
-    ])
-    return {
-      reviews: reviews?.cnt ?? 0,
-      blog: blog?.cnt ?? 0,
-      media: media?.cnt ?? 0,
-    }
-  })
+
+      const scores = rows
+        .map((r) => r.sentiment)
+        .filter((v): v is number => typeof v === 'number' && Number.isFinite(v))
+
+      const tags = normalizeDifficultyKeywords(rows.map((r) => parseKeywordJson(r.keywords)))
+
+      if (scores.length === 0 && tags.length === 0) return null
+
+      const count = scores.length
+      const average = count > 0 ? scores.reduce((a, b) => a + b, 0) / count : 0
+      return {
+        average: Math.round(average * 10) / 10,
+        count,
+        buckets: {
+          good: scores.filter((v) => v >= 4).length,
+          neutral: scores.filter((v) => v >= 3 && v < 4).length,
+          bad: scores.filter((v) => v < 3).length,
+        },
+        tags: tags.map((t) => ({
+          key: t.key,
+          label: t.label,
+          polarity: t.polarity,
+          count: t.count,
+        })),
+      }
+    },
+  )
+
+/**
+ * 참고한 웹 글 목록 (2-4)
+ *
+ * 제목·도메인·날짜·링크만 돌려준다. **본문·요약은 담지 않는다** — 화면에 원문을 한 조각도
+ * 그리지 않기로 했기 때문이다(저작권 + 긁어온 글 재게시 회피).
+ */
+export const fetchWebSourceRefs = createServerFn({ method: 'GET' })
+  .inputValidator((input: { parkingLotId: string }): { parkingLotId: string } => input)
+  .handler(
+    async ({
+      data,
+    }): Promise<{
+      sources: Array<{
+        id: number
+        title: string
+        sourceUrl: string
+        host: string
+        publishedAt?: string
+        author?: string
+      }>
+      excludedCount: number
+    }> => {
+      const db = getDb()
+      const [kept, excluded] = await Promise.all([
+        db
+          .select({
+            id: schema.webSources.id,
+            title: schema.webSources.title,
+            sourceUrl: schema.webSources.sourceUrl,
+            author: schema.webSources.author,
+            publishedAt: schema.webSources.publishedAt,
+            sentiment: schema.webSources.sentimentScore,
+          })
+          .from(schema.webSources)
+          .where(
+            and(
+              eq(schema.webSources.parkingLotId, data.parkingLotId),
+              sql`${schema.webSources.relevanceScore} >= 40`,
+              notAggregator(),
+            ),
+          )
+          .orderBy(desc(schema.webSources.sentimentScore))
+          // lot 당 최대 120행까지 있다(평균 2.1행). 목록은 접혀 있고 읽을거리도 아니라
+          // 전부 실어 보낼 이유가 없다. loader 페이로드가 그만큼 커진다.
+          .limit(30),
+        db
+          .select({ cnt: count() })
+          .from(schema.webSources)
+          .where(
+            and(
+              eq(schema.webSources.parkingLotId, data.parkingLotId),
+              // 노출 대상이었을 행만 센다. 이 조건이 없으면 애초에 화면에 안 나왔을 행까지 세어
+              // "N건은 뺐습니다" 의 N 이 실제로 뺀 수보다 커진다.
+              sql`${schema.webSources.relevanceScore} >= 40`,
+              sql`${schema.webSources.filterV2Reason} = 'aggregator_site'`,
+            ),
+          )
+          .get(),
+      ])
+
+      return {
+        sources: kept.map((r) => ({
+          id: r.id,
+          title: r.title,
+          sourceUrl: r.sourceUrl,
+          host: extractHost(r.sourceUrl) ?? '',
+          publishedAt: r.publishedAt ?? undefined,
+          author: r.author ?? undefined,
+        })),
+        excludedCount: excluded?.cnt ?? 0,
+      }
+    },
+  )
+
+/**
+ * 후기에서 함께 언급된 주차장 (3-1)
+ *
+ * `lot_alternatives` 는 배치(scripts/extract-alternative-lots.ts)가 채운다.
+ * 저장 단계에서 이미 (a) 우리 DB 와 이름이 정확히 매칭됐고 (b) 3km 이내인 것만 남겼다 —
+ * 이름만 같은 전국의 동명 주차장으로 사람을 보내지 않으려는 것이다.
+ */
+export const fetchAlternativeLots = createServerFn({ method: 'GET' })
+  .inputValidator((input: { parkingLotId: string }): { parkingLotId: string } => input)
+  .handler(
+    async ({
+      data,
+    }): Promise<
+      Array<{
+        name: string
+        mentionCount: number
+        matchedLotId: string | null
+        matchedLotName: string | null
+        isFree: boolean | null
+        reason: string
+      }>
+    > => {
+      const db = getDb()
+      const rows = await db.all(
+        sql`SELECT a.display_name, a.mention_count, a.matched_lot_id,
+                   p.name AS matched_name, p.is_free
+              FROM lot_alternatives a
+              JOIN parking_lots p ON p.id = a.matched_lot_id
+             WHERE a.parking_lot_id = ${data.parkingLotId}
+             ORDER BY a.mention_count DESC
+             LIMIT 5`,
+      )
+
+      return (rows as unknown as Array<Record<string, unknown>>).map((r) => {
+        const count = Number(r.mention_count ?? 0)
+        return {
+          name: String(r.matched_name ?? r.display_name ?? ''),
+          mentionCount: count,
+          matchedLotId: String(r.matched_lot_id ?? ''),
+          matchedLotName: String(r.matched_name ?? ''),
+          // 무료 여부는 매칭된 주차장의 실제 값을 쓴다.
+          // 추출 단계의 '주변에 무료 언급' 힌트는 근거가 못 된다 —
+          // "여기는 무료인데 저기는 유료다" 같은 문장에서 반대로 붙는다.
+          isFree: r.is_free === 1 || r.is_free === true,
+          reason: `후기 ${count}건에서 함께 언급`,
+        }
+      })
+    },
+  )
 
 export const fetchBlogPosts = createServerFn({ method: 'GET' })
   .inputValidator(
@@ -371,6 +627,7 @@ export const fetchBlogPosts = createServerFn({ method: 'GET' })
         and(
           eq(schema.webSources.parkingLotId, data.parkingLotId),
           sql`${schema.webSources.relevanceScore} >= 40`,
+          notAggregator(),
         ),
       )
       .orderBy(

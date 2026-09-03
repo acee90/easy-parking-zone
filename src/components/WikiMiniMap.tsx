@@ -413,7 +413,9 @@ export function WikiMiniMap({ lat, lng, name }: WikiMiniMapProps) {
   }
 
   return (
-    <section className={`relative overflow-hidden rounded-2xl bg-zinc-100 ${MEDIA_HEIGHT_CLASS}`}>
+    <section
+      className={`relative overflow-hidden rounded-[10px] bg-zinc-100 ${MEDIA_HEIGHT_CLASS}`}
+    >
       {/* 탭을 별도 바로 쌓지 않고 미디어 위에 띄운다 — 표면 중첩을 없애고 지도 높이를 확보. */}
       <div
         role="tablist"

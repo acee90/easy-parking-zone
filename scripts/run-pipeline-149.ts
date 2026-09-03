@@ -26,6 +26,7 @@
 
 import { execSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { isAggregatorUrl } from '../src/server/crawlers/lib/aggregator-domains'
 import { classifyByRule, type RuleFilterInput } from '../src/server/crawlers/lib/rule-filter'
 import {
   extractNameKeywords,
@@ -741,11 +742,12 @@ async function runFilterStage() {
   const rows = d1Query<{
     id: number
     title: string
+    source_url: string | null
     full_text: string | null
     full_text_status: string | null
   }>(
     // 본문은 web_sources_raw_body에 분리 저장 (0048) — JOIN으로 조회한다.
-    `SELECT r.id, r.title, b.body AS full_text, r.full_text_status
+    `SELECT r.id, r.title, r.source_url, b.body AS full_text, r.full_text_status
      FROM web_sources_raw r
      LEFT JOIN web_sources_raw_body b ON b.raw_id = r.id
      WHERE r.ai_filtered_at IS NULL AND r.full_text_status = 'ok'
@@ -760,6 +762,17 @@ async function runFilterStage() {
   const buf: string[] = []
 
   for (const row of rows) {
+    // cron 파이프라인(ai-filter-batch)과 같은 차단을 여기에도 건다.
+    // 이 경로가 열려 있으면 경쟁사 페이지가 filter_passed_v2=1 로 web_sources 에 들어가고,
+    // compute-parking-stats 의 web_score 집계(filter_passed_v2 = 1)까지 오염된다.
+    if (isAggregatorUrl(row.source_url)) {
+      buf.push(
+        `UPDATE web_sources_raw SET filter_passed = 0, filter_removed_by = 'aggregator_site', filter_tier = 'low', ai_filtered_at = datetime('now') WHERE id = ${row.id};`,
+      )
+      low++
+      continue
+    }
+
     const tier = classifyByRule({
       fullText: row.full_text,
       fullTextStatus: row.full_text_status,

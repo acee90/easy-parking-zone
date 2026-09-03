@@ -18,7 +18,17 @@ interface ParkingReputationSectionsProps {
   viewAllSlug?: string
   /** 흰 배경 컨텍스트(지도 패널/바텀시트)에서 카드 테두리 표시 */
   bordered?: boolean
+  /**
+   * expanded 모드에서 렌더할 섹션과 순서. 미지정 시 전부 렌더한다.
+   * 상세페이지가 이용자 후기와 웹 글 사이에 다른 블록(AI 요약·요금 계산 등)을
+   * 끼워 넣을 수 있도록 쪼갤 수 있게 열어둔 것이다.
+   */
+  sections?: ExpandedSection[]
 }
+
+export type ExpandedSection = 'reviews' | 'write' | 'media' | 'blog'
+
+const ALL_SECTIONS: ExpandedSection[] = ['reviews', 'write', 'media', 'blog']
 
 export function ParkingReputationSections({
   lotId,
@@ -29,6 +39,7 @@ export function ParkingReputationSections({
   initialTabCounts,
   viewAllSlug,
   bordered,
+  sections,
 }: ParkingReputationSectionsProps) {
   const [activeTab, setActiveTab] = useState<'reviews' | 'media' | 'blog'>('reviews')
   const [counts, setCounts] = useState(initialTabCounts ?? { reviews: 0, blog: 0, media: 0 })
@@ -55,32 +66,39 @@ export function ParkingReputationSections({
   }, [initialTabCounts, refreshCounts])
 
   if (expanded) {
+    const visible = sections ?? ALL_SECTIONS
     return (
       <div className="space-y-10 pt-2">
-        <ReviewSection
-          lotId={lotId}
-          count={counts.reviews}
-          initialReviews={initialReviews}
-          onRefreshCount={refreshCounts}
-          viewAllSlug={viewAllSlug}
-          refreshKey={reviewRefreshKey}
-          bordered={bordered}
-        />
-        <WriteReviewSection lotId={lotId} onSubmitted={handleReviewSubmitted} />
-        <MediaSection
-          lotId={lotId}
-          count={counts.media}
-          initialMedia={initialMedia}
-          viewAllSlug={viewAllSlug}
-          bordered={bordered}
-        />
-        <RelatedWebsitesSection
-          lotId={lotId}
-          count={counts.blog}
-          initialBlogPosts={initialBlogPosts}
-          viewAllSlug={viewAllSlug}
-          bordered={bordered}
-        />
+        {visible.includes('reviews') && (
+          <ReviewSection
+            lotId={lotId}
+            count={counts.reviews}
+            initialReviews={initialReviews}
+            onRefreshCount={refreshCounts}
+            viewAllSlug={viewAllSlug}
+            refreshKey={reviewRefreshKey}
+            bordered={bordered}
+          />
+        )}
+        {visible.includes('write') && (
+          <WriteReviewSection lotId={lotId} onSubmitted={handleReviewSubmitted} />
+        )}
+        {visible.includes('media') && (
+          <MediaSection
+            lotId={lotId}
+            count={counts.media}
+            initialMedia={initialMedia}
+            bordered={bordered}
+          />
+        )}
+        {visible.includes('blog') && (
+          <RelatedWebsitesSection
+            lotId={lotId}
+            count={counts.blog}
+            initialBlogPosts={initialBlogPosts}
+            bordered={bordered}
+          />
+        )}
       </div>
     )
   }

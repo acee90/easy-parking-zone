@@ -14,7 +14,8 @@ export function MediaCard({
   bordered?: boolean
 }) {
   const title = media.title ? decodeHtmlEntities(media.title) : '제목 없음'
-  const description = media.description ? decodeHtmlEntities(media.description) : ''
+  // 설명문은 유튜브에서 긁어온 원문이다. 링크로 보내는 것으로 충분하고,
+  // 우리 페이지에 남의 글을 싣지 않는다는 v2 원칙과 어긋나서 렌더하지 않는다.
 
   return (
     <div
@@ -49,9 +50,6 @@ export function MediaCard({
           <p className="mb-2 line-clamp-2 text-base font-bold leading-snug text-zinc-900 transition-colors group-hover:text-primary">
             {title}
           </p>
-          {description && (
-            <p className="line-clamp-2 text-sm leading-relaxed text-zinc-500">{description}</p>
-          )}
         </div>
       </a>
       <div className="absolute right-2 top-2 opacity-0 transition-opacity group-hover:opacity-100">
