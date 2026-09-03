@@ -8,6 +8,9 @@ import { buildDifficultyCondition } from '@/lib/filter-utils'
 import { stripSiteChrome } from '@/server/crawlers/lib/strip-site-chrome'
 import type {
   BlogPost,
+  Destination,
+  DestinationLink,
+  DestinationLot,
   ParkingFilters,
   ParkingLot,
   ParkingMedia,
@@ -297,4 +300,86 @@ export function validateScore(v: unknown): v is number {
   if (v < 0.5 || v > 5) return false
   // 0.5 단위 체크 (부동소수 오차 허용)
   return Math.abs(v * 2 - Math.round(v * 2)) < 1e-6
+}
+
+// ============================================================
+// Destination (#166) — /near/{목적지}
+// ============================================================
+
+export interface DestinationRow {
+  id: string
+  name: string
+  slug: string
+  category: string
+  lat: number
+  lng: number
+  address: string | null
+  lot_count: number
+  free_count: number
+  published_at: string
+}
+
+const DESTINATION_CATEGORIES = new Set(['station', 'market', 'mall', 'tourist'])
+
+export function rowToDestination(row: DestinationRow): Destination {
+  return {
+    id: row.id,
+    name: row.name,
+    slug: row.slug,
+    // DB 에 다른 값이 들어와도 화면이 깨지지 않게 알 수 없는 값은 tourist 로 뭉친다
+    category: (DESTINATION_CATEGORIES.has(row.category)
+      ? row.category
+      : 'tourist') as Destination['category'],
+    lat: row.lat,
+    lng: row.lng,
+    address: row.address ?? undefined,
+    lotCount: row.lot_count,
+    freeCount: row.free_count,
+    publishedAt: row.published_at,
+  }
+}
+
+/** parking_lots(+stats) 컬럼에 destination_lots 컬럼을 얹은 행 */
+export interface DestinationLotRow extends ParkingLotRow {
+  distance_m: number
+  walk_minutes: number
+  rank: number
+  evidence: string | null
+}
+
+/** 'web_source:123' → 123. 형식이 다르면 null */
+export function parseEvidenceSourceId(evidence: string | null): number | null {
+  if (!evidence) return null
+  const m = evidence.match(/^web_source:(\d+)$/)
+  return m ? Number(m[1]) : null
+}
+
+export function rowToDestinationLot(row: DestinationLotRow): DestinationLot {
+  return {
+    lot: rowToParkingLot(row),
+    distanceM: row.distance_m,
+    walkMinutes: row.walk_minutes,
+    rank: row.rank,
+    evidenceSourceId: parseEvidenceSourceId(row.evidence),
+  }
+}
+
+export interface DestinationLinkRow {
+  id: string
+  name: string
+  slug: string
+  category: string
+  distance_m: number
+}
+
+export function rowToDestinationLink(row: DestinationLinkRow): DestinationLink {
+  return {
+    id: row.id,
+    name: row.name,
+    slug: row.slug,
+    category: (DESTINATION_CATEGORIES.has(row.category)
+      ? row.category
+      : 'tourist') as Destination['category'],
+    distanceM: row.distance_m,
+  }
 }

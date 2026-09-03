@@ -110,3 +110,11 @@ ai-results-*.json
 .claude/worktrees/
 .claude/scheduled_tasks.lock
 .claude/projects/
+
+# #166 목적지 평가 산출물 — 실행마다 생기는 파일. 적용 결과는 docs/exec-plans/issue-166-implementation-plan.md 6장에 적는다
+data/near/publish-*.sql
+data/near/rejected-*.json
+data/near/twins-*.json
+data/near/summary-*.md
+data/near/candidates*.json
+data/near/stations.csv
