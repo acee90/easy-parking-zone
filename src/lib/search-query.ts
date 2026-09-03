@@ -61,8 +61,6 @@ export interface NormalizedQuery {
   original: string[]
   /** 탐색 표현을 걷어낸 핵심 단어들 (비면 original과 동일) */
   core: string[]
-  /** 정규화로 실제 달라진 것이 있는지 */
-  changed: boolean
 }
 
 /**
@@ -81,10 +79,9 @@ export function normalizeSearchQuery(raw: string): NormalizedQuery {
   const core = original.filter((w) => !STOP_WORDS.has(w)).map(stripAttachedSuffix)
 
   // 검색어가 전부 탐색 표현이면("공영주차장") 원본 그대로 검색한다
-  if (core.length === 0) return { original, core: original, changed: false }
+  if (core.length === 0) return { original, core: original }
 
-  const changed = core.length !== original.length || core.some((w, i) => w !== original[i])
-  return { original, core, changed }
+  return { original, core }
 }
 
 /** 정규화된 핵심 검색어를 문자열로 되돌린다 */

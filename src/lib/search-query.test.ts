@@ -52,9 +52,7 @@ describe('normalizeSearchQuery', () => {
   })
 
   it('검색어가 전부 탐색 표현이면 원본 그대로 검색한다', () => {
-    const result = normalizeSearchQuery('주차장')
-    expect(result.core).toEqual(['주차장'])
-    expect(result.changed).toBe(false)
+    expect(normalizeSearchQuery('주차장').core).toEqual(['주차장'])
   })
 
   it('기존 주차장명 검색은 그대로 유지된다', () => {
