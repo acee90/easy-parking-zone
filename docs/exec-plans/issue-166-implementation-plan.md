@@ -248,6 +248,32 @@ CREATE INDEX idx_destination_lots_lot ON destination_lots(parking_lot_id);  -- �
 
 ---
 
+## 7. 목적지 목록 페이지(`/near`)는 데이터가 찰 때까지 미룹니다 (2026-09-03 판단)
+
+두 형태를 검토했습니다. A는 지역 → 역 카드에 "주차장 N곳 · 무료 M곳 · 초보 추천 K곳"을 싣는 것, B는 "무료 3곳 이상인 역", "초보 추천이 있는 역" 같은 계산된 묶음을 위에 얹는 것입니다. 만들기 전에 remote 데이터로 각 칸이 실제로 채워지는지 셌습니다. 분모는 발행 목적지 257곳입니다.
+
+| 칸 | 채워지는 목적지 | 판정 |
+|---|---:|---|
+| 주차장 N곳, 지역 | 257 (100%) | 채워짐. 다만 이것만으로는 "이름과 숫자 표"라 한 줄 나열과 다르지 않음 |
+| 무료 1곳 이상 / 3곳 이상 | 230 / 159 | 채워짐 (B의 "무료 3곳 이상" 묶음 성립) |
+| 역 100m 안 주차장 | 117 | 채워짐 (B 묶음 성립) |
+| **초보 추천 (실제 신호 `estimated`·`confirmed` 기준)** | **56 (22%)** / 3곳 이상은 2 | **부족.** 이게 A 카드와 B "초보 추천 있는 역" 묶음의 핵심 칸인데 다섯에 넷이 비어 있음 |
+| 후기·웹 글 3건 이상 | 43 | 부족 |
+
+핵심 원인은 난이도 점수의 신뢰도 분포입니다. 발행 목적지에 걸린 주차장 5,308곳 중 `structural`(주차장 유형·규모로 만든 사전값) 65%, `none` 26%, `reference` 7%, `estimated` 1.2%, `confirmed` 0.2%입니다. 사전값을 "초보 추천"으로 부르면 목록 페이지가 통째로 추정치 위에 서게 됩니다.
+
+**결정: 목록 페이지는 만들지 않고 미룹니다.** 사이트 안 진입로는 검색창 자동완성(PR #170)과 위키 상세페이지 블록으로 충분합니다.
+
+**다시 꺼내는 조건**: `estimated`·`confirmed` 점수를 가진 주차장이 1곳 이상인 목적지가 **150곳(약 60%)** 을 넘을 때. 이 수치는 아래 쿼리로 잽니다. 그때 형태는 A를 기본으로 B의 "무료 3곳 이상"·"초보 추천 있음" 두 묶음을 위에 얹는 것으로 합니다. 서버 함수 `fetchDestinationIndex`는 이미 있습니다.
+
+```bash
+npx wrangler d1 execute parking-db --remote --command "
+SELECT SUM(EXISTS(SELECT 1 FROM destination_lots dl JOIN parking_lot_stats s ON s.parking_lot_id=dl.parking_lot_id
+  WHERE dl.destination_id=d.id AND s.reliability IN ('estimated','confirmed'))) real1, COUNT(*) total FROM destinations d"
+```
+
+같은 판단을 **목적지 페이지 자체에도 적용했습니다.** "초보 운전자에게 쉬운 곳" 섹션이 `structural` 점수까지 추천 근거로 쓰고 있었는데, 실제 신호(`estimated`·`confirmed`)가 있는 주차장만 쓰도록 좁혔습니다. 그 결과 이 섹션은 257곳 중 56곳에서만 그려지고, 나머지는 비교표부터 시작합니다. 8.3절 "없는 값은 만들지 않는다"의 적용입니다.
+
 ## 6. 실행 기록 (비어 있음)
 
 1단계 게이트 보정 결과를 여기에 적습니다.
