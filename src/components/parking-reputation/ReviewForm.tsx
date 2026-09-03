@@ -52,7 +52,7 @@ export function ReviewForm({
       // 닉네임은 다음 리뷰에서 다시 쓰도록 유지.
       setOverallScore(0)
       setComment('')
-      toast.success('리뷰가 등록되었습니다')
+      toast.success('고맙습니다. 다음 분에게 큰 도움이 됩니다')
       onSubmitted()
     } catch (e) {
       setError(e instanceof Error ? e.message : '오류가 발생했습니다')
@@ -77,15 +77,10 @@ export function ReviewForm({
             주차하기 쉬웠나요?
           </p>
           <p className="mt-1 text-[13px] text-ink-2">
-            {hasScore ? MICROCOPY[overallScore] : '별 하나만 눌러주세요 · 30초면 됩니다'}
+            {hasScore ? MICROCOPY[overallScore] : '다음 사람을 위해 별점을 남겨주세요'}
           </p>
         </div>
         <StarRatingInput value={overallScore} onChange={setOverallScore} size="xl" />
-        {!hasScore && (
-          <p className="text-[11.5px] text-faint">
-            다음에 여기 올 사람이 미리 알 수 있게 도와주세요
-          </p>
-        )}
       </div>
 
       {hasScore && (
