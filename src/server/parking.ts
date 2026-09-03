@@ -2,6 +2,13 @@ import { env } from 'cloudflare:workers'
 import { createServerFn } from '@tanstack/react-start'
 import { and, count, desc, eq, sql } from 'drizzle-orm'
 import { getDb, schema } from '@/db'
+import {
+  coreQueryString,
+  type KakaoPlaceDocument,
+  mergePlaces,
+  normalizeSearchQuery,
+  parseKakaoPlaces,
+} from '@/lib/search-query'
 import { AGGREGATOR_DOMAINS, extractHost } from '@/server/crawlers/lib/aggregator-domains'
 import {
   normalizeDifficultyKeywords,
@@ -151,17 +158,19 @@ export const searchParkingLots = createServerFn({ method: 'GET' })
     const db = getDb()
 
     // 단어 분리: "스타필드 위례" → 각 단어가 모두 포함되어야 매칭
-    const words = data.query
-      .trim()
-      .split(/\s+/)
-      .filter((w) => w.length >= 1)
-    if (words.length === 0) return []
+    // "석촌역 근처 주차장"처럼 탐색 표현이 붙으면 핵심 단어만 남긴다
+    const { original, core } = normalizeSearchQuery(data.query)
+    if (core.length === 0) return []
 
-    const conditions = words.map((w) => {
+    const wordCondition = (w: string) => {
       const like = `%${w}%`
       return sql`(p.name LIKE ${like} OR p.address LIKE ${like} OR p.poi_tags LIKE ${like})`
-    })
+    }
+    const coreCondition = sql.join(core.map(wordCondition), sql` AND `)
+    const originalCondition = sql.join(original.map(wordCondition), sql` AND `)
 
+    // core 조건은 original 조건보다 느슨하므로(original ⊆ core) 기존 결과는
+    // 그대로 살아남고, 원본 검색어까지 만족하는 행이 앞에 온다
     const rows = await db.all(
       sql`SELECT p.*,
           s.final_score as avg_score,
@@ -169,7 +178,8 @@ export const searchParkingLots = createServerFn({ method: 'GET' })
           s.reliability
         FROM parking_lots p
         LEFT JOIN parking_lot_stats s ON s.parking_lot_id = p.id
-        WHERE ${sql.join(conditions, sql` AND `)}
+        WHERE ${coreCondition}
+        ORDER BY CASE WHEN ${originalCondition} THEN 0 ELSE 1 END
         LIMIT 20`,
     )
 
@@ -827,32 +837,25 @@ export const searchPlaces = createServerFn({ method: 'GET' })
   .inputValidator((input: { query: string }): { query: string } => input)
   .handler(async ({ data }): Promise<Place[]> => {
     const apiKey = env.KAKAO_CLIENT_ID
-    if (!apiKey || data.query.trim().length < 2) return []
+    if (!apiKey) return []
 
-    const url = `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(data.query)}&size=5`
-    const res = await fetch(url, {
-      headers: { Authorization: `KakaoAK ${apiKey}` },
-    })
-    if (!res.ok) return []
+    // "석촌역 근처 주차장" → 핵심 검색어 "석촌역"으로도 질의한다.
+    // 카카오는 실시간 호출만 허용되므로 응답은 저장하지 않고 그대로 흘려보낸다.
+    const originalQuery = data.query.trim()
+    const coreQuery = coreQueryString(originalQuery)
+    const queries = [coreQuery, originalQuery].filter(
+      (q, i, arr) => q.length >= 2 && arr.indexOf(q) === i,
+    )
+    if (queries.length === 0) return []
 
-    const json = (await res.json()) as {
-      documents: Array<{
-        place_name: string
-        address_name: string
-        x: string
-        y: string
-        category_group_name: string
-      }>
+    const fetchPlaces = async (query: string): Promise<Place[]> => {
+      const url = `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(query)}&size=5`
+      const res = await fetch(url, { headers: { Authorization: `KakaoAK ${apiKey}` } })
+      if (!res.ok) return []
+      const json = (await res.json()) as { documents: KakaoPlaceDocument[] }
+      return parseKakaoPlaces(json.documents)
     }
 
-    return json.documents
-      .filter((d) => d.category_group_name !== '주차장')
-      .slice(0, 5)
-      .map((d) => ({
-        name: d.place_name,
-        address: d.address_name,
-        lat: parseFloat(d.y),
-        lng: parseFloat(d.x),
-        category: d.category_group_name || undefined,
-      }))
+    const groups = await Promise.all(queries.map(fetchPlaces))
+    return mergePlaces(...groups).slice(0, 5)
   })
