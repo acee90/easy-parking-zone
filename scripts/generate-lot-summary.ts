@@ -7,6 +7,13 @@
  *   bun run scripts/generate-lot-summary.ts --batch --limit=50 --dry-run
  *   bun run scripts/generate-lot-summary.ts --batch --limit=100 --remote --concurrency=5
  *   bun run scripts/generate-lot-summary.ts --batch --limit=10 --remote --save
+ *   bun run scripts/generate-lot-summary.ts --batch --limit=600 --remote --min-sources=3 --concurrency=5
+ *
+ * --min-sources=N : 출처 요약이 N건 이상인 lot만 고른다 (기본 1). 재료 많은 곳부터 채운다.
+ * --no-apply      : SQL 파일만 만들고 D1에 적용하지 않는다.
+ *
+ * D1 접근: 읽기는 대상 전체에 대해 3회, 쓰기는 SQL 파일 1개를 --file 로 1회 적용한다.
+ * lot 마다 wrangler 를 띄우지 않는다 (585곳 기준 2,340회 → 4회).
  *
  * 출력: parking_lot_stats.ai_summary / ai_tip_pricing / ai_tip_visit / ai_tip_alternative
  * --save 플래그: summary_batch.json + summary_results.json (eval용)
@@ -24,6 +31,7 @@
  * 갈라지면 한쪽이 거부하는 요약이 다른 쪽으로 그대로 들어간다.
  */
 
+import { appendFileSync } from 'node:fs'
 import { webQuotaFor } from '../src/server/crawlers/lib/lot-summary-input'
 import {
   buildLotSummaryUserPrompt,
@@ -32,12 +40,19 @@ import {
   MIN_LOT_SUMMARY_LENGTH,
 } from '../src/server/crawlers/lib/lot-summary-prompt'
 import { detectSummaryPollution } from '../src/server/crawlers/lib/summary-guard'
-import { d1Execute, d1Query } from './lib/d1'
+import { d1ExecFile, d1Query } from './lib/d1'
 import { esc } from './lib/sql-flush'
 
 // ── CLI ──
 const args = process.argv.slice(2)
 const isDryRun = args.includes('--dry-run')
+// 백필 순서 제어: 출처 요약이 N건 이상인 lot만 고른다. 재료가 많은 곳부터 채워 품질을 먼저 본다.
+const minSources = parseInt(
+  args.find((a) => a.startsWith('--min-sources='))?.split('=')[1] ?? '1',
+  10,
+)
+// SQL 파일만 만들고 D1에는 적용하지 않는다 (적용 전 검토용).
+const noApply = args.includes('--no-apply')
 const isBatch = args.includes('--batch')
 const isSave = args.includes('--save')
 const lotIdArg = args.find((a) => a.startsWith('--lotId='))?.split('=')[1]
@@ -89,11 +104,11 @@ function resolveLots(): LotRow[] {
       FROM parking_lots p
       LEFT JOIN parking_lot_stats s ON s.parking_lot_id = p.id
       WHERE (s.ai_summary IS NULL OR s.ai_summary = '')
-        AND EXISTS (
-          SELECT 1 FROM web_sources w
+        AND (
+          SELECT COUNT(*) FROM web_sources w
           WHERE w.parking_lot_id = p.id
             AND w.ai_summary IS NOT NULL AND w.ai_summary != ''
-        )
+        ) >= ${minSources}
       ORDER BY COALESCE(s.final_score, 0) DESC
       LIMIT ${batchLimit}
     `)
@@ -112,40 +127,74 @@ function resolveLots(): LotRow[] {
 }
 
 // ── 소스 수집 ──
-function fetchSources(lotId: string): {
+/**
+ * lot 마다 D1 을 3번 치던 것을 대상 전체에 대해 3번으로 줄였다.
+ * --remote 에서 d1Query 는 호출마다 wrangler 프로세스를 띄우므로(≈3초),
+ * 585곳이면 읽기만으로 1,755회 ≈ 90분이 든다. 백필 규모에서는 성립하지 않는 구조다.
+ */
+interface WebRowWithLot extends WebSummaryRow {
+  parking_lot_id: string
+}
+interface ReviewRowWithLot extends ReviewRow {
+  parking_lot_id: string
+}
+
+const WEB_PER_LOT = 30
+const REVIEW_PER_LOT = 20
+const SEED_PER_LOT = 10
+
+const webByLot = new Map<string, WebSummaryRow[]>()
+const reviewsByLot = new Map<string, ReviewRow[]>()
+const seedsByLot = new Map<string, ReviewRow[]>()
+
+function push<T>(map: Map<string, T[]>, key: string, row: T, cap: number): void {
+  const arr = map.get(key) ?? []
+  if (arr.length < cap) arr.push(row)
+  map.set(key, arr)
+}
+
+function prefetchSources(lots: LotRow[]): void {
+  if (lots.length === 0) return
+  const inList = lots.map((l) => `'${esc(l.id)}'`).join(',')
+
+  // 정보 모음 사이트(경쟁 애그리게이터)는 후기가 아니라 공공데이터 재배포다.
+  // 2026-09-03 실측: 요약을 가진 행 2,794건이 그대로 입력에 섞이고 있었다.
+  const web = d1Query<WebRowWithLot>(
+    `SELECT parking_lot_id, ai_summary AS content
+     FROM web_sources
+     WHERE parking_lot_id IN (${inList})
+       AND ai_summary IS NOT NULL
+       AND ai_summary != ''
+       AND filter_v2_reason IS NOT 'aggregator_site'
+       AND relevance_score >= 40
+     ORDER BY parking_lot_id, relevance_score DESC`,
+  )
+  for (const row of web) push(webByLot, row.parking_lot_id, { content: row.content }, WEB_PER_LOT)
+
+  // 시드 리뷰(is_seed=1)는 우리가 넣은 것이라 '이용자 후기'로 취급하면 안 된다.
+  // 실사용자 리뷰를 먼저, 그다음 시드를 채운다 — 프롬프트에서 둘을 구분해 무게를 다르게 준다.
+  const reviews = d1Query<ReviewRowWithLot & { is_seed: number }>(
+    `SELECT parking_lot_id, is_seed,
+            overall_score, entry_score, space_score, passage_score, exit_score, comment
+     FROM user_reviews
+     WHERE parking_lot_id IN (${inList})
+     ORDER BY parking_lot_id, created_at DESC`,
+  )
+  for (const row of reviews) {
+    const { parking_lot_id, is_seed, ...rest } = row
+    if (is_seed === 1) push(seedsByLot, parking_lot_id, rest, SEED_PER_LOT)
+    else push(reviewsByLot, parking_lot_id, rest, REVIEW_PER_LOT)
+  }
+}
+
+function sourcesFor(lotId: string): {
   web: WebSummaryRow[]
   reviews: ReviewRow[]
   seedReviews: ReviewRow[]
 } {
-  const web = d1Query<WebSummaryRow>(
-    `SELECT ai_summary AS content
-     FROM web_sources
-     WHERE parking_lot_id = '${esc(lotId)}'
-       AND ai_summary IS NOT NULL
-       AND ai_summary != ''
-       -- 정보 모음 사이트(경쟁 애그리게이터)는 후기가 아니라 공공데이터 재배포다.
-       -- 2026-09-03 실측: 요약을 가진 행 2,794건이 그대로 입력에 섞이고 있었다.
-       AND filter_v2_reason IS NOT 'aggregator_site'
-       AND relevance_score >= 40
-     ORDER BY relevance_score DESC
-     LIMIT 30`,
-  )
-  // 시드 리뷰(is_seed=1)는 우리가 넣은 것이라 '이용자 후기'로 취급하면 안 된다.
-  // 실사용자 리뷰를 먼저, 그다음 시드를 채운다 — 프롬프트에서 둘을 구분해 무게를 다르게 준다.
-  const realReviews = d1Query<ReviewRow>(
-    `SELECT overall_score, entry_score, space_score, passage_score, exit_score, comment
-     FROM user_reviews
-     WHERE parking_lot_id = '${esc(lotId)}' AND is_seed = 0
-     ORDER BY created_at DESC
-     LIMIT 20`,
-  )
-  const seedReviews = d1Query<ReviewRow>(
-    `SELECT overall_score, entry_score, space_score, passage_score, exit_score, comment
-     FROM user_reviews
-     WHERE parking_lot_id = '${esc(lotId)}' AND is_seed = 1
-     ORDER BY created_at DESC
-     LIMIT 10`,
-  )
+  const web = webByLot.get(lotId) ?? []
+  const realReviews = reviewsByLot.get(lotId) ?? []
+  const seedReviews = seedsByLot.get(lotId) ?? []
   // 리뷰가 있으면 웹 요약 수를 깎아 이용자 신호가 묻히지 않게 한다 (위 기준 참조)
   const quota = webQuotaFor(realReviews.length)
   return { web: web.slice(0, quota), reviews: realReviews, seedReviews }
@@ -214,28 +263,61 @@ function validateResult(result: AiSummaryResult): ValidationOutcome {
 }
 
 // ── DB 저장 ──
-function saveToDb(lotId: string, result: AiSummaryResult): void {
-  d1Execute(
-    `INSERT INTO parking_lot_stats (
-       parking_lot_id,
-       ai_summary, ai_summary_updated_at,
-       ai_tip_pricing, ai_tip_visit, ai_tip_alternative, ai_tip_updated_at
-     ) VALUES (
-       '${esc(lotId)}',
-       '${esc(result.summary)}', datetime('now'),
-       ${result.tip_pricing ? `'${esc(result.tip_pricing)}'` : 'NULL'},
-       ${result.tip_visit ? `'${esc(result.tip_visit)}'` : 'NULL'},
-       ${result.tip_alternative ? `'${esc(result.tip_alternative)}'` : 'NULL'},
-       datetime('now')
-     )
-     ON CONFLICT(parking_lot_id) DO UPDATE SET
-       ai_summary = excluded.ai_summary,
-       ai_summary_updated_at = excluded.ai_summary_updated_at,
-       ai_tip_pricing = excluded.ai_tip_pricing,
-       ai_tip_visit = excluded.ai_tip_visit,
-       ai_tip_alternative = excluded.ai_tip_alternative,
-       ai_tip_updated_at = excluded.ai_tip_updated_at`,
-  )
+/**
+ * 행마다 wrangler 를 띄우지 않는다. 생성되는 대로 SQL 파일에 append 하고 끝에 --file 로
+ * 한 번에 적용한다. 중간에 죽어도 그때까지의 결과가 파일에 남는다.
+ * 파일은 data/ 에 남겨 두어 적용 전(--no-apply)이나 적용 후에 검토할 수 있게 한다.
+ */
+const sqlOutPath = (() => {
+  const ts = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '')
+  return `data/lot-summary-backfill-${ts}.sql`
+})()
+let queuedStatements = 0
+
+function upsertSql(lotId: string, result: AiSummaryResult): string {
+  return `INSERT INTO parking_lot_stats (
+  parking_lot_id,
+  ai_summary, ai_summary_updated_at,
+  ai_tip_pricing, ai_tip_visit, ai_tip_alternative, ai_tip_updated_at,
+  ai_summary_stale
+) VALUES (
+  '${esc(lotId)}',
+  '${esc(result.summary)}', datetime('now'),
+  ${result.tip_pricing ? `'${esc(result.tip_pricing)}'` : 'NULL'},
+  ${result.tip_visit ? `'${esc(result.tip_visit)}'` : 'NULL'},
+  ${result.tip_alternative ? `'${esc(result.tip_alternative)}'` : 'NULL'},
+  datetime('now'),
+  0
+)
+ON CONFLICT(parking_lot_id) DO UPDATE SET
+  ai_summary = excluded.ai_summary,
+  ai_summary_updated_at = excluded.ai_summary_updated_at,
+  ai_tip_pricing = excluded.ai_tip_pricing,
+  ai_tip_visit = excluded.ai_tip_visit,
+  ai_tip_alternative = excluded.ai_tip_alternative,
+  ai_tip_updated_at = excluded.ai_tip_updated_at,
+  ai_summary_stale = 0;
+`
+}
+
+function queueSave(lotId: string, result: AiSummaryResult): void {
+  appendFileSync(sqlOutPath, upsertSql(lotId, result))
+  queuedStatements++
+}
+
+function applyQueued(): void {
+  if (queuedStatements === 0) {
+    console.log('\n적용할 SQL 없음')
+    return
+  }
+  console.log(`\nSQL ${queuedStatements}건 → ${sqlOutPath}`)
+  if (noApply) {
+    console.log('--no-apply: D1 에 적용하지 않음. 검토 후 다음으로 적용:')
+    console.log(`  bunx wrangler d1 execute parking-db --remote --file="${sqlOutPath}"`)
+    return
+  }
+  d1ExecFile(sqlOutPath)
+  console.log('D1 적용 완료')
 }
 
 // ── 동시성 제한 실행 ──
@@ -282,6 +364,7 @@ async function main() {
     )
   }
   console.log(`대상 ${lots.length}개`)
+  prefetchSources(lots)
 
   // eval용 배치 데이터 수집
   const batchData: Array<{
@@ -299,7 +382,7 @@ async function main() {
   const rejectReasons = new Map<string, number>()
 
   const processLot = async (lot: LotRow): Promise<AiSummaryResult | null> => {
-    const { web, reviews, seedReviews } = fetchSources(lot.id)
+    const { web, reviews, seedReviews } = sourcesFor(lot.id)
     console.log(
       `\n▶ ${lot.name} (${lot.id}) — web_summary ${web.length}건, review ${reviews.length}건`,
     )
@@ -353,7 +436,7 @@ async function main() {
     if (clean.tip_visit) console.log('  tip_visit:', clean.tip_visit)
     if (clean.tip_alternative) console.log('  tip_alternative:', clean.tip_alternative)
 
-    saveToDb(lot.id, clean)
+    queueSave(lot.id, clean)
     generated++
     return clean
   }
@@ -375,6 +458,8 @@ async function main() {
     await Bun.write('summary_results.json', JSON.stringify(resultsData, null, 2))
     console.log('\n  → summary_batch.json, summary_results.json 저장 완료')
   }
+
+  if (!isDryRun) applyQueued()
 
   console.log(`\n=== 완료 === 생성 ${generated}건, 건너뜀 ${skipped}건, 가드 거부 ${rejected}건`)
   if (rejectReasons.size > 0) {
