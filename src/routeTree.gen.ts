@@ -28,6 +28,8 @@ import { Route as WikiSlugIndexRouteImport } from './routes/wiki/$slug.index'
 import { Route as EventHalfpriceTravelIndexRouteImport } from './routes/event/halfprice-travel/index'
 import { Route as WikiRegionRegionRouteImport } from './routes/wiki/region.$region'
 import { Route as WikiSlugReviewsRouteImport } from './routes/wiki/$slug.reviews'
+import { Route as WikiSlugMediaRouteImport } from './routes/wiki/$slug.media'
+import { Route as WikiSlugBlogRouteImport } from './routes/wiki/$slug.blog'
 import { Route as EventHalfpriceTravelSlugRouteImport } from './routes/event/halfprice-travel/$slug'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 
@@ -127,6 +129,16 @@ const WikiSlugReviewsRoute = WikiSlugReviewsRouteImport.update({
   path: '/reviews',
   getParentRoute: () => WikiSlugRoute,
 } as any)
+const WikiSlugMediaRoute = WikiSlugMediaRouteImport.update({
+  id: '/media',
+  path: '/media',
+  getParentRoute: () => WikiSlugRoute,
+} as any)
+const WikiSlugBlogRoute = WikiSlugBlogRouteImport.update({
+  id: '/blog',
+  path: '/blog',
+  getParentRoute: () => WikiSlugRoute,
+} as any)
 const EventHalfpriceTravelSlugRoute =
   EventHalfpriceTravelSlugRouteImport.update({
     id: '/event/halfprice-travel/$slug',
@@ -157,6 +169,8 @@ export interface FileRoutesByFullPath {
   '/wiki/': typeof WikiIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/event/halfprice-travel/$slug': typeof EventHalfpriceTravelSlugRoute
+  '/wiki/$slug/blog': typeof WikiSlugBlogRoute
+  '/wiki/$slug/media': typeof WikiSlugMediaRoute
   '/wiki/$slug/reviews': typeof WikiSlugReviewsRoute
   '/wiki/region/$region': typeof WikiRegionRegionRoute
   '/event/halfprice-travel/': typeof EventHalfpriceTravelIndexRoute
@@ -178,6 +192,8 @@ export interface FileRoutesByTo {
   '/wiki': typeof WikiIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/event/halfprice-travel/$slug': typeof EventHalfpriceTravelSlugRoute
+  '/wiki/$slug/blog': typeof WikiSlugBlogRoute
+  '/wiki/$slug/media': typeof WikiSlugMediaRoute
   '/wiki/$slug/reviews': typeof WikiSlugReviewsRoute
   '/wiki/region/$region': typeof WikiRegionRegionRoute
   '/event/halfprice-travel': typeof EventHalfpriceTravelIndexRoute
@@ -202,6 +218,8 @@ export interface FileRoutesById {
   '/wiki/': typeof WikiIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/event/halfprice-travel/$slug': typeof EventHalfpriceTravelSlugRoute
+  '/wiki/$slug/blog': typeof WikiSlugBlogRoute
+  '/wiki/$slug/media': typeof WikiSlugMediaRoute
   '/wiki/$slug/reviews': typeof WikiSlugReviewsRoute
   '/wiki/region/$region': typeof WikiRegionRegionRoute
   '/event/halfprice-travel/': typeof EventHalfpriceTravelIndexRoute
@@ -227,6 +245,8 @@ export interface FileRouteTypes {
     | '/wiki/'
     | '/api/auth/$'
     | '/event/halfprice-travel/$slug'
+    | '/wiki/$slug/blog'
+    | '/wiki/$slug/media'
     | '/wiki/$slug/reviews'
     | '/wiki/region/$region'
     | '/event/halfprice-travel/'
@@ -248,6 +268,8 @@ export interface FileRouteTypes {
     | '/wiki'
     | '/api/auth/$'
     | '/event/halfprice-travel/$slug'
+    | '/wiki/$slug/blog'
+    | '/wiki/$slug/media'
     | '/wiki/$slug/reviews'
     | '/wiki/region/$region'
     | '/event/halfprice-travel'
@@ -271,6 +293,8 @@ export interface FileRouteTypes {
     | '/wiki/'
     | '/api/auth/$'
     | '/event/halfprice-travel/$slug'
+    | '/wiki/$slug/blog'
+    | '/wiki/$slug/media'
     | '/wiki/$slug/reviews'
     | '/wiki/region/$region'
     | '/event/halfprice-travel/'
@@ -429,6 +453,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WikiSlugReviewsRouteImport
       parentRoute: typeof WikiSlugRoute
     }
+    '/wiki/$slug/media': {
+      id: '/wiki/$slug/media'
+      path: '/media'
+      fullPath: '/wiki/$slug/media'
+      preLoaderRoute: typeof WikiSlugMediaRouteImport
+      parentRoute: typeof WikiSlugRoute
+    }
+    '/wiki/$slug/blog': {
+      id: '/wiki/$slug/blog'
+      path: '/blog'
+      fullPath: '/wiki/$slug/blog'
+      preLoaderRoute: typeof WikiSlugBlogRouteImport
+      parentRoute: typeof WikiSlugRoute
+    }
     '/event/halfprice-travel/$slug': {
       id: '/event/halfprice-travel/$slug'
       path: '/event/halfprice-travel/$slug'
@@ -465,11 +503,15 @@ const AdminRouteChildren: AdminRouteChildren = {
 const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 
 interface WikiSlugRouteChildren {
+  WikiSlugBlogRoute: typeof WikiSlugBlogRoute
+  WikiSlugMediaRoute: typeof WikiSlugMediaRoute
   WikiSlugReviewsRoute: typeof WikiSlugReviewsRoute
   WikiSlugIndexRoute: typeof WikiSlugIndexRoute
 }
 
 const WikiSlugRouteChildren: WikiSlugRouteChildren = {
+  WikiSlugBlogRoute: WikiSlugBlogRoute,
+  WikiSlugMediaRoute: WikiSlugMediaRoute,
   WikiSlugReviewsRoute: WikiSlugReviewsRoute,
   WikiSlugIndexRoute: WikiSlugIndexRoute,
 }
