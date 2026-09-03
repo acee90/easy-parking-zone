@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { getDifficultyIcon } from '@/lib/geo-utils'
+import { dedupePlacesAgainstLots } from '@/lib/search-query'
 import { searchParkingLots, searchPlaces } from '@/server/parking'
 import type { ParkingLot, Place } from '@/types/parking'
 
@@ -41,7 +42,8 @@ function useSearch(
             : Promise.resolve([]),
         ])
         setLotResults(lots)
-        setPlaceResults(places)
+        // 우리 DB 주차장과 이름이 겹치는 카카오 장소는 중복이므로 숨긴다
+        setPlaceResults(dedupePlacesAgainstLots(places, lots))
         // 비동기 완료 시점에 입력이 이미 지워졌으면 열지 않음
         if (queryRef.current.trim().length > 0) {
           setOpen(true)
