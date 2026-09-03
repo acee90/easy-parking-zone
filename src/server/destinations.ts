@@ -8,7 +8,15 @@
 import { createServerFn } from '@tanstack/react-start'
 import { sql } from 'drizzle-orm'
 import { getDb } from '@/db'
-import type { BlogPost, Destination, DestinationLink, DestinationLot } from '@/types/parking'
+import { getRegionForAddress } from '@/lib/parking-regions'
+import { coreQueryString } from '@/lib/search-query'
+import type {
+  BlogPost,
+  Destination,
+  DestinationLink,
+  DestinationLot,
+  DestinationSummary,
+} from '@/types/parking'
 import {
   type BlogPostRow,
   type DestinationLinkRow,
@@ -107,3 +115,71 @@ export const fetchDestinationsForLot = createServerFn({ method: 'GET' })
     )
     return (rows as unknown as DestinationLinkRow[]).map(rowToDestinationLink)
   })
+
+interface SummaryRow {
+  id: string
+  name: string
+  slug: string
+  category: string
+  lot_count: number
+  free_count: number
+  nearest_address: string | null
+}
+
+function rowToSummary(r: SummaryRow): DestinationSummary {
+  return {
+    id: r.id,
+    name: r.name,
+    slug: r.slug,
+    category: (['station', 'market', 'mall', 'tourist'].includes(r.category)
+      ? r.category
+      : 'tourist') as Destination['category'],
+    lotCount: r.lot_count,
+    freeCount: r.free_count,
+    region: getRegionForAddress(r.nearest_address)?.label ?? null,
+  }
+}
+
+/**
+ * 검색창 자동완성용. "석촌역", "석촌역 근처 주차장", "석촌 역" 모두 석촌역 페이지로 이어진다.
+ * 탐색 표현("근처", "주차장" …)은 #164 의 정규화로 걷어내고, 이름과 alias 양쪽을 본다. 최대 3건.
+ */
+export const searchDestinations = createServerFn({ method: 'GET' })
+  .inputValidator((input: { query: string }): { query: string } => {
+    if (typeof input.query !== 'string' || input.query.length > 100)
+      throw new Error('invalid query')
+    return input
+  })
+  .handler(async ({ data }): Promise<DestinationSummary[]> => {
+    const core = coreQueryString(data.query).replace(/\s+/g, '')
+    if (core.length < 2) return []
+    const db = getDb()
+    const like = `%${core}%`
+    const rows = await db.all(
+      sql`SELECT d.id, d.name, d.slug, d.category, d.lot_count, d.free_count,
+            (SELECT p.address FROM destination_lots dl JOIN parking_lots p ON p.id = dl.parking_lot_id
+              WHERE dl.destination_id = d.id ORDER BY dl.rank LIMIT 1) AS nearest_address
+          FROM destinations d
+          WHERE REPLACE(d.name, ' ', '') LIKE ${like}
+             OR EXISTS (SELECT 1 FROM destination_aliases a
+                        WHERE a.destination_id = d.id AND REPLACE(a.alias, ' ', '') LIKE ${like})
+          ORDER BY (REPLACE(d.name, ' ', '') = ${core}) DESC, d.lot_count DESC
+          LIMIT 3`,
+    )
+    return (rows as unknown as SummaryRow[]).map(rowToSummary)
+  })
+
+/** /near 목록 페이지. 발행된 전부 (수백 건 규모라 페이지네이션 없음) */
+export const fetchDestinationIndex = createServerFn({ method: 'GET' }).handler(
+  async (): Promise<DestinationSummary[]> => {
+    const db = getDb()
+    const rows = await db.all(
+      sql`SELECT d.id, d.name, d.slug, d.category, d.lot_count, d.free_count,
+            (SELECT p.address FROM destination_lots dl JOIN parking_lots p ON p.id = dl.parking_lot_id
+              WHERE dl.destination_id = d.id ORDER BY dl.rank LIMIT 1) AS nearest_address
+          FROM destinations d
+          ORDER BY d.lot_count DESC, d.name ASC`,
+    )
+    return (rows as unknown as SummaryRow[]).map(rowToSummary)
+  },
+)
