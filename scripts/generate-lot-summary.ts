@@ -62,9 +62,11 @@ const RETRY_BASE_MS = 5000
  */
 const ABORT_AFTER_CONSECUTIVE_FAILURES = 12
 /**
- * `--file` 은 크기가 커지면 D1 import API 로 넘어가고, OAuth 토큰에서는 거기서
- * Authentication error [code: 10000] 이 난다 (2026-09-03 116건 적용 실패).
- * 작은 조각으로 나눠 일반 경로로 적용한다.
+ * 한 번에 적용할 문장 수.
+ *
+ * `--file` 은 파일이 커지면 D1 import API 로 넘어가고, OAuth 토큰에서는 거기서
+ * Authentication error [code: 10000] 이 난다 (2026-09-03 149KB 적용 실패, 4.5KB 는 통과).
+ * 확장자도 함께 봐야 한다 — chunkPath 주석 참조.
  */
 const APPLY_CHUNK = 20
 const isBatch = args.includes('--batch')
@@ -416,7 +418,10 @@ function applyQueued(): void {
   const parts = readFileSync(sqlOutPath, 'utf-8')
     .split(STMT_END)
     .filter((part) => part.trim())
-  const chunkPath = `${sqlOutPath}.chunk`
+  // 확장자가 `.sql` 이 아니면 wrangler 가 D1 import API 로 넘어가고, OAuth 토큰에서는
+  // 거기서 Authentication error [code: 10000] 이 난다. 같은 내용도 `.sql` 이면 통과한다
+  // (2026-09-03 동일 파일 확장자만 바꿔 재현 확인).
+  const chunkPath = sqlOutPath.replace(/\.sql$/, '.part.sql')
   let applied = 0
   for (let i = 0; i < parts.length; i += APPLY_CHUNK) {
     const body = parts
