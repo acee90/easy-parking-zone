@@ -112,10 +112,47 @@ async function sitemapIndex(db: D1Database): Promise<Response> {
   </sitemap>`
   }
 
+  // 목적지 페이지(#166)는 별도 파일이다. 색인률을 따로 관측해야 되돌릴지 판단할 수 있다.
+  // 쿼리는 작은 테이블 집계 하나뿐이어야 한다 — 이 인덱스는 콜드 응답이 이미 느리다(#161).
+  const near = await db
+    .prepare(`SELECT COUNT(*) AS c, MAX(updated_at) AS m FROM destinations`)
+    .first<{ c: number; m: string | null }>()
+  if ((near?.c ?? 0) > 0) {
+    xml += `
+  <sitemap>
+    <loc>${BASE}/sitemap-near.xml</loc>
+    <lastmod>${toLastmodDate(near?.m, STATIC_LASTMOD)}</lastmod>
+  </sitemap>`
+  }
+
   xml += `
 </sitemapindex>`
 
   return xmlResponse(xml)
+}
+
+/**
+ * /sitemap-near.xml : 목적지 페이지 (#166). 행이 있으면 발행이므로 조건이 없다.
+ * 5,000건을 넘기 전까지 분할하지 않는다.
+ */
+async function sitemapNear(db: D1Database): Promise<Response> {
+  const { results } = await db
+    .prepare(`SELECT slug, updated_at FROM destinations ORDER BY id`)
+    .all<{ slug: string; updated_at: string | null }>()
+  const entries = results
+    .map(
+      (r) => `  <url>
+    <loc>${BASE}/near/${encodeURI(r.slug)}</loc>
+    <lastmod>${toLastmodDate(r.updated_at, STATIC_LASTMOD)}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>`,
+    )
+    .join('\n')
+  return xmlResponse(`<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${entries}
+</urlset>`)
 }
 
 /**
@@ -370,6 +407,7 @@ export async function handleSitemap(pathname: string, db: D1Database): Promise<R
   if (pathname === '/sitemap-index.xml') return sitemapIndex(db)
   if (pathname === '/sitemap-priority.xml') return sitemapPriority(db)
   if (pathname === '/sitemap-static.xml') return sitemapStatic()
+  if (pathname === '/sitemap-near.xml') return sitemapNear(db)
   if (pathname === '/sitemap-test.xml') return sitemapTest(db)
 
   // /sitemap-0.xml, /sitemap-1.xml, ... (web_sources 있는 것)

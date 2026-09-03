@@ -2,6 +2,7 @@ import { createFileRoute, getRouteApi, Link } from '@tanstack/react-router'
 import { ChevronRight } from 'lucide-react'
 import { ParkingReputationSections } from '@/components/ParkingReputationSections'
 import { AlternativeLotsSection } from '@/components/wiki/AlternativeLotsSection'
+import { DestinationsForLotSection } from '@/components/wiki/DestinationsForLotSection'
 import { EvaluationSection } from '@/components/wiki/EvaluationSection'
 import { FaqSection } from '@/components/wiki/FaqSection'
 import { FeeCalculatorSection } from '@/components/wiki/FeeCalculatorSection'
@@ -35,6 +36,7 @@ function WikiDetailPage() {
     webSentiment,
     webSources,
     alternativeLots,
+    destinations,
   } = parentRoute.useLoaderData()
 
   const summary = lot.aiSummary
@@ -207,6 +209,10 @@ function WikiDetailPage() {
           {/* 후기에서 함께 언급된 주차장 — "여기 말고 어디" 계열이라 비교표 바로 뒤에 둔다.
             우리 DB 와 이름이 정확히 맞고 3km 이내인 것만 저장돼 있다. */}
           <AlternativeLotsSection items={alternativeLots} />
+
+          {/* 이 주차장으로 갈 수 있는 곳 — 목적지 페이지(/near)로 올라가는 링크 (#166).
+            발행된 목적지가 없으면 스스로 그리지 않는다. */}
+          <DestinationsForLotSection items={destinations} />
 
           {/* 자주 묻는 질문 — 우리가 쓴 문답이라 근거 목록보다 앞에 둔다 */}
           <FaqSection lot={lot} relatedLots={relatedLots} />

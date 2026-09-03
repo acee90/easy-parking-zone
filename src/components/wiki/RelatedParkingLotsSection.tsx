@@ -5,15 +5,15 @@ import { estimateFee, walkMinutes } from '@/lib/parking-fee'
 import { makeParkingSlug } from '@/lib/slug'
 import type { ParkingLot } from '@/types/parking'
 
-/** 1시간 예상요금 셀 — 계산 불가면 숫자를 지어내지 않는다 */
-function HourFee({ lot }: { lot: ParkingLot }) {
+/** 1시간 예상요금 셀 — 계산 불가면 숫자를 지어내지 않는다. 목적지 페이지(#166)도 같은 셀을 쓴다 */
+export function HourFee({ lot }: { lot: ParkingLot }) {
   const fee = estimateFee(lot.pricing, 60)
   if (fee === null) return <span className="text-muted-foreground">확인 필요</span>
   if (fee === 0) return <span className="font-semibold text-green-700">0원</span>
   return <span className="font-semibold">{fee.toLocaleString()}원</span>
 }
 
-function PricingCell({ lot }: { lot: ParkingLot }) {
+export function PricingCell({ lot }: { lot: ParkingLot }) {
   const { isFree, baseTime, baseFee, extraTime, extraFee } = lot.pricing
   if (isFree) return <span className="font-medium text-green-700">무료</span>
   // 기본 시간이 없으면 요금 체계를 모른다

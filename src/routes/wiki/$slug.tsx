@@ -1,6 +1,7 @@
 import { createFileRoute, Link, notFound, Outlet } from '@tanstack/react-router'
 import { shouldIndexParkingDetail } from '@/lib/seo-indexing'
 import { makeParkingSlug, parseIdFromSlug } from '@/lib/slug'
+import { fetchDestinationsForLot } from '@/server/destinations'
 import {
   fetchAlternativeLots,
   fetchNearbyPlaces,
@@ -26,6 +27,7 @@ export const Route = createFileRoute('/wiki/$slug')({
       webSentiment,
       webSources,
       alternativeLots,
+      destinations,
     ] = await Promise.all([
       fetchNearbyPlaces({ data: { parkingLotId: id } }),
       // 블로그·영상은 더 이상 상세페이지에 없다 (하위 라우트도 삭제).
@@ -48,6 +50,9 @@ export const Route = createFileRoute('/wiki/$slug')({
       fetchWebSourceRefs({ data: { parkingLotId: id } }),
       // 후기에서 함께 언급된 주차장 (3-1)
       fetchAlternativeLots({ data: { parkingLotId: id } }),
+      // 이 주차장이 속한 목적지 페이지 (#166). 발행된 목적지가 없으면 빈 배열
+      // 테이블이 아직 없는 환경(마이그레이션 전)에서도 상세페이지가 죽으면 안 된다 — 블록만 비운다
+      fetchDestinationsForLot({ data: { parkingLotId: id } }).catch(() => []),
     ])
     return {
       lot,
@@ -58,6 +63,7 @@ export const Route = createFileRoute('/wiki/$slug')({
       webSentiment,
       webSources,
       alternativeLots,
+      destinations,
     }
   },
   head: ({ loaderData }) => {
