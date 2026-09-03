@@ -28,6 +28,8 @@ interface Env {
   UNSLOTH_API_KEY: string
   AI_MODEL?: string
   AI_BASE_URL?: string
+  /** 수동 크론 트리거(`/__scheduled`) 인증 토큰. 없으면 그 경로는 404 다. */
+  CRON_TRIGGER_TOKEN?: string
 }
 
 const startHandler = createStartHandler(defaultRenderHandler)
@@ -230,16 +232,54 @@ export function withHomepageDiscoveryHeaders(request: Request, response: Respons
   })
 }
 
+/**
+ * 수동 크론 트리거 인증.
+ *
+ * 헤더(`X-Cron-Token`)를 우선으로 보고, 쿼리(`?token=`)도 받는다 — 헤더를 못 붙이는
+ * 곳에서 쓸 수 있어야 해서다. 쿼리는 로그·리퍼러에 남으니 헤더를 권한다.
+ *
+ * 길이가 다르면 즉시 실패하지만, 같은 길이끼리는 전체를 비교한다.
+ * 문자열 비교의 조기 종료로 새는 정보를 줄인다.
+ */
+export function isCronTriggerAuthorized(
+  request: Request,
+  url: URL,
+  env: Pick<Env, 'CRON_TRIGGER_TOKEN'>,
+): boolean {
+  const expected = env.CRON_TRIGGER_TOKEN
+  if (!expected) return false
+
+  const provided = request.headers.get('X-Cron-Token') ?? url.searchParams.get('token') ?? ''
+  if (provided.length !== expected.length) return false
+
+  let diff = 0
+  for (let i = 0; i < expected.length; i++) {
+    diff |= provided.charCodeAt(i) ^ expected.charCodeAt(i)
+  }
+  return diff === 0
+}
+
 export default {
   async fetch(request: Request, env: Env, _ctx: ExecutionContext) {
     const url = new URL(request.url)
 
-    // /__scheduled 경로로 수동 트리거 (dev/testing용)
+    // /__scheduled 경로로 수동 트리거
     if (
       url.pathname === '/__scheduled' ||
       url.pathname === '/__scheduled/ddg' ||
       url.pathname === '/__scheduled/lot-summary'
     ) {
+      // 이 경로는 크론이 하는 일을 그대로 실행한다 — naver·youtube 하루 쿼터,
+      // crawl4ai 호출, 셀프호스팅 AI 호출, D1 rows_read 를 모두 태운다.
+      // 예전에는 경로만 맞으면 누구나 실행할 수 있었다 (주석에는 dev/testing 용이라고
+      // 적혀 있었지만 운영에 그대로 노출돼 있었다).
+      //
+      // 토큰이 설정돼 있지 않으면 **막는다**. 시크릿 누락이 곧 무방비가 되면 안 된다.
+      // 실패는 401 이 아니라 404 다 — 401 은 "여기 뭔가 있다"고 알려주는 셈이다.
+      if (!isCronTriggerAuthorized(request, url, env)) {
+        return new Response('Not Found', { status: 404 })
+      }
+
       const isDdg = url.pathname.includes('ddg')
       const isLotSummary = url.pathname.includes('lot-summary')
       const logs: string[] = []
