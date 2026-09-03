@@ -10,6 +10,18 @@
  *
  * 출력: parking_lot_stats.ai_summary / ai_tip_pricing / ai_tip_visit / ai_tip_alternative
  * --save 플래그: summary_batch.json + summary_results.json (eval용)
+ *
+ * 역할: 대량 backfill 전용 경로다. 정기 생성은 크론이
+ * `src/server/crawlers/lot-summary-batch.ts`로 처리하며, 그쪽은 회당 6곳으로 묶여 있다
+ * (건당 AI 호출이 최대 120초라 상한이 곧 wall time이다).
+ *
+ * ⚠️ 크론은 `ai_summary_stale = 1`인 곳만 본다. 그 표시는 `queues/score-recompute.ts`가
+ *    **근거가 바뀐 lot에만** 붙이므로, 요약이 비어 있고 근거도 안 바뀌는 기존 백로그는
+ *    크론 대상에 영영 들어오지 않는다. 그 구간을 메우는 것이 이 스크립트의 일이다.
+ *    (2026-09-03 실측: 요약 대상 5,343곳 / stale 표시 7곳 / 요약 보유 36곳)
+ *
+ * 저장 전에 워커와 같은 품질 가드를 통과시킨다 (`validateResult`). 두 경로의 판정이
+ * 갈라지면 한쪽이 거부하는 요약이 다른 쪽으로 그대로 들어간다.
  */
 
 import { webQuotaFor } from '../src/server/crawlers/lib/lot-summary-input'
@@ -17,7 +29,9 @@ import {
   buildLotSummaryUserPrompt,
   LOT_SUMMARY_SYSTEM_PROMPT,
   type LotSummaryResult,
+  MIN_LOT_SUMMARY_LENGTH,
 } from '../src/server/crawlers/lib/lot-summary-prompt'
+import { detectSummaryPollution } from '../src/server/crawlers/lib/summary-guard'
 import { d1Execute, d1Query } from './lib/d1'
 import { esc } from './lib/sql-flush'
 
@@ -160,6 +174,45 @@ async function callClaude(userPrompt: string): Promise<AiSummaryResult> {
   return JSON.parse(jsonText) as AiSummaryResult
 }
 
+// ── 품질 가드 ──
+/**
+ * 워커(`src/server/crawlers/lot-summary-batch.ts`)와 동일한 판정을 백필 경로에도 적용한다.
+ *
+ * 한쪽에만 가드가 있으면 그쪽이 거부하는 요약이 다른 쪽으로 그대로 들어간다.
+ * `summary-guard.ts` 주석이 기록한 사고가 정확히 그 구조였다 —
+ * 재생성 경로에는 가드가 있었으나 신규 적재 경로에 없어 오염이 계속 유입됐다.
+ * 백필은 회당 수천 건을 쓰므로 가드 없이 돌리면 그 사고를 대규모로 재현한다.
+ */
+type ValidationOutcome = { ok: true; value: AiSummaryResult } | { ok: false; reason: string }
+
+function validateResult(result: AiSummaryResult): ValidationOutcome {
+  const summary = result.summary?.trim()
+  if (!summary) return { ok: false, reason: 'empty' }
+  if (summary.length < MIN_LOT_SUMMARY_LENGTH) {
+    return { ok: false, reason: `too_short:${summary.length}` }
+  }
+
+  const pollution = detectSummaryPollution(summary)
+  if (pollution) return { ok: false, reason: pollution }
+
+  // 팁이 오염돼도 요약 전체를 버리지 않고 해당 팁만 떨어뜨린다 (워커와 동일).
+  const tip = (value: string | null | undefined): string | null => {
+    const t = value?.trim()
+    if (!t || t === 'null') return null
+    return detectSummaryPollution(t) ? null : t
+  }
+
+  return {
+    ok: true,
+    value: {
+      summary,
+      tip_pricing: tip(result.tip_pricing),
+      tip_visit: tip(result.tip_visit),
+      tip_alternative: tip(result.tip_alternative),
+    },
+  }
+}
+
 // ── DB 저장 ──
 function saveToDb(lotId: string, result: AiSummaryResult): void {
   d1Execute(
@@ -242,6 +295,8 @@ async function main() {
 
   let generated = 0
   let skipped = 0
+  let rejected = 0
+  const rejectReasons = new Map<string, number>()
 
   const processLot = async (lot: LotRow): Promise<AiSummaryResult | null> => {
     const { web, reviews, seedReviews } = fetchSources(lot.id)
@@ -283,14 +338,24 @@ async function main() {
       return null
     }
 
-    console.log('  summary:', result.summary)
-    if (result.tip_pricing) console.log('  tip_pricing:', result.tip_pricing)
-    if (result.tip_visit) console.log('  tip_visit:', result.tip_visit)
-    if (result.tip_alternative) console.log('  tip_alternative:', result.tip_alternative)
+    const outcome = validateResult(result)
+    if (!outcome.ok) {
+      console.log(`  ✗ 가드 거부 (${outcome.reason}) — 저장하지 않음`)
+      console.log('    ', result.summary?.slice(0, 120) ?? '(빈 요약)')
+      rejected++
+      rejectReasons.set(outcome.reason, (rejectReasons.get(outcome.reason) ?? 0) + 1)
+      return null
+    }
+    const clean = outcome.value
 
-    saveToDb(lot.id, result)
+    console.log('  summary:', clean.summary)
+    if (clean.tip_pricing) console.log('  tip_pricing:', clean.tip_pricing)
+    if (clean.tip_visit) console.log('  tip_visit:', clean.tip_visit)
+    if (clean.tip_alternative) console.log('  tip_alternative:', clean.tip_alternative)
+
+    saveToDb(lot.id, clean)
     generated++
-    return result
+    return clean
   }
 
   if (concurrency > 1) {
@@ -311,7 +376,16 @@ async function main() {
     console.log('\n  → summary_batch.json, summary_results.json 저장 완료')
   }
 
-  console.log(`\n=== 완료 === 생성 ${generated}건, 건너뜀 ${skipped}건`)
+  console.log(`\n=== 완료 === 생성 ${generated}건, 건너뜀 ${skipped}건, 가드 거부 ${rejected}건`)
+  if (rejectReasons.size > 0) {
+    const total = generated + rejected
+    const rate = total > 0 ? ((rejected / total) * 100).toFixed(1) : '0.0'
+    console.log(`  거부율 ${rate}% (생성+거부 ${total}건 기준)`)
+    for (const [reason, count] of [...rejectReasons].sort((a, b) => b[1] - a[1])) {
+      console.log(`    ${reason}: ${count}건`)
+    }
+    console.log('  거부율이 높으면 확장하기 전에 프롬프트나 입력 품질을 먼저 본다.')
+  }
 }
 
 main().catch((e) => {
