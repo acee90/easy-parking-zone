@@ -1,4 +1,5 @@
 import { createFileRoute, Link, notFound, Outlet } from '@tanstack/react-router'
+import { formatPricing } from '@/lib/parking-display'
 import { shouldIndexParkingDetail } from '@/lib/seo-indexing'
 import { makeParkingSlug, parseIdFromSlug } from '@/lib/slug'
 import { fetchDestinationsForLot } from '@/server/destinations'
@@ -77,9 +78,15 @@ export const Route = createFileRoute('/wiki/$slug')({
     const slug = makeParkingSlug(lot.name, lot.id)
     const canonicalUrl = `https://easy-parking.xyz/wiki/${encodeURI(slug)}`
     const title = `${lot.name} - 주차 난이도/요금/정보 | 쉬운주차장`
-    const pricingDesc = lot.pricing.isFree
-      ? '무료'
-      : `기본 ${lot.pricing.baseTime}분 ${lot.pricing.baseFee.toLocaleString()}원`
+    // 요금 표기는 `formatPricing` 하나만 쓴다. 여기서 문자열을 따로 만들던 탓에
+    // 요금표가 없는 곳(2026-09-04 실측 1,807곳)에 **"기본 0분 0원"** 이 나갔다.
+    // 공짜처럼 읽히는 문구가 검색 결과 설명에 그대로 노출됐고, 화면은 같은 곳을
+    // "정보 없음"으로 그리고 있어 둘이 어긋나 있었다.
+    // (기본요금 0원은 정보 없음이 아니라 "최초 N분 무료" 정책이다 — 백화점·마트 등.)
+    const pricing = formatPricing(lot.pricing)
+    // 모르는 값은 설명에서 뺀다. 화면은 칸을 비우지 않고 "정보 없음"을 남기지만,
+    // 검색 결과 설명은 길이가 한정돼 있어 없는 정보를 적을 자리가 아깝다.
+    const pricingDesc = pricing.isUnknown ? null : pricing.primary
     const scoreDesc = lot.difficulty.score ? lot.difficulty.score.toFixed(1) : '정보없음'
     const curationPrefix =
       lot.curationTag === 'hell'
@@ -87,7 +94,9 @@ export const Route = createFileRoute('/wiki/$slug')({
         : lot.curationTag === 'easy'
           ? '초보 추천 주차장. '
           : ''
-    const desc = `${curationPrefix}${lot.name} (${lot.address}) 주차 난이도 ${scoreDesc}, ${pricingDesc}. 리뷰 ${lot.difficulty.reviewCount}개.`
+    const desc = `${curationPrefix}${lot.name} (${lot.address}) 주차 난이도 ${scoreDesc}${
+      pricingDesc ? `, ${pricingDesc}` : ''
+    }. 리뷰 ${lot.difficulty.reviewCount}개.`
 
     // canonical/JSON-LD는 TanStack Start head API의 links/scripts가 SSR HTML에
     // 직렬화되지 않아 $slug.index.tsx에서 React 19 metadata hoisting으로 직접 렌더한다.
