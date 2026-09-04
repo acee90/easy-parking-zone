@@ -251,8 +251,13 @@ async function main() {
   // DB 업데이트
   if (!isDryRun) {
     console.log('\n[Stats] DB 업데이트 중...')
-    // SQL 파일로 배치 생성
-    const CHUNK = 2000
+    // SQL 파일로 배치 생성.
+    //
+    // 조각을 작게 잡는 이유: `wrangler d1 execute --file` 은 파일이 커지면
+    // D1 import API 로 넘어가고, OAuth 토큰에서는 거기서
+    // `Authentication error [code: 10000]` 이 난다.
+    // 2026-09-04 실측 — 149KB 실패 / 26KB 통과. 문장당 약 250B 이므로 100문장이면 25KB다.
+    const CHUNK = 100
     for (let i = 0; i < results.length; i += CHUNK) {
       const chunk = results.slice(i, i + CHUNK)
       const sql = chunk

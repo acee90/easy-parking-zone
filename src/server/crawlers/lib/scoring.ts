@@ -148,6 +148,43 @@ function isLocationWord(word: string): boolean {
  * 주차장 이름에 고유 식별자가 있는지 판별한다.
  * generic/location을 모두 제거한 뒤 의미 있는 잔여가 있으면 true.
  */
+/**
+ * 전국 어디에나 있는 시설명. 이것만 남으면 고유 식별자가 아니다.
+ * 목록 출처: 2026-09-04 오매칭 실측 사례 (문화예술회관·평생학습관·국민체육센터·중앙시장 등).
+ */
+const GENERIC_FACILITIES = [
+  '문화예술회관',
+  '문화의전당',
+  '평생학습관',
+  '국민체육센터',
+  '생활체육관',
+  '체육센터',
+  '문화센터',
+  '복지관',
+  '보건소',
+  '도서관',
+  '학습관',
+  '전통시장',
+  '종합시장',
+  '상설시장',
+  '수산시장',
+  '터미널',
+  '시청',
+  '구청',
+  '군청',
+  '읍사무소',
+  '면사무소',
+  '주민센터',
+  '행정복지센터',
+  '체육관',
+  '운동장',
+  '시장',
+  '회관',
+]
+
+/** 시설명 앞에 흔히 붙는 수식어. 지역을 특정하지 못한다. */
+const GENERIC_MODIFIERS = ['중앙', '국민', '시민', '평생', '종합', '공설', '중부', '남부', '북부']
+
 export function hasSpecificIdentifier(parkingName: string): boolean {
   let cleaned = parkingName
     .toLowerCase()
@@ -159,6 +196,20 @@ export function hasSpecificIdentifier(parkingName: string): boolean {
   for (const gk of GENERIC_KEYWORDS) {
     cleaned = cleaned.replaceAll(gk, '')
   }
+
+  // 흔한 시설명과 그 앞에 붙는 흔한 수식어를 함께 제거한다.
+  // '중앙시장'·'평생학습관'·'국민체육센터' 는 남는 조각('중앙'·'평생'·'국민')이 2자라
+  // 고유 식별자로 통과했고, 그래서 지역 없이 이름만으로 매칭되는 분기 A 로 갔다.
+  // 전국에 같은 이름이 있는 시설이므로 지역을 함께 봐야 한다 (분기 B).
+  for (const gf of GENERIC_FACILITIES) {
+    cleaned = cleaned.replaceAll(gf, '')
+  }
+  for (const gm of GENERIC_MODIFIERS) {
+    cleaned = cleaned.replaceAll(gm, '')
+  }
+
+  // '제1'·'2' 같은 서수는 같은 이름이 여러 개라는 뜻이지 고유 식별자가 아니다.
+  cleaned = cleaned.replace(/제?\d+/g, '')
 
   // 지역명 제거: 독립 단어로 시/군/구/동/읍/면/리로 끝나는 것만 (띄어쓰기 기준)
   cleaned = cleaned
@@ -245,11 +296,272 @@ export function extractNameKeywords(parkingName: string): string[] {
  * "서울특별시 강남구 ..." → "서울"
  * "경기도 수원시 ..." → "경기"
  */
+/**
+ * 시·도 정규형. 주소 표기가 섞여 있다 — 실측 상위 형태가
+ * '경기도'·'경상북도'·'서울특별시'·'강원특별자치도' 이고 '경북'·'충남' 같은 축약형도 쓰인다.
+ * 짧은 형태만 보던 이전 구현은 '경상북도 김천시 …' 에서 빈 문자열을 돌려줬고,
+ * 그 탓에 동명이인 감점이 한 번도 발동하지 않았다 (2026-09-04 확인).
+ */
+const PROVINCE_ALIASES: readonly (readonly [string, readonly string[]])[] = [
+  ['서울', ['서울특별시', '서울']],
+  ['부산', ['부산광역시', '부산']],
+  ['대구', ['대구광역시', '대구']],
+  ['인천', ['인천광역시', '인천']],
+  // '광주 북구 …' 처럼 축약해 쓴 주소가 있다. 경기 광주시는 '경기도'로 시작하므로 겹치지 않는다.
+  ['광주', ['광주광역시', '광주']],
+  ['대전', ['대전광역시', '대전']],
+  ['울산', ['울산광역시', '울산']],
+  ['세종', ['세종특별자치시', '세종']],
+  ['경기', ['경기도', '경기']],
+  ['강원', ['강원특별자치도', '강원도', '강원']],
+  ['충북', ['충청북도', '충북']],
+  ['충남', ['충청남도', '충남']],
+  ['전북', ['전북특별자치도', '전라북도', '전북']],
+  ['전남', ['전라남도', '전남']],
+  ['경북', ['경상북도', '경북']],
+  ['경남', ['경상남도', '경남']],
+  ['제주', ['제주특별자치도', '제주']],
+]
+
 export function extractProvince(address: string): string {
-  const match = address.match(
-    /^(서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주)/,
+  const head = address.trim()
+  for (const [canonical, aliases] of PROVINCE_ALIASES) {
+    if (aliases.some((a) => head.startsWith(a))) return canonical
+  }
+  return ''
+}
+
+/**
+ * 시·군 이름. 2026-09-04 remote D1 의 `parking_lots.address` 26,331건에서 추출했다.
+ * 손으로 적지 않은 이유는 누락이 곧 오매칭 통과이기 때문이다.
+ */
+const CITY_NAMES: readonly string[] = [
+  '가평',
+  '강릉',
+  '강진',
+  '강화',
+  '거제',
+  '거창',
+  '경산',
+  '경주',
+  '계룡',
+  '고령',
+  '고성',
+  '고양',
+  '고창',
+  '고흥',
+  '곡성',
+  '공주',
+  '과천',
+  '광명',
+  '광양',
+  '광주',
+  '괴산',
+  '구례',
+  '구리',
+  '구미',
+  '군산',
+  '군위',
+  '군포',
+  '금산',
+  '기장',
+  '김제',
+  '김천',
+  '김포',
+  '김해',
+  '나주',
+  '남양주',
+  '남원',
+  '남해',
+  '논산',
+  '단양',
+  '달성',
+  '담양',
+  '당진',
+  '동두천',
+  '동해',
+  '목포',
+  '무안',
+  '무주',
+  '문경',
+  '밀양',
+  '보령',
+  '보성',
+  '보은',
+  '봉화',
+  '부안',
+  '부여',
+  '부천',
+  '사천',
+  '산청',
+  '삼척',
+  '상주',
+  '서귀포',
+  '서산',
+  '서천',
+  '성남',
+  '성주',
+  '속초',
+  '수원',
+  '순창',
+  '순천',
+  '시흥',
+  '신안',
+  '아산',
+  '안동',
+  '안산',
+  '안성',
+  '안양',
+  '양구',
+  '양산',
+  '양양',
+  '양주',
+  '양평',
+  '여수',
+  '여주',
+  '연천',
+  '영광',
+  '영덕',
+  '영동',
+  '영암',
+  '영양',
+  '영월',
+  '영주',
+  '영천',
+  '예산',
+  '예천',
+  '오산',
+  '옥천',
+  '옹진',
+  '완도',
+  '완주',
+  '용인',
+  '울릉',
+  '울주',
+  '울진',
+  '원주',
+  '음성',
+  '의령',
+  '의성',
+  '의왕',
+  '의정부',
+  '이천',
+  '익산',
+  '인제',
+  '임실',
+  '장성',
+  '장수',
+  '장흥',
+  '전주',
+  '정선',
+  '정읍',
+  '제주',
+  '제천',
+  '증평',
+  '진도',
+  '진안',
+  '진주',
+  '진천',
+  '창녕',
+  '창원',
+  '천안',
+  '철원',
+  '청도',
+  '청송',
+  '청양',
+  '청주',
+  '춘천',
+  '충주',
+  '칠곡',
+  '태백',
+  '태안',
+  '통영',
+  '파주',
+  '평창',
+  '평택',
+  '포천',
+  '포항',
+  '하남',
+  '하동',
+  '함안',
+  '함양',
+  '함평',
+  '합천',
+  '해남',
+  '홍성',
+  '홍천',
+  '화성',
+  '화순',
+  '화천',
+  '횡성',
+]
+
+/**
+ * 지역명이 뒤에 흔한 낱말을 달고 나와도 지역명이 아닌 경우.
+ * 왼쪽 경계만으로는 걸러지지 않아 따로 적는다.
+ */
+const AMBIGUOUS_FOLLOWERS: Readonly<Record<string, RegExp>> = {
+  고양: /^이/, // 고양이
+  부산: /^물/, // 부산물
+  경주: /^마/, // 경주마
+  청주: /^(?:집|잔|를|와)/, // 청주(술)
+  진주: /^(?:목|귀|반)/, // 진주 목걸이
+  상주: /^(?:하|한|해)/, // 상주하다
+  성주: /^(?:간|님)/, // 성주간
+}
+
+/**
+ * 지역명이 낱말로 등장하는지 본다.
+ *
+ * **왼쪽**이 한글이면 세지 않는다 — '공영주차장' 의 '영주', '중앙로' 의 '앙로'.
+ * **오른쪽**은 한글이 붙어도 센다. 블로그 제목이 '부산여행'·'춘천역'·'청양가볼만한곳'
+ * 처럼 붙여 쓰는 일이 흔해서, 오른쪽까지 막으면 진짜 충돌을 놓친다 (2026-09-04 실측).
+ * 대신 `AMBIGUOUS_FOLLOWERS` 로 '고양이'·'부산물' 같은 알려진 예외만 뺀다.
+ */
+function mentionsToken(text: string, token: string): boolean {
+  if (!token) return false
+  const escaped = token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const re = new RegExp(`(?<![가-힣])${escaped}`, 'g')
+  const deny = AMBIGUOUS_FOLLOWERS[token]
+  for (const match of text.matchAll(re)) {
+    const rest = text.slice((match.index ?? 0) + token.length)
+    if (deny?.test(rest)) continue
+    return true
+  }
+  return false
+}
+
+/**
+ * 글이 **다른 지역** 이야기인지 판정한다.
+ *
+ * 배경: '중앙시장'(경북 김천) 에 강릉·속초·통영·문경 중앙시장 글이 131건 붙어 있었고,
+ * 채점 함수는 김천 글과 강릉 글에 똑같이 60점을 줬다 (2026-09-04 실측).
+ *
+ * 순서가 중요하다. **주차장 이름을 먼저 지운다** — 그러지 않으면
+ * '서울대공원'(경기 과천 소재) 의 '서울' 을 충돌로 세어 맞는 글을 떨어뜨린다.
+ * 이름을 지우고 나면 '속초중앙시장' 은 '속초' 만 남아 경계 조건도 만족한다.
+ */
+export function detectRegionConflict(text: string, parkingName: string, address: string): boolean {
+  let rest = stripHtml(text)
+  const nameTokens = [parkingName, ...extractNameKeywords(parkingName)].sort(
+    (a, b) => b.length - a.length,
   )
-  return match ? match[1] : ''
+  for (const token of nameTokens) {
+    if (token.length >= 2) rest = rest.split(token).join(' ')
+  }
+
+  const ownCity = extractCity(address)
+  if (ownCity && mentionsToken(rest, ownCity)) return false
+
+  const ownProvince = extractProvince(address)
+  const ownAliases = PROVINCE_ALIASES.find(([c]) => c === ownProvince)?.[1] ?? []
+  if (ownAliases.some((a) => mentionsToken(rest, a))) return false
+
+  if (CITY_NAMES.some((c) => c !== ownCity && mentionsToken(rest, c))) return true
+  return PROVINCE_ALIASES.some(
+    ([canonical, aliases]) =>
+      canonical !== ownProvince && aliases.some((a) => mentionsToken(rest, a)),
+  )
 }
 
 export type MatchConfidence = 'high' | 'medium' | 'none'
@@ -326,12 +638,10 @@ export function scoreBlogRelevance(
     score = Math.min(score, 40)
   }
 
-  // 이름 매칭됐지만 광역 지역 불일치 → 동명이인 감점
-  if (nameMatched && regionMatched === false) {
-    const province = extractProvince(address)
-    if (province && !combined.includes(province)) {
-      score = Math.max(0, score - 30)
-    }
+  // 글이 다른 지역 이야기면 동명이인이다. 40점을 깎아 임계값(40) 아래로 떨어뜨린다.
+  // 이전 구현은 `extractProvince` 가 긴 주소 표기를 못 읽어 한 번도 발동하지 않았다.
+  if (nameMatched && detectRegionConflict(combined, parkingName, address)) {
+    score = Math.max(0, score - 40)
   }
 
   return Math.min(100, score)
@@ -424,12 +734,9 @@ export function scoreBlogRelevanceFull(
     score = Math.min(score, 40)
   }
 
-  // 광역 지역 불일치 감점 (동명이인)
-  if (nameMatched && !regionMatched) {
-    const province = extractProvince(address)
-    if (province && !combined.includes(province)) {
-      score = Math.max(0, score - 30)
-    }
+  // 글이 다른 지역 이야기면 동명이인이다 (v1 과 같은 규칙).
+  if (nameMatched && detectRegionConflict(combined, parkingName, address)) {
+    score = Math.max(0, score - 40)
   }
 
   // 본문 길이 정규화: 너무 길고 키워드 밀도 낮으면 감점
