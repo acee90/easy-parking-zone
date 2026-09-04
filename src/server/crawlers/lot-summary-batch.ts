@@ -159,13 +159,15 @@ async function fetchLotInputs(
 }> {
   const web = await db
     .prepare(
-      // 정보 모음 사이트(경쟁 애그리게이터)는 후기가 아니라 공공데이터 재배포다.
-      // 집계에 섞이면 요약이 우리 데이터를 되풀이하게 된다.
+      // 탈락 표시된 근거는 전부 제외한다. 사유 문자열 하나만 보던 것을 판정값으로 바꿨다 —
+      // 'aggregator_site'(정보 모음 사이트 재배포)만 걸러지고 'wrong_region'(다른 지역
+      // 동명 시설, 2026-09-04 기준 1,180건)은 그대로 요약 입력에 들어오고 있었다.
+      // `IS NOT 0` 이라 미평가(NULL)는 통과시킨다 — 나쁜 게 아니라 아직 안 본 것이다.
       `SELECT ai_summary AS content
          FROM web_sources
         WHERE parking_lot_id = ?1
           AND ai_summary IS NOT NULL AND ai_summary != ''
-          AND filter_v2_reason IS NOT 'aggregator_site'
+          AND filter_passed_v2 IS NOT 0
           AND relevance_score >= ?2
         ORDER BY relevance_score DESC
         LIMIT ?3`,
