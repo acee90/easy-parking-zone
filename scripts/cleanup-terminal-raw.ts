@@ -63,11 +63,15 @@ function main() {
     console.log('종결 행 없음. 할 일 없다.')
     return
   }
-  const [keep] = d1Query<{ n: number }>(
-    `SELECT COUNT(*) AS n FROM web_sources_raw r WHERE NOT ${TERMINAL_RAW_CONDITION}`,
-  )
+  // 보존 수는 `NOT (조건)` 으로 세면 안 된다 — SQL 3값 논리 때문이다.
+  // filter_passed 가 NULL 인 행(youtube_video 등)은 `filter_passed = 0` 이 NULL 이라
+  // 조건 전체가 NULL 이 되고, `NOT NULL` 도 NULL 이라 WHERE 를 통과하지 못한다.
+  // 그 행들은 삭제도 안 되고(WHERE 는 TRUE 만 통과) 보존 집계에도 안 잡혀 사라진 것처럼 보인다.
+  // 실제로 2026-09-04 기준 1,591행이 이 상태였다. 전체에서 빼는 방식이 정확하다.
+  const [total] = d1Query<{ n: number }>(`SELECT COUNT(*) AS n FROM web_sources_raw`)
+  const keep = (total?.n ?? 0) - scope.n
   console.log(`삭제 대상 ${scope.n.toLocaleString()}행 (id ${scope.min_id}~${scope.max_id})`)
-  console.log(`보존 ${(keep?.n ?? 0).toLocaleString()}행`)
+  console.log(`보존 ${keep.toLocaleString()}행 (전체 ${(total?.n ?? 0).toLocaleString()}행)`)
 
   // 3. id 구간 DELETE 문 emit
   //    본문 → 원장 순서를 구간마다 지킨다. 원장을 먼저 지우면 본문이 고아가 된다.
