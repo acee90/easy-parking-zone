@@ -207,6 +207,8 @@ function main() {
                ${p.c.sourceIds.length ? `'${esc(p.c.sourceIds.join('|'))}'` : 'NULL'}, '${id}', ${p.lots.length}, ${p.freeCount});`,
       `UPDATE destinations SET lot_count = ${p.lots.length}, free_count = ${p.freeCount}, updated_at = datetime('now') WHERE id = '${id}';`,
       `DELETE FROM destination_lots WHERE destination_id = '${id}';`,
+      // alias 도 재계산한다. INSERT OR IGNORE 만 있으면 잘못 붙은 alias 가 영원히 남는다 (2026-09-03 실제로 남았다)
+      `DELETE FROM destination_aliases WHERE destination_id = '${id}';`,
     )
     for (const l of p.lots) {
       const ev = l.evidenceSourceId ? `'web_source:${l.evidenceSourceId}'` : 'NULL'
