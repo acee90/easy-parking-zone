@@ -129,7 +129,7 @@ function resolveLots(): LotRow[] {
           SELECT COUNT(*) FROM web_sources w
           WHERE w.parking_lot_id = p.id
             AND w.ai_summary IS NOT NULL AND w.ai_summary != ''
-            AND w.filter_v2_reason IS NOT 'aggregator_site'
+            AND w.filter_passed_v2 IS NOT 0
             AND w.relevance_score >= 40
         ) >= ${minSources}
       ORDER BY COALESCE(s.final_score, 0) DESC
@@ -180,15 +180,17 @@ function prefetchSources(lots: LotRow[]): void {
   if (lots.length === 0) return
   const inList = lots.map((l) => `'${esc(l.id)}'`).join(',')
 
-  // 정보 모음 사이트(경쟁 애그리게이터)는 후기가 아니라 공공데이터 재배포다.
-  // 2026-09-03 실측: 요약을 가진 행 2,794건이 그대로 입력에 섞이고 있었다.
+  // 탈락 표시된 근거는 전부 제외한다. 사유 문자열 하나만 보던 것을 판정값으로 바꿨다 —
+  // 'aggregator_site'(정보 모음 사이트 재배포, 2,794건)만 걸러지고
+  // 'wrong_region'(다른 지역 동명 시설, 1,180건)은 그대로 들어오고 있었다.
+  // `IS NOT 0` 이라 아직 평가 안 된 행(NULL)은 그대로 통과시킨다 — 나쁜 게 아니라 미평가다.
   const web = d1Query<WebRowWithLot>(
     `SELECT parking_lot_id, ai_summary AS content
      FROM web_sources
      WHERE parking_lot_id IN (${inList})
        AND ai_summary IS NOT NULL
        AND ai_summary != ''
-       AND filter_v2_reason IS NOT 'aggregator_site'
+       AND filter_passed_v2 IS NOT 0
        AND relevance_score >= 40
      ORDER BY parking_lot_id, relevance_score DESC`,
   )

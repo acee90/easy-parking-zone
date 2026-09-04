@@ -491,6 +491,13 @@ function buildInsert(
   //   - AI 검증을 거친 행: 통과했을 때만 여기 오므로 1
   //   - rule=high 행: 글 판정 호출(judgeArticle)의 결과를 그대로 쓴다
   // 이 값이 NULL 이면 스코어링이 그 행을 세지 않는다 (scoring-engine.ts `= 1`).
+  //
+  // ⚠️ `1` 의 뜻이 두 경로에서 다르다.
+  //    FILTER_V2 를 거친 행의 `1` 은 **이 주차장 글이 맞다**(lot_name·lot_address 확인)는 뜻이고,
+  //    rule=high 행의 `1` 은 **글이 괜찮다**는 뜻일 뿐이다 — `judgeArticle` 은 `(lot 무관)` 이라
+  //    어느 주차장 글인지 보지 않는다. 그래서 `= 1` 을 "매칭 검증됨"으로 읽으면 안 된다.
+  //    동명이지 오매칭은 상류에서 막는다 — `getMatchConfidence` → `scoreBlogRelevance` 의
+  //    `detectRegionConflict` 가 다른 지역 글을 40점 아래로 떨어뜨려 confidence 를 'none' 으로 만든다.
   const filterPassedV2 = aiResult
     ? 1
     : article.filterPassed === null
