@@ -46,6 +46,19 @@ describe('WebSourceListSection', () => {
     expect(screen.getByText('cafe.naver.com')).toBeTruthy()
   })
 
+  it('전체 수를 넘기면 목록 길이가 아니라 전체 수를 제목에 쓰고, 잘렸다고 밝힌다', () => {
+    // 목록은 30건에서 잘린다 — 길이를 제목에 쓰면 히어로·후기 종합의 "N건" 과 어긋난다
+    const { rerender } = render(
+      <WebSourceListSection sources={sources} excludedCount={0} totalCount={51} />,
+    )
+    expect(screen.getByText('51')).toBeTruthy()
+    expect(screen.getByText(/상위/).textContent).toContain('2건만 실었습니다')
+
+    // 전체 수가 목록 길이와 같으면 잘렸다는 말을 하지 않는다
+    rerender(<WebSourceListSection sources={sources} excludedCount={0} totalCount={2} />)
+    expect(screen.queryByText(/상위/)).toBeNull()
+  })
+
   it('제외된 정보 모음 사이트 수가 0이면 안내 문구를 붙이지 않는다', () => {
     const { rerender } = render(<WebSourceListSection sources={sources} excludedCount={0} />)
     expect(screen.queryByText(/정보 모음 사이트/)).toBeNull()

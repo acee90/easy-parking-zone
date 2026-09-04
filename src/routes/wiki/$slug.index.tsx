@@ -41,7 +41,8 @@ function WikiDetailPage() {
 
   const summary = lot.aiSummary
   const slug = makeParkingSlug(lot.name, lot.id)
-  const hasAiTips = Boolean(lot.aiTipPricing || lot.aiTipVisit || lot.aiTipAlternative)
+  // 읽은 글이 0건이면 태그가 있어도 분위기를 열지 않는다 — EvaluationSection 과 같은 기준
+  const hasSentiment = webSentiment !== null && webSentiment.count > 0
   // TanStack Start head API의 links/scripts가 SSR HTML에 직렬화 안 되어
   // React 19 metadata hoisting으로 head에 inject한다.
   const canonicalUrl = getParkingCanonicalUrl(lot)
@@ -111,25 +112,31 @@ function WikiDetailPage() {
             <LotHeroSection
               lot={lot}
               realReviewCount={tabCounts.realReviews ?? 0}
-              realReviewScore={tabCounts.realReviewScore ?? null}
+              // `webSources.sources.length` 는 LIMIT 30 페이지 크기다 — 개수가 아니다.
+              // `tabCounts.blog` 가 같은 필터(relevance≥40 · 애그리게이터 제외)의 전체 수.
+              webCount={tabCounts.blog ?? 0}
             />
           </div>
 
-          {/* 웹 후기 분위기 — 히어로의 이용자 별점 바로 아래에 붙인다.
-            둘 다 "이 주차장이 어떤가"에 답하는 값이라 떨어져 있으면 두 번 판단하게 된다.
-            이용자 별점은 히어로가 정본이고 여기서는 웹 글의 어조만 다룬다(중복 제거). */}
-          {/* 후기 종합 — 이 페이지에서 가장 읽을 값이 있는 블록이라 지표 바로 다음에 둔다.
-              시안은 「평가 남기기」 뒤였는데, 실제로 그리고 보니 스크롤 절반 아래로 밀려
-              눈에 띄지 않았다. 팁도 같은 종합에서 나온 값이라 함께 둔다. */}
-          {(summary || hasAiTips) && (
+          {/* 페이지 순서(2026-09-04): 요금·점수 히어로 → AI 후기 요약 → 실제 후기 → 일반 정보.
+              중요한 순서대로다. 위치·요금 계산·주변 비교는 "갈지 말지" 정한 뒤에 보는 값이다. */}
+
+          {/* 후기 종합 — 가장 읽을 값이 있는 블록이라 지표 바로 다음에 둔다.
+              팁 3종 중 방문·대안은 예전엔 여기 나란히 쌓아 4개짜리 글 벽이 됐다 — 각자
+              연관 섹션(위치·대안 목록)으로 옮겼다. 요금 팁은 후기 종합만큼 바로 필요한
+              정보라 여기 같이 둔다.
+              웹 후기 분위기(막대·자주 나온 말)는 예전엔 「평가」 섹션에서 이용자 별점과
+              나란히 그렸다. 점수는 히어로 「쉬움 점수」 하나로 합쳤고, 여기서는 그 근거만 보인다. */}
+          {(summary || lot.aiTipPricing || hasSentiment) && (
             <section className="flex flex-col">
               <div className="mb-[11px] flex flex-wrap items-center justify-between gap-2.5">
                 <h2 className="m-0 text-[17px] font-extrabold tracking-[-0.015em] text-ink">
                   후기 종합
                 </h2>
-                {webSources.sources.length > 0 && (
+                {(tabCounts.blog ?? 0) > 0 && (
+                  // 목록(sources)은 30건에서 잘리므로 길이를 세지 않는다 — 히어로 캡션과 같은 값
                   <span className="text-[11.5px] tabular-nums text-muted-foreground">
-                    후기 {webSources.sources.length.toLocaleString()}건 정리
+                    후기 {(tabCounts.blog ?? 0).toLocaleString()}건 정리
                   </span>
                 )}
               </div>
@@ -139,67 +146,39 @@ function WikiDetailPage() {
                   {summary}
                 </p>
               )}
-              {hasAiTips && (
-                <div className={`space-y-3 ${summary ? 'mt-4' : ''}`}>
-                  {lot.aiTipPricing && (
-                    <div className="text-[14px] leading-relaxed text-ink-2">
-                      <span className="mb-0.5 block text-[13px] font-bold text-ink">
-                        {lot.pricing.isFree ? '요금 (무료)' : '요금 (유료)'}
-                      </span>
-                      {lot.aiTipPricing}
-                    </div>
-                  )}
-                  {lot.aiTipVisit && (
-                    <div className="text-[14px] leading-relaxed text-ink-2">
-                      <span className="mb-0.5 block text-[13px] font-bold text-ink">
-                        {lot.difficulty.score !== null && lot.difficulty.score >= 4.0
-                          ? '방문 팁 (초보 추천)'
-                          : lot.difficulty.score !== null && lot.difficulty.score < 2.0
-                            ? '방문 팁 (주의 필요)'
-                            : '방문 팁'}
-                      </span>
-                      {lot.aiTipVisit}
-                    </div>
-                  )}
-                  {lot.aiTipAlternative && (
-                    <div className="text-[14px] leading-relaxed text-ink-2">
-                      <span className="mb-0.5 block text-[13px] font-bold text-ink">
-                        주변 주차장 대안
-                      </span>
-                      {lot.aiTipAlternative}
-                    </div>
-                  )}
+              {lot.aiTipPricing && (
+                <div className={`text-[14px] leading-relaxed text-ink-2 ${summary ? 'mt-3' : ''}`}>
+                  <span className="mb-0.5 block text-[13px] font-bold text-ink">
+                    {lot.pricing.isFree ? '요금 팁 (무료)' : '요금 팁'}
+                  </span>
+                  {lot.aiTipPricing}
                 </div>
               )}
+              <EvaluationSection sentiment={webSentiment} />
             </section>
           )}
 
-          {/* 위치 */}
-          <LotLocationSection lot={lot} />
-
-          <EvaluationSection
-            userScore={tabCounts.realReviewScore ?? null}
-            userCount={tabCounts.realReviews ?? 0}
-            sentiment={webSentiment}
-          />
-
-          {/* 이용자 후기 + 평가 남기기 —— 사람이 쓴 것을 위에 둔다.
-              실사용자 리뷰가 87곳(0.27%)뿐이라 작성 폼이 하단에 있으면 참여가 늘 수 없다. */}
+          {/* 이용자 후기 + 평가 남기기 — AI 요약 다음이 실제 후기다 */}
           <ParkingReputationSections
             lotId={lot.id}
             expanded
             // 흰 시트 위 흰 카드는 경계가 안 보인다 (디자인 규칙 §8)
             bordered
-            // 후기 작성이 목록보다 먼저다. 후기를 모으는 게 이 사이트의 정체성인데
-            // 실사용자 리뷰가 87곳(0.27%)뿐이라, 대부분의 페이지에서 목록은 비어 있고
-            // 그 아래 폼은 눈에 띄지 않는다.
-            sections={['write', 'reviews']}
+            // 리뷰가 먼저, 작성 폼은 그 뒤다 — 읽는 사람이 먼저 온다.
+            sections={['reviews', 'write']}
             initialReviews={reviews}
             initialTabCounts={tabCounts}
             viewAllSlug={slug}
           />
+
+          {/* ── 여기부터는 일반 정보 — 위치 · 요금 계산 · 주변 비교 · FAQ · 근거 ── */}
+
+          {/* 위치 — 「방문 전 확인 항목」 성격이라 방문 팁을 여기 함께 둔다 */}
+          <LotLocationSection lot={lot} visitTip={lot.aiTipVisit} />
+
           {/* 요금 계산 — 요금 정보가 모자란 주차장에서는 스스로 렌더하지 않는다.
-              무료 주차장에서는 계산할 것이 없다 (「0원」만 크게 남는다). */}
+              무료 주차장에서는 계산할 것이 없다 (「0원」만 크게 남는다).
+              요금 팁은 위 후기 종합에 이미 있어 여기서 또 넣지 않는다. */}
           {!lot.pricing.isFree && <FeeCalculatorSection lot={lot} />}
 
           {/* 주변 주차장 비교표 — 사이드바에서 본문으로 옮겼다.
@@ -207,8 +186,9 @@ function WikiDetailPage() {
           <RelatedParkingLotsSection lot={lot} lots={relatedLots} />
 
           {/* 후기에서 함께 언급된 주차장 — "여기 말고 어디" 계열이라 비교표 바로 뒤에 둔다.
-            우리 DB 와 이름이 정확히 맞고 3km 이내인 것만 저장돼 있다. */}
-          <AlternativeLotsSection items={alternativeLots} />
+            우리 DB 와 이름이 정확히 맞고 3km 이내인 것만 저장돼 있다.
+            대안 팁도 같은 주제라 여기 함께 둔다. */}
+          <AlternativeLotsSection items={alternativeLots} tip={lot.aiTipAlternative} />
 
           {/* 이 주차장으로 갈 수 있는 곳 — 목적지 페이지(/near)로 올라가는 링크 (#166).
             발행된 목적지가 없으면 스스로 그리지 않는다. */}
@@ -223,6 +203,7 @@ function WikiDetailPage() {
           <WebSourceListSection
             sources={webSources.sources}
             excludedCount={webSources.excludedCount}
+            totalCount={tabCounts.blog ?? 0}
           />
           {/* 주변 갈만한 곳 — 사이드바를 없앴다. 시안은 단일 흐름이다 */}
           {nearbyPlaces.length > 0 && <NearbyPlacesSection places={nearbyPlaces} />}

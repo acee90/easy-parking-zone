@@ -14,7 +14,14 @@ import type { ParkingLot } from '@/types/parking'
  * 운영시간이 여기 있는 이유: 구조화 데이터로 `openingHoursSpecification` 을 내보내는데
  * 화면에 없으면 **검색엔진에만 보이는 값**이 된다. 별점 마크업에서 이미 한 번 겪은 문제다.
  */
-export function LotLocationSection({ lot }: { lot: ParkingLot }) {
+export function LotLocationSection({
+  lot,
+  visitTip,
+}: {
+  lot: ParkingLot
+  /** 후기 종합에서 뽑은 방문 팁 — "방문 전 확인 항목"이라는 이 섹션 성격과 맞아 여기 둔다 */
+  visitTip?: string | null
+}) {
   const operatingHours = formatOperatingHours(lot.operatingHours)
   const phoneLabel = formatPhone(lot.phone)
 
@@ -71,6 +78,19 @@ export function LotLocationSection({ lot }: { lot: ParkingLot }) {
             </div>
           )}
         </div>
+
+        {visitTip && (
+          <div className="text-[14px] leading-relaxed text-ink-2">
+            <span className="mb-0.5 block text-[13px] font-bold text-ink">
+              {lot.difficulty.score !== null && lot.difficulty.score >= 4.0
+                ? '방문 팁 (초보 추천)'
+                : lot.difficulty.score !== null && lot.difficulty.score < 2.0
+                  ? '방문 팁 (주의 필요)'
+                  : '방문 팁'}
+            </span>
+            {visitTip}
+          </div>
+        )}
       </div>
     </SectionShell>
   )

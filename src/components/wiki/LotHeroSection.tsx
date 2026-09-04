@@ -52,11 +52,7 @@ function feeTableCaption(pricing: ParkingLot['pricing']): string | null {
  * `base_fee × 60 / base_time` 같은 근사값을 채워 넣던 것이 유료 주차장의 33% 에서
  * 틀린 금액을 보여주고 있었다 (`parking-fee.ts` 참조).
  */
-function buildKpis(
-  lot: ParkingLot,
-  realReviewCount: number,
-  realReviewScore: number | null,
-): Kpi[] {
+function buildKpis(lot: ParkingLot, realReviewCount: number, webCount: number): Kpi[] {
   const kpis: Kpi[] = []
 
   // 네 칸은 **항상** 그린다.
@@ -122,26 +118,36 @@ function buildKpis(
     kpis.push({ key: 'spaces', label: '주차면', value: '정보 없음', muted: true })
   }
 
-  // ④ 이용자 별점
+  // ④ 쉬움 점수 — 이용자 후기·웹 후기·구조 정보를 합친 통합 점수 (`parking_lot_stats.final_score`)
   //
-  // 이용자 후기는 진입·주차면·통로·출차를 매긴다 — 곧 주차 난이도 평가다.
-  // 그래서 이 칸이 아래 「웹 후기 분위기」와 다른 값이고, 이용자 별점의 **정본**이다.
+  // 예전엔 이 칸이 「이용자 별점」이었고 웹 후기 어조는 아래 「평가」에서 따로 그렸다.
+  // "여기 주차가 어떤가" 하나에 숫자를 두 개 내놓는 셈이라 하나로 합쳤다(2026-09-04).
+  // 목록 카드·FAQ 가 이미 이 값을 「쉬움 점수」로 부르고 있어 이름을 맞춘다.
   //
-  // ⚠️ 후기가 없을 때 `difficulty.score`(구조 기반 추정)를 여기 채우지 말 것.
-  //    한때 그렇게 내보내서 이용자 2명이 0.5를 준 주차장이 2.3으로 표시됐다.
-  //    추정값은 목록·정렬에서 쓰고, 이 자리는 사람이 매긴 것만 쓴다.
-  if (realReviewCount > 0 && realReviewScore !== null) {
+  // ⚠️ 별 아이콘·`/5` 를 쓰지 않는다. 웹 감성은 AI 추정값이라 별점처럼 보이면 안 되고,
+  //    구조화 데이터(AggregateRating)에도 이 값을 내보내지 않는다 — 그건 실사용자 별점만.
+  // ⚠️ 신호가 모자라면(`reliability` 가 confirmed/estimated 가 아니면) `final_score` 는
+  //    3.0 prior 에 가깝다. 그 값을 점수처럼 내보내면 안 된다 — `—` 로 둔다.
+  // ⚠️ 리뷰가 1~2건일 땐 prior(PRIOR_C=2.5)에 끌려 이용자 별점과 0.5 이상 벌어질 수 있다
+  //    (로컬 실측 2026-09-04: 실리뷰 1건 lot 10곳 중 9곳, 평균 차 0.88). 캡션에 구성을
+  //    밝혀 두는 이유다. PRIOR_C 조정은 시뮬레이션 후 별도 결정 — scoring-recompute.design.md §10.
+  const { score, reliability } = lot.difficulty
+  const hasSignal = score !== null && (reliability === 'confirmed' || reliability === 'estimated')
+  if (hasSignal) {
+    const basis = [
+      realReviewCount > 0 ? `이용자 ${realReviewCount.toLocaleString()}명` : null,
+      webCount > 0 ? `참고한 글 ${webCount.toLocaleString()}건` : null,
+    ].filter((s): s is string => s !== null)
     kpis.push({
       key: 'score',
-      label: '이용자 별점',
-      value: realReviewScore.toFixed(1),
-      unit: '/5',
-      caption: `이용자 ${realReviewCount.toLocaleString()}명`,
+      label: '쉬움 점수',
+      value: score.toFixed(1),
+      caption: basis.length > 0 ? basis.join(' · ') : '후기 종합',
     })
   } else {
     kpis.push({
       key: 'score',
-      label: '이용자 별점',
+      label: '쉬움 점수',
       value: '—',
       caption: '첫 후기를 기다립니다',
       muted: true,
@@ -154,13 +160,20 @@ function buildKpis(
 export function LotHeroSection({
   lot,
   realReviewCount,
-  realReviewScore,
+  webCount,
 }: {
   lot: ParkingLot
+  /** 실사용자(is_seed=0) 후기 수 — 캡션용. `difficulty.reviewCount` 는 시드를 포함해 쓰지 않는다 */
   realReviewCount: number
-  realReviewScore: number | null
+  /**
+   * 참고한 웹 글 수 — `tabCounts.blog`(relevance≥40 · 애그리게이터 제외, LIMIT 없음).
+   * 「후기 종합」의 "N건 정리" 와 같은 값을 넘긴다. 목록(`webSources.sources`)은 30건에서
+   * 잘리므로 그 길이를 쓰면 글이 많은 lot 일수록 적게 보인다.
+   * 점수 입력(`web_count`, relevance>30 · filter_v2)과는 기준이 달라 「참고한 글」로 부른다.
+   */
+  webCount: number
 }) {
-  const kpis = buildKpis(lot, realReviewCount, realReviewScore)
+  const kpis = buildKpis(lot, realReviewCount, webCount)
   const score = lot.difficulty.score
   const perk = lot.notes?.trim() || null
 
