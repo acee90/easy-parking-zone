@@ -39,15 +39,45 @@ export const FAILED_FULL_TEXT_STATUSES = [
 ] as const
 
 /**
+ * 검수 표본으로 남길 탈락 행의 비율(1/N)과 보존 기간(일).
+ *
+ * 왜 남기는가: 필터를 강화할지 완화할지는 **버린 것을 봐야** 정해진다.
+ * 통과분만 보면 false positive 만 보이고, "좋은 글을 버리고 있는지"(false negative)는
+ * 영영 알 수 없다. 탈락 행을 즉시 지우면 그 표본이 사라진다.
+ *
+ * 크기: 유입 약 2,000행/일 × 1% × 30일 ≈ 600행. 본문까지 들고 있어도 7MB 수준이다.
+ * `id % 100` 은 결정적이라 실행 시점과 무관하게 같은 행이 뽑힌다 — 재현 가능한 표본이다.
+ *
+ * 검수 절차는 docs/references/pipeline-quality-check.md 가 갖는다.
+ */
+export const AUDIT_SAMPLE_MODULUS = 100
+export const AUDIT_SAMPLE_RETENTION_DAYS = 30
+
+/** 검수 표본으로 보존할 행 (탈락분만 — 통과분의 사본은 web_sources 에 있다) */
+const AUDIT_SAMPLE_CONDITION = `(
+  r.filter_passed = 0
+  AND r.id % ${AUDIT_SAMPLE_MODULUS} = 0
+  AND r.crawled_at >= datetime('now', '-${AUDIT_SAMPLE_RETENTION_DAYS} day')
+)`
+
+/**
  * 종결 행을 고르는 SQL 조건. `web_sources_raw` 를 `r` 로 별칭한 쿼리에서 쓴다.
  *
  * 크론(scheduled.ts)과 일괄 정리 스크립트(scripts/cleanup-terminal-raw.ts)가
  * **같은 상수**를 쓴다. 두 벌로 갈라지면 한쪽만 고치는 일이 반복된다.
+ *
+ * ⚠️ 이 조건은 SQL 3값 논리 위에서 돈다. filter_passed 가 NULL 인 행(youtube_video)은
+ *    `filter_passed = 0` 이 NULL 이라 조건 전체가 NULL 이 되고, WHERE 는 TRUE 만
+ *    통과시키므로 지워지지 않는다 — 의도한 동작이다. 다만 `NOT (이 조건)` 으로 보존
+ *    행수를 세면 그 행들이 양쪽 어디에도 안 잡힌다. 보존 수는 전체에서 빼서 구할 것.
  */
 export const TERMINAL_RAW_CONDITION = `(
-  r.filter_passed = 0
-  OR r.matched_at IS NOT NULL
-  OR r.full_text_status IN (${FAILED_FULL_TEXT_STATUSES.map((s) => `'${s}'`).join(', ')})
+  (
+    r.filter_passed = 0
+    OR r.matched_at IS NOT NULL
+    OR r.full_text_status IN (${FAILED_FULL_TEXT_STATUSES.map((s) => `'${s}'`).join(', ')})
+  )
+  AND NOT ${AUDIT_SAMPLE_CONDITION}
 )`
 
 /**

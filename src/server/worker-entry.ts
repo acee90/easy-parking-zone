@@ -7,6 +7,7 @@
 
 import { createStartHandler, defaultRenderHandler } from '@tanstack/react-start/server'
 import { NodeHtmlMarkdown } from 'node-html-markdown'
+import { recordDailyStats } from './crawlers/lib/pipeline-stats'
 import { processScoreRecomputeMessages, type ScoreRecomputeMessage } from './queues/score-recompute'
 import {
   markSourceFilterTerminal,
@@ -378,6 +379,16 @@ export default {
         console.log(
           `[source-filter-queue] ${result.filtered}/${result.requested} filtered (${result.passed} passed, ${result.removed} removed)`,
         )
+        // 운영에서 룰 필터는 **여기서만** 돈다 (크론의 인라인 경로는 큐 바인딩이 없을 때만).
+        // 통과/탈락 카운터를 여기서 안 남기면 품질 검수의 수율 지표가 영원히 0 이다.
+        try {
+          await recordDailyStats(env.DB, {
+            'filter:pass': result.passed,
+            'filter:drop': result.removed,
+          })
+        } catch (statsErr) {
+          console.error('[source-filter-queue] daily-stats failed', statsErr)
+        }
         for (const message of messages) message.ack()
       } catch (err) {
         // 처리는 멱등(`ai_filtered_at IS NULL`)이라 일부가 이미 반영됐어도 두 번 쓰지 않는다.

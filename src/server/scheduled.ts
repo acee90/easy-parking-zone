@@ -20,6 +20,7 @@ import { runAiFilterBatch } from './crawlers/ai-filter-batch'
 import { runBraveSearchBatch } from './crawlers/brave-search'
 import { runDuckDuckGoBatch } from './crawlers/duckduckgo-search'
 import { syncQueue } from './crawlers/lib/crawl-queue'
+import { recordDailyStats } from './crawlers/lib/pipeline-stats'
 import { RAW_DELETE_LIMIT_PER_RUN, TERMINAL_RAW_CONDITION } from './crawlers/lib/raw-retention'
 import { recomputeStats } from './crawlers/lib/scoring-engine'
 import { runLotSummaryBatch } from './crawlers/lot-summary-batch'
@@ -43,6 +44,9 @@ interface Env {
 
 export async function handleScheduled(env: Env): Promise<void> {
   const results: string[] = []
+  // 단계별 일일 카운터 (0056). 종결 raw 를 지우기 시작해 DB 에서 사후 집계가 안 되므로
+  // 회차마다 여기 모았다가 마지막에 한 번 기록한다. 품질 검수가 이 값을 읽는다.
+  const stats: Record<string, number> = {}
 
   // ── 1. 크롤링 → web_sources_raw ──
 
@@ -52,6 +56,7 @@ export async function handleScheduled(env: Env): Promise<void> {
         NAVER_CLIENT_ID: env.NAVER_CLIENT_ID,
         NAVER_CLIENT_SECRET: env.NAVER_CLIENT_SECRET,
       })
+      stats['crawl:naver'] = r.saved
       results.push(`naver: ${r.processed} lots, ${r.saved} saved`)
     } catch (err) {
       results.push(`naver: error - ${(err as Error).message}`)
@@ -63,6 +68,7 @@ export async function handleScheduled(env: Env): Promise<void> {
       const r = await runYoutubeBatch(env.DB, {
         YOUTUBE_API_KEY: env.YOUTUBE_API_KEY,
       })
+      stats['crawl:youtube'] = r.savedMedia + r.savedComments
       results.push(
         `youtube: ${r.processed} lots, ${r.savedMedia} media, ${r.savedComments} comments`,
       )
@@ -79,6 +85,7 @@ export async function handleScheduled(env: Env): Promise<void> {
       if (r.skipped) {
         results.push('brave: skipped (already ran today)')
       } else {
+        stats['crawl:brave'] = r.saved
         results.push(`brave: ${r.queriesUsed} queries, ${r.saved} saved`)
       }
     } catch (err) {
@@ -94,6 +101,8 @@ export async function handleScheduled(env: Env): Promise<void> {
     try {
       const r = await runRawFullTextBatch(env.DB, { CRAWL4AI_URL: env.CRAWL4AI_URL })
       if (r.processed > 0) {
+        stats['fulltext:ok'] = r.ok
+        stats['fulltext:failed'] = r.processed - r.ok - r.skipped
         results.push(`raw-fulltext: ${r.processed} processed, ${r.ok} ok, ${r.skipped} skipped`)
       }
     } catch (err) {
@@ -110,6 +119,8 @@ export async function handleScheduled(env: Env): Promise<void> {
     if (r.enqueued > 0) {
       results.push(`filter-enqueue: ${r.enqueued} raws → queue`)
     } else if (r.filtered > 0) {
+      stats['filter:pass'] = r.passed
+      stats['filter:drop'] = r.removed
       results.push(
         `ai-filter: ${r.filtered} processed inline, ${r.passed} passed, ${r.removed} removed (queue 없음)`,
       )
@@ -127,6 +138,9 @@ export async function handleScheduled(env: Env): Promise<void> {
       AI_BASE_URL: env.AI_BASE_URL,
     })
     if (r.matched > 0) {
+      stats['match:sources'] = r.matched
+      stats['match:links'] = r.lotLinks
+      stats['match:ai_verified'] = r.aiVerified
       results.push(
         `match: ${r.matched} sources → ${r.lotLinks} lot links (${r.aiVerified} AI verified, ${r.summarized} summarized)`,
       )
@@ -262,10 +276,20 @@ export async function handleScheduled(env: Env): Promise<void> {
     const bodies = deletedBodies.meta?.changes ?? 0
     const rows = deletedRows.meta?.changes ?? 0
     if (bodies > 0 || rows > 0) {
+      stats['purge:raw_rows'] = rows
       results.push(`purge: ${bodies} bodies, ${rows} raw rows`)
     }
   } catch (err) {
     results.push(`purge: error - ${(err as Error).message}`)
+  }
+
+  // ── 7. 일일 카운터 기록 (0056) ──
+  //
+  // 실패해도 파이프라인 판정에는 영향이 없다. 삼키고 로그에만 남긴다.
+  try {
+    await recordDailyStats(env.DB, stats)
+  } catch (err) {
+    results.push(`daily-stats: error - ${(err as Error).message}`)
   }
 
   console.log(`[scheduled] ${new Date().toISOString()} | ${results.join(' | ')}`)
@@ -277,12 +301,14 @@ export async function handleScheduled(env: Env): Promise<void> {
  */
 export async function handleDdgScheduled(env: Env): Promise<void> {
   const results: string[] = []
+  const stats: Record<string, number> = {}
 
   if (env.CRAWL4AI_URL) {
     try {
       const r = await runDuckDuckGoBatch(env.DB, {
         CRAWL4AI_URL: env.CRAWL4AI_URL,
       })
+      stats['crawl:ddg'] = r.saved
       results.push(`ddg: ${r.queriesUsed} queries, ${r.saved} saved`)
     } catch (err) {
       results.push(`ddg: error - ${(err as Error).message}`)
@@ -291,11 +317,19 @@ export async function handleDdgScheduled(env: Env): Promise<void> {
     try {
       const r = await runRawFullTextBatch(env.DB, { CRAWL4AI_URL: env.CRAWL4AI_URL })
       if (r.processed > 0) {
+        stats['fulltext:ok'] = r.ok
+        stats['fulltext:failed'] = r.processed - r.ok - r.skipped
         results.push(`raw-fulltext: ${r.processed} processed, ${r.ok} ok, ${r.skipped} skipped`)
       }
     } catch (err) {
       results.push(`raw-fulltext: error - ${(err as Error).message}`)
     }
+  }
+
+  try {
+    await recordDailyStats(env.DB, stats)
+  } catch (err) {
+    results.push(`daily-stats: error - ${(err as Error).message}`)
   }
 
   console.log(`[scheduled-ddg] ${new Date().toISOString()} | ${results.join(' | ')}`)
