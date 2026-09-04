@@ -63,7 +63,62 @@ export function RelatedParkingLotsSection({ lot, lots }: { lot: ParkingLot; lots
         첫 줄이 지금 보는 주차장입니다 · 거리는 직선거리 기준
       </p>
 
-      <div className="-mx-5 overflow-x-auto px-5 md:-mx-6 md:px-6">
+      {/* 좁은 화면에서는 표 대신 카드로 — 6칸짜리 표를 옆으로 잘라 보여주면
+          숨은 칸이 있다는 걸 알아채기 어렵다(가로 스크롤이 안 보이는 문제).
+          카드는 잘리지 않고 모든 값이 세로로 다 보인다. */}
+      <ul className="flex flex-col divide-y divide-zinc-100 md:hidden">
+        <li className="flex flex-col gap-1.5 py-3 first:pt-0">
+          <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+            <span className="font-bold text-primary">
+              {lot.name}
+              <span className="ml-1.5 rounded bg-primary/5 px-1.5 py-0.5 align-middle text-[10px] font-bold">
+                지금 보는 곳
+              </span>
+            </span>
+            <span className="text-sm font-bold tabular-nums">
+              <HourFee lot={lot} />
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12.5px] text-muted-foreground">
+            <span>{lot.totalSpaces > 0 ? `${lot.totalSpaces}면` : '면수 정보 없음'}</span>
+            <span className="text-ink-2">
+              <PricingCell lot={lot} />
+            </span>
+          </div>
+        </li>
+        {lots.map((related) => {
+          const km = getDistance(lot.lat, lot.lng, related.lat, related.lng)
+          return (
+            <li key={related.id} className="flex flex-col gap-1.5 py-3">
+              <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+                <Link
+                  to="/wiki/$slug"
+                  params={{ slug: makeParkingSlug(related.name, related.id) }}
+                  className="font-bold transition-colors hover:text-primary hover:underline"
+                >
+                  {related.name}
+                </Link>
+                <span className="text-sm font-bold tabular-nums">
+                  <HourFee lot={related} />
+                </span>
+              </div>
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12.5px] text-muted-foreground">
+                <span className="tabular-nums">
+                  {formatDistanceLabel(km)} · 도보 {walkMinutes(km)}분
+                </span>
+                <span>
+                  {related.totalSpaces > 0 ? `${related.totalSpaces}면` : '면수 정보 없음'}
+                </span>
+                <span className="text-ink-2">
+                  <PricingCell lot={related} />
+                </span>
+              </div>
+            </li>
+          )
+        })}
+      </ul>
+
+      <div className="hidden md:-mx-6 md:block md:overflow-x-auto md:px-6">
         <table className="w-full min-w-[560px] border-collapse text-sm">
           <thead>
             <tr className="bg-zinc-50 text-[11px] tracking-wide text-muted-foreground">

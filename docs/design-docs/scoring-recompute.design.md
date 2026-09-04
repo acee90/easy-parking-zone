@@ -323,6 +323,11 @@ bun --bun run build
 
 ## 10. Open Follow-ups
 
+- **`PRIOR_C` 재조정 (시뮬레이션 후 확정, 2026-09-04 결정 보류)**
+  - 배경: 상세페이지 히어로가 이용자 별점 대신 `final_score` 를 「쉬움 점수」로 보여주기 시작했다. 리뷰가 1~2건인 lot 은 prior(3.0)에 끌려 이용자 별점과 벌어진다 — 로컬 D1 실측(실리뷰 1건 lot 10곳): 평균 차 0.88, 10곳 중 9곳이 0.5 이상.
+  - 방향: 이용자 후기 가중치를 더 높인다. 후보는 `PRIOR_C` 2.5 → 1.0~1.5, 또는 리뷰 축의 effective weight 상향.
+  - 절차: (1) remote D1 에서 실리뷰 보유 lot 전체의 `|final_score − review_avg|` 분포 확보 → (2) 후보 파라미터별로 `computeFinalScore` 오프라인 시뮬레이션(목록 정렬 변동·hell/easy 큐레이션 일관성 재검증 포함) → (3) 값 확정 → (4) 별도 PR + 전체 recompute.
+  - 그 전까지 화면은 캡션에 구성(이용자 N명 · 참고한 글 M건)을 밝혀 차이를 설명한다.
 - 리뷰 등록 직후 UI polling/refetch
 - 지도 포인트 캐시 무효화
 - Queue DLQ + alerting

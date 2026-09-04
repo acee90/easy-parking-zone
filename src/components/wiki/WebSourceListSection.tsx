@@ -24,13 +24,20 @@ export interface WebSourceRef {
 export function WebSourceListSection({
   sources,
   excludedCount,
+  totalCount,
 }: {
   sources: WebSourceRef[]
   excludedCount: number
+  /**
+   * 같은 필터의 전체 글 수. `sources` 는 30건에서 잘리므로 길이를 제목에 쓰면
+   * 히어로·후기 종합의 "N건" 과 어긋난다. 안 넘기면 목록 길이를 쓴다.
+   */
+  totalCount?: number
 }): JSX.Element | null {
   const [open, setOpen] = useState(false)
 
   if (sources.length === 0) return null
+  const total = Math.max(totalCount ?? sources.length, sources.length)
 
   return (
     <section className="flex flex-col">
@@ -38,8 +45,13 @@ export function WebSourceListSection({
         {/* 제외 안내는 건수와 같은 줄에 둔다 — "N건"만 보면 이게 전부인 줄 안다 */}
         <div className="flex flex-wrap items-baseline gap-x-2">
           <h2 className="m-0 text-[17px] font-extrabold tracking-[-0.015em] text-ink">
-            참고한 웹 글 <span className="tabular-nums">{sources.length}</span>건
+            참고한 웹 글 <span className="tabular-nums">{total}</span>건
           </h2>
+          {total > sources.length && (
+            <span className="text-[11.5px] tabular-nums text-muted-foreground">
+              상위 <span className="tabular-nums">{sources.length}</span>건만 실었습니다
+            </span>
+          )}
           {excludedCount > 0 && (
             <span className="text-[11.5px] tabular-nums text-muted-foreground">
               주차장 정보 모음 사이트 <span className="tabular-nums">{excludedCount}</span>건은
