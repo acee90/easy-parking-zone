@@ -3,6 +3,7 @@ import { and, count, eq, gt, sql } from 'drizzle-orm'
 import { getDb, schema } from '@/db'
 import { createAuth } from '@/lib/auth'
 import { enqueueScoreRecompute } from '@/server/queues/score-recompute'
+import { getClientIP } from '@/server/rate-limit'
 import type { UserReview } from '@/types/parking'
 import { type ReviewRow, rowToReview, validateScore } from './transforms'
 
@@ -22,14 +23,6 @@ async function hashIP(ip: string): Promise<string> {
   return Array.from(new Uint8Array(hash))
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('')
-}
-
-function getClientIP(request: Request): string {
-  return (
-    request.headers.get('cf-connecting-ip') ??
-    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
-    'unknown'
-  )
 }
 
 /** 주차장별 사용자 리뷰 목록 */

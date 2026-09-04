@@ -77,7 +77,7 @@ Cloudflare Secrets로 관리 (코드/config에 하드코딩 금지):
 | XSS | Mitigated | React 기본 이스케이프 + SSR |
 | CSRF | Mitigated | Cookie SameSite + Better Auth |
 | Auth Bypass | Mitigated | 서버사이드 세션 검증 |
-| Rate Limiting | Partial | Cloudflare 기본만, 커스텀 미적용 |
+| Rate Limiting | Partial | `fetchAllParkingPoints`(20req/60s)·`fetchParkingDetail`(60req/60s)는 IP 기준 Workers Rate Limiting 바인딩 적용(`src/server/rate-limit.ts`). 나머지 조회 API는 미적용 |
 | Dependency Audit | Not Active | `bun audit` 정기 실행 검토 |
 
 ## TODO
