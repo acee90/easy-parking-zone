@@ -24,6 +24,7 @@ Add shadcn components with: `npx shadcn@latest add <component>`
 - [Competitors](docs/references/competitors.md) — 경쟁 사이트 목록·발견 방법, 집계 제외 도메인, 결손 보강 판단 근거
 - [Scheduler Pipeline](docs/references/scheduler-pipeline.md) — scheduled.ts 자동 크롤링 파이프라인 아키텍처
 - [Pipeline Architecture](docs/references/pipeline-architecture.md) — 크롤링 파이프라인 arc42 아키텍처·리스크·업데이트 계획
+- [Pipeline Quality Check](docs/references/pipeline-quality-check.md) — 수집량·수율·표본 검수 규칙, 필터/refine 판정 트리
 - [Scoring / Recompute](docs/references/scoring-recompute.md) — 평점 산출 모델, Queue 재계산, scoring 컬럼 소유권
 - [Nearby Places Pipeline](docs/references/nearby-places-pipeline.md) — 주변 장소 AI 추출 파이프라인
 - [Web Sources AI Summary](docs/references/web-sources-ai-summary.md) — web_sources.ai_summary 재추출 스킬

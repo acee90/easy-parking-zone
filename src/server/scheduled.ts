@@ -20,6 +20,8 @@ import { runAiFilterBatch } from './crawlers/ai-filter-batch'
 import { runBraveSearchBatch } from './crawlers/brave-search'
 import { runDuckDuckGoBatch } from './crawlers/duckduckgo-search'
 import { syncQueue } from './crawlers/lib/crawl-queue'
+import { recordDailyStats } from './crawlers/lib/pipeline-stats'
+import { RAW_DELETE_LIMIT_PER_RUN, TERMINAL_RAW_CONDITION } from './crawlers/lib/raw-retention'
 import { recomputeStats } from './crawlers/lib/scoring-engine'
 import { runLotSummaryBatch } from './crawlers/lot-summary-batch'
 import { runMatchBatch } from './crawlers/match-to-lots'
@@ -42,6 +44,9 @@ interface Env {
 
 export async function handleScheduled(env: Env): Promise<void> {
   const results: string[] = []
+  // 단계별 일일 카운터 (0056). 종결 raw 를 지우기 시작해 DB 에서 사후 집계가 안 되므로
+  // 회차마다 여기 모았다가 마지막에 한 번 기록한다. 품질 검수가 이 값을 읽는다.
+  const stats: Record<string, number> = {}
 
   // ── 1. 크롤링 → web_sources_raw ──
 
@@ -51,6 +56,7 @@ export async function handleScheduled(env: Env): Promise<void> {
         NAVER_CLIENT_ID: env.NAVER_CLIENT_ID,
         NAVER_CLIENT_SECRET: env.NAVER_CLIENT_SECRET,
       })
+      stats['crawl:naver'] = r.saved
       results.push(`naver: ${r.processed} lots, ${r.saved} saved`)
     } catch (err) {
       results.push(`naver: error - ${(err as Error).message}`)
@@ -62,6 +68,7 @@ export async function handleScheduled(env: Env): Promise<void> {
       const r = await runYoutubeBatch(env.DB, {
         YOUTUBE_API_KEY: env.YOUTUBE_API_KEY,
       })
+      stats['crawl:youtube'] = r.savedMedia + r.savedComments
       results.push(
         `youtube: ${r.processed} lots, ${r.savedMedia} media, ${r.savedComments} comments`,
       )
@@ -78,6 +85,7 @@ export async function handleScheduled(env: Env): Promise<void> {
       if (r.skipped) {
         results.push('brave: skipped (already ran today)')
       } else {
+        stats['crawl:brave'] = r.saved
         results.push(`brave: ${r.queriesUsed} queries, ${r.saved} saved`)
       }
     } catch (err) {
@@ -93,6 +101,8 @@ export async function handleScheduled(env: Env): Promise<void> {
     try {
       const r = await runRawFullTextBatch(env.DB, { CRAWL4AI_URL: env.CRAWL4AI_URL })
       if (r.processed > 0) {
+        stats['fulltext:ok'] = r.ok
+        stats['fulltext:failed'] = r.processed - r.ok - r.skipped
         results.push(`raw-fulltext: ${r.processed} processed, ${r.ok} ok, ${r.skipped} skipped`)
       }
     } catch (err) {
@@ -109,6 +119,8 @@ export async function handleScheduled(env: Env): Promise<void> {
     if (r.enqueued > 0) {
       results.push(`filter-enqueue: ${r.enqueued} raws → queue`)
     } else if (r.filtered > 0) {
+      stats['filter:pass'] = r.passed
+      stats['filter:drop'] = r.removed
       results.push(
         `ai-filter: ${r.filtered} processed inline, ${r.passed} passed, ${r.removed} removed (queue 없음)`,
       )
@@ -126,6 +138,9 @@ export async function handleScheduled(env: Env): Promise<void> {
       AI_BASE_URL: env.AI_BASE_URL,
     })
     if (r.matched > 0) {
+      stats['match:sources'] = r.matched
+      stats['match:links'] = r.lotLinks
+      stats['match:ai_verified'] = r.aiVerified
       results.push(
         `match: ${r.matched} sources → ${r.lotLinks} lot links (${r.aiVerified} AI verified, ${r.summarized} summarized)`,
       )
@@ -219,36 +234,62 @@ export async function handleScheduled(env: Env): Promise<void> {
     results.push(`queue-sync: error - ${(err as Error).message}`)
   }
 
-  // ── 6. 본문 purge (terminal 행만) ──
+  // ── 6. 종결 raw 삭제 (본문 + 원장) ──
   //
-  // 처리가 끝난 raw의 본문은 더 이상 필요 없다. 이 단계가 없으면 본문이 무한 누적된다
-  // (2026-08 실측: 하루 약 60MB, 6일간 1.18GB→1.54GB).
+  // 이 단계는 원래 **본문만** 지웠다. 원장 행은 `full_text_status='purged'` 로 표시만
+  // 하고 남겨 두었는데, 지우는 코드가 어디에도 없어 영구 누적됐다
+  // (2026-09-04 실측: 152,085행 중 150,336행이 종결 상태로 잔류, 하루 1,600~2,300행 증가).
   //
-  // ⚠️ 조건을 `ai_filtered_at IS NOT NULL`로 바꾸지 말 것.
-  //    ai_filtered_at은 AI가 아니라 rule filter가 설정하고, lot-match가 아직 본문을
-  //    필요로 하므로 매칭 대기 행의 본문까지 지워 영구 zombie가 된다 (2026-06-09 사고).
-  //    본문이 정말 불필요해지는 시점은 rule 탈락(filter_passed=0) 또는 매칭 완료(matched_at)다.
+  // 원장까지 지워도 되는 근거는 마이그레이션 0049·0050·0051 이 이미 깔아 뒀다.
+  // 특히 재크롤: 중복 판정은 `seen_sources` 가 하고, 크롤러 4종이 삽입 전에 그걸 조회한다
+  // (2026-09-04 실측: raw 152,085행 전부 seen_sources 에 존재, 누락 0건).
+  //
+  // 순서가 중요하다. **본문을 먼저 지운다** — 원장을 먼저 지우면 본문 행이 고아가 되어
+  // JOIN 으로는 다시 찾을 수 없다.
+  //
+  // 종결의 정의는 `raw-retention.ts` 가 갖는다. 조건을 여기서 고치지 말 것.
   try {
-    const purge = await env.DB.prepare(
+    const deletedBodies = await env.DB.prepare(
       `DELETE FROM web_sources_raw_body
        WHERE raw_id IN (
-         SELECT id FROM web_sources_raw
-         WHERE full_text_status = 'ok'
-           AND (filter_passed = 0 OR matched_at IS NOT NULL)
+         SELECT b.raw_id
+           FROM web_sources_raw_body b
+           JOIN web_sources_raw r ON r.id = b.raw_id
+          WHERE ${TERMINAL_RAW_CONDITION}
        )`,
     ).run()
 
-    const purged = purge.meta?.changes ?? 0
-    if (purged > 0) {
-      await env.DB.prepare(
-        `UPDATE web_sources_raw SET full_text_status = 'purged'
-         WHERE full_text_status = 'ok'
-           AND (filter_passed = 0 OR matched_at IS NOT NULL)`,
-      ).run()
-      results.push(`purge: ${purged} bodies`)
+    // 원장은 상한을 둔다. 백로그(15만 행)는 scripts/cleanup-terminal-raw.ts 가 맡고,
+    // 여기서는 정상 유입분만 따라가면 된다.
+    const deletedRows = await env.DB.prepare(
+      `DELETE FROM web_sources_raw
+        WHERE id IN (
+          SELECT r.id FROM web_sources_raw r
+           WHERE ${TERMINAL_RAW_CONDITION}
+           ORDER BY r.id
+           LIMIT ?1
+        )`,
+    )
+      .bind(RAW_DELETE_LIMIT_PER_RUN)
+      .run()
+
+    const bodies = deletedBodies.meta?.changes ?? 0
+    const rows = deletedRows.meta?.changes ?? 0
+    if (bodies > 0 || rows > 0) {
+      stats['purge:raw_rows'] = rows
+      results.push(`purge: ${bodies} bodies, ${rows} raw rows`)
     }
   } catch (err) {
     results.push(`purge: error - ${(err as Error).message}`)
+  }
+
+  // ── 7. 일일 카운터 기록 (0056) ──
+  //
+  // 실패해도 파이프라인 판정에는 영향이 없다. 삼키고 로그에만 남긴다.
+  try {
+    await recordDailyStats(env.DB, stats)
+  } catch (err) {
+    results.push(`daily-stats: error - ${(err as Error).message}`)
   }
 
   console.log(`[scheduled] ${new Date().toISOString()} | ${results.join(' | ')}`)
@@ -260,12 +301,14 @@ export async function handleScheduled(env: Env): Promise<void> {
  */
 export async function handleDdgScheduled(env: Env): Promise<void> {
   const results: string[] = []
+  const stats: Record<string, number> = {}
 
   if (env.CRAWL4AI_URL) {
     try {
       const r = await runDuckDuckGoBatch(env.DB, {
         CRAWL4AI_URL: env.CRAWL4AI_URL,
       })
+      stats['crawl:ddg'] = r.saved
       results.push(`ddg: ${r.queriesUsed} queries, ${r.saved} saved`)
     } catch (err) {
       results.push(`ddg: error - ${(err as Error).message}`)
@@ -274,11 +317,19 @@ export async function handleDdgScheduled(env: Env): Promise<void> {
     try {
       const r = await runRawFullTextBatch(env.DB, { CRAWL4AI_URL: env.CRAWL4AI_URL })
       if (r.processed > 0) {
+        stats['fulltext:ok'] = r.ok
+        stats['fulltext:failed'] = r.processed - r.ok - r.skipped
         results.push(`raw-fulltext: ${r.processed} processed, ${r.ok} ok, ${r.skipped} skipped`)
       }
     } catch (err) {
       results.push(`raw-fulltext: error - ${(err as Error).message}`)
     }
+  }
+
+  try {
+    await recordDailyStats(env.DB, stats)
+  } catch (err) {
+    results.push(`daily-stats: error - ${(err as Error).message}`)
   }
 
   console.log(`[scheduled-ddg] ${new Date().toISOString()} | ${results.join(' | ')}`)

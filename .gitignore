@@ -118,3 +118,7 @@ data/near/twins-*.json
 data/near/summary-*.md
 data/near/candidates*.json
 data/near/stations.csv
+
+# 파이프라인 품질 검수 산출물 (스크립트가 매 실행마다 새로 뽑는다)
+data/pipeline-qa/
+data/raw-cleanup/
