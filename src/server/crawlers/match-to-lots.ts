@@ -188,6 +188,10 @@ export async function runMatchBatch(
   matched: number
   lotLinks: number
   aiVerified: number
+  /** AI 가 "이 주차장 글이 아니다"로 떨군 (raw, lot) 쌍 수 */
+  aiRejected: number
+  /** 거절 사유별 분포. 오염이 실제로 줄고 있는지 보려면 이 값이 필요하다 */
+  rejectedBy: Record<string, number>
   summarized: number
   budgetExceeded: boolean
 }> {
@@ -214,7 +218,15 @@ export async function runMatchBatch(
 
   const sources = rows.results ?? []
   if (sources.length === 0) {
-    return { matched: 0, lotLinks: 0, aiVerified: 0, summarized: 0, budgetExceeded: false }
+    return {
+      matched: 0,
+      lotLinks: 0,
+      aiVerified: 0,
+      aiRejected: 0,
+      rejectedBy: {},
+      summarized: 0,
+      budgetExceeded: false,
+    }
   }
 
   const insertBatch: D1PreparedStatement[] = []
@@ -224,7 +236,12 @@ export async function runMatchBatch(
   let matched = 0
   let lotLinks = 0
   let aiVerified = 0
+  let aiRejected = 0
   let summarized = 0
+  // 거절을 세지 않으면 수정 효과를 신규 행에서 확인할 방법이 없다. 행으로 남기지는
+  // 않는다 — 위키·사이트맵 질의가 `relevance_score` 만 보고 `filter_passed_v2` 를
+  // 안 보기 때문에, 거절 행을 넣으면 그대로 노출된다.
+  const rejectedBy: Record<string, number> = {}
   let processedSinceFlush = 0
 
   // flush 는 쓰기와 큐 투입을 **같이** 한다.
@@ -314,6 +331,10 @@ export async function runMatchBatch(
           if (aiResult?.filter_passed) {
             links.push({ lot, score, aiResult })
             aiVerified++
+          } else {
+            aiRejected++
+            const why = aiResult?.removed_by ?? 'no_result'
+            rejectedBy[why] = (rejectedBy[why] ?? 0) + 1
           }
         }
       } catch (err) {
@@ -378,7 +399,7 @@ export async function runMatchBatch(
   // 소비자의 판정이 web_sources 실제 행 수를 세는 방식이라 헛되이 요약을 만들지 않는다.
   await flush()
 
-  return { matched, lotLinks, aiVerified, summarized, budgetExceeded }
+  return { matched, lotLinks, aiVerified, aiRejected, rejectedBy, summarized, budgetExceeded }
 }
 
 /** 빈 문자열·공백만 있는 요약은 없는 것으로 본다 */

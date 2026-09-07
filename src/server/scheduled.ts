@@ -141,8 +141,15 @@ export async function handleScheduled(env: Env): Promise<void> {
       stats['match:sources'] = r.matched
       stats['match:links'] = r.lotLinks
       stats['match:ai_verified'] = r.aiVerified
+      stats['match:ai_rejected'] = r.aiRejected
       results.push(
-        `match: ${r.matched} sources → ${r.lotLinks} lot links (${r.aiVerified} AI verified, ${r.summarized} summarized)`,
+        `match: ${r.matched} sources → ${r.lotLinks} lot links (${r.aiVerified} AI verified, ${r.aiRejected} rejected${
+          r.aiRejected > 0
+            ? ` [${Object.entries(r.rejectedBy)
+                .map(([k, v]) => `${k}:${v}`)
+                .join(' ')}]`
+            : ''
+        }, ${r.summarized} summarized)`,
       )
     }
     // 시간 예산에 걸려 중단됐다는 뜻이다. 남은 raw 는 다음 회차가 이어받지만,

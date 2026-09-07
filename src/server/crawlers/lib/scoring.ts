@@ -309,9 +309,13 @@ export function extractNameKeywords(parkingName: string): string[] {
   // 3. 원본 이름 (정확 매칭용)
   if (nameLower.length >= 3) keywords.push(nameLower)
 
-  // 4. 붙어있는 이름에서 동/읍/면/리/구 기준 앞부분 추출
+  // 4. 이름이 통째로 동/읍/면/리/구로 끝나면 그 자체를 키워드로 쓴다.
+  //
+  // 예전에는 **앞부분을 잘라** 키워드로 넣었다. 그래서 '구로구청' 에서 '구로구' 가 나왔고,
+  // 구로구 아무 글이나 이름 매칭으로 통과했다 (2026-09-07 실측: 구로구청 lot 에
+  // "구로구 신도림동 공영주차장" 글). 잘린 조각은 시설을 특정하지 못한다.
   const locMatch = fullName.match(/^(.+?[동읍면리구])/)
-  if (locMatch && locMatch[1].length >= 2) keywords.push(locMatch[1])
+  if (locMatch && locMatch[1].length >= 2 && locMatch[1] === fullName) keywords.push(locMatch[1])
 
   // 5. 붙어있는 복합 이름 분리 (띄어쓰기 없는 한글+한글 경계)
   //    "마장축산물시장서문" → "마장축산물시장", "서문"
@@ -625,6 +629,34 @@ export function detectRegionConflict(text: string, parkingName: string, address:
  */
 export const MATCH_SCORE_THRESHOLD = 40
 
+/**
+ * 그 키워드가 **시설이 아니라 광역 행정구역**만 가리키는가.
+ *
+ * `extractNameKeywords` 는 '울산광역시 학생교육원 두남학교 주차장' 에서 '울산광역시'·'울산광역'
+ * 을 키워드로 만든다. 시·도 단위는 **어느 시설인지 전혀 말해주지 않아** 그 지역 아무 글이나
+ * 이름 매칭으로 통과시킨다 (2026-09-07 실측: 울주군 두남학교 lot 에 "울주군 상북면 공영주차장" 글).
+ *
+ * ⚠️ 동·구 단위는 여기 넣지 않는다. '고등동공영주차장'·'연동공영주차장' 처럼 **동 이름이
+ *    곧 시설 정체성**인 lot 이 많아서, 함께 막으면 정상 매칭이 무너진다 (실측: 손실 4.4% → 5.3%).
+ *    시·도는 그런 lot 이 없다.
+ */
+function isPureLocationKeyword(kw: string): boolean {
+  const t = kw.replace(/\s+/g, '')
+  if (t.length < 2) return true
+
+  // 도·광역 표기와 그 잘린 형태 ('울산광역시', '울산광역', '서울특별')
+  for (const [, aliases] of PROVINCE_ALIASES) {
+    for (const a of aliases) {
+      if (a.startsWith(t)) return true
+      if (t.startsWith(a) && /^[시도특별광역자치]*$/.test(t.slice(a.length))) return true
+    }
+  }
+
+  // 시·군 이름 자체 ('성남시', '청송군')
+  const m = t.match(/^(.+?)(시|군)$/)
+  return m ? CITY_NAMES.includes(m[1]) : false
+}
+
 export type MatchConfidence = 'high' | 'medium' | 'none'
 
 /** 네이버 블로그 검색 결과 관련도 점수 (0-100) */
@@ -677,8 +709,10 @@ export function scoreBlogRelevance(
   if (regionMatched) score += 20
 
   // 이름 매칭 (전략 분기)
-  const nameInTitle = nameKeywords.some((kw) => titleLower.includes(kw))
-  const nameInDesc = nameKeywords.some((kw) => descLower.includes(kw))
+  // 행정구역만 가리키는 키워드는 이름 매칭 근거가 못 된다 (`isPureLocationKeyword` 참조).
+  const identityKeywords = nameKeywords.filter((kw) => !isPureLocationKeyword(kw))
+  const nameInTitle = identityKeywords.some((kw) => titleLower.includes(kw))
+  const nameInDesc = identityKeywords.some((kw) => descLower.includes(kw))
 
   if (hasSpecific) {
     // A. 고유 식별자 있음 → 이름 매칭만으로 점수 부여
