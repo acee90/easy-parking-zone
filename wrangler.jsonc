@@ -83,5 +83,20 @@
 			"database_id": "ff5d77af-8ca6-4e5c-acf2-2fdf765dd248",
 			"migrations_dir": "migrations"
 		}
+	],
+	// 대량 스크래핑 방지용 IP 기준 rate limit. period는 10 또는 60초만 지원.
+	// fetchParkingDetail은 wiki 상세페이지 SSR(구글봇 등 정상 크롤러 포함)에서도 호출되므로
+	// 느슨하게(1req/s) 잡는다 — 목적은 색인 차단이 아니라 초당 수십~수백 건 enumerate 차단.
+	"ratelimits": [
+		{
+			"name": "RATE_LIMITER_POINTS",
+			"namespace_id": "1001",
+			"simple": { "limit": 20, "period": 60 }
+		},
+		{
+			"name": "RATE_LIMITER_DETAIL",
+			"namespace_id": "1002",
+			"simple": { "limit": 60, "period": 60 }
+		}
 	]
 }

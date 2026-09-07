@@ -14,6 +14,7 @@ import {
   normalizeDifficultyKeywords,
   parseKeywordJson,
 } from '@/server/crawlers/lib/difficulty-tags'
+import { checkRateLimit } from '@/server/rate-limit'
 import type { BlogPost, MapBounds, NearbyPlaceInfo, ParkingFilters, Place } from '@/types/parking'
 import {
   type BlogPostRow,
@@ -105,7 +106,9 @@ export interface ParkingPoint {
 }
 
 export const fetchAllParkingPoints = createServerFn({ method: 'GET' }).handler(
-  async (): Promise<ParkingPoint[]> => {
+  async ({ request }): Promise<ParkingPoint[]> => {
+    await checkRateLimit(env.RATE_LIMITER_POINTS, request)
+
     const db = getDb()
 
     // 캐시 키에 lot 갱신 fingerprint 포함 → INSERT/UPDATE 시 자동 무효화
@@ -193,7 +196,9 @@ export const fetchParkingDetail = createServerFn({ method: 'GET' })
       throw new Error('invalid id')
     return input
   })
-  .handler(async ({ data }) => {
+  .handler(async ({ data, request }) => {
+    await checkRateLimit(env.RATE_LIMITER_DETAIL, request)
+
     const db = getDb()
     const rows = await db.all(
       sql`SELECT p.*,
