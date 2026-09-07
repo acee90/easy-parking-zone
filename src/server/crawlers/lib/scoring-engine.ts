@@ -54,6 +54,10 @@ export async function recomputeStats(
     reviewsByLot.get(review.parking_lot_id)?.push(review)
   }
 
+  // 스코어링 입력만 filter_passed_v2 = 1 이다 (다른 게이트는 IS NOT 0).
+  // IS NOT 0 으로 바꾸면 미판정(NULL) 3,002행·1,445곳이 점수 산정에 들어와 이용자에게
+  // 보이는 순위가 바뀐다. 재계산과 분포 비교가 선행돼야 해서 2026-09-07 Phase 3
+  // (게이트 의미 통일)에서는 의도적으로 손대지 않았다.
   const webSignals = await db
     .prepare(
       `SELECT ws.parking_lot_id, ws.sentiment_score, ws.relevance_score, ws.published_at, 'direct' as match_type

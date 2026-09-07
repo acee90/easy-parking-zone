@@ -2,6 +2,35 @@
  * 관련도 채점 공통 유틸 (Workers 환경 호환)
  */
 
+import { AMBIGUOUS_NAME_CORES } from './ambiguous-names.generated'
+
+/**
+ * 이름코어 — 주차장 접미사·서수·공백을 걷어낸 알맹이.
+ * `AMBIGUOUS_NAME_CORES` 조회 키이며, 생성 스크립트와 **같은 함수를 써야** 한다.
+ */
+export function nameCore(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/(?:공영|민영|노외|노상|부설|유료|무료|임시|기계식)?\s*주차장\s*\d*$/, '')
+    .replace(/\s*주차\s*$/, '')
+    .replace(/제?\d+$/, '')
+    .replace(/\s+/g, '')
+    .trim()
+}
+
+/**
+ * 이름만으로는 어느 주차장인지 특정할 수 없는가 (전국구 동명).
+ *
+ * `hasSpecificIdentifier` 의 손목록과 달리 **분포에서 나온 판정**이다. 손목록은
+ * 2026-09-04 에 관측한 이름만 담고 있어서 '국립공원주차장'·'호수공원 주차장' 처럼
+ * 그때 안 본 이름이 전부 지역 검사를 건너뛰었다 (설악산 글 → 전남 구례 lot, score 80/high).
+ *
+ * 목록 재생성: `bun run scripts/generate-ambiguous-names.ts --remote`
+ */
+export function isAmbiguousName(parkingName: string): boolean {
+  return AMBIGUOUS_NAME_CORES.has(nameCore(parkingName))
+}
+
 /** 주소에서 구/동 추출 */
 export function extractRegion(address: string): string {
   const parts = address.split(/\s+/)
@@ -227,16 +256,44 @@ export function hasSpecificIdentifier(parkingName: string): boolean {
  * "서울특별시 강남구 역삼동" → "" (광역시는 구 레벨이므로 빈 문자열)
  */
 export function extractCity(address: string): string {
-  const match = address.match(/\s(\S+?)(시|군)\s/)
+  // 앞뒤 공백을 요구하면 도(道) 없이 시작하는 주소("김천시 중앙시장3길")와
+  // 시·군에서 끝나는 주소("충청남도 예산군")가 둘 다 빈 값이 됐다 (2026-09-07 실측).
+  const match = address.match(/(?:^|\s)(\S+?)(시|군)(?=\s|$)/)
   if (!match) return ''
   if (/특별|광역/.test(match[1])) return ''
   return match[1]
 }
 
 /**
+ * 그 글이 **이 주차장 동네 얘기임을 확인해 주는** 지역 토큰들.
+ *
+ * 시·군이 있으면 시·군만 쓴다. 도(道) 단위를 확인 근거로 쓰면 같은 도 안의 다른 도시
+ * 글이 통과한다 — '강원도 속초 중앙시장' 글이 강릉 중앙시장 lot 을 통과하던 구멍이다.
+ *
+ * 특별·광역시는 시·군 레벨이 없어 예외다. 여기서 빈 배열을 주면 서울 lot 은 확인 근거가
+ * 아예 없어져, 지방 도시를 스치듯 언급한 글까지 전부 충돌로 잡힌다. 그래서 광역 단위를
+ * 그대로 확인 토큰으로 쓴다.
+ */
+const METRO = ['서울', '부산', '대구', '인천', '광주', '대전', '울산', '세종']
+
+function ownRegionTokens(address: string): readonly string[] {
+  const city = extractCity(address)
+  if (city) return [city]
+  const province = extractProvince(address)
+  if (!METRO.includes(province)) return []
+  return PROVINCE_ALIASES.find(([c]) => c === province)?.[1] ?? []
+}
+
+/**
  * 주차장명에서 매칭용 키워드를 추출한다.
  * generic 키워드는 제거하여 오매칭을 방지한다.
  */
+/**
+ * 이름 뒤에 붙어도 장소를 특정하지 못하는 꼬리 (서수·주차장 유형).
+ * `extractNameKeywords` 규칙 #4 가 앞부분 조각을 쓸지 판단할 때 본다.
+ */
+const GENERIC_NAME_TAIL = /^(?:제?\d+|공영|민영|노상|노외|부설|유료|무료|임시|기계식|주차|주차장)+$/
+
 /** 주차장명 접미사 패턴 */
 const NAME_SUFFIX = /(?:공영|민영|노외|노상|부설|유료|무료|임시|기계식)?주차장\d*$/
 
@@ -258,9 +315,29 @@ export function extractNameKeywords(parkingName: string): string[] {
   // 3. 원본 이름 (정확 매칭용)
   if (nameLower.length >= 3) keywords.push(nameLower)
 
-  // 4. 붙어있는 이름에서 동/읍/면/리/구 기준 앞부분 추출
+  // 3-1. '주변/인근/옆/앞' 을 뗀 형태. lot 은 '일광해수욕장주변 노상공영주차장' 인데
+  //      글은 '일광해수욕장' 이라고만 쓴다 — 이 수식어 하나 때문에 이름 매칭이 깨졌다.
+  const dequalified = fullName.replace(/\s*(?:주변|인근|옆|앞)\s*/g, ' ').trim()
+  if (dequalified.length >= 2 && dequalified !== fullName) {
+    keywords.push(dequalified)
+    for (const w of dequalified.split(/\s+/)) if (w.length >= 2) keywords.push(w)
+  }
+
+  // 4. 이름 앞부분의 동/읍/면/리/구 조각 — **뒤에 남는 게 전부 제네릭일 때만** 쓴다.
+  //
+  // 그냥 자르면 '구로구청' → '구로구' 가 나와 구로구 아무 글이나 통과한다
+  // (2026-09-07 실측: 구로구청 lot 에 "구로구 신도림동 공영주차장" 글).
+  // 그렇다고 자르기를 아예 막으면 '복수동제1공영주차장' 에서 '복수동' 이 사라져
+  // "복수동 공영주차장" 글을 놓친다 (같은 날 실측, 오탐 35% 의 주원인).
+  //
+  // 가르는 기준은 **잘린 뒤에 남는 꼬리**다. '청'(구로구청)이 남으면 그 조각은 더 긴
+  // 고유명의 일부이므로 버리고, '제1공영'(복수동제1공영)처럼 제네릭만 남으면
+  // 앞부분이 곧 그 주차장의 정체이므로 쓴다.
   const locMatch = fullName.match(/^(.+?[동읍면리구])/)
-  if (locMatch && locMatch[1].length >= 2) keywords.push(locMatch[1])
+  if (locMatch && locMatch[1].length >= 2) {
+    const tail = fullName.slice(locMatch[1].length).trim()
+    if (tail === '' || GENERIC_NAME_TAIL.test(tail)) keywords.push(locMatch[1])
+  }
 
   // 5. 붙어있는 복합 이름 분리 (띄어쓰기 없는 한글+한글 경계)
   //    "마장축산물시장서문" → "마장축산물시장", "서문"
@@ -542,7 +619,8 @@ function mentionsToken(text: string, token: string): boolean {
  * 이름을 지우고 나면 '속초중앙시장' 은 '속초' 만 남아 경계 조건도 만족한다.
  */
 export function detectRegionConflict(text: string, parkingName: string, address: string): boolean {
-  let rest = stripHtml(text)
+  const original = stripHtml(text)
+  let rest = original
   const nameTokens = [parkingName, ...extractNameKeywords(parkingName)].sort(
     (a, b) => b.length - a.length,
   )
@@ -551,17 +629,59 @@ export function detectRegionConflict(text: string, parkingName: string, address:
   }
 
   const ownCity = extractCity(address)
-  if (ownCity && mentionsToken(rest, ownCity)) return false
-
   const ownProvince = extractProvince(address)
-  const ownAliases = PROVINCE_ALIASES.find(([c]) => c === ownProvince)?.[1] ?? []
-  if (ownAliases.some((a) => mentionsToken(rest, a))) return false
+
+  // 자기 동네가 나오면 이 글이 맞다. **시·군 단위로만** 인정한다.
+  // 예전에는 도(道) 를 언급하기만 해도 여기서 통과시켰는데, 그 탓에 "강원도 속초 중앙시장"
+  // 글이 강릉 중앙시장 lot 을 그대로 통과했다 (2026-09-07 실측). 이름 충돌 대부분이
+  // 같은 도 안에서 일어나므로, 도 단위 확인은 사실상 검사를 끄는 것과 같았다.
+  // 자기 지역 확인은 **이름을 지우기 전** 원문에서 본다.
+  // 이름 지우기는 '서울대공원'(경기 과천)의 '서울'을 남의 지역으로 세지 않으려는 장치인데,
+  // 그 탓에 '부산종합버스터미널'(부산) 처럼 **이름에 자기 지역이 든 lot** 은 확인 근거까지
+  // 함께 지워져 자기 동네 글이 충돌로 잡혔다 (2026-09-07 실측).
+  if (ownRegionTokens(address).some((t) => mentionsToken(original, t))) return false
 
   if (CITY_NAMES.some((c) => c !== ownCity && mentionsToken(rest, c))) return true
   return PROVINCE_ALIASES.some(
     ([canonical, aliases]) =>
       canonical !== ownProvince && aliases.some((a) => mentionsToken(rest, a)),
   )
+}
+
+/**
+ * 매칭 채택 임계값. `getMatchConfidence` 가 이 값 **미만**을 'none' 으로 떨군다.
+ *
+ * 상수로 뺀 이유: 이 값과 감점·상한이 따로 놀아서 "막았다고 적힌 것이 안 막히는" 버그가
+ * 세 번 났다. 상한을 40 으로 두면 `40 < 40` 이 거짓이라 그대로 통과한다 (2026-09-07 실측).
+ */
+export const MATCH_SCORE_THRESHOLD = 40
+
+/**
+ * 그 키워드가 **시설이 아니라 광역 행정구역**만 가리키는가.
+ *
+ * `extractNameKeywords` 는 '울산광역시 학생교육원 두남학교 주차장' 에서 '울산광역시'·'울산광역'
+ * 을 키워드로 만든다. 시·도 단위는 **어느 시설인지 전혀 말해주지 않아** 그 지역 아무 글이나
+ * 이름 매칭으로 통과시킨다 (2026-09-07 실측: 울주군 두남학교 lot 에 "울주군 상북면 공영주차장" 글).
+ *
+ * ⚠️ 동·구 단위는 여기 넣지 않는다. '고등동공영주차장'·'연동공영주차장' 처럼 **동 이름이
+ *    곧 시설 정체성**인 lot 이 많아서, 함께 막으면 정상 매칭이 무너진다 (실측: 손실 4.4% → 5.3%).
+ *    시·도는 그런 lot 이 없다.
+ */
+function isPureLocationKeyword(kw: string): boolean {
+  const t = kw.replace(/\s+/g, '')
+  if (t.length < 2) return true
+
+  // 도·광역 표기와 그 잘린 형태 ('울산광역시', '울산광역', '서울특별')
+  for (const [, aliases] of PROVINCE_ALIASES) {
+    for (const a of aliases) {
+      if (a.startsWith(t)) return true
+      if (t.startsWith(a) && /^[시도특별광역자치]*$/.test(t.slice(a.length))) return true
+    }
+  }
+
+  // 시·군 이름 자체 ('성남시', '청송군')
+  const m = t.match(/^(.+?)(시|군)$/)
+  return m ? CITY_NAMES.includes(m[1]) : false
 }
 
 export type MatchConfidence = 'high' | 'medium' | 'none'
@@ -591,14 +711,24 @@ export function scoreBlogRelevance(
   let nameMatched = false
 
   const nameKeywords = extractNameKeywords(parkingName)
-  const hasSpecific = hasSpecificIdentifier(parkingName)
+  // 전국구 동명이면 '고유 식별자' 로 치지 않는다 — 이름만으로 특정이 안 되므로
+  // 지역을 함께 봐야 한다 (분기 B). 손목록(GENERIC_FACILITIES)이 놓친 이름을
+  // 분포 기반 판정이 메운다.
+  const hasSpecific = hasSpecificIdentifier(parkingName) && !isAmbiguousName(parkingName)
 
   // 지역 매칭 (먼저 계산 — 아래 분기에서 사용)
   const region = extractRegion(address).toLowerCase()
   const regionWords = region.split(/\s+/).filter((w) => w.length >= 2)
   const regionMatched = regionWords.some((rw) => titleLower.includes(rw) || descLower.includes(rw))
 
-  // 시/군 레벨 지역 매칭 (specific 없는 경우 보강)
+  // 시/군 레벨 지역 매칭 (specific 없는 경우 보강).
+  //
+  // ⚠️ 여기서는 `ownRegionTokens` 를 쓰지 않는다 — 충돌 판정과 **의도적으로 비대칭**이다.
+  //    저쪽은 "다른 지역인가?"를 묻고, 여기는 "어느 주차장인가?"를 묻는다.
+  //    광역 단위('서울')는 앞 질문엔 충분하지만 뒤 질문엔 못 쓴다. 서울 안에만 수천 곳이
+  //    있어서 '서울' 언급은 lot 을 하나도 좁혀주지 못한다.
+  //    실측(2026-09-07): 광역 토큰을 위치 증거로 인정하니 정상 1건을 살리는 대신
+  //    오염 차단율이 38.2% → 36.5% 로 떨어졌다.
   const city = extractCity(address)
   const cityMatched = city ? combined.includes(city) : false
   const locationMatched = regionMatched || cityMatched
@@ -606,8 +736,16 @@ export function scoreBlogRelevance(
   if (regionMatched) score += 20
 
   // 이름 매칭 (전략 분기)
-  const nameInTitle = nameKeywords.some((kw) => titleLower.includes(kw))
-  const nameInDesc = nameKeywords.some((kw) => descLower.includes(kw))
+  // 행정구역만 가리키는 키워드는 이름 매칭 근거가 못 된다 (`isPureLocationKeyword` 참조).
+  const identityKeywords = nameKeywords.filter((kw) => !isPureLocationKeyword(kw))
+  // 띄어쓰기는 표기 차이일 뿐이라 무시하고 본다. lot 은 '정선5일장'·'보현산천문대' 로
+  // 붙여 쓰는데 글은 '정선 5일장'·'보현산 천문대' 로 띄어 쓰는 일이 흔하고, 그 차이만으로
+  // 이름 매칭이 깨져 정상 근거를 잃고 있었다 (2026-09-07 실측: 탈락 후보 오탐의 주원인).
+  const titleFlat = titleLower.replace(/\s+/g, '')
+  const descFlat = descLower.replace(/\s+/g, '')
+  const hit = (hay: string, kw: string) => hay.includes(kw.replace(/\s+/g, ''))
+  const nameInTitle = identityKeywords.some((kw) => hit(titleFlat, kw))
+  const nameInDesc = identityKeywords.some((kw) => hit(descFlat, kw))
 
   if (hasSpecific) {
     // A. 고유 식별자 있음 → 이름 매칭만으로 점수 부여
@@ -633,15 +771,21 @@ export function scoreBlogRelevance(
 
   // ── 보정 규칙 ──
 
-  // 이름 매칭 없이는 최대 40점 (지역+주차만으로는 threshold 못 넘김)
+  // 이름 매칭이 없으면 임계값을 넘지 못한다 (지역+주차만으로는 어느 주차장인지 모른다).
+  // 상한이 40 이던 이전 구현은 `score < 40` 판정을 통과했다 — 이름 키워드가 하나도
+  // 안 맞는 글이 지역(+20)과 '주차'(+20)만으로 medium 을 받았다 (2026-09-07 실측:
+  // 달서구 청소년수련관 lot 에 죽전동공영주차장 글, 강동구 주양쇼핑앞 lot 에 강일동 글).
   if (!nameMatched) {
-    score = Math.min(score, 40)
+    score = Math.min(score, MATCH_SCORE_THRESHOLD - 1)
   }
 
-  // 글이 다른 지역 이야기면 동명이인이다. 40점을 깎아 임계값(40) 아래로 떨어뜨린다.
-  // 이전 구현은 `extractProvince` 가 긴 주소 표기를 못 읽어 한 번도 발동하지 않았다.
+  // 글이 다른 지역 이야기면 동명이인이다. **실격**이지 부분 감점이 아니다.
+  //
+  // -40 고정 감점이던 이전 구현은 기본점수가 80이면 정확히 40 이 남았고, 임계값 판정이
+  // `score < 40` 이라 그대로 통과했다 (2026-09-07 실측: 천안 북면사무소 lot 에 강원 인제군
+  // 북면 글이, 울산 화정동 lot 에 광주 화정동 글이 충돌 감지된 채로 medium 통과).
   if (nameMatched && detectRegionConflict(combined, parkingName, address)) {
-    score = Math.max(0, score - 40)
+    score = 0
   }
 
   return Math.min(100, score)
@@ -686,7 +830,10 @@ export function scoreBlogRelevanceFull(
   let nameMatched = false
 
   const nameKeywords = extractNameKeywords(parkingName)
-  const hasSpecific = hasSpecificIdentifier(parkingName)
+  // 전국구 동명이면 '고유 식별자' 로 치지 않는다 — 이름만으로 특정이 안 되므로
+  // 지역을 함께 봐야 한다 (분기 B). 손목록(GENERIC_FACILITIES)이 놓친 이름을
+  // 분포 기반 판정이 메운다.
+  const hasSpecific = hasSpecificIdentifier(parkingName) && !isAmbiguousName(parkingName)
 
   // 지역 매칭
   const region = extractRegion(address).toLowerCase()
@@ -731,12 +878,12 @@ export function scoreBlogRelevanceFull(
 
   // 보정 — 이름 매칭 없으면 최대 40점
   if (!nameMatched) {
-    score = Math.min(score, 40)
+    score = Math.min(score, MATCH_SCORE_THRESHOLD - 1)
   }
 
   // 글이 다른 지역 이야기면 동명이인이다 (v1 과 같은 규칙).
   if (nameMatched && detectRegionConflict(combined, parkingName, address)) {
-    score = Math.max(0, score - 40)
+    score = 0
   }
 
   // 본문 길이 정규화: 너무 길고 키워드 밀도 낮으면 감점
@@ -787,7 +934,7 @@ export function getMatchConfidence(
   address: string,
 ): { score: number; confidence: MatchConfidence } {
   const score = scoreBlogRelevance(title, description, parkingName, address)
-  if (score < 40) return { score, confidence: 'none' }
+  if (score < MATCH_SCORE_THRESHOLD) return { score, confidence: 'none' }
 
   const combined = `${stripHtml(title)} ${stripHtml(description)}`.toLowerCase()
   const nameKeywords = extractNameKeywords(parkingName)
@@ -797,8 +944,10 @@ export function getMatchConfidence(
   const hasParkingKw = combined.includes('주차') || combined.includes('parking')
 
   if (maxMatchLen >= 6 && hasParkingKw) {
-    // 고유 식별자 없으면 high 불가 — AI 검증 필수
-    if (!hasSpecificIdentifier(parkingName)) {
+    // 고유 식별자 없거나 전국구 동명이면 high 불가 — AI 검증 필수.
+    // high 는 `match-to-lots.ts` 에서 rule=high 와 만나면 AI 없이 바로 INSERT 되는
+    // 등급이라, 여기서 막지 않으면 어떤 lot 검증도 거치지 않는다.
+    if (!hasSpecificIdentifier(parkingName) || isAmbiguousName(parkingName)) {
       return { score, confidence: 'medium' }
     }
 
@@ -812,7 +961,8 @@ export function getMatchConfidence(
     // 일반 시설명(행정복지센터, 어린이공원 등)만 매칭된 경우 → medium (동명이인)
     const genericFacility =
       /^(행정복지센터|어린이공원|종합시장|전통시장|버스터미널|시외버스터미널|체육관|문화센터|보건소|주민센터|파출소|우체국)$/
-    if (genericFacility.test(bestKw)) {
+    // 손목록(12개)은 그때 본 것만 담는다. 분포 기반 판정을 함께 본다.
+    if (genericFacility.test(bestKw) || isAmbiguousName(bestKw)) {
       return { score, confidence: 'medium' }
     }
 

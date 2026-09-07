@@ -28,7 +28,7 @@ const LOT_SELECT = `SELECT p.*,
   COALESCE(s.review_count, 0) as review_count,
   s.reliability,
   (SELECT COUNT(*) FROM parking_media pm WHERE pm.parking_lot_id = p.id) as media_count,
-  (SELECT COUNT(*) FROM web_sources ws WHERE ws.parking_lot_id = p.id AND ws.relevance_score >= 40) as web_count`
+  (SELECT COUNT(*) FROM web_sources ws WHERE ws.parking_lot_id = p.id AND ws.relevance_score >= 40 AND ws.filter_passed_v2 IS NOT 0) as web_count`
 
 type WikiParkingLotRow = ParkingLotRow & {
   media_count?: number | null
@@ -102,11 +102,11 @@ const fetchWikiHome = createServerFn({ method: 'GET' }).handler(async () => {
         s.reliability,
         (SELECT COUNT(*) FROM parking_media pm WHERE pm.parking_lot_id = p.id) as media_count,
         (SELECT COUNT(*) FROM web_sources ws
-         WHERE ws.parking_lot_id = p.id AND ws.relevance_score >= 40) as web_count
+         WHERE ws.parking_lot_id = p.id AND ws.relevance_score >= 40 AND ws.filter_passed_v2 IS NOT 0) as web_count
       FROM parking_lots p
       JOIN parking_lot_stats s ON s.parking_lot_id = p.id
       WHERE (SELECT COUNT(*) FROM web_sources ws
-             WHERE ws.parking_lot_id = p.id AND ws.relevance_score >= 40) > 0
+             WHERE ws.parking_lot_id = p.id AND ws.relevance_score >= 40 AND ws.filter_passed_v2 IS NOT 0) > 0
       ORDER BY web_count DESC
       LIMIT 16`,
     ),

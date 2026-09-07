@@ -76,7 +76,7 @@ async function getSitemapIndexMeta(db: D1Database): Promise<{
        WHERE EXISTS (SELECT 1 FROM web_sources ws WHERE ws.parking_lot_id = p.id
                       -- 정보 모음 사이트(경쟁사) 행만 있는 lot 3,017곳이 '콘텐츠 있는 주차장'으로
                       -- 잡혀 thin 제외 규칙(#126)을 우회하고 있었다.
-                      AND ws.filter_v2_reason IS NOT 'aggregator_site')
+                      AND ws.filter_passed_v2 IS NOT 0)
           OR s.ai_summary IS NOT NULL
           OR p.curation_reason IS NOT NULL
           OR (
@@ -274,7 +274,7 @@ async function getPriorityParkingRows(db: D1Database, limit: number): Promise<Lo
           OR EXISTS (
             SELECT 1 FROM web_sources ws
             WHERE ws.parking_lot_id = p.id AND ws.relevance_score >= 40
-              AND ws.filter_v2_reason IS NOT 'aggregator_site'
+              AND ws.filter_passed_v2 IS NOT 0
           )
        ORDER BY
          CASE WHEN p.curation_tag = 'easy' THEN 1 ELSE 0 END DESC,
@@ -288,7 +288,7 @@ async function getPriorityParkingRows(db: D1Database, limit: number): Promise<Lo
          COALESCE(s.review_count, 0) DESC,
          (SELECT COUNT(*) FROM web_sources ws
           WHERE ws.parking_lot_id = p.id AND ws.relevance_score >= 40
-            AND ws.filter_v2_reason IS NOT 'aggregator_site') DESC,
+            AND ws.filter_passed_v2 IS NOT 0) DESC,
          COALESCE(s.final_score, 0) DESC,
          p.total_spaces DESC
        LIMIT ?`,
@@ -341,7 +341,7 @@ async function sitemapPage(db: D1Database, pageId: number): Promise<Response> {
        WHERE EXISTS (SELECT 1 FROM web_sources ws WHERE ws.parking_lot_id = p.id
                       -- 정보 모음 사이트(경쟁사) 행만 있는 lot 3,017곳이 '콘텐츠 있는 주차장'으로
                       -- 잡혀 thin 제외 규칙(#126)을 우회하고 있었다.
-                      AND ws.filter_v2_reason IS NOT 'aggregator_site')
+                      AND ws.filter_passed_v2 IS NOT 0)
           OR s.ai_summary IS NOT NULL
           OR p.curation_reason IS NOT NULL
           OR (
