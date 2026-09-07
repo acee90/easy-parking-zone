@@ -288,6 +288,12 @@ function ownRegionTokens(address: string): readonly string[] {
  * 주차장명에서 매칭용 키워드를 추출한다.
  * generic 키워드는 제거하여 오매칭을 방지한다.
  */
+/**
+ * 이름 뒤에 붙어도 장소를 특정하지 못하는 꼬리 (서수·주차장 유형).
+ * `extractNameKeywords` 규칙 #4 가 앞부분 조각을 쓸지 판단할 때 본다.
+ */
+const GENERIC_NAME_TAIL = /^(?:제?\d+|공영|민영|노상|노외|부설|유료|무료|임시|기계식|주차|주차장)+$/
+
 /** 주차장명 접미사 패턴 */
 const NAME_SUFFIX = /(?:공영|민영|노외|노상|부설|유료|무료|임시|기계식)?주차장\d*$/
 
@@ -309,13 +315,29 @@ export function extractNameKeywords(parkingName: string): string[] {
   // 3. 원본 이름 (정확 매칭용)
   if (nameLower.length >= 3) keywords.push(nameLower)
 
-  // 4. 이름이 통째로 동/읍/면/리/구로 끝나면 그 자체를 키워드로 쓴다.
+  // 3-1. '주변/인근/옆/앞' 을 뗀 형태. lot 은 '일광해수욕장주변 노상공영주차장' 인데
+  //      글은 '일광해수욕장' 이라고만 쓴다 — 이 수식어 하나 때문에 이름 매칭이 깨졌다.
+  const dequalified = fullName.replace(/\s*(?:주변|인근|옆|앞)\s*/g, ' ').trim()
+  if (dequalified.length >= 2 && dequalified !== fullName) {
+    keywords.push(dequalified)
+    for (const w of dequalified.split(/\s+/)) if (w.length >= 2) keywords.push(w)
+  }
+
+  // 4. 이름 앞부분의 동/읍/면/리/구 조각 — **뒤에 남는 게 전부 제네릭일 때만** 쓴다.
   //
-  // 예전에는 **앞부분을 잘라** 키워드로 넣었다. 그래서 '구로구청' 에서 '구로구' 가 나왔고,
-  // 구로구 아무 글이나 이름 매칭으로 통과했다 (2026-09-07 실측: 구로구청 lot 에
-  // "구로구 신도림동 공영주차장" 글). 잘린 조각은 시설을 특정하지 못한다.
+  // 그냥 자르면 '구로구청' → '구로구' 가 나와 구로구 아무 글이나 통과한다
+  // (2026-09-07 실측: 구로구청 lot 에 "구로구 신도림동 공영주차장" 글).
+  // 그렇다고 자르기를 아예 막으면 '복수동제1공영주차장' 에서 '복수동' 이 사라져
+  // "복수동 공영주차장" 글을 놓친다 (같은 날 실측, 오탐 35% 의 주원인).
+  //
+  // 가르는 기준은 **잘린 뒤에 남는 꼬리**다. '청'(구로구청)이 남으면 그 조각은 더 긴
+  // 고유명의 일부이므로 버리고, '제1공영'(복수동제1공영)처럼 제네릭만 남으면
+  // 앞부분이 곧 그 주차장의 정체이므로 쓴다.
   const locMatch = fullName.match(/^(.+?[동읍면리구])/)
-  if (locMatch && locMatch[1].length >= 2 && locMatch[1] === fullName) keywords.push(locMatch[1])
+  if (locMatch && locMatch[1].length >= 2) {
+    const tail = fullName.slice(locMatch[1].length).trim()
+    if (tail === '' || GENERIC_NAME_TAIL.test(tail)) keywords.push(locMatch[1])
+  }
 
   // 5. 붙어있는 복합 이름 분리 (띄어쓰기 없는 한글+한글 경계)
   //    "마장축산물시장서문" → "마장축산물시장", "서문"
@@ -597,7 +619,8 @@ function mentionsToken(text: string, token: string): boolean {
  * 이름을 지우고 나면 '속초중앙시장' 은 '속초' 만 남아 경계 조건도 만족한다.
  */
 export function detectRegionConflict(text: string, parkingName: string, address: string): boolean {
-  let rest = stripHtml(text)
+  const original = stripHtml(text)
+  let rest = original
   const nameTokens = [parkingName, ...extractNameKeywords(parkingName)].sort(
     (a, b) => b.length - a.length,
   )
@@ -612,7 +635,11 @@ export function detectRegionConflict(text: string, parkingName: string, address:
   // 예전에는 도(道) 를 언급하기만 해도 여기서 통과시켰는데, 그 탓에 "강원도 속초 중앙시장"
   // 글이 강릉 중앙시장 lot 을 그대로 통과했다 (2026-09-07 실측). 이름 충돌 대부분이
   // 같은 도 안에서 일어나므로, 도 단위 확인은 사실상 검사를 끄는 것과 같았다.
-  if (ownRegionTokens(address).some((t) => mentionsToken(rest, t))) return false
+  // 자기 지역 확인은 **이름을 지우기 전** 원문에서 본다.
+  // 이름 지우기는 '서울대공원'(경기 과천)의 '서울'을 남의 지역으로 세지 않으려는 장치인데,
+  // 그 탓에 '부산종합버스터미널'(부산) 처럼 **이름에 자기 지역이 든 lot** 은 확인 근거까지
+  // 함께 지워져 자기 동네 글이 충돌로 잡혔다 (2026-09-07 실측).
+  if (ownRegionTokens(address).some((t) => mentionsToken(original, t))) return false
 
   if (CITY_NAMES.some((c) => c !== ownCity && mentionsToken(rest, c))) return true
   return PROVINCE_ALIASES.some(
@@ -711,8 +738,14 @@ export function scoreBlogRelevance(
   // 이름 매칭 (전략 분기)
   // 행정구역만 가리키는 키워드는 이름 매칭 근거가 못 된다 (`isPureLocationKeyword` 참조).
   const identityKeywords = nameKeywords.filter((kw) => !isPureLocationKeyword(kw))
-  const nameInTitle = identityKeywords.some((kw) => titleLower.includes(kw))
-  const nameInDesc = identityKeywords.some((kw) => descLower.includes(kw))
+  // 띄어쓰기는 표기 차이일 뿐이라 무시하고 본다. lot 은 '정선5일장'·'보현산천문대' 로
+  // 붙여 쓰는데 글은 '정선 5일장'·'보현산 천문대' 로 띄어 쓰는 일이 흔하고, 그 차이만으로
+  // 이름 매칭이 깨져 정상 근거를 잃고 있었다 (2026-09-07 실측: 탈락 후보 오탐의 주원인).
+  const titleFlat = titleLower.replace(/\s+/g, '')
+  const descFlat = descLower.replace(/\s+/g, '')
+  const hit = (hay: string, kw: string) => hay.includes(kw.replace(/\s+/g, ''))
+  const nameInTitle = identityKeywords.some((kw) => hit(titleFlat, kw))
+  const nameInDesc = identityKeywords.some((kw) => hit(descFlat, kw))
 
   if (hasSpecific) {
     // A. 고유 식별자 있음 → 이름 매칭만으로 점수 부여
