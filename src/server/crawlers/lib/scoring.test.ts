@@ -7,6 +7,7 @@ import {
   extractRegion,
   getMatchConfidence,
   hasSpecificIdentifier,
+  isAmbiguousName,
   isGenericName,
   parsePostdate,
   scoreBlogRelevance,
@@ -346,5 +347,86 @@ describe('동명이지(同名異地) 오매칭 차단', () => {
     expect(extractProvince('강원특별자치도 춘천시 신북읍')).toBe('강원')
     expect(extractProvince('서울특별시 광진구 능동로 216')).toBe('서울')
     expect(extractProvince('경북 김천시')).toBe('경북')
+  })
+})
+
+// ── 2026-09-07 실측 오매칭 사례 (2차) ────────────────────────
+//
+// 1차 수정(#174)의 `GENERIC_FACILITIES` 손목록은 그때 관측한 이름만 담고 있었다.
+// 그래서 '국립공원주차장'·'호수공원 주차장'처럼 목록에 없는 전국구 이름이 여전히
+// 분기 A(지역 검사 생략)로 갔다. 실측: 설악산(강원) 글이 전남 구례 lot 에
+// score 80 / confidence 'high' 로 붙었고, high 는 AI 검증 없이 바로 INSERT 되는 등급이다.
+describe('전국구 동명 이름 (분포 기반 판정)', () => {
+  it('전국에 겹치는 이름은 모호로 잡는다', () => {
+    expect(isAmbiguousName('국립공원주차장')).toBe(true)
+    expect(isAmbiguousName('호수공원 주차장')).toBe(true)
+    expect(isAmbiguousName('시외버스터미널주차장')).toBe(true)
+  })
+
+  it('한 지역에만 있는 고유 이름은 건드리지 않는다', () => {
+    expect(isAmbiguousName('타임스퀘어 주차장')).toBe(false)
+    expect(isAmbiguousName('IFC몰 주차장')).toBe(false)
+    expect(isAmbiguousName('롯데월드몰 주차장')).toBe(false)
+  })
+
+  it('다른 지역 글은 등급까지 떨어뜨린다 (점수만이 아니라)', () => {
+    const { confidence } = getMatchConfidence(
+      '설악산 국립공원 주차장 후기',
+      '주차 편했어요 국립공원주차장 넓어요',
+      '국립공원주차장',
+      '전라남도 구례군 마산면',
+    )
+    expect(confidence).not.toBe('high')
+  })
+
+  it('지역 고유 이름은 여전히 high 로 통과한다', () => {
+    for (const [name, address, title] of [
+      ['타임스퀘어 주차장', '서울 영등포구 영중로 15', '타임스퀘어 주차장 후기 주차'],
+      ['IFC몰 주차장', '서울 영등포구 국제금융로 10', 'IFC몰 주차장 다녀옴 주차'],
+    ] as const) {
+      expect(getMatchConfidence(title, '주차 편했어요', name, address).confidence, name).toBe(
+        'high',
+      )
+    }
+  })
+})
+
+describe('지역 충돌 — 같은 도(道) 안의 다른 도시', () => {
+  const 강릉중앙시장 = { name: '중앙시장', address: '강원특별자치도 강릉시 금성로 21' }
+
+  it('도 이름을 언급해도 다른 시·군 글이면 충돌이다', () => {
+    // 예전에는 '강원도' 한 단어가 자기 도 확인으로 읽혀 검사를 통과시켰다.
+    expect(
+      detectRegionConflict(
+        '강원도 속초 중앙시장 먹거리 주차장 후기',
+        강릉중앙시장.name,
+        강릉중앙시장.address,
+      ),
+    ).toBe(true)
+  })
+
+  it('자기 시·군 글은 통과시킨다', () => {
+    expect(
+      detectRegionConflict('강릉 중앙시장 주차 후기', 강릉중앙시장.name, 강릉중앙시장.address),
+    ).toBe(false)
+  })
+
+  it('특별·광역시 lot 은 광역 단위를 확인 근거로 쓴다', () => {
+    // 시·군이 없는 주소라 확인 토큰이 비면 지방 도시를 스친 글까지 전부 충돌이 된다.
+    const ifc = { name: 'IFC몰 주차장', address: '서울특별시 영등포구 국제금융로 10' }
+    expect(detectRegionConflict('서울 여의도 IFC몰 주차 후기', ifc.name, ifc.address)).toBe(false)
+    expect(detectRegionConflict('부산 해운대 다녀와서 주차', ifc.name, ifc.address)).toBe(true)
+  })
+})
+
+describe('extractCity 주소 파싱', () => {
+  it('도 없이 시작하거나 시·군에서 끝나는 주소도 읽는다', () => {
+    expect(extractCity('김천시 중앙시장3길 12')).toBe('김천')
+    expect(extractCity('충청남도 예산군')).toBe('예산')
+  })
+
+  it('기존 표기도 그대로 읽는다', () => {
+    expect(extractCity('경상북도 김천시 중앙시장3길 12')).toBe('김천')
+    expect(extractCity('서울특별시 강남구 역삼동')).toBe('')
   })
 })

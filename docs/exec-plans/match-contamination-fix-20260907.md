@@ -1,0 +1,325 @@
+# 매칭 오염(wrong-lot) 수정 전략 및 실행 계획
+
+- **작성일**: 2026-09-07
+- **대상**: `src/server/crawlers/lib/scoring.ts`, `src/server/crawlers/match-to-lots.ts`, 관련 프롬프트·게이트
+- **문제**: 블로그 글이 **다른 지역의 같은 이름 주차장**에 근거로 붙어, 상세페이지 AI 요약 생성이 통째로 막히거나 틀린 요약을 만든다
+- **선행 문서**: `pipeline-149-filter-match-decouple.md`(§2 결정, §3 Phase 2 미완), `docs/references/pipeline-architecture.md`
+- **관련 이슈**: #161(GSC 색인), #174(1차 지역충돌 수정, 머지됨), #175(요약 입력 조건)
+
+> 이 문서의 코드 주장과 수치는 2026-09-07에 **실제 함수를 실행하고 remote D1을 쿼리해** 검증했다. 재현 절차는 §8에 있다.
+
+---
+
+## 1. 이 작업의 계기
+
+`generate-lot-summary.ts`로 "근거 3건 이상"인 안전 그룹 14곳을 백필하려다 **14곳 전부 실패**(생성 0건, 가드 거부 14건 = 빈 요약 12 + too_short 2)했다. 근거를 열어보니 원인은 데이터 부족이 아니라 **매칭 오염**이었다.
+
+| lot | 실제 위치 | 붙어 있는 근거의 실제 주제 |
+|---|---|---|
+| 국립공원주차장 (394-2-000043) | 경남 **하동군** | 한려해상국립공원(남해·거제·통영), 주왕산국립공원(경북 청송) |
+| 웅부공원공영주차장 (354-2-000720) | 경북 안동시 | "안동시내 공영주차장 이용 정보" — 지역은 맞으나 여러 lot을 뭉뚱그린 목록글 |
+
+**AI는 정상 동작했다.** 프롬프트의 "근거 없이 지어내지 말 것" 지시를 지켜 빈 요약을 냈고, 가드가 그걸 거부했다. 즉 지금 상태에서는 요약 백필을 아무리 돌려도 결과가 나오지 않는다. **매칭을 고치기 전까지 콘텐츠 보강 경로 전체가 막혀 있다.**
+
+---
+
+## 2. 근본 원인 (전부 실행으로 검증됨)
+
+### RC-1. `hasSpecificIdentifier`가 true면 지역 검사를 통째로 건너뛴다 — **주 원인**
+
+`scoring.ts:596-629`의 분기 구조:
+
+```ts
+if (hasSpecific) {
+  // A. 고유 식별자 있음 → 이름 매칭만으로 점수 부여 (지역 무관)
+  if (nameInTitle) { score += 40; nameMatched = true }
+  if (nameInDesc)  { score += 20; nameMatched = true }
+} else {
+  // B. 고유 식별자 없음 → 이름 + 지역 동시 매칭 필요
+  if ((nameInTitle || nameInDesc) && locationMatched) { ... }
+}
+```
+
+`hasSpecificIdentifier`(`scoring.ts:188-222`)는 `GENERIC_KEYWORDS`/`GENERIC_FACILITIES`/`GENERIC_MODIFIERS` **손으로 적은 3개 목록**을 지운 뒤 2자 이상 남으면 true를 준다. 이 목록은 2026-09-04 김천 중앙시장 사건에서 관측된 것만 담긴 allowlist라, 그때 안 본 이름은 전부 통과한다.
+
+실행 검증:
+
+| 이름 | `hasSpecificIdentifier` | 결과 |
+|---|---|---|
+| `국립공원주차장` | **true** | 분기 A — 지역 검사 없음 ⚠️ |
+| `무인정산` | **true** | 분기 A ⚠️ |
+| `웅부공원공영주차장` | **true** | 분기 A ⚠️ |
+| `전통시장 주차장` / `공설운동장 주차장` / `국민체육센터` / `중앙시장` | false | 분기 B (정상) |
+
+**end-to-end 재현** — 설악산(강원) 글이 전남 구례 lot에 붙는다:
+
+```
+getMatchConfidence("설악산 국립공원 주차장 후기", "주차 편했어요 국립공원주차장 넓어요",
+                   "국립공원주차장", "전라남도 구례군 마산면")
+  → { score: 80, confidence: "high" }      ← AI 검증 없이 바로 INSERT 되는 등급
+  detectRegionConflict(...) → false        ← 유일한 방어선도 안 걸림
+```
+
+### RC-2. `detectRegionConflict`에 구조적 구멍 3개
+
+`scoring.ts:544-565`. 검증된 실패:
+
+| # | 구멍 | 실행 결과 |
+|---|---|---|
+| H1 | **자기 도(道)를 언급하면 즉시 통과**(`:558`). 같은 도 안의 다른 시·군 충돌을 못 잡는다 | 속초 글 → 강릉 lot: "강원도" 포함 시 `false`(오탐 통과), "강원도" 빼면 `true` |
+| H2 | 시/군/도 **토큰이 있어야만** 충돌. 랜드마크만 있는 글은 안 보인다 | `"설악산 소공원 주차장"` → 구례 lot 상대로 `false` |
+| H3 | `ownCity`가 `''`면(특별시·광역시, 그리고 아래 파싱 실패) 어떤 시·군 언급이든 충돌로 과잉 판정 | — |
+
+H1이 특히 치명적이다. **DB의 이름 충돌 대부분이 같은 도 안에서 일어나기 때문이다**(§3 표 참조).
+
+### RC-3. `extractCity` 파싱 실패
+
+`scoring.ts:229-234`의 정규식 `/\s(\S+?)(시|군)\s/`은 앞뒤 공백을 요구한다:
+
+```
+extractCity("경상북도 김천시 중앙시장3길 12") → "김천"   ✅
+extractCity("김천시 중앙시장3길 12")          → ""       ❌ 앞 공백 없음
+extractCity("충청남도 예산군")                → ""       ❌ 뒤 공백 없음
+```
+
+`''`가 되면 H3(과잉 판정)과 H1 단락(과소 판정)이 동시에 나빠진다.
+
+### RC-4. rule=high + match=high는 **AI를 아예 안 탄다**
+
+`match-to-lots.ts:285-292`:
+
+```ts
+const isRuleHigh = raw.filter_tier === 'high'
+for (const { lot, score } of highMatches) {
+  if (isRuleHigh) links.push({ lot, score, aiResult: null })   // ← AI 없이 바로 저장
+  else            mediumMatches.push({ lot, score })
+}
+```
+
+`filter_tier`를 만드는 `rule-filter.ts`는 **lot을 아예 안 본다**(`rule-filter.ts:11-12` 주석이 명시). 즉 RC-1으로 `high`를 받은 오염 매칭은 어떤 lot 검증도 없이 INSERT된다.
+
+### RC-5. 점수는 **본문이 아니라 스니펫**만 본다
+
+`match-to-lots.ts:261,273` — `getMatchConfidence`에 넘기는 `content`는 `raw.content`(스니펫)이고, `raw.full_text`는 AI에만 간다(`:301`). 지역을 판별할 도시명이 본문 5번째 문단에 있으면 `detectRegionConflict`는 볼 수 없다. 본문을 보는 `scoreBlogRelevanceFull`(v2)은 **프로덕션 호출자가 0개**인 사실상 죽은 코드다.
+
+### RC-6. 관측 불가 — 거절이 기록되지 않는다
+
+`match-to-lots.ts:314`는 AI가 `filter_passed=false`를 주면 **행을 안 만들고 사유도 안 남긴다.** 그래서 `filter_v2_reason='wrong_lot'`은 크론 경로에서 한 번도 기록된 적이 없고, 수정 후 오염률이 줄었는지 **측정할 방법이 현재 없다.**
+
+### RC-7. 사양이 3벌로 갈라져 있다
+
+| 사양 | 위치 | 지역 조항 |
+|---|---|---|
+| A | `ai-filter-v2-prompt.ts:22-29` | **있음** (김천/강릉 예시까지) — 그런데 파일이 `@deprecated` |
+| B | `.claude/agents/filter-v2-evaluator.md:48` | **없음** — 이름만 나오면 통과 |
+| C | `ai-summary-prompt.ts:35` (자칭 정본) | `wrong_lot` 자체가 없음 (의도적, lot-agnostic) |
+
+**모호한 이름을 AI로 보내도(§5 Layer 3), 그 AI가 지역을 안 보면 의미가 없다.** 이 정렬이 수정의 전제조건이다.
+
+---
+
+## 3. 오염 규모 (remote D1 실측, 2026-09-07)
+
+`web_sources` 총 **23,496행 / lot 10,796곳**.
+
+| 구분 | lot | 근거행 | 미검증(`filter_passed_v2 IS NULL`) |
+|---|---|---|---|
+| 분기A ⚠️ **교차지역 모호 이름** | **558** | **1,529** | 326 |
+| 분기A ✅ 지역고유 이름 (타임스퀘어·IFC몰 등) | 8,479 | 18,016 | 4,609 |
+| 분기B (지역 동시매칭 요구) | 1,759 | 3,951 | 952 |
+
+**`filter_passed_v2` 전체 분포**: NULL 5,887(25%) / pass 9,778 / fail 7,831. NULL 중 5,097행이 `relevance_score >= 40`을 넘겨 **검증 없이 하류로 흘러간다.**
+
+정리 대상 상위(er = 같은 이름이 존재하는 시·군 수, cr = 부분일치가 분포한 시·군 수):
+
+```
+ 44행 er=5 cr=26  시외버스터미널 공영 주차장      26행 er=3 cr=27  호수공원 주차장
+ 32행 er=2 cr=33  국립공원주차장                 23행 er=2 cr= 2  어린이대공원주차장
+ 30행 er=4 cr= 6  스카이워크 주차장              18행 er=4 cr=99  체육공원 주차장
+ 29행 er=2 cr= 7  한옥마을 주차장                17행 er=3 cr= 9  여객선터미널주차장
+```
+
+**핵심: 정리 대상은 1,529행이지 19,545행이 아니다.** 분기A 전체를 조이면 타임스퀘어·IFC몰·롯데월드몰 같은 정상 매칭 18,016행이 함께 무너진다.
+
+---
+
+## 4. 문서상 결정과의 관계 (반드시 먼저 읽을 것)
+
+`pipeline-149-filter-match-decouple.md` §2가 정한 것:
+
+> 1. **AI filter는 wrong_lot 체크 안 함** … 2. **lot 정합성은 match-dump 책임** … 3. match-dump 매칭 정확도는 **eval 후 개선**(별도 Phase)
+
+**이 계획은 그 결정을 뒤집지 않는다. 미완으로 남은 3번(Phase 2)을 실행하는 것이다.** lot 정합성 책임은 매처에 그대로 두고, 매처가 받지 못한 방어선을 이제 넣는다.
+
+같은 문서 §3 Phase 2가 정한 제약도 지킨다:
+
+- **geo/주소를 주 매칭 수단으로 쓰지 않는다.** (감성·추천글에는 주소가 없어서 작동 안 함 — `isCandidateLocationCompatible`이 wrong_lot skip 510건을 유발한 전례)
+- 주 신호는 **이름 변형 매칭** 유지.
+- 지역은 **동명 후보 간 disambiguation 용도로만** 쓴다 — 이건 그 문서가 §3 Phase 2 개선 후보로 직접 적어둔 항목("동명·유사명 lot disambiguation")이다.
+
+즉 이 계획의 지역 신호는 "주소가 가까운 lot을 고르는 것"이 아니라 **"이름이 전국구로 겹치는 lot일 때만 지역 증거를 요구하는 것"**이다.
+
+---
+
+## 5. 수정 전략 — 5겹 방어
+
+단일 해법은 없다. DB 통계만으로는 `무인정산`·`물놀이장주차장`처럼 **전국에 1곳뿐인데 개념적으로 범용어**인 이름을 절대 못 잡는다(실측 확인). 그래서 층을 나눈다.
+
+### Layer 1 — 모호성 신호를 **데이터에서 생성**한다 (손목록 폐기)
+
+`GENERIC_FACILITIES` 같은 손목록은 "그때 본 것"만 담는다. 대신 `CITY_NAMES`가 이미 쓰는 방식(D1에서 추출해 상수 생성)을 따른다.
+
+**이름코어**(주차장 접미사·번호·공백 제거) 기준 두 지표:
+
+- `er` = 같은 코어를 가진 lot이 존재하는 **서로 다른 시·군 수**
+- `cr` = 그 코어를 **부분문자열로 포함하는** lot들이 분포한 시·군 수
+
+**판정: `er >= 2 || cr >= 4` 이면 ambiguous.**
+
+이 기준이 중요한 이유 — **"같은 도시 안의 여러 주차장"을 오탐하지 않는다**:
+
+| 이름 | lot 수 | 판정 | 이유 |
+|---|---|---|---|
+| 대천해수욕장 주차장 | 12 | ✅ 정상 | 전부 보령시 — 한 장소의 번호만 다른 주차장 |
+| 미사경정공원 P6 | 7 | ✅ 정상 | 전부 하남시 |
+| 황리단길 주차장 | 4 | ✅ 정상 | 전부 경주시 |
+| 중앙시장 | 18 | ⚠️ 모호 | 8개 도에 분산 |
+| 국립공원주차장 | 2 | ⚠️ 모호 | `cr=33` — 33개 시·군의 lot 이름에 "국립공원"이 들어 있다 |
+
+산출물: `scripts/generate-ambiguous-names.ts` → `src/server/crawlers/lib/ambiguous-names.generated.ts`. `CITY_NAMES`와 동일하게 **재생성 가능한 상수**로 둔다(월 1회 또는 lot 대량 유입 시 재생성).
+
+### Layer 2 — 모호한 이름은 `'high'`를 못 받는다
+
+`getMatchConfidence`(`scoring.ts:783-831`)에서 ambiguous 이름은 **최대 `'medium'`**. `'medium'`은 AI 검증을 타므로 RC-4의 무검증 INSERT 경로가 닫힌다. 지역고유 이름(타임스퀘어·IFC몰)은 지금 동작 그대로 — **회귀 위험 없음**.
+
+동시에 `scoring.ts:813-814`의 `genericFacility` 정규식(12개, 완전일치)과 `GENERIC_FACILITIES`(29개, 부분일치)로 **갈라진 두 목록을 Layer 1 신호로 통일**한다.
+
+### Layer 3 — 모호한 이름에는 지역 증거를 **요구**한다 (분기 A/B 이분법 폐기)
+
+분기 A를 없애는 게 아니라, 조건을 `hasSpecificIdentifier`에서 **`hasSpecificIdentifier && !isAmbiguous`**로 바꾼다. 모호하면 분기 B(이름+지역 동시 매칭)로 간다. 지역고유 이름은 A 유지.
+
+### Layer 4 — `detectRegionConflict` 구멍 메우기
+
+| 대상 | 수정 |
+|---|---|
+| H1 (자기 도 단락) | 도 단위 단락을 **시·군 단위로 강등**. 자기 도 언급은 통과 근거가 못 되고, **자기 시·군** 언급만 통과 근거가 된다 |
+| H3 (특별·광역시) | 특별시·광역시는 **구(區)를 `ownCity`로** 추출하고 구 이름을 gazetteer에 추가. 안 하면 H1 수정 직후 서울 lot이 전부 과잉 판정된다 |
+| RC-3 (파싱) | `extractCity` 정규식의 앞뒤 공백 요구 제거 (문자열 시작/끝 허용) |
+| H2 (랜드마크) | **이번 범위에서 제외.** 산·해수욕장 gazetteer는 별도 작업으로 분리 — Layer 1~3이 `국립공원주차장`을 이미 medium으로 내려 AI가 보게 되므로 우선순위가 낮다 |
+
+**본문(full_text) 사용은 비대칭으로 한다** (중요):
+
+- **긍정 확인용으로만 full_text 사용**: 본문 어디든 자기 시·군이 나오면 → 확인됨(충돌 아님).
+- **충돌 판정은 title+snippet 유지**: 여행글은 도시를 5개씩 언급한다. 6,000자에 "다른 시·군 토큰 = 충돌"을 그대로 적용하면 H3가 지배적 실패로 바뀐다.
+
+또한 `extractRegion`(`scoring.ts:6-25`)이 `로`/`길`(도로명)을 지역어로 취급해 분기 B의 `locationMatched`를 부풀리는 문제를 같이 고친다 — `"중앙로"`가 들어간 아무 글이나 지역 매칭으로 세고 있다.
+
+### Layer 5 — 사양 정렬 + 관측 가능하게 만들기
+
+- **RC-7 해소**: 지역 조항(`ai-filter-v2-prompt.ts:22-29`)을 정본(`ai-summary-prompt.ts` 계열)과 `.claude/agents/filter-v2-evaluator.md:48`에 **동일 문구로 이식**. Layer 2가 AI로 보내는 트래픽이 지역을 보는 AI에 도달하게 만드는 전제조건.
+- **RC-6 해소**: `match-to-lots.ts:314`에서 AI 거절 시 `filter_passed_v2=0` + 사유(`wrong_lot` / `wrong_region`) 행을 **남긴다**(근거로는 안 쓰이되 측정 가능하도록). 이게 없으면 수정 효과를 신규 행에서 확인할 수 없다. `wrong_region` 값 자체는 PR #175가 이미 1,180행에 쓴 기존 값이며, **생산하는 코드 경로만 없는 상태**다.
+
+---
+
+## 6. 실행 단계
+
+### Phase 1 — 신규 오염 차단 (PR 1개, 코드만)
+
+브랜치: `fix/match-contamination` → PR 필수(worktree 사용 안 함).
+
+| # | 파일 | 변경 |
+|---|---|---|
+| 1 | `scripts/generate-ambiguous-names.ts` (신규) | D1에서 er/cr 계산 → 상수 파일 생성 |
+| 2 | `src/server/crawlers/lib/ambiguous-names.generated.ts` (신규) | 생성물. 558곳 기준 코어 목록 |
+| 3 | `scoring.ts:188-222` | `isAmbiguousName(name)` 추가. `hasSpecificIdentifier`는 유지하되 호출부에서 `&& !isAmbiguous` |
+| 4 | `scoring.ts:596-629` | 분기 조건 교체 (Layer 3) |
+| 5 | `scoring.ts:783-831` | ambiguous → `'high'` 금지, 두 generic 목록 통일 (Layer 2) |
+| 6 | `scoring.ts:229-234` | `extractCity` 정규식 + 특별·광역시 구 추출 (Layer 4) |
+| 7 | `scoring.ts:544-565` | 자기 도 단락 → 시·군 단락, full_text 긍정확인 인자 추가 (Layer 4) |
+| 8 | `scoring.ts:6-25` | `extractRegion`에서 `로`/`길` 제외 |
+| 9 | `match-to-lots.ts:261-322` | 긍정확인용 `full_text` 전달, AI 거절 사유 기록 (Layer 5) |
+| 10 | `ai-filter-v2-prompt.ts` / `ai-summary-prompt.ts` / `.claude/agents/filter-v2-evaluator.md` | 지역 조항 통일 (Layer 5) |
+| 11 | `scoring.test.ts` | 회귀 테스트 추가 (§7) |
+
+### Phase 2 — 기존 오염 정리 (Phase 1 머지 후)
+
+1. Phase 1의 `isAmbiguousName` + 고쳐진 `detectRegionConflict`로 **1,529행을 재평가**한다.
+2. 판정 결과를 **중간 파일 `.json`으로 저장해 사람이 검토**한다(dry-run 플래그 대신 — 프로젝트 관행).
+3. 승인 후 `feedback_bulk_sql_pattern` 대로 **SQL chunk emit → `wrangler --file` 일괄 적용**(행별 wrangler 금지). `.sql` 확장자, 20문장 단위.
+4. 오염 판정 행: `filter_passed_v2=0`, `filter_v2_reason='wrong_region'` 표시. **삭제하지 않는다.**
+   이건 신규 값이 아니라 **이미 검증된 선례**다 — PR #175가 같은 방식으로 **1,180행**을 표시했다(D1 실측: `aggregator_site` 6,649 / `ai_pass` 6,105 / `wrong_region` 1,180 / `boilerplate` 2). 다만 그 값을 **쓰는 코드 경로가 없어서**(RC-6) 그 뒤로 늘지 않았다. Layer 5가 그 경로를 만든다.
+5. **영향받은 lot에 `ai_summary_stale=1`을 반드시 같이 찍는다.** 안 찍으면 크론이 영영 안 집는다(`project_lot_summary_backfill` 기록).
+6. `scoring-engine` 점수 재계산.
+
+### Phase 3 — 하류 NULL 의미 통일
+
+같은 컬럼을 3가지로 읽고 있다:
+
+| 게이트 | 조건 | NULL 취급 |
+|---|---|---|
+| `scoring-engine.ts:63-73`, `compute-parking-stats.ts:104` | `= 1` | 제외 |
+| `lot-summary-batch.ts:170`, `generate-lot-summary.ts:132` | `IS NOT 0` | **포함** |
+| `wiki/index.tsx`, `sitemap-handler.ts:276`, `parking.ts:294` | v2 게이트 없음 | **포함** |
+
+미검증 5,887행이 점수에는 안 들어가면서 **요약·위키·사이트맵에는 들어간다.** 정책을 하나로 정하고(권고: 요약 입력은 `= 1`, 표시 계열은 `IS NOT 0`) 문서화한다. Phase 1·2 이후에 하는 이유는, 지금 `= 1`로 조이면 미평가 행이 통째로 사라져 커버리지가 급락하기 때문이다.
+
+---
+
+## 7. 검증 계획과 수용 기준
+
+**기존 라벨 픽스처는 재사용 불가**를 확인했다 — `eval-match-fixture.ts`는 `/tmp` 답안지에 의존하고(소실), `data/eval-lot-match-*-20260529.json`(200행)은 lot **복구** 과제용이라 오염 판정에 안 맞는다. 따라서 라벨셋을 새로 만든다.
+
+1. **라벨셋 구축**: 모호 그룹 1,529행에서 **N=100 층화 표본** 추출 → 각 (근거, lot) 쌍을 "맞음/다른 지역/다른 lot"으로 라벨(Haiku 배치, 비용 민감 작업이므로 `model: haiku` 명시). 산출물 `data/match-contamination-labels-20260907.json`.
+2. **Before/After**: 같은 100행에 Phase 1 전/후 `getMatchConfidence`를 돌려 precision 변화 측정.
+3. **수용 기준** (정확도 > 재현율, 단 손실 상한을 둔다):
+   - 오염 행 차단율 **≥ 80%**
+   - **정상 매칭 손실 ≤ 5%** — 초과 시 `er`/`cr` 임계값 재조정 후 재측정
+   - 분기A 지역고유 18,016행의 판정 변화 **0건** (회귀 없음 확인)
+4. **회귀 테스트** (`scoring.test.ts`에 추가):
+   - 분기A 모호 이름: 설악산 글 → 구례 `국립공원주차장`이 `confidence === 'none'`(점수 `< 40`만이 아니라 **등급까지** 단언)
+   - H1: "강원도 속초" 글 → 강릉 `중앙시장` 충돌 `true`
+   - H3 회귀: 서울 lot + 지방 도시 언급 글이 **과잉 차단되지 않을 것**
+   - 회귀 방지: 타임스퀘어·IFC몰·롯데월드몰이 여전히 `'high'`
+5. **end-to-end 수용**: Phase 2 정리 후 `generate-lot-summary.ts --batch --limit=14 --min-sources=3 --remote --no-apply`를 재실행해 **생성 > 0건**. 현재는 0건이므로 이 지표 하나로 실제 해소 여부가 판별된다.
+
+---
+
+## 8. 재현 방법
+
+```bash
+# 분기 판정 + end-to-end 오염 재현
+bun -e 'import {hasSpecificIdentifier,getMatchConfidence,detectRegionConflict} from "./src/server/crawlers/lib/scoring.ts";
+console.log(hasSpecificIdentifier("국립공원주차장"));
+console.log(getMatchConfidence("설악산 국립공원 주차장 후기","주차 편했어요 국립공원주차장","국립공원주차장","전라남도 구례군 마산면"));
+console.log(detectRegionConflict("강원도 속초 중앙시장 주차장","중앙시장","강원특별자치도 강릉시 금성로 21"))'
+```
+
+```bash
+# filter_passed_v2 분포
+npx wrangler d1 execute parking-db --remote --command "
+SELECT COUNT(*) total, SUM(filter_passed_v2 IS NULL) v2_null,
+       SUM(filter_passed_v2=1) v2_pass, SUM(filter_passed_v2=0) v2_fail FROM web_sources"
+```
+
+모호성 지표(er/cr) 산출 스크립트는 Phase 1 #1으로 정식화한다.
+
+---
+
+## 9. 리스크
+
+| 리스크 | 대응 |
+|---|---|
+| **AI 호출량 증가** — 모호 이름이 medium으로 내려가면 `UNSLOTH_API_KEY` 호출이 늘고, 키 없음/예산 초과 시 medium은 **조용히 버려진다**(오염이 아니라 커버리지 손실) | 모호 행은 전체의 6.5%(1,529/23,496) → 증가폭 한 자릿수 % 예상. Phase 1 배포 후 첫 주 크론 로그로 실측하고, 예산 초과 시 드롭이 아니라 **보류(NULL 유지)** 되도록 확인 |
+| H1 수정이 서울·광역시에서 과잉 차단 | Layer 4의 구(區) 추출을 **같은 PR에 반드시 포함**. 회귀 테스트 §7-4 세 번째 항목이 이걸 지킨다 |
+| `er`/`cr` 임계값이 임의적 | 라벨셋(§7-1)으로 조정. 임계값을 상수로 노출해 재조정 가능하게 둠 |
+| 손목록 제거로 기존 정상 판정이 바뀜 | 두 목록 통일은 Layer 1 신호로 **대체**하는 것이므로, 기존 목록 항목(중앙시장·평생학습관 등)이 새 신호에서도 ambiguous로 나오는지 테스트로 고정 |
+| `무인정산`·`물놀이장주차장` 류는 어떤 DB 신호로도 안 잡힘 | 한계로 명시. Layer 4(지역충돌 수정)가 이들에도 적용되므로 완전 무방비는 아니며, 잔여분은 H2(랜드마크 gazetteer) 후속 작업으로 이월 |
+
+---
+
+## 10. 범위 밖 (의도적)
+
+- **랜드마크 gazetteer**(H2) — 별도 작업
+- **`scoreBlogRelevanceFull`(v2) 프로덕션 배선** — 죽은 코드 정리는 별건. 이번엔 긍정확인 용도로만 full_text를 쓴다
+- **geo/좌표 기반 매칭** — `pipeline-149` §3이 명시적으로 기각. 뒤집지 않는다
+- **sitemap 축소** — `project_gsc_index_baseline`의 순서상 GSC 2~4주 재측정 전까지 보류
