@@ -20,7 +20,7 @@ if (!SERVICE_KEY) {
   process.exit(1);
 }
 
-const API_URL = "http://api.data.go.kr/openapi/tn_pubr_prkplce_info_api";
+const API_URL = "https://api.data.go.kr/openapi/tn_pubr_prkplce_info_api";
 const NUM_OF_ROWS = 500;
 const DELAY_MS = 300;
 const MAX_RETRIES = 3;
@@ -109,8 +109,8 @@ async function fetchPage(pageNo: number): Promise<{ items: ApiItem[]; totalCount
       } catch {
         throw new Error(`JSON 파싱 실패 (${text.length}자, 시작: ${text.slice(0, 100)}...)`);
       }
-      const header = json.response?.header;
-      const body = json.response?.body;
+      const header = json.header;
+      const body = json.body;
 
       if (!header || header.resultCode !== "00") {
         const code = header?.resultCode ?? "??";
@@ -122,8 +122,12 @@ async function fetchPage(pageNo: number): Promise<{ items: ApiItem[]; totalCount
         throw new Error(`API 에러 [${code}]: ${msg}`);
       }
 
+      // 결과 1건일 때 XML→JSON 변환기가 items.item을 배열이 아닌 단일 객체로 접음
+      const rawItems = body.items?.item ?? [];
+      const items = Array.isArray(rawItems) ? rawItems : [rawItems];
+
       return {
-        items: body.items ?? [],
+        items,
         totalCount: parseInt(body.totalCount) || 0,
       };
     } catch (err) {
