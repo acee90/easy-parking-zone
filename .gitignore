@@ -122,3 +122,7 @@ data/near/stations.csv
 # 파이프라인 품질 검수 산출물 (스크립트가 매 실행마다 새로 뽑는다)
 data/pipeline-qa/
 data/raw-cleanup/
+
+# sync-*.ts 가 매 실행마다 다시 쓰는 중복 충돌 리포트 (읽는 코드 없음).
+# 추적하면 브랜치마다 같은 파일이 각자 생성돼 add/add 충돌이 난다 (PR #181 실제 사례).
+data/*-dedup-collisions.json
