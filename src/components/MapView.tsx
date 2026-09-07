@@ -51,9 +51,12 @@ function markerColor(score: number | null): string {
   return '#ef4444' // red-500 — 헬
 }
 
-const CLUSTER_MIN_SIZE = 32
-const CLUSTER_MAX_SIZE = 160
-const CLUSTER_MAX_COUNT = 300
+// 클러스터 원 지름(px). SuperCluster radius(200) / extent(512) × 타일 256px = 화면상 약 100px 간격이
+// 클러스터 중심 사이 최소 거리이므로, 링 포함 최대 지름(MAX+8)이 이를 넘으면 원끼리 겹쳐 지도를 가린다.
+const CLUSTER_MIN_SIZE = 28
+const CLUSTER_MAX_SIZE = 60
+// 수도권 클러스터는 대부분 수백~수천 개 → 300으로 자르면 전부 최대 크기로 포화된다
+const CLUSTER_MAX_COUNT = 2500
 
 function clusterSize(count: number): number {
   const t = Math.sqrt(Math.min(count, CLUSTER_MAX_COUNT) / CLUSTER_MAX_COUNT)
