@@ -1,0 +1,1192 @@
+[
+  {
+    "hp_name": "D타워돈의문점",
+    "hp_address": "서울특별시 종로구 통일로 134",
+    "existing_id": "KA-1913366882",
+    "existing_name": "디타워 돈의문 주차장",
+    "dist_m": 28
+  },
+  {
+    "hp_name": "HGP 속초점",
+    "hp_address": "강원도 속초시 동해대로 4038",
+    "existing_id": "KA-1335608684",
+    "existing_name": "하이파킹 속초점 주차장",
+    "dist_m": 42
+  },
+  {
+    "hp_name": "L7 호텔 해운대",
+    "hp_address": "부산광역시 해운대구 해운대해변로265번길 9-15",
+    "existing_id": "138-4-000135",
+    "existing_name": "흥안인더스트리",
+    "dist_m": 58
+  },
+  {
+    "hp_name": "L7호텔강남",
+    "hp_address": "서울특별시 강남구 테헤란로 415",
+    "existing_id": "NV-1270516135_375056900",
+    "existing_name": "투루파킹 L7호텔강남 주차장",
+    "dist_m": 13
+  },
+  {
+    "hp_name": "LMSTEST",
+    "hp_address": "경기도 성남시 분당구 황새울로 216",
+    "existing_id": "KA-26186089",
+    "existing_name": "MS프라자 주차장",
+    "dist_m": 60
+  },
+  {
+    "hp_name": "SC제일은행광주",
+    "hp_address": "광주광역시 동구 금남로 224",
+    "existing_id": "KA-1684747862",
+    "existing_name": "우리은행 금남로지점 주차장",
+    "dist_m": 44
+  },
+  {
+    "hp_name": "SJ테크노빌",
+    "hp_address": "서울특별시 금천구 가산동 60-19",
+    "existing_id": "117-1-000014",
+    "existing_name": "SJ테크노빌(삼보)",
+    "dist_m": 4
+  },
+  {
+    "hp_name": "가평 하나로마트",
+    "hp_address": "경기도 가평군 가화로 120",
+    "existing_id": "KA-1362841288",
+    "existing_name": "하나로마트 가평농협점 주차장",
+    "dist_m": 30
+  },
+  {
+    "hp_name": "강남K스퀘어점",
+    "hp_address": "서울특별시 강남구 강남대로94길 10",
+    "existing_id": "KA-756857642",
+    "existing_name": "올리팅성형외과 YBM영풍문고 주차장",
+    "dist_m": 42
+  },
+  {
+    "hp_name": "경주제일고속철주차장",
+    "hp_address": "경상북도 경주시 건천읍 내외로 2871-40",
+    "existing_id": "KA-69854741",
+    "existing_name": "제일고속철주차장",
+    "dist_m": 32
+  },
+  {
+    "hp_name": "고양터미널",
+    "hp_address": "경기도 고양시 일산동구 중앙로 1036",
+    "existing_id": "NV-1267896616_376431783",
+    "existing_name": "고양백석환승주차장",
+    "dist_m": 0
+  },
+  {
+    "hp_name": "골드프라자",
+    "hp_address": "경기도 용인시 기흥구 중동 829",
+    "existing_id": "KA-1007962908",
+    "existing_name": "동백골드프라자 주차장",
+    "dist_m": 36
+  },
+  {
+    "hp_name": "공덕효성해링턴스퀘어점",
+    "hp_address": "서울특별시 마포구 마포대로 92 공덕 효성해링턴 스퀘어점",
+    "existing_id": "NV-1269509253_375424819",
+    "existing_name": "나이스파크 본사",
+    "dist_m": 54
+  },
+  {
+    "hp_name": "공항철도계양역점",
+    "hp_address": "인천광역시 계양구 다남로 24 공항철도 계양역",
+    "existing_id": "167-5-000001",
+    "existing_name": "인천교통공사 계양역 부설주차장",
+    "dist_m": 0
+  },
+  {
+    "hp_name": "공항철도영종역점",
+    "hp_address": "인천광역시 중구  운북동 465-37 공항철도 영종역",
+    "existing_id": "KA-333081159",
+    "existing_name": "나이스파크 공항철도 영종역 주차장",
+    "dist_m": 45
+  },
+  {
+    "hp_name": "과천래미안슈르상가점",
+    "hp_address": "경기도 과천시  별양로 28(원문동)",
+    "existing_id": "KA-383037588",
+    "existing_name": "하이파킹 과천래미안슈르상가점 주차장",
+    "dist_m": 30
+  },
+  {
+    "hp_name": "광교SB타운점",
+    "hp_address": "경기도 용인시 수지구 광교마을로 54 광교SB타운",
+    "existing_id": "KA-1598461741",
+    "existing_name": "광교SB타운 주차장",
+    "dist_m": 6
+  },
+  {
+    "hp_name": "광명크로앙스점",
+    "hp_address": "경기도 광명시 오리로 970",
+    "existing_id": "NV-1268553227_374793629",
+    "existing_name": "투루파킹 광명크로앙스점 주차장",
+    "dist_m": 30
+  },
+  {
+    "hp_name": "광양중동점",
+    "hp_address": "전라남도 광양시 광장로 107",
+    "existing_id": "NV-1276942937_349338146",
+    "existing_name": "AJ파크 광양중동점",
+    "dist_m": 2
+  },
+  {
+    "hp_name": "광주송정역점",
+    "hp_address": "광주광역시 광산구 평동로1119번길 25-12 송정역점",
+    "existing_id": "KA-1660560937",
+    "existing_name": "광주송정역 후면주차장",
+    "dist_m": 51
+  },
+  {
+    "hp_name": "광주양산타워점",
+    "hp_address": "광주광역시 북구 상촌로 8 광주양산타워점",
+    "existing_id": "KA-204564275",
+    "existing_name": "볼러스레인 광주점 주차장",
+    "dist_m": 41
+  },
+  {
+    "hp_name": "광주오리골목점",
+    "hp_address": "광주광역시 북구 경양로 125",
+    "existing_id": "KA-8008939",
+    "existing_name": "영미오리탕 주차장",
+    "dist_m": 34
+  },
+  {
+    "hp_name": "광주와이즈파크",
+    "hp_address": "광주광역시 동구 호남동 75",
+    "existing_id": "KA-553179517",
+    "existing_name": "몽키터미널 주차장",
+    "dist_m": 1
+  },
+  {
+    "hp_name": "광주치유요양병원점",
+    "hp_address": "광주광역시 동구 운림동 340 광주 치유요양병원 주차관리사무소",
+    "existing_id": "KA-196073717",
+    "existing_name": "치유요양병원 주차장",
+    "dist_m": 45
+  },
+  {
+    "hp_name": "구로점",
+    "hp_address": "서울특별시 구로구 구로4동 94-1 구로점",
+    "existing_id": "116-4-000018",
+    "existing_name": "AJ파크 주차장(구로점)",
+    "dist_m": 1
+  },
+  {
+    "hp_name": "국민은행 이태원지점",
+    "hp_address": "서울특별시 용산구 이태원동 127-7",
+    "existing_id": "KA-195693801",
+    "existing_name": "카카오T 모드127 주차장",
+    "dist_m": 49
+  },
+  {
+    "hp_name": "국민은행 태릉지점",
+    "hp_address": "서울특별시 노원구 동일로 1022",
+    "existing_id": "KA-20513323",
+    "existing_name": "공릉쇼핑센타 주차장",
+    "dist_m": 50
+  },
+  {
+    "hp_name": "굿모닝빌딩",
+    "hp_address": "대전광역시 서구 둔산동 1111",
+    "existing_id": "185-1-000071",
+    "existing_name": "계룡로 주변 노상주차장",
+    "dist_m": 1
+  },
+  {
+    "hp_name": "귀뚜라미홈시스텔",
+    "hp_address": "서울특별시 강서구 화곡6동 1111-2",
+    "existing_id": "115-1-000022",
+    "existing_name": "화곡6동 방죽길",
+    "dist_m": 59
+  },
+  {
+    "hp_name": "그랜드조선부산점",
+    "hp_address": "부산광역시 해운대구 부산 해운대구 해운대 해변로 292",
+    "existing_id": "138-4-000011",
+    "existing_name": "광장주차장",
+    "dist_m": 47
+  },
+  {
+    "hp_name": "그레이츠판교점",
+    "hp_address": "경기도 성남시 분당구 분당내곡로 117 판교알파돔타워4점",
+    "existing_id": "KA-943257926",
+    "existing_name": "그레이츠 판교 주차장",
+    "dist_m": 32
+  },
+  {
+    "hp_name": "금동주차장점",
+    "hp_address": "광주광역시 동구 금동 153",
+    "existing_id": "175-4-000002",
+    "existing_name": "금동주차장",
+    "dist_m": 2
+  },
+  {
+    "hp_name": "김포 승문 리앤포레",
+    "hp_address": "경기도 김포시 운양동 1297-6",
+    "existing_id": "KA-2117107568",
+    "existing_name": "풍경마트 전용주차장",
+    "dist_m": 33
+  },
+  {
+    "hp_name": "김포센트럴프라자",
+    "hp_address": "경기도 김포시 구래동 6884-8",
+    "existing_id": "KA-495657345",
+    "existing_name": "지오타워 주차장",
+    "dist_m": 56
+  },
+  {
+    "hp_name": "남대문 우리빌딩점",
+    "hp_address": "서울특별시 중구 칠패로 42",
+    "existing_id": "101-2-000012",
+    "existing_name": "서소문삼성생명뒤 공영주차장",
+    "dist_m": 50
+  },
+  {
+    "hp_name": "남동탄 식자재마트",
+    "hp_address": "경기도 화성시 산척동 739-2",
+    "existing_id": "KA-2088888201",
+    "existing_name": "Y식자재마트 남동탄점 주차장",
+    "dist_m": 12
+  },
+  {
+    "hp_name": "남산주차장",
+    "hp_address": "강원도 원주시 원일로 53",
+    "existing_id": "251-4-000018",
+    "existing_name": "남산주차장",
+    "dist_m": 34
+  },
+  {
+    "hp_name": "남양주 메인시네마타워",
+    "hp_address": "경기도 남양주시 늘을2로 26(호평동)",
+    "existing_id": "KA-1941400965",
+    "existing_name": "메인시네마타워 주차장",
+    "dist_m": 37
+  },
+  {
+    "hp_name": "남양주 원병원",
+    "hp_address": "경기도 남양주시 화도읍 창현리 495-3 원병원",
+    "existing_id": "KA-582410159",
+    "existing_name": "원병원 장례식장 주차장",
+    "dist_m": 12
+  },
+  {
+    "hp_name": "남이섬 1주차장",
+    "hp_address": "경기도 가평군 달전리112-1",
+    "existing_id": "KA-20514290",
+    "existing_name": "남이섬 제1주차장",
+    "dist_m": 15
+  },
+  {
+    "hp_name": "남이섬 2주차장",
+    "hp_address": "경기도 가평군 달전리109-1",
+    "existing_id": "KA-20514290",
+    "existing_name": "남이섬 제1주차장",
+    "dist_m": 52
+  },
+  {
+    "hp_name": "남이섬 3주차장",
+    "hp_address": "경기도 가평군 달전리135-3",
+    "existing_id": "KA-20514292",
+    "existing_name": "남이섬 제3주차장",
+    "dist_m": 18
+  },
+  {
+    "hp_name": "누보스타호텔",
+    "hp_address": "대전광역시 서구 둔산중로 134번길 13",
+    "existing_id": "KA-194128677",
+    "existing_name": "토요코인호텔 주차장",
+    "dist_m": 2
+  },
+  {
+    "hp_name": "뉴코아아울렛 평촌",
+    "hp_address": "경기도 안양시 동안구 동안로 119 뉴코아아울렛 평촌점",
+    "existing_id": "NV-1269515747_373891932",
+    "existing_name": "AJ파크 뉴코아아울렛평촌점",
+    "dist_m": 31
+  },
+  {
+    "hp_name": "다산동공영주차장",
+    "hp_address": "서울특별시 중구 동호로15길 60",
+    "existing_id": "101-2-000009",
+    "existing_name": "다산동 공영주차장",
+    "dist_m": 0
+  },
+  {
+    "hp_name": "다산아트공영주차장",
+    "hp_address": "서울특별시 중구 동호로17길 173",
+    "existing_id": "101-2-000024",
+    "existing_name": "다산아트 공영주차장",
+    "dist_m": 0
+  },
+  {
+    "hp_name": "다이소 제주 서귀포중문점",
+    "hp_address": "제주특별자치도 서귀포시 일주서로 996",
+    "existing_id": "KA-516832239",
+    "existing_name": "하이파킹 다이소서귀포중문점",
+    "dist_m": 2
+  },
+  {
+    "hp_name": "다이소병점점",
+    "hp_address": "경기도 화성시 병점2로 22",
+    "existing_id": "KA-652398099",
+    "existing_name": "다이소병점점 주차장",
+    "dist_m": 24
+  },
+  {
+    "hp_name": "다이소안성공도점",
+    "hp_address": "경기도 안성시 공도읍 진사리 22-6",
+    "existing_id": "NV-1271387890_369938700",
+    "existing_name": "쏘카 다이소 안성공도점 주차장",
+    "dist_m": 0
+  },
+  {
+    "hp_name": "대전 엠제이굿모닝빌딩",
+    "hp_address": "대전광역시 서구 둔산동 1110",
+    "existing_id": "185-1-000071",
+    "existing_name": "계룡로 주변 노상주차장",
+    "dist_m": 26
+  },
+  {
+    "hp_name": "대전남정빌딩1",
+    "hp_address": "대전광역시 유성구 테크노중앙로 54",
+    "existing_id": "KA-1382324847",
+    "existing_name": "관평동 유료주차장",
+    "dist_m": 42
+  },
+  {
+    "hp_name": "대전남정빌딩2",
+    "hp_address": "대전광역시 유성구 테크노중앙로 65",
+    "existing_id": "KA-1683388222",
+    "existing_name": "하이파킹 대전남정빌딩2 주차장",
+    "dist_m": 3
+  },
+  {
+    "hp_name": "대전둔산점",
+    "hp_address": "대전광역시 서구 대덕대로 179 대전 둔산점 주차장",
+    "existing_id": "185-1-000071",
+    "existing_name": "계룡로 주변 노상주차장",
+    "dist_m": 28
+  },
+  {
+    "hp_name": "대전만금프라자",
+    "hp_address": "대전광역시 서구 둔산2동 923",
+    "existing_id": "KA-194128677",
+    "existing_name": "토요코인호텔 주차장",
+    "dist_m": 46
+  },
+  {
+    "hp_name": "대전사학연금둔산회관",
+    "hp_address": "대전광역시 서구 한밭대로 809",
+    "existing_id": "KA-337803234",
+    "existing_name": "사학연금회관 주차장",
+    "dist_m": 7
+  },
+  {
+    "hp_name": "대전선화빌딩점(테크노파크디스테이션)",
+    "hp_address": "대전광역시 중구 중앙로 119",
+    "existing_id": "184-1-000101",
+    "existing_name": "선화동제4노상",
+    "dist_m": 0
+  },
+  {
+    "hp_name": "대전시청점",
+    "hp_address": "대전광역시 서구 둔산남로 50 대전시청점",
+    "existing_id": "KA-1164881812",
+    "existing_name": "대전팔레드오페라 주차장",
+    "dist_m": 31
+  },
+  {
+    "hp_name": "대치퍼스트빌딩",
+    "hp_address": "서울특별시 강남구 대치동 507-2",
+    "existing_id": "122-1-000017",
+    "existing_name": "대치동507-3",
+    "dist_m": 60
+  },
+  {
+    "hp_name": "대한성공회서울주교좌성당점",
+    "hp_address": "서울특별시 중구 세종대로19길 16 대한성공회 서울주교좌성당",
+    "existing_id": "KA-906859982",
+    "existing_name": "하이파킹 대한성공회 서울주교좌성당점 주차장",
+    "dist_m": 5
+  },
+  {
+    "hp_name": "대한출판",
+    "hp_address": "서울특별시 성동구 고산자로 202 무학빌딩 부설 주차장",
+    "existing_id": "KA-864028220",
+    "existing_name": "레노스블랑쉬 주차장",
+    "dist_m": 31
+  },
+  {
+    "hp_name": "도농부영프라자점",
+    "hp_address": "경기도 남양주시 도농로 29",
+    "existing_id": "KA-848757753",
+    "existing_name": "부영프라자 주차장",
+    "dist_m": 25
+  },
+  {
+    "hp_name": "동두천 예일복합타워",
+    "hp_address": "경기도 동두천시 지행동 694",
+    "existing_id": "NV-1270532243_378931005",
+    "existing_name": "예일 민영 주차장",
+    "dist_m": 3
+  },
+  {
+    "hp_name": "동서울터미널 제1 주차장",
+    "hp_address": "서울특별시 광진구 강변역로50",
+    "existing_id": "NV-1270942004_375345380",
+    "existing_name": "태강이엔지",
+    "dist_m": 1
+  },
+  {
+    "hp_name": "동서울터미널 제2 주차장",
+    "hp_address": "서울특별시 광진구 강변역로50",
+    "existing_id": "NV-1270942004_375345380",
+    "existing_name": "태강이엔지",
+    "dist_m": 1
+  },
+  {
+    "hp_name": "동탄훼밀리타운",
+    "hp_address": "경기도 화성시 반송동 40번지",
+    "existing_id": "KA-1605735087",
+    "existing_name": "은행사거리노상공영주차장",
+    "dist_m": 60
+  },
+  {
+    "hp_name": "드림월드빌딩",
+    "hp_address": "경기도 양주시 광사동 654",
+    "existing_id": "235-4-000018",
+    "existing_name": "하모니타워주차장",
+    "dist_m": 3
+  },
+  {
+    "hp_name": "로데오몰",
+    "hp_address": "경기도 남양주시 별내동 1006-1",
+    "existing_id": "KA-3197226",
+    "existing_name": "별내동 노상제6공영주차장",
+    "dist_m": 53
+  },
+  {
+    "hp_name": "롯데마트 충주점",
+    "hp_address": "충청북도 충주시 봉계1길 49(칠금동)",
+    "existing_id": "KA-1650491292",
+    "existing_name": "롯데마트 충주점 주차장",
+    "dist_m": 4
+  },
+  {
+    "hp_name": "롯데쇼핑 화명점",
+    "hp_address": "부산광역시 북구 화명대로 47(화명동)",
+    "existing_id": "NV-1290130213_352351845",
+    "existing_name": "롯데마트 화명점 주차장",
+    "dist_m": 2
+  },
+  {
+    "hp_name": "롯데슈퍼 동탄중앙점",
+    "hp_address": "경기도 화성시 동탄중심상가1길 28",
+    "existing_id": "KA-779991418",
+    "existing_name": "동탄파라곤2 주차장",
+    "dist_m": 58
+  },
+  {
+    "hp_name": "롯데슈퍼 전곡점",
+    "hp_address": "경기도 연천군 전곡읍 전곡로 187-1",
+    "existing_id": "KA-2054468043",
+    "existing_name": "나이스파크 롯데프레시&델리 전곡점 주차장",
+    "dist_m": 2
+  },
+  {
+    "hp_name": "롯데슈퍼 효자점",
+    "hp_address": "전라북도 전주시 완산구 효동 2길 8 롯데슈퍼 효자점",
+    "existing_id": "KA-942783996",
+    "existing_name": "서부시장 부설주차장",
+    "dist_m": 55
+  },
+  {
+    "hp_name": "롯데슈퍼대구수성점",
+    "hp_address": "대구광역시 수성구 수성로 227",
+    "existing_id": "KA-1896732291",
+    "existing_name": "롯데슈퍼 수성점 주차장",
+    "dist_m": 35
+  },
+  {
+    "hp_name": "롯데슈퍼오남2점",
+    "hp_address": "경기도 남양주시 오남읍 진건오남로 512",
+    "existing_id": "KA-1210444333",
+    "existing_name": "나이스파크 웰빙마트 주차장",
+    "dist_m": 21
+  },
+  {
+    "hp_name": "롯데시네마청주용암점",
+    "hp_address": "충청북도 청주시 상당구 1순환로 1233 롯데시네마 청주용암점",
+    "existing_id": "KA-1314615850",
+    "existing_name": "하이파킹 롯데시네마 청주용암점",
+    "dist_m": 1
+  },
+  {
+    "hp_name": "마곡아이파크점",
+    "hp_address": "서울특별시 강서구 마곡중앙8로 90",
+    "existing_id": "KA-1326307533",
+    "existing_name": "열린프라자 주차장",
+    "dist_m": 50
+  },
+  {
+    "hp_name": "마켓오도곡점",
+    "hp_address": "서울특별시 강남구 남부순환로 2745",
+    "existing_id": "KA-485472687",
+    "existing_name": "백마김씨네 도곡본점 주차장",
+    "dist_m": 28
+  },
+  {
+    "hp_name": "메리어트호텔영등포점",
+    "hp_address": "서울특별시 영등포구 경인로 870",
+    "existing_id": "KA-1017190180",
+    "existing_name": "페어필드서울호텔 주차장",
+    "dist_m": 0
+  },
+  {
+    "hp_name": "무교동점",
+    "hp_address": "서울특별시 중구 무교동 28",
+    "existing_id": "KA-849835289",
+    "existing_name": "코오롱빌딩옆 노상공영주차장",
+    "dist_m": 35
+  },
+  {
+    "hp_name": "문정대명벨리온지식산업센터점",
+    "hp_address": "서울특별시 송파구 법원로 127",
+    "existing_id": "KA-515870136",
+    "existing_name": "투루파킹 문정대명벨리온지식산업센터점 주차장",
+    "dist_m": 7
+  },
+  {
+    "hp_name": "민락CY타워",
+    "hp_address": "경기도 의정부시 오목로 225번길 100 민락CY타워",
+    "existing_id": "KA-948337744",
+    "existing_name": "민락동 공영주차장",
+    "dist_m": 39
+  },
+  {
+    "hp_name": "버티공영주차장",
+    "hp_address": "서울특별시 중구 동호로17길 270",
+    "existing_id": "101-2-000011",
+    "existing_name": "버티 공영주차장",
+    "dist_m": 5
+  },
+  {
+    "hp_name": "봉명2점",
+    "hp_address": "대전광역시 유성구 봉명동 1048",
+    "existing_id": "KA-1961530159",
+    "existing_name": "봉명우리주차장",
+    "dist_m": 27
+  },
+  {
+    "hp_name": "봉명3점",
+    "hp_address": "대전광역시 유성구 봉명동 675-8 봉명점3",
+    "existing_id": "186-1-000020",
+    "existing_name": "유성지구대 앞",
+    "dist_m": 51
+  },
+  {
+    "hp_name": "부천 필타운",
+    "hp_address": "경기도 부천시 중동로254번길 78",
+    "existing_id": "000-2-000006",
+    "existing_name": "구터미널",
+    "dist_m": 52
+  },
+  {
+    "hp_name": "부천먹자골점",
+    "hp_address": "경기도 부천시 조마루로291번길 9 부천 먹자골점",
+    "existing_id": "KA-27377219",
+    "existing_name": "하이파킹 부천먹자골점 주차장",
+    "dist_m": 4
+  },
+  {
+    "hp_name": "부천역이테크에비뉴스타",
+    "hp_address": "경기도 부천시 경인로 232",
+    "existing_id": "KA-867091966",
+    "existing_name": "부천역이테크에비뉴스타오피스텔 주차장",
+    "dist_m": 52
+  },
+  {
+    "hp_name": "부평MH타워",
+    "hp_address": "인천광역시 부평구 시장로 7",
+    "existing_id": "NV-1267240168_374924317",
+    "existing_name": "투루파킹 부평MH타워 주차장",
+    "dist_m": 31
+  },
+  {
+    "hp_name": "부평동부빌딩점",
+    "hp_address": "인천광역시 부평구 장제로 138",
+    "existing_id": "166-1-000002",
+    "existing_name": "부흥로터리",
+    "dist_m": 3
+  },
+  {
+    "hp_name": "삼성동빌딩점",
+    "hp_address": "서울특별시 강남구 삼성로 512",
+    "existing_id": "KA-26597872",
+    "existing_name": "하이파킹 삼성동빌딩점",
+    "dist_m": 16
+  },
+  {
+    "hp_name": "삼성디지털서초본점",
+    "hp_address": "서울특별시 서초구 서초동 1672-6",
+    "existing_id": "KA-27192426",
+    "existing_name": "교대역주차장",
+    "dist_m": 14
+  },
+  {
+    "hp_name": "삼성디지털프라자 광명소하점",
+    "hp_address": "경기도 광명시 금하로 454",
+    "existing_id": "KA-1962951001",
+    "existing_name": "광명가득한방병원 주차장",
+    "dist_m": 48
+  },
+  {
+    "hp_name": "삼성디지털황금점",
+    "hp_address": "대구광역시 수성구 동대구로 110 삼성디지털프라자 황금점",
+    "existing_id": "KA-1287107468",
+    "existing_name": "삼성전자디지털프라자 동대구본점 주차장",
+    "dist_m": 52
+  },
+  {
+    "hp_name": "삼성스토어 남포",
+    "hp_address": "부산광역시 중구 구덕로 33",
+    "existing_id": "KA-20589603",
+    "existing_name": "부림주차장",
+    "dist_m": 43
+  },
+  {
+    "hp_name": "삼성스토어 중대본점",
+    "hp_address": "대전광역시 중구 계백로 1679 삼성디지털프라자 오류점",
+    "existing_id": "184-1-000057",
+    "existing_name": "오류동제8노상",
+    "dist_m": 0
+  },
+  {
+    "hp_name": "삼성역LG트윈텔2점",
+    "hp_address": "서울특별시 강남구 삼성로 508",
+    "existing_id": "KA-26597872",
+    "existing_name": "하이파킹 삼성동빌딩점",
+    "dist_m": 45
+  },
+  {
+    "hp_name": "삼송현대썬앤빌점",
+    "hp_address": "경기도 고양시 덕양구 삼송로 210",
+    "existing_id": "218-2-000021",
+    "existing_name": "삼송역 환승",
+    "dist_m": 29
+  },
+  {
+    "hp_name": "상도성대시장점",
+    "hp_address": "서울특별시 동작구 상도로 102 성대시장점",
+    "existing_id": "KA-1173801032",
+    "existing_name": "상도성대시장 주차장",
+    "dist_m": 19
+  },
+  {
+    "hp_name": "상동점",
+    "hp_address": "경기도 부천시 상동 536-8",
+    "existing_id": "KA-815456786",
+    "existing_name": "세이브존 부천상동점 주차장",
+    "dist_m": 52
+  },
+  {
+    "hp_name": "서면금융프라자점",
+    "hp_address": "부산광역시 부산진구 중앙대로709",
+    "existing_id": "KA-611407462",
+    "existing_name": "아림주차장",
+    "dist_m": 50
+  },
+  {
+    "hp_name": "서울신문사",
+    "hp_address": "서울특별시 중구 세종대로 124",
+    "existing_id": "KA-801596421",
+    "existing_name": "한국프레스센터 주차장",
+    "dist_m": 37
+  },
+  {
+    "hp_name": "서초구청 공유주차장",
+    "hp_address": "서울특별시 서초구 서초동 1325",
+    "existing_id": "KA-941664223",
+    "existing_name": "서초구공유주차장",
+    "dist_m": 1
+  },
+  {
+    "hp_name": "서초역파크빌딩",
+    "hp_address": "서울특별시 서초구 반포대로27길16",
+    "existing_id": "KA-2016298351",
+    "existing_name": "사랑의교회 주차장",
+    "dist_m": 48
+  },
+  {
+    "hp_name": "세종정부청사체육관",
+    "hp_address": "세종특별자치시 세종특별자치시 도움8로 11-10",
+    "existing_id": "KA-763431891",
+    "existing_name": "하이파킹 세종정부청사체육관 주차장",
+    "dist_m": 26
+  },
+  {
+    "hp_name": "세종정부청사체육관(B2)",
+    "hp_address": "세종특별자치시 세종특별자치시 도움8로 11-10",
+    "existing_id": "KA-763431891",
+    "existing_name": "하이파킹 세종정부청사체육관 주차장",
+    "dist_m": 26
+  },
+  {
+    "hp_name": "세종지엘플렉스1점",
+    "hp_address": "세종특별자치시 undefined 소담1로 12",
+    "existing_id": "KA-1335604247",
+    "existing_name": "하이파킹 세종지엘플렉스1점 주차장",
+    "dist_m": 10
+  },
+  {
+    "hp_name": "세종지엘플렉스2점",
+    "hp_address": "세종특별자치시 undefined 소담1로 16",
+    "existing_id": "KA-161696823",
+    "existing_name": "하이파킹 세종 지엘플렉스2점 주차장",
+    "dist_m": 0
+  },
+  {
+    "hp_name": "센터포인트광화문빌딩점",
+    "hp_address": "서울특별시 종로구 새문안로5길 31(도렴동)",
+    "existing_id": "KA-342904915",
+    "existing_name": "도렴빌딩 지하주차장",
+    "dist_m": 48
+  },
+  {
+    "hp_name": "송영빌딩",
+    "hp_address": "인천광역시 동구 송림로 113",
+    "existing_id": "162-2-000003",
+    "existing_name": "현대시장 공영",
+    "dist_m": 21
+  },
+  {
+    "hp_name": "수원위더뷰레지던스점",
+    "hp_address": "경기도 수원시  팔달구 향교로1번길 8(매산로1가)",
+    "existing_id": "KA-561207417",
+    "existing_name": "스타유료주차장",
+    "dist_m": 53
+  },
+  {
+    "hp_name": "수지외식타운점",
+    "hp_address": "경기도 용인시 수지구 수지로342번길",
+    "existing_id": "228-1-000023",
+    "existing_name": "수지로 노상",
+    "dist_m": 5
+  },
+  {
+    "hp_name": "신봉브이샤르망2차",
+    "hp_address": "경기도 용인시 수지구 성복동 748",
+    "existing_id": "KA-429354459",
+    "existing_name": "속초코다리냉면본점전용주차장",
+    "dist_m": 9
+  },
+  {
+    "hp_name": "신사동ICT타워",
+    "hp_address": "서울특별시 강남구 강남대로 624 신사동ICT TOWER",
+    "existing_id": "KA-1607031347",
+    "existing_name": "투루파킹 신사동ICT타워 주차장",
+    "dist_m": 3
+  },
+  {
+    "hp_name": "신사역멀버리힐스점",
+    "hp_address": "서울특별시 서초구 강남대로 589",
+    "existing_id": "KA-905454004",
+    "existing_name": "투루파킹 신사역멀버리힐스점 주차장",
+    "dist_m": 14
+  },
+  {
+    "hp_name": "씨앤씨쇼핑몰",
+    "hp_address": "인천광역시 남동구 구월동 1130 씨엔씨 쇼핑몰 3층 주차장",
+    "existing_id": "NV-1267023781_374521052",
+    "existing_name": "씨앤씨빌딩 주차장",
+    "dist_m": 41
+  },
+  {
+    "hp_name": "안국역종로관훈점",
+    "hp_address": "서울특별시 종로구 율곡로42 종로관훈점",
+    "existing_id": "KA-27484027",
+    "existing_name": "하이파킹 안국역종로관훈점 주차장",
+    "dist_m": 12
+  },
+  {
+    "hp_name": "안국역해영회관점",
+    "hp_address": "서울특별시 종로구 율곡로 53 해영회관점",
+    "existing_id": "KA-26879194",
+    "existing_name": "하이파킹 안국역해영회관점 주차장",
+    "dist_m": 11
+  },
+  {
+    "hp_name": "안동터미널",
+    "hp_address": "경상북도 안동시 송현동 713-6",
+    "existing_id": "KA-27398493",
+    "existing_name": "안동터미널 시외버스 주차장",
+    "dist_m": 40
+  },
+  {
+    "hp_name": "암사점",
+    "hp_address": "서울특별시 강동구 고덕로 24길 50 암사점",
+    "existing_id": "KA-181702577",
+    "existing_name": "볕우물 공영주차장",
+    "dist_m": 0
+  },
+  {
+    "hp_name": "야탑 관보빌딩",
+    "hp_address": "경기도 성남시 분당구 야탑동 366-1",
+    "existing_id": "KA-25614337",
+    "existing_name": "야탑제1환승 공영주차장",
+    "dist_m": 44
+  },
+  {
+    "hp_name": "양주부자로타워",
+    "hp_address": "경기도 양주시 옥정동로7다길 74",
+    "existing_id": "235-4-000030",
+    "existing_name": "드림타워1",
+    "dist_m": 52
+  },
+  {
+    "hp_name": "에스제이테크노빌",
+    "hp_address": "서울특별시 금천구 벚꽃로 278 102",
+    "existing_id": "117-1-000014",
+    "existing_name": "SJ테크노빌(삼보)",
+    "dist_m": 8
+  },
+  {
+    "hp_name": "에이스 하이엔드 3차",
+    "hp_address": "서울특별시 금천구 가산디지털1로 145",
+    "existing_id": "KA-295642289",
+    "existing_name": "신한이노플렉스 2차 주차장",
+    "dist_m": 57
+  },
+  {
+    "hp_name": "에이스하이앤드5차",
+    "hp_address": "서울특별시 금천구 가산디지털1로 226",
+    "existing_id": "117-2-000027",
+    "existing_name": "가산디지털서측",
+    "dist_m": 6
+  },
+  {
+    "hp_name": "엔터식스 안양점",
+    "hp_address": "경기도 안양시 만안구 만안로 244",
+    "existing_id": "KA-1874296582",
+    "existing_name": "하이파킹 엔터식스안양점 주차장",
+    "dist_m": 47
+  },
+  {
+    "hp_name": "영풍빌딩점",
+    "hp_address": "서울특별시 용산구 대사관로34길 21",
+    "existing_id": "KA-1460466196",
+    "existing_name": "투루파킹 이태원홈런주차장2",
+    "dist_m": 45
+  },
+  {
+    "hp_name": "옥수어울림더리버점",
+    "hp_address": "서울특별시 성동구 독서당로40길 39 옥수 어울림 더리버",
+    "existing_id": "KA-536547526",
+    "existing_name": "투루파킹 옥수어울림더리버점",
+    "dist_m": 24
+  },
+  {
+    "hp_name": "옵티멈",
+    "hp_address": "서울특별시 송파구 올림픽로 35 가길 16(신천동)",
+    "existing_id": "123-1-000001",
+    "existing_name": "교통공원길",
+    "dist_m": 44
+  },
+  {
+    "hp_name": "우리은행 의정부지점",
+    "hp_address": "경기도 의정부시 의정부2동 493",
+    "existing_id": "NV-1270417991_377381699",
+    "existing_name": "국민연금공단의정부지사주차장입구",
+    "dist_m": 28
+  },
+  {
+    "hp_name": "우성리빙텔",
+    "hp_address": "서울특별시 강남구 언주로 30길 27",
+    "existing_id": "KA-640004144",
+    "existing_name": "린스퀘어 주차장",
+    "dist_m": 41
+  },
+  {
+    "hp_name": "우성리빙텔",
+    "hp_address": "서울특별시 강남구 언주로 30길 27(도곡동)",
+    "existing_id": "KA-640004144",
+    "existing_name": "린스퀘어 주차장",
+    "dist_m": 41
+  },
+  {
+    "hp_name": "원주형제주차장점",
+    "hp_address": "강원도 원주시 평원동 349-1",
+    "existing_id": "251-4-000010",
+    "existing_name": "형제주차장",
+    "dist_m": 9
+  },
+  {
+    "hp_name": "위브더스테이트",
+    "hp_address": "경기도 부천시 원미구 중동 1111번지",
+    "existing_id": "KA-2063249224",
+    "existing_name": "위브더스테이트5단지 주차장",
+    "dist_m": 54
+  },
+  {
+    "hp_name": "유니클로광주연제점",
+    "hp_address": "광주광역시 북구 연양로 2",
+    "existing_id": "KA-1195341237",
+    "existing_name": "유니클로 광주연제점 주차장",
+    "dist_m": 26
+  },
+  {
+    "hp_name": "유니클로은평점",
+    "hp_address": "서울특별시 은평구 서오릉로 32",
+    "existing_id": "KA-1606515956",
+    "existing_name": "하이파킹 유니클로 은평점 주차장",
+    "dist_m": 26
+  },
+  {
+    "hp_name": "이레타워",
+    "hp_address": "경기도 남양주시 별내동 1006-3",
+    "existing_id": "222-1-000032",
+    "existing_name": "별내동 노상제6",
+    "dist_m": 48
+  },
+  {
+    "hp_name": "이수공영",
+    "hp_address": "서울특별시 서초구 방배중앙로 193",
+    "existing_id": "121-2-000012",
+    "existing_name": "방배카페골목",
+    "dist_m": 0
+  },
+  {
+    "hp_name": "이수역점",
+    "hp_address": "서울특별시 동작구 사당로 305",
+    "existing_id": "KA-942949977",
+    "existing_name": "하이파킹 이수역점 주차장",
+    "dist_m": 1
+  },
+  {
+    "hp_name": "이태원홈런주차장점",
+    "hp_address": "서울특별시 용산구 대사관로34길 17",
+    "existing_id": "KA-1460466196",
+    "existing_name": "투루파킹 이태원홈런주차장2",
+    "dist_m": 21
+  },
+  {
+    "hp_name": "인천2호선 인천대공원역점",
+    "hp_address": "인천광역시 남동구 장수동 604-8번지 일원 인천2호선 인천대공원역점",
+    "existing_id": "KA-2068641312",
+    "existing_name": "인천대공원역 주차장",
+    "dist_m": 12
+  },
+  {
+    "hp_name": "인천2호선 주안역점",
+    "hp_address": "인천광역시 남구 주안동 237-1번지 일원 인천2호선 주안역점",
+    "existing_id": "KA-420806570",
+    "existing_name": "AJ파크 주안역점 주차장",
+    "dist_m": 1
+  },
+  {
+    "hp_name": "인천신현파크프라자점",
+    "hp_address": "인천광역시 남동구 구월동 1462 구월중앙점",
+    "existing_id": "KA-20515784",
+    "existing_name": "로데오2노상공영주차장",
+    "dist_m": 52
+  },
+  {
+    "hp_name": "제이파크_원주단계점",
+    "hp_address": "강원도 원주시 서원대로 156 원주 단계점 주차장",
+    "existing_id": "251-4-000041",
+    "existing_name": "AJ파크원주단계점주차장",
+    "dist_m": 19
+  },
+  {
+    "hp_name": "종로하나빌딩",
+    "hp_address": "서울특별시 종로구 인사동5길 41",
+    "existing_id": "KA-755455559",
+    "existing_name": "하나빌딩 주차장",
+    "dist_m": 21
+  },
+  {
+    "hp_name": "중동점",
+    "hp_address": "경기도 부천시 중동로254번길 90 중동파크타운",
+    "existing_id": "000-2-000006",
+    "existing_name": "구터미널",
+    "dist_m": 0
+  },
+  {
+    "hp_name": "지웰홈스 동대문점",
+    "hp_address": "서울특별시 동대문구 신설동 117-9번지 지웰홈스 동대문점",
+    "existing_id": "KA-512407394",
+    "existing_name": "나이스파크 지웰홈스 주차장",
+    "dist_m": 22
+  },
+  {
+    "hp_name": "진천터미널",
+    "hp_address": "충청북도 진천군 진천읍 벽암리 569",
+    "existing_id": "KA-10770829",
+    "existing_name": "진천터미널 주차장",
+    "dist_m": 44
+  },
+  {
+    "hp_name": "천안 방영학빌딩",
+    "hp_address": "충청남도 천안시 서북구 쌍용대로 234",
+    "existing_id": "302-1-000056",
+    "existing_name": "쌍용대로 제1노상주차장",
+    "dist_m": 38
+  },
+  {
+    "hp_name": "첨단스카이 주차타워점",
+    "hp_address": "광주광역시 광산구 첨단중앙로106번길 65-3",
+    "existing_id": "KA-1181031588",
+    "existing_name": "투루파킹 첨단스카이 주차장",
+    "dist_m": 30
+  },
+  {
+    "hp_name": "청년주택 YN타워",
+    "hp_address": "서울특별시 노원구 동일로 1000",
+    "existing_id": "KA-352492307",
+    "existing_name": "강북연세병원 주차장",
+    "dist_m": 28
+  },
+  {
+    "hp_name": "청주 강서주차장",
+    "hp_address": "충청북도 청주시 흥덕구 강서동 486",
+    "existing_id": "KA-212032836",
+    "existing_name": "강서공영주차장",
+    "dist_m": 0
+  },
+  {
+    "hp_name": "충현공영주차장",
+    "hp_address": "서울특별시 중구 동호로11나길 47",
+    "existing_id": "101-2-000001",
+    "existing_name": "충현 공영주차장",
+    "dist_m": 3
+  },
+  {
+    "hp_name": "충현어린이공원주차장",
+    "hp_address": "서울특별시 중구 동호로11차길 1",
+    "existing_id": "KA-20519115",
+    "existing_name": "어린이공원지하주차장",
+    "dist_m": 1
+  },
+  {
+    "hp_name": "치유요양병원",
+    "hp_address": "광주광역시 동구 증심사길 2",
+    "existing_id": "KA-196073717",
+    "existing_name": "치유요양병원 주차장",
+    "dist_m": 34
+  },
+  {
+    "hp_name": "케이티엔지 대구빌딩",
+    "hp_address": "대구광역시 남구 대명동 959-10",
+    "existing_id": "KA-8134147",
+    "existing_name": "홈플러스 남대구점 주차장",
+    "dist_m": 55
+  },
+  {
+    "hp_name": "케이티엔지 대구빌딩(지하전용)",
+    "hp_address": "대구광역시 남구 대명동 959-10",
+    "existing_id": "KA-8134147",
+    "existing_name": "홈플러스 남대구점 주차장",
+    "dist_m": 55
+  },
+  {
+    "hp_name": "타워8(TOWER)점",
+    "hp_address": "서울특별시 종로구 종로구 종로5길 7(청진동)",
+    "existing_id": "KA-1574130233",
+    "existing_name": "타워8 주차장",
+    "dist_m": 19
+  },
+  {
+    "hp_name": "티피(주)",
+    "hp_address": "서울특별시 구로구 디지털로 31길 12",
+    "existing_id": "KA-522671781",
+    "existing_name": "TP타워 주차장",
+    "dist_m": 45
+  },
+  {
+    "hp_name": "평촌 신세기타운",
+    "hp_address": "경기도 안양시 동안구 평촌대로 136",
+    "existing_id": "209-1-000011",
+    "existing_name": "먹거리촌노상 주차장",
+    "dist_m": 57
+  },
+  {
+    "hp_name": "평촌역점",
+    "hp_address": "경기도 안양시 동안구 관평로170번길 33 (관양동 1606,평촌주공공이) 평촌역 CGV",
+    "existing_id": "KA-816681829",
+    "existing_name": "평촌역 노상공영주차장",
+    "dist_m": 59
+  },
+  {
+    "hp_name": "평택우리타워점",
+    "hp_address": "경기도 평택시 평남로 929 평택 우리타워점",
+    "existing_id": "KA-428175929",
+    "existing_name": "나이스파크 평택우리타워 주차장",
+    "dist_m": 29
+  },
+  {
+    "hp_name": "한솔섬유빌딩",
+    "hp_address": "서울특별시 송파구 가락동 98-4",
+    "existing_id": "KA-543601208",
+    "existing_name": "소방공제회관 주차장",
+    "dist_m": 41
+  },
+  {
+    "hp_name": "한신인터벨리",
+    "hp_address": "서울특별시 강남구 역삼동 707-34",
+    "existing_id": "KA-26467082",
+    "existing_name": "한신인터밸리24 주차장",
+    "dist_m": 11
+  },
+  {
+    "hp_name": "해링턴타워광안디오션",
+    "hp_address": "부산광역시 수영구 광안해변로284번길 38 (민락동 181-169)",
+    "existing_id": "143-1-000008",
+    "existing_name": "민락해변공원 공영주차장",
+    "dist_m": 54
+  },
+  {
+    "hp_name": "해운대점",
+    "hp_address": "부산광역시 해운대구 우동636-6",
+    "existing_id": "138-4-000026",
+    "existing_name": "동백가든주차장",
+    "dist_m": 30
+  },
+  {
+    "hp_name": "행복유료주차장",
+    "hp_address": "서울특별시 중구 퇴계로 216",
+    "existing_id": "KA-1477341914",
+    "existing_name": "투루파킹 충무로역 행복주차장",
+    "dist_m": 57
+  },
+  {
+    "hp_name": "홈플러스광안",
+    "hp_address": "부산광역시 수영구 광안동 491-1",
+    "existing_id": "KA-232188841",
+    "existing_name": "수영1지하주차장",
+    "dist_m": 32
+  },
+  {
+    "hp_name": "홍대유림빌딩",
+    "hp_address": "서울특별시 마포구 동교동 165-4",
+    "existing_id": "KA-11512780",
+    "existing_name": "새물결 노상공영주차장",
+    "dist_m": 52
+  },
+  {
+    "hp_name": "회룡역점",
+    "hp_address": "경기도 의정부시 외미로 99 회룡역 주차장",
+    "existing_id": "KA-26538983",
+    "existing_name": "회룡역 환승주차장",
+    "dist_m": 3
+  },
+  {
+    "hp_name": "회룡역하나프라자점",
+    "hp_address": "경기도 의정부시 외미로 95",
+    "existing_id": "KA-26538983",
+    "existing_name": "회룡역 환승주차장",
+    "dist_m": 59
+  }
+]
