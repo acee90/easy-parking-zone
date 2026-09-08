@@ -88,10 +88,13 @@ function clusterMarkerHtml(
 ): string {
   const innerSize = clusterSize(count, zoom)
   // 원이 줄면 글자도 같이 줄어야 넘치지 않는다. 9px 아래로는 읽을 수 없어 막는다.
-  const fontSize = Math.max(
-    9,
-    Math.round(11 + ((innerSize - CLUSTER_MIN_SIZE) / (CLUSTER_MAX_SIZE - CLUSTER_MIN_SIZE)) * 5),
+  const sizeFont = Math.round(
+    11 + ((innerSize - CLUSTER_MIN_SIZE) / (CLUSTER_MAX_SIZE - CLUSTER_MIN_SIZE)) * 5,
   )
+  // 자릿수까지 봐야 한다 — 저줌에서 "18784"(5자리)가 45px 원을 꽉 채운다.
+  // 굵은 숫자 한 글자 폭 ≈ 폰트 크기의 0.62배, 좌우 4px씩 여백을 둔다.
+  const fitFont = Math.floor((innerSize - 8) / (String(count).length * 0.62))
+  const fontSize = Math.max(9, Math.min(sizeFont, fitFont))
   const hasRing = easyCount > 0 || hardCount > 0
 
   if (!hasRing) {
