@@ -73,6 +73,55 @@ export function nearestLot(
   return best ? { lot: best, dist: bestD } : null
 }
 
+/**
+ * 주차장 이름 정규화 — 같은 주차장이 다른 표기로 두 번 등록됐는지 비교할 때 쓴다.
+ * "제이프러스빌딩 민영 주차장" 과 "제이프러스빌딩 주차장" 을 같게 만든다.
+ */
+export function normalizeLotName(name: string): string {
+  return name
+    .replace(/(민영|공영|노상|노외|부설)/g, '')
+    .replace(/주차장/g, '')
+    .replace(/\s+/g, '')
+    .trim()
+}
+
+/** 한쪽은 공영, 다른 쪽은 민영이면 이름이 같아도 다른 주차장으로 본다 (정확도 우선) */
+function operationConflicts(a: string, b: string): boolean {
+  const pub = (s: string) => s.includes('공영')
+  const pri = (s: string) => s.includes('민영')
+  return (pub(a) && pri(b)) || (pri(a) && pub(b))
+}
+
+/**
+ * 같은 이름(정규화 후)의 lot 이 반경 안에 이미 있는지 확인.
+ *
+ * nearestLot 의 "이름 무관 최근접"은 같은 소스 안에서 쓰면 안 된다.
+ * 밀집 지역에는 이름이 다른 별개 주차장이 수십 m 안에 흔히 있어서
+ * (예: 아마노 강남훼미리타운 A동/B동 37m) 진짜 lot 을 통째로 버린다.
+ */
+export function nearestSameNameLot(
+  lat: number,
+  lng: number,
+  name: string,
+  lots: ExistingLot[],
+  radiusM: number,
+): { lot: ExistingLot; dist: number } | null {
+  const key = normalizeLotName(name)
+  let best: ExistingLot | null = null
+  let bestD = Infinity
+  for (const l of lots) {
+    if (Math.abs(l.lat - lat) > 0.003 || Math.abs(l.lng - lng) > 0.003) continue
+    if (normalizeLotName(l.name) !== key) continue
+    if (operationConflicts(l.name, name)) continue
+    const d = haversineMeters(lat, lng, l.lat, l.lng)
+    if (d <= radiusM && d < bestD) {
+      bestD = d
+      best = l
+    }
+  }
+  return best ? { lot: best, dist: bestD } : null
+}
+
 // 블로그 본문 지역 힌트 (구/동/로/길)
 const HINT_RE = /([가-힣]{2,}(?:구|군|동|읍|면|리|로|길))/g
 export function extractHints(text: string): Set<string> {

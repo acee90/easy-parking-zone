@@ -10,13 +10,14 @@
  * 소스: https://api.modu.cloud/poi/pins (인증 불필요, geohash 6자리 셀 단위 조회)
  * 핀 데이터에 도로명주소가 없어 NCP Reverse Geocoding으로 좌표→주소 변환 후 등록.
  * 기존 KA-/NV-/공공데이터/HP-와 좌표 반경 dedup 후 겹치지 않는 건만 MODU-{parkinglotSeq}로 신규 등록.
+ * 배치 내부 중복(같은 주차장이 다른 seq로 두 번 내려오는 경우)은 이름 일치 + 반경으로 한 번 더 거른다.
  *
  * 환경변수: NAVER_MAP_CLIENT_ID, NAVER_MAP_CLIENT_SECRET (Naver Cloud Platform Maps > Reverse Geocoding)
  */
 import { resolve } from "path";
 import { d1ExecFile, isRemote } from "./lib/d1";
 import { sqlVal } from "./lib/sql-flush";
-import { loadExistingLots, nearestLot } from "./lib/place-match";
+import { type ExistingLot, loadExistingLots, nearestLot, nearestSameNameLot } from "./lib/place-match";
 import { writeFileSync, unlinkSync } from "fs";
 
 const DRY_RUN = process.argv.includes("--dry-run");
@@ -221,6 +222,11 @@ async function main() {
 
   const candidates: { id: string; item: PinItem }[] = [];
   const collisions: { modu_name: string; existing: { id: string; name: string }; dist: number }[] = [];
+  // 이번 배치에서 이미 채택한 핀. MODU는 같은 주차장을 서로 다른 parkinglotSeq로
+  // 여러 번 내려주는 경우가 있어(예: "파크 민영 주차장" 158794/260445, 15m),
+  // existingLots만 보면 배치 안에서 서로를 못 보고 둘 다 등록된다.
+  const acceptedLots: ExistingLot[] = [];
+  const intraDupes: { modu_name: string; accepted: { id: string; name: string }; dist: number }[] = [];
 
   for (const item of pinsById.values()) {
     const id = `MODU-${item.parkinglotSeq}`;
@@ -229,14 +235,31 @@ async function main() {
     const nearest = nearestLot(item.latitude, item.longitude, existingLots);
     if (nearest && nearest.dist <= DEDUP_RADIUS_M) {
       collisions.push({ modu_name: item.name, existing: { id: nearest.lot.id, name: nearest.lot.name }, dist: nearest.dist });
-    } else {
-      candidates.push({ id, item });
+      continue;
     }
+
+    // 배치 내부는 "이름 무관 최근접"이 아니라 이름이 같은 경우만 중복으로 본다.
+    // 밀집 지역에는 이름이 다른 별개 주차장이 수십 m 안에 흔하다.
+    const twin = nearestSameNameLot(item.latitude, item.longitude, item.name, acceptedLots, DEDUP_RADIUS_M);
+    if (twin) {
+      intraDupes.push({ modu_name: item.name, accepted: { id: twin.lot.id, name: twin.lot.name }, dist: twin.dist });
+      continue;
+    }
+
+    candidates.push({ id, item });
+    acceptedLots.push({ id, name: item.name, lat: item.latitude, lng: item.longitude });
   }
 
   console.log("📊 비교 결과:");
   console.log(`  신규 후보: ${candidates.length}건`);
-  console.log(`  기존 lot과 ${DEDUP_RADIUS_M}m 이내 충돌(스킵): ${collisions.length}건\n`);
+  console.log(`  기존 lot과 ${DEDUP_RADIUS_M}m 이내 충돌(스킵): ${collisions.length}건`);
+  console.log(`  배치 내부 동일 이름 중복(스킵): ${intraDupes.length}건\n`);
+
+  if (intraDupes.length > 0) {
+    const outPath = resolve(import.meta.dir, "../data/modu-intra-dupes.json");
+    writeFileSync(outPath, JSON.stringify(intraDupes.map((c) => ({ ...c, dist_m: Math.round(c.dist) })), null, 2));
+    console.log(`⚠️  배치 내부 중복 목록 저장: ${outPath}\n`);
+  }
 
   if (collisions.length > 0) {
     const outPath = resolve(import.meta.dir, "../data/modu-dedup-collisions.json");

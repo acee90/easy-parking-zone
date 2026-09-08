@@ -21,11 +21,15 @@ export function makeDestinationSlug(name: string, id: string): string {
 
 /**
  * slug에서 ID 추출
- * ID 패턴: "000-1-000001" (공공데이터) | "KA-1000006682" (카카오) | "NV-1268422156_375622893" (네이버)
+ * ID 패턴: "000-1-000001" (공공데이터) | "KA-1000006682" (카카오) |
+ *          "NV-1268422156_375622893" (네이버) | "MODU-260445" (모두의주차장) | "HP-1000" (하이파킹)
+ *
+ * 새 수집 소스를 추가할 때 여기 접두사를 같이 넣어야 한다.
+ * 빠뜨리면 해당 소스의 위키 페이지가 전부 404가 된다.
  */
 export function parseIdFromSlug(slug: string): string | null {
-  // KA-숫자 또는 NV-숫자_숫자
-  const kvMatch = slug.match(/((?:KA|NV)-[\d_]+)$/)
+  // 접두사-숫자(네이버는 숫자_숫자)
+  const kvMatch = slug.match(/((?:KA|NV|MODU|HP)-[\d_]+)$/)
   if (kvMatch) return kvMatch[1]
   // 공공데이터: 숫자-숫자-숫자
   const pubMatch = slug.match(/(\d{3}-\d+-\d+)$/)

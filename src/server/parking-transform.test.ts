@@ -175,10 +175,13 @@ describe('buildFilterClauses', () => {
     expect(where).toContain('p.is_free = 1')
   })
 
-  it('publicOnly 필터 (KA-/NV- 제외)', () => {
+  it('publicOnly 필터 (KA-/NV-/HP- 제외, MODU는 이름에 "공영" 있는 것만 허용)', () => {
     const { where } = buildFilterClauses({ publicOnly: true } as any)
     expect(where).toContain("NOT LIKE 'KA-%'")
     expect(where).toContain("NOT LIKE 'NV-%'")
+    expect(where).toContain("NOT LIKE 'HP-%'")
+    expect(where).toContain("NOT LIKE 'MODU-%'")
+    expect(where).toContain("p.name LIKE '%공영%'")
   })
 
   it('excludeNoSang 필터', () => {
