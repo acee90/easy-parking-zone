@@ -130,7 +130,16 @@ export function buildFilterClauses(filters?: ParkingFilters): { where: string; p
   const clauses: string[] = []
   const params: unknown[] = []
   if (filters?.freeOnly) clauses.push('p.is_free = 1')
-  if (filters?.publicOnly) clauses.push("p.id NOT LIKE 'KA-%' AND p.id NOT LIKE 'NV-%'")
+  // MODU(모두의주차장)는 공영/민영이 섞여 있고 구분 컬럼이 없다. 이름에 명시적으로
+  // "공영"이 있는 것만 공영으로 인정한다 — 2026-09-07 실측 기준 MODU 9,171건 중
+  // 공영 표기 1,386 / 민영 표기 2,399 / 무표기 5,386(과반, 나이스파크·아마노 등
+  // 위탁운영사 브랜드명·건물명이 다수). 무표기를 공영으로 오분류하면 "공영만"
+  // 필터에 민영이 섞이는 게 더 심각하므로, 무표기는 공영이 아닌 쪽으로 둔다.
+  if (filters?.publicOnly)
+    clauses.push(
+      "p.id NOT LIKE 'KA-%' AND p.id NOT LIKE 'NV-%' AND p.id NOT LIKE 'HP-%' AND " +
+        "(p.id NOT LIKE 'MODU-%' OR p.name LIKE '%공영%')",
+    )
   if (filters?.excludeNoSang) clauses.push("p.type != '노상'")
 
   const diffCond = buildDifficultyCondition(filters, 's.final_score')
