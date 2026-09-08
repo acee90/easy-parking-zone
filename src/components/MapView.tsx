@@ -51,13 +51,32 @@ function markerColor(score: number | null): string {
   return '#ef4444' // red-500 — 헬
 }
 
-const CLUSTER_MIN_SIZE = 32
-const CLUSTER_MAX_SIZE = 160
-const CLUSTER_MAX_COUNT = 300
+// 클러스터 원 지름(px). SuperCluster radius(200) / extent(512) × 타일 256px = 화면상 약 100px 간격이
+// 클러스터 중심 사이 최소 거리이므로, 링 포함 최대 지름(MAX+8)이 이를 넘으면 원끼리 겹쳐 지도를 가린다.
+const CLUSTER_MIN_SIZE = 28
+const CLUSTER_MAX_SIZE = 60
+// 수도권 클러스터는 대부분 수백~수천 개 → 300으로 자르면 전부 최대 크기로 포화된다
+const CLUSTER_MAX_COUNT = 2500
 
-function clusterSize(count: number): number {
+// 줌이 낮아질수록 화면에 잡히는 클러스터 수 자체가 늘어 간격이 빠듯해진다.
+// 개수 기준 크기와 별개로 저줌 구간에서 한 번 더 줄인다. 줌 13 이상은 축소 없음.
+const CLUSTER_ZOOM_SHRINK_START = 13
+const CLUSTER_ZOOM_SHRINK_END = 8
+const CLUSTER_ZOOM_MIN_SCALE = 0.75
+/** 축소해도 이 아래로는 안 줄인다 — 숫자를 읽을 수 있어야 한다 */
+const CLUSTER_FLOOR_SIZE = 24
+
+function clusterZoomScale(zoom: number): number {
+  if (zoom >= CLUSTER_ZOOM_SHRINK_START) return 1
+  if (zoom <= CLUSTER_ZOOM_SHRINK_END) return CLUSTER_ZOOM_MIN_SCALE
+  const t = (zoom - CLUSTER_ZOOM_SHRINK_END) / (CLUSTER_ZOOM_SHRINK_START - CLUSTER_ZOOM_SHRINK_END)
+  return CLUSTER_ZOOM_MIN_SCALE + t * (1 - CLUSTER_ZOOM_MIN_SCALE)
+}
+
+function clusterSize(count: number, zoom: number): number {
   const t = Math.sqrt(Math.min(count, CLUSTER_MAX_COUNT) / CLUSTER_MAX_COUNT)
-  return Math.round(CLUSTER_MIN_SIZE + t * (CLUSTER_MAX_SIZE - CLUSTER_MIN_SIZE))
+  const base = CLUSTER_MIN_SIZE + t * (CLUSTER_MAX_SIZE - CLUSTER_MIN_SIZE)
+  return Math.max(CLUSTER_FLOOR_SIZE, Math.round(base * clusterZoomScale(zoom)))
 }
 
 function clusterMarkerHtml(
@@ -65,11 +84,17 @@ function clusterMarkerHtml(
   score: number | null,
   easyCount: number,
   hardCount: number,
+  zoom: number,
 ): string {
-  const innerSize = clusterSize(count)
-  const fontSize = Math.round(
+  const innerSize = clusterSize(count, zoom)
+  // 원이 줄면 글자도 같이 줄어야 넘치지 않는다. 9px 아래로는 읽을 수 없어 막는다.
+  const sizeFont = Math.round(
     11 + ((innerSize - CLUSTER_MIN_SIZE) / (CLUSTER_MAX_SIZE - CLUSTER_MIN_SIZE)) * 5,
   )
+  // 자릿수까지 봐야 한다 — 저줌에서 "18784"(5자리)가 45px 원을 꽉 채운다.
+  // 굵은 숫자 한 글자 폭 ≈ 폰트 크기의 0.62배, 좌우 4px씩 여백을 둔다.
+  const fitFont = Math.floor((innerSize - 8) / (String(count).length * 0.62))
+  const fontSize = Math.max(9, Math.min(sizeFont, fitFont))
   const hasRing = easyCount > 0 || hardCount > 0
 
   if (!hasRing) {
@@ -298,14 +323,20 @@ export function MapView({
             const { cluster_id, point_count, ...agg } = f.properties as ClusterFeature['properties']
             const avgScore = agg.count_score > 0 ? agg.sum_score / agg.count_score : null
             const hasRing = agg.easy > 0 || agg.hard > 0
-            const size = clusterSize(point_count) + (hasRing ? 8 : 0)
+            const size = clusterSize(point_count, currentZoom) + (hasRing ? 8 : 0)
             const half = size / 2
             return (
               <Marker
                 key={`c-${cluster_id}`}
                 position={new navermaps.LatLng(lat, lng)}
                 icon={{
-                  content: clusterMarkerHtml(point_count, avgScore, agg.easy, agg.hard),
+                  content: clusterMarkerHtml(
+                    point_count,
+                    avgScore,
+                    agg.easy,
+                    agg.hard,
+                    currentZoom,
+                  ),
                   anchor: new navermaps.Point(half, half),
                 }}
                 zIndex={point_count}
