@@ -18,9 +18,14 @@ import { resolve } from "path";
 import { d1ExecFile, isRemote } from "./lib/d1";
 import { sqlVal } from "./lib/sql-flush";
 import { type ExistingLot, loadExistingLots, nearestLot, nearestSameNameLot } from "./lib/place-match";
-import { writeFileSync, unlinkSync } from "fs";
+import { writeFileSync, unlinkSync, appendFileSync, mkdirSync } from "fs";
 
 const DRY_RUN = process.argv.includes("--dry-run");
+// --emit-sql=DIR: UPSERT 문을 파일로도 남긴다. wrangler 인증이 없는 환경에서
+// 로컬 스냅샷(--db)으로 돌린 뒤 결과 SQL만 따로 리모트에 적용하기 위한 것.
+// 로컬 실행은 그대로 두는 게 중요하다 — 다음 bbox의 loadExistingLots가
+// 이번 bbox에서 넣은 행을 봐야 지역 경계에서 중복이 안 생긴다.
+const EMIT_SQL_DIR = process.argv.find((a) => a.startsWith("--emit-sql="))?.split("=")[1] ?? null;
 const DEDUP_RADIUS_M = 60;
 const GEOCODE_DELAY_MS = 120;
 const PINS_DELAY_MS = 250;
@@ -309,10 +314,16 @@ async function main() {
   const BATCH = 100;
   const tmpSql = resolve(import.meta.dir, "../.tmp-modu.sql");
 
+  if (EMIT_SQL_DIR) mkdirSync(EMIT_SQL_DIR, { recursive: true });
+  const emitPath = EMIT_SQL_DIR
+    ? resolve(EMIT_SQL_DIR, `modu-${SW_LAT}_${SW_LNG}-${NE_LAT}_${NE_LNG}.sql`)
+    : null;
+
   for (let i = 0; i < rows.length; i += BATCH) {
     const slice = rows.slice(i, i + BATCH);
     const stmts = slice.map(buildUpsert).join("\n");
     writeFileSync(tmpSql, stmts);
+    if (emitPath) appendFileSync(emitPath, `${stmts}\n`);
     d1ExecFile(tmpSql);
 
     const done = Math.min(i + BATCH, rows.length);
@@ -321,6 +332,7 @@ async function main() {
 
   try { unlinkSync(tmpSql); } catch {}
   console.log(`\n\n✅ 완료! ${rows.length}건 신규 등록`);
+  if (emitPath) console.log(`📄 적용용 SQL: ${emitPath}`);
 }
 
 main().catch((err) => {
