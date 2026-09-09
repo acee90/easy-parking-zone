@@ -20,6 +20,8 @@ const SITE_URL = 'https://easy-parking.xyz'
 const SITE_NAME = '쉽주'
 const SITE_TITLE = '쉽주 — 전국 주차장 난이도 지도'
 const SITE_DESC = '주차하기 전에 한 번만 확인하세요. 전국 주차장 난이도, 요금, 운영시간을 한눈에.'
+// 애드센스 게시자 ID. public/ads.txt 의 pub-… 와 반드시 같아야 한다.
+const ADSENSE_CLIENT = 'ca-pub-1181606382178400'
 
 export const Route = createRootRoute({
   loader: () => fetchSiteStats(),
@@ -108,6 +110,11 @@ export const Route = createRootRoute({
         name: 'twitter:image',
         content: `${SITE_URL}/og-image.png`,
       },
+      // 애드센스 사이트 소유권 확인용. ads.txt 와 별개로 심사가 함께 참조한다.
+      {
+        name: 'google-adsense-account',
+        content: ADSENSE_CLIENT,
+      },
     ],
   }),
 
@@ -193,6 +200,12 @@ function RootDocument({ children }: { children: React.ReactNode }) {
               dangerouslySetInnerHTML={{
                 __html: `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-7FB8JKK2HD');`,
               }}
+            />
+            {/* 애드센스. head API의 scripts는 SSR 직렬화가 안 돼 여기서 직접 넣는다(위 주석 참고). */}
+            <script
+              async
+              src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT}`}
+              crossOrigin="anonymous"
             />
           </>
         )}
