@@ -39,14 +39,126 @@ function kpiTexts(): string[] {
 }
 
 describe('LotHeroSection KPI', () => {
-  it('시간제 유료 주차장은 1시간 예상과 1일 최대를 함께 보여준다', () => {
+  it('시간제 유료 주차장은 1시간 예상과 1일 최대를 한 칸에 담는다', () => {
     render(<LotHeroSection lot={makeLot()} realReviewCount={0} webCount={0} />)
     const texts = kpiTexts()
     expect(texts[0]).toContain('1시간 예상')
     expect(texts[0]).toContain('2,000')
     // 요금표를 사람이 읽는 단위로
     expect(texts[0]).toContain('30분 1,000원 + 15분 500원')
-    expect(texts[1]).toContain('1일 최대')
+    // 1일 최대는 독립된 칸이 아니라 요금 칸의 캡션이다
+    expect(texts[0]).toContain('1일 최대 10,000원')
+    expect(texts[1]).not.toContain('1일 최대')
+  })
+
+  it('두 번째 칸은 1일 최대가 아니라 운영 시간이다', () => {
+    render(<LotHeroSection lot={makeLot()} realReviewCount={0} webCount={0} />)
+    const texts = kpiTexts()
+    expect(texts[1]).toContain('평일 운영')
+    expect(texts[1]).toContain('09:00-21:00')
+    // 세 요일이 같으면 캡션에 시각을 두 번 더 늘어놓지 않는다
+    expect(texts[1]).toContain('토·공휴일 동일')
+  })
+
+  it('평일과 다른 요일만 캡션에 적는다', () => {
+    render(
+      <LotHeroSection
+        lot={makeLot({
+          operatingHours: {
+            weekday: { start: '09:00', end: '21:00' },
+            saturday: { start: '10:00', end: '18:00' },
+            holiday: { start: '09:00', end: '21:00' },
+          },
+        })}
+        realReviewCount={0}
+        webCount={0}
+      />,
+    )
+    const hours = kpiTexts().find((t) => t.includes('평일 운영')) ?? ''
+    expect(hours).toContain('토 10:00-18:00')
+    expect(hours).not.toContain('공휴일')
+  })
+
+  it('평일만 다르고 토·공휴일이 같으면 시각을 한 번만 적는다', () => {
+    render(
+      <LotHeroSection
+        lot={makeLot({
+          operatingHours: {
+            weekday: { start: '09:00', end: '18:00' },
+            saturday: { start: '00:00', end: '24:00' },
+            holiday: { start: '00:00', end: '23:59' },
+          },
+        })}
+        realReviewCount={0}
+        webCount={0}
+      />,
+    )
+    // 끝 시각 인코딩이 달라도 둘 다 24시간이라 같은 문장이 된다
+    expect(kpiTexts()[1]).toContain('토·공휴일 24시간')
+  })
+
+  it('24시간 운영은 00:00-24:00 이 아니라 「24시간」으로 적는다', () => {
+    // MODU·하이파킹이 주는 인코딩. 미상으로 보던 시절엔 「정보 없음」이 나왔다 (9,835곳)
+    render(
+      <LotHeroSection
+        lot={makeLot({
+          operatingHours: {
+            weekday: { start: '00:00', end: '24:00' },
+            saturday: { start: '00:00', end: '24:00' },
+            holiday: { start: '00:00', end: '24:00' },
+          },
+        })}
+        realReviewCount={0}
+        webCount={0}
+      />,
+    )
+    const hours = kpiTexts()[1]
+    expect(hours).toContain('24시간')
+    expect(hours).not.toContain('24:00')
+    expect(hours).not.toContain('정보 없음')
+  })
+
+  it('운영시간을 모르면 칸을 지우지 않고 「정보 없음」으로 남긴다', () => {
+    render(
+      <LotHeroSection
+        lot={makeLot({
+          operatingHours: {
+            weekday: { start: 'null', end: 'null' },
+            saturday: { start: '', end: '' },
+            holiday: { start: '00:00', end: '00:00' },
+          },
+        })}
+        realReviewCount={0}
+        webCount={0}
+      />,
+    )
+    const hours = kpiTexts()[1]
+    expect(hours).toContain('운영 시간')
+    expect(hours).toContain('정보 없음')
+    // 크롤러가 써 넣은 문자열 'null' 이 화면에 나오면 안 된다
+    expect(hours).not.toContain('null')
+  })
+
+  it('요금표는 없고 1일 최대만 아는 곳은 그 값을 요금 칸에 세운다', () => {
+    render(
+      <LotHeroSection
+        lot={makeLot({
+          pricing: {
+            isFree: false,
+            baseTime: 0,
+            baseFee: 0,
+            extraTime: 0,
+            extraFee: 0,
+            dailyMax: 20000,
+          },
+        })}
+        realReviewCount={0}
+        webCount={0}
+      />,
+    )
+    const fee = kpiTexts()[0]
+    // 값 자리에 아는 금액이 서고, 모르는 건 캡션에서만 말한다
+    expect(fee).toBe('1일 최대20,000원시간당 요금 정보 없음')
   })
 
   it('기본시간이 하루 이상이면 「1시간 예상」이 아니라 「종일 정액」이다', () => {
@@ -71,10 +183,8 @@ describe('LotHeroSection KPI', () => {
     expect(texts[0]).not.toContain('1시간 예상')
     // 1440분이 아니라 24시간으로 읽힌다
     expect(texts[0]).toContain('24시간')
-    // 같은 금액을 두 번 쓰지 않는다 — 칸은 남기되 「동일」로 표시한다
-    const daily = texts.find((t) => t.includes('1일 최대')) ?? ''
-    expect(daily).toContain('동일')
-    expect(daily).not.toContain('2,000')
+    // 같은 금액을 두 번 쓰지 않는다 — 정액제에선 1일 최대를 캡션에 되풀이하지 않는다
+    expect(texts[0]).not.toContain('1일 최대')
   })
 
   it('요금표가 모자란 유료 주차장은 요금 칸을 아예 그리지 않는다', () => {

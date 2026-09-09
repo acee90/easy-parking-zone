@@ -1,5 +1,6 @@
 import { Flame, MapPin, ThumbsUp } from 'lucide-react'
 import { DividerCell, DividerGrid } from '@/components/wiki/SectionShell'
+import { formatTimeRange } from '@/lib/parking-display'
 import { estimateFee } from '@/lib/parking-fee'
 import type { ParkingLot } from '@/types/parking'
 
@@ -46,6 +47,52 @@ function feeTableCaption(pricing: ParkingLot['pricing']): string | null {
 }
 
 /**
+ * 히어로 운영시간 칸.
+ *
+ * `formatOperatingHours` 를 그대로 쓰지 않는다 — 그쪽은 `평일 09:00-18:00` 처럼 라벨이
+ * 값에 붙어 있어 라벨·값·캡션이 따로 노는 KPI 칸에 맞지 않는다.
+ *
+ * 캡션은 평일과 다른 요일만 적는다. 세 요일이 같은 lot 이 대부분이라(MODU 백필은 평일
+ * 값을 토·공휴일에 그대로 복사한다) 매번 `토 09:00-21:00 · 공휴일 09:00-21:00` 을
+ * 늘어놓으면 읽을 게 없는 줄이 된다.
+ */
+function hoursKpi(hours: ParkingLot['operatingHours']): Kpi {
+  const weekday = formatTimeRange(hours.weekday)
+  const saturday = formatTimeRange(hours.saturday)
+  const holiday = formatTimeRange(hours.holiday)
+
+  // 평일을 모르면 아는 요일을 대신 세운다 — 칸을 비우는 것보다 낫다
+  const primary = weekday
+    ? { label: '평일 운영', value: weekday }
+    : saturday
+      ? { label: '토요일 운영', value: saturday }
+      : holiday
+        ? { label: '공휴일 운영', value: holiday }
+        : null
+
+  if (!primary) return { key: 'hours', label: '운영 시간', value: '정보 없음', muted: true }
+
+  const satDiffers = Boolean(saturday && saturday !== weekday)
+  const holDiffers = Boolean(holiday && holiday !== weekday)
+
+  let caption: string | undefined
+  if (!weekday) {
+    caption = undefined
+  } else if (satDiffers && holDiffers && saturday === holiday) {
+    // 평일만 다르고 주말·공휴일이 같은 흔한 모양. 같은 시각을 두 번 적지 않는다
+    caption = `토·공휴일 ${saturday}`
+  } else if (satDiffers || holDiffers) {
+    caption = [satDiffers ? `토 ${saturday}` : null, holDiffers ? `공휴일 ${holiday}` : null]
+      .filter((s): s is string => s !== null)
+      .join(' · ')
+  } else if (saturday === weekday && holiday === weekday) {
+    caption = '토·공휴일 동일'
+  }
+
+  return { key: 'hours', ...primary, caption }
+}
+
+/**
  * 히어로 지표.
  *
  * 근거가 없는 칸은 **아예 그리지 않는다**. 요금표가 없는 주차장에
@@ -62,49 +109,52 @@ function buildKpis(lot: ParkingLot, realReviewCount: number, webCount: number): 
   // 애초에 그런 항목이 없는 건지 구분되지 않았다. "정보 없음"은 값을 지어내는 게 아니라
   // 모른다고 말하는 것이다.
 
-  // ① 요금 — 시간제면 1시간 예상, 정액제면 정액
+  // ① 요금 — 시간제면 1시간 예상, 정액제면 정액. 1일 최대는 캡션으로 딸려 붙는다.
   //
   // 기본시간이 하루 이상인 곳(실측 562곳)은 "1시간 예상"이라고 쓰면 안 된다.
   // 1시간을 대도 종일 요금을 내는 곳이라 라벨이 사실과 다르다.
+  //
+  // 「1일 최대」는 2026-09-09 까지 독립된 칸이었다. 그 칸이 비어 있는 lot 이 23,817곳
+  // (44%)으로 네 칸 중 가장 자주 「정보 없음」이었고, 무료 주차장에서는 요금 칸과 함께
+  // 「무료」를 두 번 쓰고 있었다. 요금 캡션으로 접고 그 자리에 운영시간을 세운다.
   const hourEstimate = lot.pricing.isFree ? null : estimateFee(lot.pricing, ESTIMATE_MINUTES)
   const isFlatRate = !lot.pricing.isFree && lot.pricing.baseTime >= MINUTES_PER_DAY
+  const dailyMax = lot.pricing.dailyMax
 
   if (lot.pricing.isFree) {
-    kpis.push({ key: 'fee', label: '주차 요금', value: '무료', caption: '무료 주차장' })
+    kpis.push({ key: 'fee', label: '주차 요금', value: '무료', caption: '종일 무료' })
   } else if (hourEstimate !== null) {
+    // 정액제이거나 1시간 예상과 금액이 같으면 1일 최대를 다시 쓰지 않는다 — 같은 말이다.
+    const showDaily = dailyMax && dailyMax > 0 && !isFlatRate && dailyMax !== hourEstimate
+    const captions = [
+      feeTableCaption(lot.pricing),
+      showDaily ? `1일 최대 ${dailyMax.toLocaleString()}원` : null,
+    ].filter((s): s is string => s !== null)
     kpis.push({
       key: 'fee',
       label: isFlatRate ? '종일 정액' : '1시간 예상',
       value: hourEstimate.toLocaleString(),
       unit: '원',
-      caption: feeTableCaption(lot.pricing) ?? undefined,
+      caption: captions.length > 0 ? captions.join(' · ') : undefined,
+    })
+  } else if (dailyMax && dailyMax > 0) {
+    // 요금표는 없는데 1일 최대만 아는 곳 (실측 127곳). 아는 값을 버리지 않는다.
+    kpis.push({
+      key: 'fee',
+      label: '1일 최대',
+      value: dailyMax.toLocaleString(),
+      unit: '원',
+      caption: '시간당 요금 정보 없음',
     })
   } else {
     kpis.push({ key: 'fee', label: '주차 요금', value: '정보 없음', muted: true })
   }
 
-  // ② 1일 최대
+  // ② 운영 시간
   //
-  // 무료 주차장이라도 칸의 **의미를 바꾸지 않는다**. 같은 자리에 늘 같은 항목이 있어야
-  // 여러 주차장을 오가며 볼 때 헷갈리지 않는다. 「무료」가 두 번 나오는 건 중복이 아니라
-  // 템플릿이 일정하다는 뜻이다.
-  const dailyMax = lot.pricing.dailyMax
-  if (lot.pricing.isFree) {
-    kpis.push({ key: 'daily', label: '1일 최대', value: '무료', caption: '종일 주차 시' })
-  } else if (dailyMax && dailyMax > 0 && dailyMax !== hourEstimate) {
-    kpis.push({
-      key: 'daily',
-      label: '1일 최대',
-      value: dailyMax.toLocaleString(),
-      unit: '원',
-      caption: '종일 주차 시',
-    })
-  } else if (dailyMax && dailyMax > 0) {
-    // 1시간 예상과 금액이 같다 (정액제). 같은 말을 두 번 하지 않고 상한이라는 사실만 남긴다.
-    kpis.push({ key: 'daily', label: '1일 최대', value: '동일', caption: '정액 요금', muted: true })
-  } else {
-    kpis.push({ key: 'daily', label: '1일 최대', value: '정보 없음', muted: true })
-  }
+  // 무료 주차장이라고 칸의 **의미를 바꾸지 않는다**. 같은 자리에 늘 같은 항목이 있어야
+  // 여러 주차장을 오가며 볼 때 헷갈리지 않는다.
+  kpis.push(hoursKpi(lot.operatingHours))
 
   // ③ 주차면
   if (lot.totalSpaces > 0) {
