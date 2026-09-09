@@ -6,6 +6,7 @@ User-agent: Yeti
 Allow: /
 Disallow: /admin/
 
-Sitemap: https://easy-parking.xyz/sitemap-parking.xml
-Sitemap: https://easy-parking.xyz/sitemap-priority.xml
+# 사이트맵은 인덱스 하나로 일원화한다.
+# sitemap-parking.xml / sitemap-priority.xml 은 인덱스에 없는 레거시라 신호가 갈렸다.
+# 두 엔드포인트 자체는 살아 있어 GSC 에 개별 등록된 건 그대로 동작한다.
 Sitemap: https://easy-parking.xyz/sitemap-index.xml
