@@ -13,9 +13,11 @@
 import { resolve } from "path";
 import { d1Query, d1ExecFile, isRemote } from "./lib/d1";
 import { sqlVal } from "./lib/sql-flush";
-import { writeFileSync, unlinkSync } from "fs";
+import { writeFileSync, unlinkSync, mkdirSync } from "fs";
 
 const DRY_RUN = process.argv.includes("--dry-run");
+// --emit-sql=DIR: UPDATE 문을 파일로도 남긴다 (sync-modu.ts와 같은 이유 — wrangler 미인증 환경)
+const EMIT_SQL_DIR = process.argv.find((a) => a.startsWith("--emit-sql="))?.split("=")[1] ?? null;
 const DELAY_MS = 150;
 
 function getArg(name: string): number | null {
@@ -129,6 +131,14 @@ async function main() {
   if (DRY_RUN) {
     console.log(`🔍 DRY-RUN: ${updates.length}건 UPDATE 예정 (DB 미반영)`);
     return;
+  }
+
+  if (EMIT_SQL_DIR) {
+    mkdirSync(EMIT_SQL_DIR, { recursive: true });
+    const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+    const p = resolve(EMIT_SQL_DIR, `modu-hours-${stamp}.sql`);
+    writeFileSync(p, `-- MODU 운영시간/면수 백필 (${stamp}, ${updates.length}건)\n${updates.join("\n")}\n`);
+    console.log(`📄 적용용 SQL: ${p}`);
   }
 
   console.log(`⚡ ${updates.length}건 UPDATE 실행 중...`);

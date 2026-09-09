@@ -18,12 +18,19 @@ import { resolve } from "path";
 import { d1ExecFile, isRemote } from "./lib/d1";
 import { sqlVal } from "./lib/sql-flush";
 import { type ExistingLot, loadExistingLots, nearestLot, nearestSameNameLot } from "./lib/place-match";
-import { writeFileSync, unlinkSync } from "fs";
+import { writeFileSync, unlinkSync, appendFileSync, mkdirSync } from "fs";
 
 const DRY_RUN = process.argv.includes("--dry-run");
+// --emit-sql=DIR: UPSERT 문을 파일로도 남긴다. wrangler 인증이 없는 환경에서
+// 로컬 스냅샷(--db)으로 돌린 뒤 결과 SQL만 따로 리모트에 적용하기 위한 것.
+// 로컬 실행은 그대로 두는 게 중요하다 — 다음 bbox의 loadExistingLots가
+// 이번 bbox에서 넣은 행을 봐야 지역 경계에서 중복이 안 생긴다.
+const EMIT_SQL_DIR = process.argv.find((a) => a.startsWith("--emit-sql="))?.split("=")[1] ?? null;
 const DEDUP_RADIUS_M = 60;
 const GEOCODE_DELAY_MS = 120;
 const PINS_DELAY_MS = 250;
+const PINS_MAX_RETRY = 5;
+const PINS_RETRY_BASE_MS = 5000; // 5 → 10 → 20 → 40 → 80초
 
 const NCP_CLIENT_ID = process.env.NAVER_MAP_CLIENT_ID;
 const NCP_CLIENT_SECRET = process.env.NAVER_MAP_CLIENT_SECRET;
@@ -112,8 +119,24 @@ interface PinItem {
 async function fetchPinsBatch(geohashes: string[]): Promise<PinItem[]> {
   const today = new Date().toISOString().slice(0, 10);
   const url = `https://api.modu.cloud/poi/pins?geohash=${geohashes.join(",")}&durationId=PT1H&parkingDate=${today}`;
-  const res = await fetch(url, { headers: { Accept: "application/json" } });
-  if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+
+  // 넓은 bbox를 오래 훑으면 원본이 503을 던진다(실측: 3,000~4,600회 호출 지점).
+  // 재시도가 없으면 그때까지 모은 핀을 통째로 버리고 지역 전체를 다시 돌려야 한다.
+  let res: Response | null = null;
+  for (let attempt = 0; attempt < PINS_MAX_RETRY; attempt++) {
+    try {
+      res = await fetch(url, { headers: { Accept: "application/json" } });
+      if (res.ok) break;
+      if (res.status < 500 && res.status !== 429) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+    } catch (err) {
+      if (attempt === PINS_MAX_RETRY - 1) throw err;
+    }
+    const backoff = PINS_RETRY_BASE_MS * 2 ** attempt;
+    process.stdout.write(`\n  ⏳ ${res?.status ?? "네트워크 오류"} — ${backoff / 1000}초 후 재시도 (${attempt + 1}/${PINS_MAX_RETRY})\n`);
+    await sleep(backoff);
+  }
+  if (!res || !res.ok) throw new Error(`HTTP ${res?.status ?? "?"}: 재시도 ${PINS_MAX_RETRY}회 모두 실패`);
+
   const json: any = await res.json();
   const items: PinItem[] = [];
   for (const group of json.data ?? []) {
@@ -155,9 +178,13 @@ async function reverseGeocode(lat: number, lng: number): Promise<string | null> 
   if (!region) return null;
 
   const land = region.land;
-  const area = region.region?.area1?.name && region.region?.area2?.name
-    ? `${region.region.area1.name} ${region.region.area2.name} ${region.region.area3?.name ?? ""}`.trim()
-    : "";
+  // area1(시/도)만 있고 area2(구/군)가 없는 곳이 있다 — 세종특별자치시.
+  // 둘 다 요구하면 area가 빈 문자열이 되어 주소가 "한누리대로 2270"처럼
+  // 시/도 없이 도로명부터 시작한다. 있는 것만 이어붙인다.
+  const area = [region.region?.area1?.name, region.region?.area2?.name, region.region?.area3?.name]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
 
   if (region.name === "roadaddr" && land) {
     const roadName = land.name ?? "";
@@ -309,10 +336,16 @@ async function main() {
   const BATCH = 100;
   const tmpSql = resolve(import.meta.dir, "../.tmp-modu.sql");
 
+  if (EMIT_SQL_DIR) mkdirSync(EMIT_SQL_DIR, { recursive: true });
+  const emitPath = EMIT_SQL_DIR
+    ? resolve(EMIT_SQL_DIR, `modu-${SW_LAT}_${SW_LNG}-${NE_LAT}_${NE_LNG}.sql`)
+    : null;
+
   for (let i = 0; i < rows.length; i += BATCH) {
     const slice = rows.slice(i, i + BATCH);
     const stmts = slice.map(buildUpsert).join("\n");
     writeFileSync(tmpSql, stmts);
+    if (emitPath) appendFileSync(emitPath, `${stmts}\n`);
     d1ExecFile(tmpSql);
 
     const done = Math.min(i + BATCH, rows.length);
@@ -321,6 +354,7 @@ async function main() {
 
   try { unlinkSync(tmpSql); } catch {}
   console.log(`\n\n✅ 완료! ${rows.length}건 신규 등록`);
+  if (emitPath) console.log(`📄 적용용 SQL: ${emitPath}`);
 }
 
 main().catch((err) => {
