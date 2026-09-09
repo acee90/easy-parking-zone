@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { createFileRoute, Link, notFound } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
 import { type SQL, sql } from 'drizzle-orm'
 import { ChevronLeft, ChevronRight, MapPin } from 'lucide-react'
@@ -6,6 +6,7 @@ import { z } from 'zod'
 import { getDb } from '@/db'
 import { getRegionByLabel } from '@/lib/parking-regions'
 import { makeParkingSlug } from '@/lib/slug'
+import { INDEXABLE_LOT_SQL } from '@/server/indexable-lot'
 import { type ParkingLotRow, rowToParkingLot } from '@/server/transforms'
 
 const allLotsSearchSchema = z.object({
@@ -66,7 +67,10 @@ const fetchAllLots = createServerFn({ method: 'GET' })
     const prefixes = regionDef ? regionDef.prefixes : region ? [region] : []
 
     // 사용자 입력은 drizzle sql 템플릿으로 파라미터 바인딩 (주입 방지 + ? 바인딩 정상화).
-    const conditions: SQL[] = []
+    // 색인 대상만 나열한다. 이 목록이 크롤러가 lot 페이지를 찾는 유일한 경로라,
+    // 여기에 noindex lot 을 실으면 크롤 예산이 "가져가서 noindex 임을 확인"하는 데 쓰인다.
+    // sitemap 과 같은 술어를 써서 두 집합이 어긋나지 않게 한다.
+    const conditions: SQL[] = [sql.raw(INDEXABLE_LOT_SQL)]
     if (prefixes.length > 0) {
       conditions.push(
         sql`(${sql.join(
@@ -79,8 +83,7 @@ const fetchAllLots = createServerFn({ method: 'GET' })
     if (district) {
       conditions.push(sql`p.address LIKE ${`% ${district}%`}`)
     }
-    const whereClause =
-      conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``
+    const whereClause = sql`WHERE ${sql.join(conditions, sql` AND `)}`
 
     const rows = await db.all(sql`
       SELECT p.*,
@@ -94,8 +97,12 @@ const fetchAllLots = createServerFn({ method: 'GET' })
       LIMIT ${PAGE_SIZE} OFFSET ${offset}
     `)
 
+    // 술어가 s.ai_summary 를 참조하므로 개수 쿼리에도 같은 JOIN 이 필요하다.
     const countRow = (await db.get(
-      sql`SELECT COUNT(*) AS count FROM parking_lots p ${whereClause}`,
+      sql`SELECT COUNT(*) AS count
+          FROM parking_lots p
+          LEFT JOIN parking_lot_stats s ON s.parking_lot_id = p.id
+          ${whereClause}`,
     )) as { count: number } | null
     const totalCount = Number(countRow?.count ?? 0)
 
@@ -112,7 +119,14 @@ const fetchAllLots = createServerFn({ method: 'GET' })
 export const Route = createFileRoute('/wiki/all')({
   validateSearch: (search) => allLotsSearchSchema.parse(search),
   loaderDeps: ({ search: { page, region, district } }) => ({ page, region, district }),
-  loader: ({ deps }) => fetchAllLots({ data: deps }),
+  loader: async ({ deps }) => {
+    const data = await fetchAllLots({ data: deps })
+    // 색인 대상만 나열하도록 바꾸면서 전체 페이지 수가 541 → 64로 줄었다.
+    // 범위 밖 page는 빈 목록을 200으로 돌려주는 soft 404가 되므로 명시적으로 404를 낸다.
+    // (page=1은 결과가 없어도 유효한 "0건" 상태다.)
+    if (data.page > 1 && data.lots.length === 0) throw notFound()
+    return data
+  },
   head: ({ loaderData }) => {
     const region = loaderData?.region
     const district = loaderData?.district
