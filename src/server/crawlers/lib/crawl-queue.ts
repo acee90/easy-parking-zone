@@ -126,7 +126,9 @@ export async function syncQueue(db: D1Database): Promise<{ inserted: number; rep
       .run()
     inserted += ins.meta?.changes ?? 0
 
-    // reliability 변동 반영
+    // reliability 변동 반영.
+    // `pinned_at IS NULL` — 사람이 고정한 우선순위(A-2 트래픽 기반)는 되돌리지 않는다.
+    // `priority <> (...)` 비교는 lot 이 삭제된 고아 행에서 NULL 이 되어 자연히 제외된다.
     const upd = await db
       .prepare(
         `UPDATE crawl_queue
@@ -135,6 +137,7 @@ export async function syncQueue(db: D1Database): Promise<{ inserted: number; rep
                 LEFT JOIN parking_lot_stats s ON s.parking_lot_id = p.id
                WHERE p.id = crawl_queue.lot_id)
           WHERE crawler = ?1
+            AND pinned_at IS NULL
             AND priority <> (
               SELECT ${PRIORITY} FROM parking_lots p
                 LEFT JOIN parking_lot_stats s ON s.parking_lot_id = p.id
