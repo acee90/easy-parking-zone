@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { isUnsetTimeRange } from '@/lib/parking-display'
+import { is24HourRange, isUnsetTimeRange } from '@/lib/parking-display'
 import { canEstimateFee, estimateFee } from '@/lib/parking-fee'
 import type { ParkingLot } from '@/types/parking'
 
@@ -26,6 +26,9 @@ const DURATIONS = [
  */
 function maxParkableMinutes(hours: ParkingLot['operatingHours']): number | null {
   if (isUnsetTimeRange(hours.weekday)) return null
+  // 24시간 운영은 제한이 없다. `00:00-23:59` 로 들어온 20,327곳은 span 이 1,439분이라
+  // 그냥 두면 「종일」(1,440분) 버튼이 1분 차이로 사라진다.
+  if (is24HourRange(hours.weekday)) return null
   const toMin = (v: string) => {
     const m = v.trim().match(/^(\d{1,2}):(\d{2})$/)
     if (!m) return null
