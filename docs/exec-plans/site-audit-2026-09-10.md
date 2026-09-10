@@ -102,31 +102,40 @@ RECRAWL_DAYS 를 90으로 늘리면 수요가 356곳/일로 떨어져 능력(600
 
 | # | 지표 | 측정 | 기준선 (09-10) | 기대값 | 시점 | 결과 |
 |---|---|---|---|---|---|---|
-| 1 | naver_blogs priority 0 주차장 수 | `SELECT COUNT(*) FROM crawl_queue WHERE crawler='naver_blogs' AND priority=0` | 7,140 | **≥ 22,000** (stats 없는 22,025 가 0으로 올라옴) | reprice 직후 | |
-| 2 | priority 4 잔량 | 같은 표 priority=4 | 22,088 | **≤ 200** (estimated 107 + confirmed 5 는 4~5로 이동) | reprice 직후 | |
-| 3 | 다음 600곳(하루치 선정) 중 web_sources 0건 비율 | `selectFromQueue` 와 같은 WHERE·ORDER BY 로 LIMIT 600 | **67.7%** (406/600) | **≥ 95%** | reprice 직후 | |
-| 4 | RECRAWL_DAYS 코드값 | grep | 30 ×4 | 90, 단일 상수 | PR 머지 | |
-| 5 | web_sources 0건 주차장 수 | `SELECT COUNT(*) FROM parking_lots p LEFT JOIN (SELECT DISTINCT parking_lot_id id FROM web_sources) w ON w.id=p.id WHERE w.id IS NULL` | **43,172** | **1주 뒤 −3,000 이상** (600곳/일 × 7일 중 매칭 성공분) | +7일 | |
-| 6 | 크롤 처리량 (선정 수) | `pipeline_daily_stats` 크롤 대상 선정 수 | 현행 | **변동 없음** (±10%). 줄면 큐 조회가 깨진 것 | +1일 | |
-| 7 | D1 rows_read | wrangler 실행 meta / CF 대시보드 | 현행 | **증가 없음** (같은 인덱스 조회) | +1일 | |
+| 1 | naver_blogs priority 0 주차장 수 | `SELECT COUNT(*) FROM crawl_queue WHERE crawler='naver_blogs' AND priority=0` | 7,140 | **≥ 22,000** (stats 없는 22,025 가 0으로 올라옴) | reprice 직후 | **22,025 ✅** |
+| 2 | priority 4 잔량 | 같은 표 priority=4 | 22,088 | **≤ 200** (estimated 107 + confirmed 5 는 4~5로 이동) | reprice 직후 | **165 ✅** (107 estimated + 58 고아) |
+| 3 | 다음 600곳(하루치 선정) 중 web_sources 0건 비율 | `selectFromQueue` 와 같은 WHERE·ORDER BY 로 LIMIT 600 | **67.7%** (406/600) | **≥ 95%** | reprice 직후 | **100.0%** (600/600) ✅ |
+| 4 | RECRAWL_DAYS 코드값 | grep | 30 ×4 | 90, 단일 상수 | PR 머지 | **90, `crawl-queue.ts` 단일 ✅** |
+| 5 | web_sources 0건 주차장 수 | `SELECT COUNT(*) FROM parking_lots p LEFT JOIN (SELECT DISTINCT parking_lot_id id FROM web_sources) w ON w.id=p.id WHERE w.id IS NULL` | **43,172** | **1주 뒤 −3,000 이상** (600곳/일 × 7일 중 매칭 성공분) | +7일 | 대기 (09-17) |
+| 6 | 크롤 처리량 (선정 수) | `pipeline_daily_stats` 크롤 대상 선정 수 | 현행 | **변동 없음** (±10%). 줄면 큐 조회가 깨진 것 | +1일 | 대기 (09-11) |
+| 7 | D1 rows_read | wrangler 실행 meta / CF 대시보드 | 현행 | **증가 없음** (같은 인덱스 조회) | +1일 | 대기 (09-11) |
 
 - **판정**: 1~4 가 전부 통과해야 A-1 완료. 5~7 은 관측 항목이며 6·7 이 어긋나면 롤백.
+- **결과 (2026-09-10 적용)**: **1~4 전부 통과.** PR #198 머지 → `bun run deploy` → `reprice-crawl-queue.ts --remote --apply` (216,289행 갱신, 2.1초). 적용 후 분포는 **p0 22,025 / p1 7,140 / p2 21,701 / p3 3,094 / p4 165 / p5 5** 로 예상과 일치했다. p4 의 165 는 estimated 107 + 고아 58 이며, 고아가 남은 것은 `EXISTS` 가드가 의도대로 동작한 결과다.
 - **의존**: 없음. A-2 는 이 위에 올라간다.
 
 ### A-2. 크롤 우선순위에 트래픽 반영
 
 - **목표**: 첫 화면(서울 도심)이 "데이터 없음" 일색인 문제. crawl_queue priority는 reliability 등급만 보고 PV를 모른다.
 - **변경**
-  - `docs/references/data-reinforcement-candidates.md` / `docs/ga-reports/01_contents_enrichment_priority.md` 의 "PV 있음 + web_source 0" 목록을 입력으로, `scripts/` 에 `bump-crawl-priority-by-traffic.ts` 추가. 대상 lot의 crawl_queue.priority를 **0**, next_at을 now로.
-  - GA4 export를 매번 손으로 넣지 않도록: 스크립트 입력은 `data/traffic-lots-YYYYMMDD.csv` (lot_id, pv) 한 파일. 재실행 가능.
-  - `syncQueue` 가 일 1회 priority를 reliability로 **되돌리는지** 확인 (`crawl-queue.ts:96-101`). 되돌리면 `priority_override` 컬럼(마이그레이션 1개) 추가해 sync가 덮어쓰지 않게.
+  - `migrations/0058_crawl_queue_pin.sql`: `crawl_queue.pinned_at TEXT` 추가.
+  - `crawl-queue.ts` `syncQueue`: reprice UPDATE 에 `AND pinned_at IS NULL`. 사람이 고정한 우선순위를 하루 뒤에 되돌리지 않는다.
+  - `scripts/pin-crawl-priority.ts`: GA4 CSV → 대상 선별 → SQL emit → `--apply`. `--unpin` 으로 전체 해제.
+    - CSV 는 `lot_id` 열이나 경로 열(`page_path` 등) 중 아무거나 받는다. 경로면 `parseIdFromSlug` 로 id 를 뽑는다.
+    - **이미 web_sources 가 있는 곳은 대상에서 뺀다** — 앞으로 당길 이유가 없다.
+    - 고정 우선순위는 `-1`. priority 0(근거 0건)보다 앞서야 하기 때문이다.
+- **설계 메모 — 왜 `priority_override` + `COALESCE` 가 아닌가**
+  `ORDER BY COALESCE(priority_override, priority)` 는 `idx_crawl_queue_pick(crawler, priority, next_at)` 을 못 탄다.
+  선정이 다시 크롤러당 54,130행 전체 스캔이 되어 **0052 가 없앤 비용이 그대로 돌아온다.**
+  그래서 정렬 키는 `priority` 하나로 두고, 고정 여부만 별도 컬럼에 기록한다.
+- **확인된 사실**: `syncQueue` 는 `priority <> (재계산값)` 인 행을 전부 덮어쓴다. 즉 **고정 표시 없이는 반드시 하루 만에 되돌아간다.** 코드로 확인했으므로 +1일 관측이 필요 없다.
 
 #### A-2 평가항목
 
 | # | 지표 | 측정 | 기준선 (09-10) | 기대값 | 시점 | 결과 |
 |---|---|---|---|---|---|---|
-| 1 | 트래픽 대상 lot 중 priority 0·next_at 도래 비율 | 입력 CSV의 lot_id 를 crawl_queue 와 조인 | 0% | **100%** | 스크립트 직후 | |
-| 2 | syncQueue 1회 실행 후에도 override 유지되는가 | 다음날 같은 쿼리 | — | **유지** (덮어써지면 `priority_override` 필요) | +1일 | |
+| 1 | 고정 대상 lot 이 priority −1·next_at 도래 상태인가 | 입력 CSV의 lot_id 를 crawl_queue 와 조인 | 0% | **100%** | 스크립트 직후 | |
+| 2 | syncQueue 1회 실행 후에도 고정이 유지되는가 | 다음날 `pinned_at IS NOT NULL AND priority=-1` 카운트 | — | **감소 0** | +1일 | |
 | 3 | 대상 lot 중 web_sources ≥1 비율 | web_sources 조인 | 0% (PV 있는데 근거 0) | **≥ 60%** | +7일 | |
 | 4 | 첫 화면(서울 중구 zoom 14) 목록 20행 중 "데이터 없음" | 브라우저 실측 | **11/20 = 55%** | **≤ 30%** | +14일 | |
 
@@ -342,8 +351,8 @@ RECRAWL_DAYS 를 90으로 늘리면 수요가 356곳/일로 떨어져 능력(600
 
 | 작업 | 브랜치/PR | 상태 | 평가 결과 |
 |---|---|---|---|
-| A-1 | | | |
-| A-2 | | | |
+| A-1 | #198 (머지·배포·reprice 완료 09-10) | **완료** | 즉시 항목 1~4 통과. 5~7 은 09-11 / 09-17 재측정 |
+| A-2 | | GA4 CSV 대기 | 스크립트 준비, 입력 파일 오면 적용 |
 | A-3 | | | |
 | A-4 | | | |
 | A-5 | | | |
