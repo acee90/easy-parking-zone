@@ -302,23 +302,24 @@ describe('LotHeroSection KPI', () => {
     }
   })
 
-  it('빈 칸은 눌러서 채울 수 있는 버튼이다', () => {
+  // 예전엔 빈 칸이 「+ 정보 추가」 텍스트 링크였다. 값 있는 칸(연필)과 진입점이
+  // 달라 보여서, 빈 칸도 같은 연필·같은 자리로 통일했다.
+  it('빈 칸도 값이 있는 칸과 같은 연필 버튼으로 연다', () => {
     render(<LotHeroSection lot={makeLot({ totalSpaces: 0 })} realReviewCount={0} webCount={0} />)
     const spaces = kpiTexts().find((t) => t.includes('주차면')) ?? ''
-    expect(spaces).toContain('정보 추가')
-    // 값이 있는 칸에는 붙지 않는다 — 거긴 연필이다
-    expect(kpiTexts()[0]).not.toContain('정보 추가')
+    expect(spaces).not.toContain('정보 추가')
   })
 
   // 예전엔 값이 있는 칸으로 가는 길이 「수정 제안」 링크 하나였고 그게 요금 폼만 열었다.
   // 운영시간·면수가 틀린 경우엔 고칠 방법이 아예 없었다.
-  it('값이 있는 세 칸에는 각각 수정 연필이 있다', () => {
+  it('제보 가능한 네 자리(빈 칸 포함) 모두 같은 연필로 연다', () => {
     const { container } = render(
-      <LotHeroSection lot={makeLot()} realReviewCount={0} webCount={0} />,
+      <LotHeroSection lot={makeLot({ totalSpaces: 0 })} realReviewCount={0} webCount={0} />,
     )
     const cells = [...(container.querySelector('[data-testid="kpi-grid"] > div')?.children ?? [])]
     expect(cells[0].querySelector('[aria-label="1시간 예상 수정 제안"]')).toBeTruthy()
     expect(cells[1].querySelector('[aria-label="평일 운영 수정 제안"]')).toBeTruthy()
+    // 비어 있어도 라벨은 값 있을 때와 같은 「주차면」이다 — 그 칸의 연필도 동일하다
     expect(cells[2].querySelector('[aria-label="주차면 수정 제안"]')).toBeTruthy()
     // 쉬움 점수는 후기에서 나오는 값이라 고칠 수 없다
     expect(cells[3].querySelector('button')).toBeNull()

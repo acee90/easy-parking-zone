@@ -1,4 +1,4 @@
-import { Flame, MapPin, Pencil, Plus, ThumbsUp } from 'lucide-react'
+import { Flame, MapPin, Pencil, ThumbsUp } from 'lucide-react'
 import { useState } from 'react'
 import { FieldEditSheet } from '@/components/wiki/FieldEditSheet'
 import { DividerCell, DividerGrid } from '@/components/wiki/SectionShell'
@@ -300,8 +300,11 @@ export function LotHeroSection({
             // 칸 전체를 버튼으로 만들지 않는다. `<button>` 과 `<div>` 는 기본 정렬이
             // 달라(버튼은 자식을 shrink-to-fit) 제보 가능한 칸과 「쉬움 점수」 칸의
             // 글줄이 어긋났다. 모든 칸을 같은 `DividerCell` 로 두고, 누를 곳만 안에 넣는다.
+            //
+            // 빈 칸도 연필로 통일한다 — 예전엔 「+ 정보 추가」 텍스트 링크였는데, 값이
+            // 있는 칸(연필)과 없는 칸(텍스트)이 서로 다른 진입점처럼 보였다. 제보 가능한
+            // 네 자리는 늘 같은 아이콘, 같은 자리(우상단)여야 한 번 익히면 어디서나 통한다.
             const editable = Boolean(kpi.group)
-            const fillable = Boolean(kpi.group && kpi.muted)
             const source = kpi.group ? fieldSources[kpi.group] : 'official'
 
             return (
@@ -320,31 +323,18 @@ export function LotHeroSection({
                   )}
                 </span>
 
-                {fillable ? (
-                  // 빈 칸은 채워 달라고 말하는 게 낫다 — 즉시 반영되는 자리이고 결손이
-                  // 가장 많다(면수 41% · 운영시간 20% · 요금 19%)
-                  <button
-                    type="button"
-                    onClick={() => setEditing(kpi.group ?? null)}
-                    className="inline-flex w-fit cursor-pointer items-center gap-0.5 text-[11px] font-semibold text-accent-ink underline-offset-2 hover:underline"
-                  >
-                    <Plus className="size-3" />
-                    정보 추가
-                  </button>
-                ) : (
-                  <span className="flex flex-wrap items-center gap-1">
-                    {source === 'user' && (
-                      <span className="rounded-full bg-accent-tint px-1.5 py-px text-[10px] font-bold text-accent-ink">
-                        유저제보
-                      </span>
-                    )}
-                    {kpi.caption && <span className="text-[11px] text-faint">{kpi.caption}</span>}
-                  </span>
-                )}
+                <span className="flex flex-wrap items-center gap-1">
+                  {source === 'user' && (
+                    <span className="rounded-full bg-accent-tint px-1.5 py-px text-[10px] font-bold text-accent-ink">
+                      유저제보
+                    </span>
+                  )}
+                  {kpi.caption && <span className="text-[11px] text-faint">{kpi.caption}</span>}
+                </span>
 
-                {/* 값이 있는 칸은 라벨 옆 연필로만 연다. 칸을 통째로 누르게 두면
-                    읽으려고 짚은 손가락에 폼이 열린다 */}
-                {editable && !fillable && (
+                {/* 칸을 통째로 누르게 두면 읽으려고 짚은 손가락에 폼이 열린다 —
+                    라벨 옆 연필로만 연다. 빈 칸도 값 있는 칸도 같은 자리, 같은 아이콘 */}
+                {editable && (
                   <button
                     type="button"
                     onClick={() => setEditing(kpi.group ?? null)}
@@ -360,11 +350,12 @@ export function LotHeroSection({
         </DividerGrid>
       )}
 
-      {/* 연필이 무엇인지 한 번 말해 준다. 아이콘만으로는 신고인지 수정인지 모른다 */}
+      {/* 연필이 무엇인지 한 번 말해 준다. 아이콘만으로는 신고인지 수정인지 모른다.
+          빈 칸도 연필이라 "틀렸나요"만 쓰면 안 맞다 — 비었거나 틀렸거나 둘 다 아우른다 */}
       <div className="flex items-center justify-between gap-2">
         <span className="inline-flex items-center gap-1 text-[11.5px] text-muted-foreground">
           <Pencil className="size-3" />
-          정보가 틀렸나요? 항목의 연필을 눌러 수정을 제안해 주세요
+          정보가 비었거나 틀렸나요? 항목의 연필을 눌러 제보해 주세요
         </span>
         {toast && <span className="text-[11.5px] font-semibold text-good">{toast}</span>}
       </div>
