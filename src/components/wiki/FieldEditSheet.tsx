@@ -45,7 +45,14 @@ export function FieldEditSheet({
   if (!group) return null
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="max-h-[92vh] overflow-y-auto">
+      {/* `side="bottom"` 은 `inset-x-0` 이라 데스크톱에서 화면 폭을 가득 채운다.
+          입력 칸 몇 개짜리 폼이 1,400px 로 벌어지면 읽을 수가 없다.
+          `inset-x-0` 을 그대로 두고 `mx-auto` + `max-w` 로 가운데에 세운다 —
+          transform 을 건드리면 Radix 의 슬라이드 애니메이션과 부딪친다. */}
+      <SheetContent
+        side="bottom"
+        className="mx-auto max-h-[92vh] w-full overflow-y-auto rounded-t-2xl px-5 pt-5 pb-6 sm:max-w-[440px]"
+      >
         <FieldEditForm
           key={group}
           lot={lot}

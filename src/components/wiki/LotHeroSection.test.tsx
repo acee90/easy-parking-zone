@@ -306,20 +306,32 @@ describe('LotHeroSection KPI', () => {
     render(<LotHeroSection lot={makeLot({ totalSpaces: 0 })} realReviewCount={0} webCount={0} />)
     const spaces = kpiTexts().find((t) => t.includes('주차면')) ?? ''
     expect(spaces).toContain('정보 추가')
-    // 값이 있는 칸에는 붙지 않는다
+    // 값이 있는 칸에는 붙지 않는다 — 거긴 연필이다
     expect(kpiTexts()[0]).not.toContain('정보 추가')
   })
 
   // 예전엔 값이 있는 칸으로 가는 길이 「수정 제안」 링크 하나였고 그게 요금 폼만 열었다.
   // 운영시간·면수가 틀린 경우엔 고칠 방법이 아예 없었다.
-  it('값이 있는 칸도 눌러서 수정 제안할 수 있다', () => {
+  it('값이 있는 세 칸에는 각각 수정 연필이 있다', () => {
     const { container } = render(
       <LotHeroSection lot={makeLot()} realReviewCount={0} webCount={0} />,
     )
     const cells = [...(container.querySelector('[data-testid="kpi-grid"] > div')?.children ?? [])]
-    // 요금·운영시간·주차면 세 칸은 버튼, 쉬움 점수는 아니다
-    expect(cells.slice(0, 3).every((c) => c.querySelector('button'))).toBe(true)
+    expect(cells[0].querySelector('[aria-label="1시간 예상 수정 제안"]')).toBeTruthy()
+    expect(cells[1].querySelector('[aria-label="평일 운영 수정 제안"]')).toBeTruthy()
+    expect(cells[2].querySelector('[aria-label="주차면 수정 제안"]')).toBeTruthy()
+    // 쉬움 점수는 후기에서 나오는 값이라 고칠 수 없다
     expect(cells[3].querySelector('button')).toBeNull()
+  })
+
+  // 칸 전체가 버튼이면 읽으려고 짚은 손가락에 폼이 열리고, `<button>` 과 `<div>` 의
+  // 기본 정렬이 달라 「쉬움 점수」 칸과 글줄이 어긋난다
+  it('칸 자체는 버튼이 아니다 — 네 칸 모두 같은 요소다', () => {
+    const { container } = render(
+      <LotHeroSection lot={makeLot()} realReviewCount={0} webCount={0} />,
+    )
+    const cells = [...(container.querySelector('[data-testid="kpi-grid"] > div')?.children ?? [])]
+    expect(cells.every((c) => c.tagName === 'DIV')).toBe(true)
   })
 
   it('유저 제보로 선 값에는 「유저제보」 배지가 붙는다', () => {
@@ -336,6 +348,14 @@ describe('LotHeroSection KPI', () => {
     // 관리자가 확인한 값은 원본과 같은 무게로 그린다 — 배지 없음
     expect(texts[2]).not.toContain('유저제보')
     expect(texts[1]).not.toContain('유저제보')
+  })
+
+  // 크롤러가 써 넣은 문자열 'null' 이 681곳에 있다. 그대로 두면 「혜택 null」 이 나온다
+  it('혜택이 문자열 null 이면 그 줄을 그리지 않는다', () => {
+    const { container } = render(
+      <LotHeroSection lot={makeLot({ notes: 'null' })} realReviewCount={0} webCount={0} />,
+    )
+    expect(container.textContent).not.toContain('혜택')
   })
 
   it('주소와 이름은 항상 나온다', () => {
