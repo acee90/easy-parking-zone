@@ -15,6 +15,7 @@ import { ParkingActionGroup } from '@/components/ParkingActionGroup'
 import { ParkingReputationSections } from '@/components/ParkingReputationSections'
 import { Badge } from '@/components/ui/badge'
 import { getReliabilityBadge } from '@/lib/geo-utils'
+import { FIELD_GROUPS, type FieldSources } from '@/lib/lot-field-groups'
 import {
   formatOperatingHours,
   formatPhone,
@@ -39,6 +40,11 @@ export function ParkingDetailPanel({ lot }: ParkingDetailPanelProps) {
   const operatingHours = formatOperatingHours(lot.operatingHours)
   const pricing = formatPricing(lot.pricing)
   const totalSpacesLabel = formatTotalSpaces(lot.totalSpaces)
+  // `fetchParkingDetail` 이 얹어 주는 값 — 타입에는 없어서 방어적으로 읽는다
+  const fieldSources = (lot as ParkingLot & { fieldSources?: FieldSources }).fieldSources
+  const hasUserContributedField = fieldSources
+    ? FIELD_GROUPS.some((g) => fieldSources[g] === 'user')
+    : false
   const phoneLabel = formatPhone(lot.phone)
   const slug = makeParkingSlug(lot.name, lot.id)
   const hasAiTips = Boolean(lot.aiTipPricing || lot.aiTipVisit || lot.aiTipAlternative)
@@ -230,6 +236,15 @@ export function ParkingDetailPanel({ lot }: ParkingDetailPanelProps) {
                   <ParkingSquare className="size-4 shrink-0 text-muted-foreground" />
                   <span>{totalSpacesLabel}</span>
                 </div>
+              )}
+
+              {/* 이 패널은 상세페이지와 같은 병합 결과(fetchParkingDetail)를 쓴다.
+                  칸마다 배지를 달 자리는 없지만, 유저가 채운 값을 공식 정보처럼
+                  보여줄 수는 없어 한 줄로 밝힌다. 고치는 건 상세페이지에서. */}
+              {hasUserContributedField && (
+                <p className="text-xs text-muted-foreground">
+                  일부 정보는 유저 제보입니다 · 상세페이지에서 수정할 수 있어요
+                </p>
               )}
 
               {phoneLabel && (

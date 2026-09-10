@@ -32,9 +32,11 @@ export function FieldEditSheet({
   open,
   onOpenChange,
   onSubmitted,
+  fieldSources = DEFAULT_FIELD_SOURCES,
 }: {
   lot: ParkingLot
   group: FieldGroup | null
+  fieldSources?: FieldSources
   open: boolean
   onOpenChange: (open: boolean) => void
   /** 제보가 즉시 반영됐을 때(applied) 호출 — 화면을 다시 읽어 값을 세운다 */
@@ -48,6 +50,7 @@ export function FieldEditSheet({
           key={group}
           lot={lot}
           group={group}
+          fieldSources={fieldSources}
           onDone={(status) => {
             onOpenChange(false)
             onSubmitted(status)
@@ -73,13 +76,18 @@ function currentValueText(lot: ParkingLot, group: FieldGroup): string {
 function FieldEditForm({
   lot,
   group,
+  fieldSources,
   onDone,
 }: {
   lot: ParkingLot
   group: FieldGroup
+  fieldSources: FieldSources
   onDone: (status: 'applied' | 'pending') => void
 }) {
-  const isEmpty = isFieldGroupEmpty(lot, group)
+  // 서버의 `resolveTransition` 과 같은 규칙이어야 한다. 유저가 채운 값(`user`)은
+  // 다른 유저가 바로 덮어쓸 수 있는데, 비어 있음만 보면 그 경우에 "확인 후 반영"이라고
+  // 잘못 안내한다 — 화면에는 이미 값이 있으므로 `isFieldGroupEmpty` 가 false 다.
+  const willApplyNow = fieldSources[group] === 'user' || isFieldGroupEmpty(lot, group)
   const [payload, setPayload] = useState<Record<string, unknown>>(() => initialPayload(lot, group))
   const [sourceNote, setSourceNote] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -118,11 +126,13 @@ function FieldEditForm({
       {/* 반영 방식을 **먼저** 말한다 */}
       <p
         className={`rounded-lg px-3 py-2 text-[12px] leading-relaxed ${
-          isEmpty ? 'bg-good-tint text-good' : 'bg-hair-2 text-ink-2'
+          willApplyNow ? 'bg-good-tint text-good' : 'bg-hair-2 text-ink-2'
         }`}
       >
-        {isEmpty
-          ? '비어 있는 정보라 바로 반영됩니다. 「유저제보」 표시가 붙어요.'
+        {willApplyNow
+          ? fieldSources[group] === 'user'
+            ? '유저가 채운 정보라 바로 덮어쓸 수 있어요. 「유저제보」 표시가 유지됩니다.'
+            : '비어 있는 정보라 바로 반영됩니다. 「유저제보」 표시가 붙어요.'
           : '이미 값이 있어 바로 반영되지 않습니다. 관리자 확인 후 반영돼요.'}
       </p>
 

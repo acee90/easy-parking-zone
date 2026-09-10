@@ -62,5 +62,11 @@ export function statusToFieldSource(status: 'applied' | 'verified'): FieldSource
   return status === 'verified' ? 'verified' : 'user'
 }
 
-/** 같은 IP 가 같은 칸을 연달아 뒤집는 걸 막는 간격 */
-export const SAME_IP_COOLDOWN_MS = 10 * 60 * 1000
+/**
+ * 같은 IP 가 같은 칸을 연달아 뒤집는 걸 막는 간격.
+ *
+ * SQLite 의 `datetime('now', ...)` 수식자로 쓴다 — `created_at` 은
+ * `2026-09-10 00:54:12` 모양이라 JS 의 ISO 문자열과 직접 비교하면 안 된다
+ * (10번째 글자가 ' ' 와 'T' 로 갈려 항상 거짓이 된다).
+ */
+export const SAME_IP_COOLDOWN_SQL = '-10 minutes'

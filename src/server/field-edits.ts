@@ -1,6 +1,6 @@
 import { env } from 'cloudflare:workers'
 import { createServerFn } from '@tanstack/react-start'
-import { and, desc, eq, inArray, sql } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 import { getDb, schema } from '@/db'
 import { createAuth } from '@/lib/auth'
 import {
@@ -10,11 +10,7 @@ import {
   isFieldGroupEmpty,
   validateFieldPayload,
 } from '@/lib/lot-field-groups'
-import {
-  ACTIVE_STATUSES,
-  resolveTransition,
-  SAME_IP_COOLDOWN_MS,
-} from '@/lib/lot-field-transitions'
+import { resolveTransition, SAME_IP_COOLDOWN_SQL } from '@/lib/lot-field-transitions'
 import { checkRateLimit, getClientIP } from '@/server/rate-limit'
 import type { ParkingLot } from '@/types/parking'
 
@@ -85,13 +81,15 @@ export const submitFieldEdit = createServerFn({ method: 'POST' })
     const ipHash = request ? await hashIP(getClientIP(request)) : null
 
     if (ipHash) {
-      const since = new Date(Date.now() - SAME_IP_COOLDOWN_MS).toISOString()
+      // 비교를 **SQL 안에서** 한다. `created_at` 은 `datetime('now')` 가 만든
+      // `2026-09-10 00:54:12` 인데 JS 의 `toISOString()` 은 `...T00:44:12.345Z` 라
+      // 문자열 비교가 10번째 글자(' ' vs 'T')에서 갈려 쿨다운이 한 번도 안 걸렸다.
       const recent = await db.all(
         sql`SELECT id FROM lot_field_edits
             WHERE ip_hash = ${ipHash}
               AND parking_lot_id = ${data.parkingLotId}
               AND field_group = ${group}
-              AND created_at > ${since}
+              AND created_at > datetime('now', ${SAME_IP_COOLDOWN_SQL})
             LIMIT 1`,
       )
       if (recent.length > 0) {
@@ -217,44 +215,3 @@ async function insertEdit({
 
   return { status: decision.nextStatus }
 }
-
-export interface LotEditHistoryItem {
-  id: number
-  fieldGroup: FieldGroup
-  status: string
-  createdAt: string
-  sourceNote: string | null
-}
-
-/** 상세페이지의 「제보 이력」용. 최근 것부터 */
-export const fetchLotEditHistory = createServerFn({ method: 'GET' })
-  .inputValidator((input: { parkingLotId: string }): { parkingLotId: string } => {
-    if (!input.parkingLotId) throw new Error('주차장을 찾을 수 없습니다')
-    return input
-  })
-  .handler(async ({ data }): Promise<LotEditHistoryItem[]> => {
-    try {
-      const db = getDb()
-      const rows = await db
-        .select({
-          id: schema.lotFieldEdits.id,
-          fieldGroup: schema.lotFieldEdits.fieldGroup,
-          status: schema.lotFieldEdits.status,
-          createdAt: schema.lotFieldEdits.createdAt,
-          sourceNote: schema.lotFieldEdits.sourceNote,
-        })
-        .from(schema.lotFieldEdits)
-        .where(
-          and(
-            eq(schema.lotFieldEdits.parkingLotId, data.parkingLotId),
-            inArray(schema.lotFieldEdits.status, [...ACTIVE_STATUSES, 'superseded']),
-          ),
-        )
-        .orderBy(desc(schema.lotFieldEdits.createdAt))
-        .limit(20)
-        .all()
-      return rows.filter((r): r is LotEditHistoryItem => isFieldGroup(r.fieldGroup))
-    } catch {
-      return []
-    }
-  })

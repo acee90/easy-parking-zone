@@ -294,8 +294,13 @@ export function LotHeroSection({
           data-testid="kpi-grid"
         >
           {kpis.map((kpi) => {
-            // 「정보 없음」 칸은 칸 자체가 제보 버튼이다. 결손이 가장 많고(면수 41%,
-            // 운영시간 20%, 요금 19%) 즉시 반영되는 자리라 가장 눈에 띄는 진입점을 준다.
+            // 제보할 수 있는 칸은 **칸 자체가 버튼**이다. 연필 아이콘을 네 개 늘어놓는
+            // 것보다 조용하고, 좁은 화면에서 누를 자리가 넓다.
+            //
+            // 빈 칸에만 `+ 정보 추가` 를 덧붙인다 — 즉시 반영되는 자리이고 결손이
+            // 가장 많다(면수 41% · 운영시간 20% · 요금 19%). 값이 있는 칸은 눌러서
+            // 수정 제안만 되므로 라벨 없이 hover 로만 알린다.
+            const clickable = Boolean(kpi.group)
             const fillable = Boolean(kpi.group && kpi.muted)
             const source = kpi.group ? fieldSources[kpi.group] : 'official'
             const body = (
@@ -331,7 +336,7 @@ export function LotHeroSection({
               </>
             )
 
-            return fillable ? (
+            return clickable ? (
               <DividerCell key={kpi.key} className="p-0">
                 <button
                   type="button"
@@ -350,22 +355,20 @@ export function LotHeroSection({
         </DividerGrid>
       )}
 
-      {/* 값이 있는 칸용 조용한 진입점. 여기서 들어온 제보는 관리자 확인을 거친다 */}
+      {/* 칸을 누르면 그 항목의 폼이 열린다는 걸 알린다. 예전에는 여기가 버튼이었는데
+          요금 폼으로만 갈 수 있어서, 운영시간·면수가 틀린 경우엔 갈 데가 없었다. */}
       <div className="flex items-center justify-between gap-2">
-        <button
-          type="button"
-          onClick={() => setEditing('fee')}
-          className="inline-flex cursor-pointer items-center gap-1 text-[11.5px] text-muted-foreground underline-offset-2 hover:underline"
-        >
+        <span className="inline-flex items-center gap-1 text-[11.5px] text-muted-foreground">
           <Pencil className="size-3" />
-          정보가 틀렸나요? 수정 제안
-        </button>
+          정보가 틀렸나요? 칸을 누르면 수정을 제안할 수 있어요
+        </span>
         {toast && <span className="text-[11.5px] font-semibold text-good">{toast}</span>}
       </div>
 
       <FieldEditSheet
         lot={lot}
         group={editing}
+        fieldSources={fieldSources}
         open={editing !== null}
         onOpenChange={(open) => !open && setEditing(null)}
         onSubmitted={(status) => {

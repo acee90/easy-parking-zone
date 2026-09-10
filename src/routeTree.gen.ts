@@ -25,6 +25,7 @@ import { Route as AdminWebSourcesRouteImport } from './routes/admin/web-sources'
 import { Route as AdminToolsRouteImport } from './routes/admin/tools'
 import { Route as AdminReviewsRouteImport } from './routes/admin/reviews'
 import { Route as AdminReportsRouteImport } from './routes/admin/reports'
+import { Route as AdminFieldEditsRouteImport } from './routes/admin/field-edits'
 import { Route as WikiSlugIndexRouteImport } from './routes/wiki/$slug.index'
 import { Route as EventHalfpriceTravelIndexRouteImport } from './routes/event/halfprice-travel/index'
 import { Route as WikiRegionRegionRouteImport } from './routes/wiki/region.$region'
@@ -114,6 +115,11 @@ const AdminReportsRoute = AdminReportsRouteImport.update({
   path: '/reports',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminFieldEditsRoute = AdminFieldEditsRouteImport.update({
+  id: '/field-edits',
+  path: '/field-edits',
+  getParentRoute: () => AdminRoute,
+} as any)
 const WikiSlugIndexRoute = WikiSlugIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -165,6 +171,7 @@ export interface FileRoutesByFullPath {
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
   '/test-designs': typeof TestDesignsRoute
+  '/admin/field-edits': typeof AdminFieldEditsRoute
   '/admin/reports': typeof AdminReportsRoute
   '/admin/reviews': typeof AdminReviewsRoute
   '/admin/tools': typeof AdminToolsRoute
@@ -190,6 +197,7 @@ export interface FileRoutesByTo {
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
   '/test-designs': typeof TestDesignsRoute
+  '/admin/field-edits': typeof AdminFieldEditsRoute
   '/admin/reports': typeof AdminReportsRoute
   '/admin/reviews': typeof AdminReviewsRoute
   '/admin/tools': typeof AdminToolsRoute
@@ -216,6 +224,7 @@ export interface FileRoutesById {
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
   '/test-designs': typeof TestDesignsRoute
+  '/admin/field-edits': typeof AdminFieldEditsRoute
   '/admin/reports': typeof AdminReportsRoute
   '/admin/reviews': typeof AdminReviewsRoute
   '/admin/tools': typeof AdminToolsRoute
@@ -244,6 +253,7 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/terms'
     | '/test-designs'
+    | '/admin/field-edits'
     | '/admin/reports'
     | '/admin/reviews'
     | '/admin/tools'
@@ -269,6 +279,7 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/terms'
     | '/test-designs'
+    | '/admin/field-edits'
     | '/admin/reports'
     | '/admin/reviews'
     | '/admin/tools'
@@ -294,6 +305,7 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/terms'
     | '/test-designs'
+    | '/admin/field-edits'
     | '/admin/reports'
     | '/admin/reviews'
     | '/admin/tools'
@@ -445,6 +457,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminReportsRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/field-edits': {
+      id: '/admin/field-edits'
+      path: '/field-edits'
+      fullPath: '/admin/field-edits'
+      preLoaderRoute: typeof AdminFieldEditsRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/wiki/$slug/': {
       id: '/wiki/$slug/'
       path: '/'
@@ -505,6 +524,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AdminRouteChildren {
+  AdminFieldEditsRoute: typeof AdminFieldEditsRoute
   AdminReportsRoute: typeof AdminReportsRoute
   AdminReviewsRoute: typeof AdminReviewsRoute
   AdminToolsRoute: typeof AdminToolsRoute
@@ -513,6 +533,7 @@ interface AdminRouteChildren {
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
+  AdminFieldEditsRoute: AdminFieldEditsRoute,
   AdminReportsRoute: AdminReportsRoute,
   AdminReviewsRoute: AdminReviewsRoute,
   AdminToolsRoute: AdminToolsRoute,

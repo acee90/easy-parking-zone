@@ -310,6 +310,18 @@ describe('LotHeroSection KPI', () => {
     expect(kpiTexts()[0]).not.toContain('정보 추가')
   })
 
+  // 예전엔 값이 있는 칸으로 가는 길이 「수정 제안」 링크 하나였고 그게 요금 폼만 열었다.
+  // 운영시간·면수가 틀린 경우엔 고칠 방법이 아예 없었다.
+  it('값이 있는 칸도 눌러서 수정 제안할 수 있다', () => {
+    const { container } = render(
+      <LotHeroSection lot={makeLot()} realReviewCount={0} webCount={0} />,
+    )
+    const cells = [...(container.querySelector('[data-testid="kpi-grid"] > div')?.children ?? [])]
+    // 요금·운영시간·주차면 세 칸은 버튼, 쉬움 점수는 아니다
+    expect(cells.slice(0, 3).every((c) => c.querySelector('button'))).toBe(true)
+    expect(cells[3].querySelector('button')).toBeNull()
+  })
+
   it('유저 제보로 선 값에는 「유저제보」 배지가 붙는다', () => {
     render(
       <LotHeroSection
