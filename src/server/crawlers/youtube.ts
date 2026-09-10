@@ -15,11 +15,10 @@
  * 영상 AI 요약은 별도 이슈로 미룸 (자막 fetch 도입 필요).
  */
 
-import { bumpQueue, selectFromQueue } from './lib/crawl-queue'
+import { bumpQueue, RECRAWL_DAYS, selectFromQueue } from './lib/crawl-queue'
 import { extractRegion, hashUrl, stripHtml } from './lib/scoring'
 
 const BATCH_SIZE = 4 // search 100 units × 4 × 24h = 9,600 units/day (10K quota 안전선)
-const RECRAWL_DAYS = 30
 const DELAY = 500
 const VIDEOS_PER_LOT = 3
 

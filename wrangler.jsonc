@@ -13,18 +13,23 @@
 	},
 	// 매시 → 2시간 간격 (2026-08-19). D1 rows_read 절감 목적.
 	//
-	// selectPriorityLots 는 상위 N개를 고르려고 parking_lots 31,994행을 매번 스캔한다
-	// (ORDER BY 1순위가 LEFT JOIN 된 parking_lot_stats.reliability 라 어떤 인덱스도 못 탐).
-	// 호출당 약 96k행 × 크롤러 3종 × 24회/일 ≈ 7M행/일 — 무료 한도 5M/일을 이것만으로 초과.
-	// 실행 횟수를 절반으로 줄이면 이 비용도 절반이 된다.
+	// ⚠️ 여기 있던 "selectPriorityLots 가 parking_lots 31,994행을 매번 스캔한다"는 설명은
+	//    crawl_queue(migration 0052) 도입으로 **더 이상 사실이 아니다**. 선정은 이제
+	//    covering index 범위 조회라 호출당 약 50행이다 (crawl-queue.ts 주석).
+	//    그러니 rows_read 는 실행 횟수를 2시간 간격으로 묶어둘 이유가 못 된다.
 	//
-	// 배치 크기는 **올리지 않는다**: subrequest 1,000개/invocation 한도가 있고
-	// naver 만으로 이미 ~500개를 쓴다(naver-blogs.ts 주석). 2배로 올리면 한도를 넘겨
-	// 같은 invocation 의 youtube/fulltext/match 가 실패한다.
-	// 따라서 크롤 처리량은 절반이 된다 — 전 주차장 재크롤 주기가 약 13일 → 26일로 늘지만
-	// RECRAWL_DAYS=30 정책 안이라 문제 없다.
+	// 지금 실행 횟수를 묶어두는 이유는 두 가지다:
+	//  1) subrequest 1,000개/invocation — naver 만으로 이미 ~500개를 쓴다.
+	//     배치를 키우면 같은 invocation 의 youtube/fulltext/match 가 실패한다.
+	//  2) wall-clock 15분 — 한 invocation 이 크롤~매칭 6단계를 모두 진다.
 	//
-	// 근본 해결은 crawl_queue materialize (선택을 인덱스 조회로 전환, 호출당 ~50행).
+	// 처리 능력: naver/ddg 각 50곳 × 12회 = 600곳/일. 전 주차장 54,130곳 기준
+	// 한 바퀴에 약 90일이다. RECRAWL_DAYS 를 90 으로 맞춘 게 이 숫자다 —
+	// 30 이면 재크롤 수요(1,068곳/일)가 능력(600곳/일)을 넘어 큐가 영영 마르지 않고,
+	// 아직 한 번도 크롤 안 된 주차장이 영구 기아 상태가 된다. crawl-queue.ts 참고.
+	//
+	// 처리량을 더 올리려면 크론 슬롯을 나눠(worker-entry.ts 가 분 필드로 라우팅)
+	// 크롤러마다 자기 subrequest 예산을 갖게 하는 게 다음 수단이다.
 	"triggers": {
 		"crons": [
 			"0 */2 * * *",

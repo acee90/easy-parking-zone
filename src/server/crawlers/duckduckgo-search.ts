@@ -9,11 +9,10 @@
  */
 
 import { isAggregatorUrl } from './lib/aggregator-domains'
-import { bumpQueue, selectFromQueue } from './lib/crawl-queue'
+import { bumpQueue, RECRAWL_DAYS, selectFromQueue } from './lib/crawl-queue'
 import { extractRegion, hashUrl, isGenericName, stripHtml } from './lib/scoring'
 
 const BATCH_SIZE = 50
-const RECRAWL_DAYS = 30
 const DELAY = 1500
 const FETCH_TIMEOUT = 15_000
 const MAX_CONSECUTIVE_FAILURES = 3

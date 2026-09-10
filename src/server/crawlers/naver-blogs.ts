@@ -12,7 +12,7 @@
  */
 
 import { isAggregatorUrl } from './lib/aggregator-domains'
-import { bumpQueue, selectFromQueue } from './lib/crawl-queue'
+import { bumpQueue, RECRAWL_DAYS, selectFromQueue } from './lib/crawl-queue'
 import { extractRegion, hashUrl, isGenericName, parsePostdate, stripHtml } from './lib/scoring'
 
 /**
@@ -23,11 +23,14 @@ import { extractRegion, hashUrl, isGenericName, parsePostdate, stripHtml } from 
  * subrequest 1,000개 제한: 네이버 fetch + D1 쿼리 + YouTube 등 합산.
  * lot당 ~2 query × RESULTS_PER_QUERY 5 = ~10 fetch + D1 쿼리.
  * 50 lots × ~10 = ~500 subrequest로 여유 유지.
+ *
+ * 처리 능력은 50곳 × 12회/일 = 600곳/일이다. 네이버 API 쿼터(25,000콜/일)는
+ * 약 5%만 쓰므로 **병목은 쿼터가 아니라 이 subrequest 한도와 wall time** 이다.
+ * 배치를 키우는 대신 재크롤 주기(RECRAWL_DAYS)로 수요를 맞춘다 — crawl-queue.ts 참고.
  */
 const BATCH_SIZE = 50
 const DELAY = 300
 const RESULTS_PER_QUERY = 5
-const RECRAWL_DAYS = 30
 
 const BLOG_URL = 'https://openapi.naver.com/v1/search/blog.json'
 const CAFE_URL = 'https://openapi.naver.com/v1/search/cafearticle.json'

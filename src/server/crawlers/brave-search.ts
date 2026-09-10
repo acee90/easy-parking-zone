@@ -7,13 +7,11 @@
  */
 
 import { isAggregatorUrl } from './lib/aggregator-domains'
-import { bumpQueue, selectFromQueue } from './lib/crawl-queue'
+import { bumpQueue, RECRAWL_DAYS, selectFromQueue } from './lib/crawl-queue'
 import { extractRegion, hashUrl, isGenericName, stripHtml } from './lib/scoring'
 
 /** 일일 배치 크기 (~66/일 = 2,000/월) */
 const BATCH_SIZE = 66
-/** 결과 없는 주차장 재크롤링 주기 (일) */
-const RECRAWL_DAYS = 30
 
 const BRAVE_URL = 'https://api.search.brave.com/res/v1/web/search'
 const DELAY = 200
