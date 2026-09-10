@@ -310,6 +310,49 @@ export const contentReports = sqliteTable(
 )
 
 // ============================================================
+// 기본정보 유저 제보 (요금 / 운영시간 / 주차면)
+// ============================================================
+
+/**
+ * 유저가 고쳐 쓴 기본정보. `parking_lots` 를 직접 고치지 않는 이유는 0057 마이그레이션 주석 참고
+ * (세 sync 스크립트가 모든 컬럼을 `excluded.*` 로 덮는다).
+ *
+ * 상태: applied(즉시 반영) · pending(승인 대기) · verified(관리자 확인) · rejected · superseded
+ */
+export const lotFieldEdits = sqliteTable(
+  'lot_field_edits',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    parkingLotId: text('parking_lot_id').notNull(),
+    fieldGroup: text('field_group').notNull(), // fee | hours | spaces
+    /** 그룹의 컬럼 묶음을 담은 JSON. 스키마는 `src/lib/lot-field-groups.ts` 가 소유한다 */
+    payload: text('payload').notNull(),
+    status: text('status').notNull(),
+    /** 제출 시점에 원본(또는 앞선 제보)에 값이 있었나 — 판정 재현·감사용 */
+    baseHadValue: integer('base_had_value').notNull().default(0),
+    authorUserId: text('author_user_id'),
+    ipHash: text('ip_hash'),
+    sourceNote: text('source_note'),
+    adminNote: text('admin_note'),
+    reviewedBy: text('reviewed_by'),
+    reviewedAt: text('reviewed_at'),
+    createdAt: text('created_at').notNull().default(now),
+  },
+  (table) => [
+    index('idx_lot_field_edits_lot').on(table.parkingLotId),
+    index('idx_lot_field_edits_status').on(table.status),
+    index('idx_lot_field_edits_ip_recent').on(
+      table.ipHash,
+      table.parkingLotId,
+      table.fieldGroup,
+      table.createdAt,
+    ),
+    // 화면에 서는 행은 그룹당 하나 — 부분 유니크 인덱스는 0057 SQL 에 있다
+    // (drizzle-orm/sqlite-core 는 WHERE 절 있는 유니크 인덱스를 표현하지 못한다)
+  ],
+)
+
+// ============================================================
 // 카페 시그널 (크롤링 검수)
 // ============================================================
 

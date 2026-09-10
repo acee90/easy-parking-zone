@@ -97,6 +97,13 @@
 			"name": "RATE_LIMITER_DETAIL",
 			"namespace_id": "1002",
 			"simple": { "limit": 60, "period": 60 }
+		},
+		// 기본정보 유저 제보. 사람이 폼을 채워 내는 속도라 빡빡하게 잡는다 —
+		// applied 는 화면에 즉시 서므로 자동화된 연타를 먼저 막아야 한다
+		{
+			"name": "RATE_LIMITER_EDIT",
+			"namespace_id": "1003",
+			"simple": { "limit": 5, "period": 60 }
 		}
 	]
 }

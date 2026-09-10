@@ -26,6 +26,7 @@ Add shadcn components with: `npx shadcn@latest add <component>`
 - [Pipeline Architecture](docs/references/pipeline-architecture.md) — 크롤링 파이프라인 arc42 아키텍처·리스크·업데이트 계획
 - [Pipeline Quality Check](docs/references/pipeline-quality-check.md) — 수집량·수율·표본 검수 규칙, 필터/refine 판정 트리
 - [Scoring / Recompute](docs/references/scoring-recompute.md) — 평점 산출 모델, Queue 재계산, scoring 컬럼 소유권
+- [Lot Field Edits](docs/references/lot-field-edits.md) — 기본정보 유저 제보 상태머신, 색인 게이트, 서버 모듈 경계
 - [Nearby Places Pipeline](docs/references/nearby-places-pipeline.md) — 주변 장소 AI 추출 파이프라인
 - [Web Sources AI Summary](docs/references/web-sources-ai-summary.md) — web_sources.ai_summary 재추출 스킬
 - [Surface Rules](docs/design-docs/surface-rules.md) — 표면·색·타이포 규칙 (회색 필 용도, 흰 시트 1장, 디바이더)
