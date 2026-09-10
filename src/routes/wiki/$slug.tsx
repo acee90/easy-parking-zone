@@ -1,4 +1,5 @@
 import { createFileRoute, Link, notFound, Outlet } from '@tanstack/react-router'
+import { DEFAULT_FIELD_SOURCES, stripUnverifiedEdits } from '@/lib/lot-field-groups'
 import { formatPricing } from '@/lib/parking-display'
 import { shouldIndexParkingDetail } from '@/lib/seo-indexing'
 import { makeParkingSlug, parseIdFromSlug } from '@/lib/slug'
@@ -71,7 +72,12 @@ export const Route = createFileRoute('/wiki/$slug')({
     const lot = loaderData?.lot
     if (!lot) return {}
     const tabCounts = loaderData?.tabCounts
-    const shouldIndex = shouldIndexParkingDetail(lot, tabCounts)
+    // 색인 판정도 확인 안 된 제보는 빼고 센다 — 유저가 채운 값 하나로 thin 페이지가
+    // sitemap 에 들어가면, 구글이 보는 내용과 우리가 근거로 삼은 내용이 어긋난다
+    const shouldIndex = shouldIndexParkingDetail(
+      stripUnverifiedEdits(lot, lot.fieldSources ?? DEFAULT_FIELD_SOURCES),
+      tabCounts,
+    )
     const robotsContent = shouldIndex
       ? 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1'
       : 'noindex, follow, max-image-preview:large'

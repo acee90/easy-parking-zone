@@ -14,6 +14,7 @@ import {
   normalizeDifficultyKeywords,
   parseKeywordJson,
 } from '@/server/crawlers/lib/difficulty-tags'
+import { mergeFieldEdits } from '@/server/field-edits-merge'
 import { checkRateLimit } from '@/server/rate-limit'
 import type { BlogPost, MapBounds, NearbyPlaceInfo, ParkingFilters, Place } from '@/types/parking'
 import {
@@ -215,7 +216,12 @@ export const fetchParkingDetail = createServerFn({ method: 'GET' })
         WHERE p.id = ${data.id}`,
     )
     if (rows.length === 0) return null
-    return rowToParkingLot(rows[0] as unknown as ParkingLotRow)
+    const base = rowToParkingLot(rows[0] as unknown as ParkingLotRow)
+
+    // 유저 제보를 원본 위에 얹는다. 어느 칸이 제보값인지는 `fieldSources` 가 말한다 —
+    // 배지·구조화 데이터·색인 판정이 모두 그걸 보고 갈린다
+    const { lot, fieldSources } = await mergeFieldEdits(base)
+    return { ...lot, fieldSources }
   })
 
 /** 근처 주차장 조회 (위키 페이지용) */

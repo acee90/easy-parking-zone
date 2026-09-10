@@ -1,4 +1,4 @@
-import { createFileRoute, getRouteApi, Link } from '@tanstack/react-router'
+import { createFileRoute, getRouteApi, Link, useRouter } from '@tanstack/react-router'
 import { ChevronRight } from 'lucide-react'
 import { ParkingReputationSections } from '@/components/ParkingReputationSections'
 import { AlternativeLotsSection } from '@/components/wiki/AlternativeLotsSection'
@@ -11,6 +11,7 @@ import { LotLocationSection } from '@/components/wiki/LotLocationSection'
 import { NearbyPlacesSection } from '@/components/wiki/NearbyPlacesSection'
 import { RelatedParkingLotsSection } from '@/components/wiki/RelatedParkingLotsSection'
 import { WebSourceListSection } from '@/components/wiki/WebSourceListSection'
+import { DEFAULT_FIELD_SOURCES, stripUnverifiedEdits } from '@/lib/lot-field-groups'
 import {
   buildBreadcrumbJsonLd,
   buildParkingFaqJsonLd,
@@ -39,6 +40,7 @@ function WikiDetailPage() {
     destinations,
   } = parentRoute.useLoaderData()
 
+  const router = useRouter()
   const summary = lot.aiSummary
   const slug = makeParkingSlug(lot.name, lot.id)
   // 읽은 글이 0건이면 태그가 있어도 분위기를 열지 않는다 — EvaluationSection 과 같은 기준
@@ -46,13 +48,16 @@ function WikiDetailPage() {
   // TanStack Start head API의 links/scripts가 SSR HTML에 직렬화 안 되어
   // React 19 metadata hoisting으로 head에 inject한다.
   const canonicalUrl = getParkingCanonicalUrl(lot)
+  // 구조화 데이터에는 관리자가 확인하지 않은 유저 제보를 넣지 않는다.
+  // 화면은 「유저제보」 배지로 근거를 밝히고 보여주지만, 그 표시는 구글까지 따라가지 않는다.
+  const seoLot = stripUnverifiedEdits(lot, lot.fieldSources ?? DEFAULT_FIELD_SOURCES)
   // 별점 마크업은 실사용자 리뷰가 있을 때만 (시드 제외)
   const lotJsonLd = buildParkingLotJsonLd(
-    lot,
+    seoLot,
     tabCounts.realReviews ?? 0,
     tabCounts.realReviewScore ?? null,
   )
-  const faqJsonLd = buildParkingFaqJsonLd(lot, relatedLots)
+  const faqJsonLd = buildParkingFaqJsonLd(seoLot, relatedLots)
   const region = getRegionForAddress(lot.address)
   const breadcrumbJsonLd = buildBreadcrumbJsonLd(lot, region)
 
@@ -115,6 +120,9 @@ function WikiDetailPage() {
               // `webSources.sources.length` 는 LIMIT 30 페이지 크기다 — 개수가 아니다.
               // `tabCounts.blog` 가 같은 필터(relevance≥40 · 애그리게이터 제외)의 전체 수.
               webCount={tabCounts.blog ?? 0}
+              fieldSources={lot.fieldSources ?? DEFAULT_FIELD_SOURCES}
+              // 즉시 반영된 제보는 라우터를 다시 읽어 그 자리에서 값이 선다 (나무위키식)
+              onEdited={() => router.invalidate()}
             />
           </div>
 

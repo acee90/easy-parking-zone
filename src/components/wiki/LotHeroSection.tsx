@@ -1,5 +1,8 @@
-import { Flame, MapPin, ThumbsUp } from 'lucide-react'
+import { Flame, MapPin, Pencil, Plus, ThumbsUp } from 'lucide-react'
+import { useState } from 'react'
+import { FieldEditSheet } from '@/components/wiki/FieldEditSheet'
 import { DividerCell, DividerGrid } from '@/components/wiki/SectionShell'
+import { DEFAULT_FIELD_SOURCES, type FieldGroup, type FieldSources } from '@/lib/lot-field-groups'
 import { formatTimeRange } from '@/lib/parking-display'
 import { estimateFee } from '@/lib/parking-fee'
 import type { ParkingLot } from '@/types/parking'
@@ -16,6 +19,8 @@ interface Kpi {
   caption?: string
   /** 값이 없다는 뜻 — 숫자와 같은 무게로 그리지 않는다 */
   muted?: boolean
+  /** 유저가 제보할 수 있는 칸이면 그 그룹. 「쉬움 점수」는 후기에서 나오므로 없다 */
+  group?: FieldGroup
 }
 
 /** 하루 = 1,440분. 이 이상을 기본시간으로 잡은 곳은 시간제가 아니라 정액제다 */
@@ -70,7 +75,8 @@ function hoursKpi(hours: ParkingLot['operatingHours']): Kpi {
         ? { label: '공휴일 운영', value: holiday }
         : null
 
-  if (!primary) return { key: 'hours', label: '운영 시간', value: '정보 없음', muted: true }
+  if (!primary)
+    return { key: 'hours', group: 'hours', label: '운영 시간', value: '정보 없음', muted: true }
 
   const satDiffers = Boolean(saturday && saturday !== weekday)
   const holDiffers = Boolean(holiday && holiday !== weekday)
@@ -89,7 +95,7 @@ function hoursKpi(hours: ParkingLot['operatingHours']): Kpi {
     caption = '토·공휴일 동일'
   }
 
-  return { key: 'hours', ...primary, caption }
+  return { key: 'hours', group: 'hours', ...primary, caption }
 }
 
 /**
@@ -122,7 +128,7 @@ function buildKpis(lot: ParkingLot, realReviewCount: number, webCount: number): 
   const dailyMax = lot.pricing.dailyMax
 
   if (lot.pricing.isFree) {
-    kpis.push({ key: 'fee', label: '주차 요금', value: '무료', caption: '종일 무료' })
+    kpis.push({ key: 'fee', group: 'fee', label: '주차 요금', value: '무료', caption: '종일 무료' })
   } else if (hourEstimate !== null) {
     // 정액제이거나 1시간 예상과 금액이 같으면 1일 최대를 다시 쓰지 않는다 — 같은 말이다.
     const showDaily = dailyMax && dailyMax > 0 && !isFlatRate && dailyMax !== hourEstimate
@@ -132,6 +138,7 @@ function buildKpis(lot: ParkingLot, realReviewCount: number, webCount: number): 
     ].filter((s): s is string => s !== null)
     kpis.push({
       key: 'fee',
+      group: 'fee',
       label: isFlatRate ? '종일 정액' : '1시간 예상',
       value: hourEstimate.toLocaleString(),
       unit: '원',
@@ -141,13 +148,14 @@ function buildKpis(lot: ParkingLot, realReviewCount: number, webCount: number): 
     // 요금표는 없는데 1일 최대만 아는 곳 (실측 127곳). 아는 값을 버리지 않는다.
     kpis.push({
       key: 'fee',
+      group: 'fee',
       label: '1일 최대',
       value: dailyMax.toLocaleString(),
       unit: '원',
       caption: '시간당 요금 정보 없음',
     })
   } else {
-    kpis.push({ key: 'fee', label: '주차 요금', value: '정보 없음', muted: true })
+    kpis.push({ key: 'fee', group: 'fee', label: '주차 요금', value: '정보 없음', muted: true })
   }
 
   // ② 운영 시간
@@ -160,12 +168,13 @@ function buildKpis(lot: ParkingLot, realReviewCount: number, webCount: number): 
   if (lot.totalSpaces > 0) {
     kpis.push({
       key: 'spaces',
+      group: 'spaces',
       label: '주차면',
       value: lot.totalSpaces.toLocaleString(),
       unit: '면',
     })
   } else {
-    kpis.push({ key: 'spaces', label: '주차면', value: '정보 없음', muted: true })
+    kpis.push({ key: 'spaces', group: 'spaces', label: '주차면', value: '정보 없음', muted: true })
   }
 
   // ④ 쉬움 점수 — 이용자 후기·웹 후기·구조 정보를 합친 통합 점수 (`parking_lot_stats.final_score`)
@@ -211,8 +220,14 @@ export function LotHeroSection({
   lot,
   realReviewCount,
   webCount,
+  fieldSources = DEFAULT_FIELD_SOURCES,
+  onEdited,
 }: {
   lot: ParkingLot
+  /** 각 칸의 값이 어디서 왔나 — 「유저제보」 배지를 붙일지 가른다 */
+  fieldSources?: FieldSources
+  /** 제보가 즉시 반영됐을 때. 라우터를 다시 읽어 새 값을 세운다 */
+  onEdited?: () => void
   /** 실사용자(is_seed=0) 후기 수 — 캡션용. `difficulty.reviewCount` 는 시드를 포함해 쓰지 않는다 */
   realReviewCount: number
   /**
@@ -226,6 +241,8 @@ export function LotHeroSection({
   const kpis = buildKpis(lot, realReviewCount, webCount)
   const score = lot.difficulty.score
   const perk = lot.notes?.trim() || null
+  const [editing, setEditing] = useState<FieldGroup | null>(null)
+  const [toast, setToast] = useState<string | null>(null)
 
   return (
     <div className="flex flex-col gap-4">
@@ -276,26 +293,87 @@ export function LotHeroSection({
           className="rounded-[10px]"
           data-testid="kpi-grid"
         >
-          {kpis.map((kpi) => (
-            <DividerCell key={kpi.key} className="flex flex-col gap-[3px]">
-              <span className="text-[10.5px] font-semibold tracking-[0.04em] text-muted-foreground">
-                {kpi.label}
-              </span>
-              <span
-                className={`text-[20px] font-extrabold leading-[1.2] tracking-[-0.02em] tabular-nums ${kpi.muted ? 'text-faint' : 'text-ink'}`}
-              >
-                {kpi.value}
-                {kpi.unit && (
-                  <span className="ml-0.5 text-[13px] font-bold text-muted-foreground">
-                    {kpi.unit}
+          {kpis.map((kpi) => {
+            // 「정보 없음」 칸은 칸 자체가 제보 버튼이다. 결손이 가장 많고(면수 41%,
+            // 운영시간 20%, 요금 19%) 즉시 반영되는 자리라 가장 눈에 띄는 진입점을 준다.
+            const fillable = Boolean(kpi.group && kpi.muted)
+            const source = kpi.group ? fieldSources[kpi.group] : 'official'
+            const body = (
+              <>
+                <span className="text-[10.5px] font-semibold tracking-[0.04em] text-muted-foreground">
+                  {kpi.label}
+                </span>
+                <span
+                  className={`text-[20px] font-extrabold leading-[1.2] tracking-[-0.02em] tabular-nums ${kpi.muted ? 'text-faint' : 'text-ink'}`}
+                >
+                  {kpi.value}
+                  {kpi.unit && (
+                    <span className="ml-0.5 text-[13px] font-bold text-muted-foreground">
+                      {kpi.unit}
+                    </span>
+                  )}
+                </span>
+                {fillable ? (
+                  <span className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-accent-ink">
+                    <Plus className="size-3" />
+                    정보 추가
+                  </span>
+                ) : (
+                  <span className="flex flex-wrap items-center gap-1">
+                    {source === 'user' && (
+                      <span className="rounded-full bg-accent-tint px-1.5 py-px text-[10px] font-bold text-accent-ink">
+                        유저제보
+                      </span>
+                    )}
+                    {kpi.caption && <span className="text-[11px] text-faint">{kpi.caption}</span>}
                   </span>
                 )}
-              </span>
-              {kpi.caption && <span className="text-[11px] text-faint">{kpi.caption}</span>}
-            </DividerCell>
-          ))}
+              </>
+            )
+
+            return fillable ? (
+              <DividerCell key={kpi.key} className="p-0">
+                <button
+                  type="button"
+                  onClick={() => setEditing(kpi.group ?? null)}
+                  className="flex h-full w-full cursor-pointer flex-col items-start gap-[3px] px-3.5 py-[13px] text-left transition-colors hover:bg-zinc-50"
+                >
+                  {body}
+                </button>
+              </DividerCell>
+            ) : (
+              <DividerCell key={kpi.key} className="flex flex-col gap-[3px]">
+                {body}
+              </DividerCell>
+            )
+          })}
         </DividerGrid>
       )}
+
+      {/* 값이 있는 칸용 조용한 진입점. 여기서 들어온 제보는 관리자 확인을 거친다 */}
+      <div className="flex items-center justify-between gap-2">
+        <button
+          type="button"
+          onClick={() => setEditing('fee')}
+          className="inline-flex cursor-pointer items-center gap-1 text-[11.5px] text-muted-foreground underline-offset-2 hover:underline"
+        >
+          <Pencil className="size-3" />
+          정보가 틀렸나요? 수정 제안
+        </button>
+        {toast && <span className="text-[11.5px] font-semibold text-good">{toast}</span>}
+      </div>
+
+      <FieldEditSheet
+        lot={lot}
+        group={editing}
+        open={editing !== null}
+        onOpenChange={(open) => !open && setEditing(null)}
+        onSubmitted={(status) => {
+          setToast(status === 'applied' ? '반영됐어요' : '접수됐어요 · 확인 후 반영돼요')
+          setTimeout(() => setToast(null), 4000)
+          if (status === 'applied') onEdited?.()
+        }}
+      />
     </div>
   )
 }
