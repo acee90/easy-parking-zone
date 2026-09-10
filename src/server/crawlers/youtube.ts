@@ -16,7 +16,7 @@
  */
 
 import { bumpQueue, RECRAWL_DAYS, selectFromQueue } from './lib/crawl-queue'
-import { extractRegion, hashUrl, stripHtml } from './lib/scoring'
+import { extractRegion, hashUrl, isGenericName, stripHtml } from './lib/scoring'
 
 const BATCH_SIZE = 4 // search 100 units × 4 × 24h = 9,600 units/day (10K quota 안전선)
 const DELAY = 500
@@ -50,6 +50,24 @@ interface LotRow {
   id: string
   name: string
   address: string
+  type: string | null
+}
+
+/**
+ * 유튜브 검색 대상으로 삼을 가치가 있는 주차장인가.
+ *
+ * search.list 는 호출당 100유닛이라 크롤러 중 가장 비싸다. 그런데 2026-09-10 실측 결과
+ * 검증을 통과해 parking_media 에 남은 영상 211건의 lot type 은 **노외 195 / 부설 16 / 노상 0** 이다.
+ * 노상(5,316곳)은 한 건도 없다 — 길가 주차구획을 다룬 영상은 사실상 존재하지 않는다.
+ *
+ * 이름이 일반명인 경우도 마찬가지다. naver/ddg/brave 는 이미 isGenericName 으로 걸러왔는데
+ * 유튜브만 이 가드가 빠져 있었다. 실제로 "수주", "삼정3호" 같은 공공데이터 이름으로 검색하면
+ * 신축빌라 분양 광고가 돌아온다 (검증 샤드 01 에서 97건 중 70건이 부동산 광고).
+ */
+function isWorthSearching(lot: LotRow): boolean {
+  if (lot.type === '노상') return false
+  if (isGenericName(lot.name)) return false
+  return true
 }
 
 async function searchVideos(query: string, maxResults: number, apiKey: string) {
@@ -98,26 +116,53 @@ async function fetchVideoDetails(
 
 // ── 우선순위 큐 (naver/ddg와 동일 패턴) ──
 
-async function selectPriorityLots(db: D1Database, limit: number): Promise<LotRow[]> {
+/**
+ * 선정 결과에서 검색 가치가 없는 lot 을 걸러낸 목록과, 걸러진 목록을 함께 돌려준다.
+ *
+ * BATCH_SIZE 가 4뿐이라 걸러낸 만큼을 그냥 버리면 한 사이클이 통째로 비어버린다.
+ * 그래서 넉넉히(OVERSELECT 배) 뽑아서 거른 뒤 앞에서 limit 개만 쓴다.
+ * 걸러진 lot 도 next_at 은 미뤄야 다음 사이클에 같은 것들이 또 앞을 막지 않는다.
+ */
+const OVERSELECT = 6
+
+async function selectPriorityLots(
+  db: D1Database,
+  limit: number,
+): Promise<{ lots: LotRow[]; skipped: LotRow[] }> {
   // crawl_queue 인덱스 조회로 위임 (0052). 과거에는 parking_lots 31,994행을 매번
   // 스캔했다 — ORDER BY 1순위가 LEFT JOIN 된 reliability 라 인덱스 불가였다.
-  return selectFromQueue(db, 'youtube', limit)
+  const candidates = await selectFromQueue(db, 'youtube', limit * OVERSELECT)
+  const lots: LotRow[] = []
+  const skipped: LotRow[] = []
+  for (const lot of candidates) {
+    if (lots.length >= limit) break
+    if (isWorthSearching(lot)) lots.push(lot)
+    else skipped.push(lot)
+  }
+  return { lots, skipped }
 }
 
 export async function runYoutubeBatch(
   db: D1Database,
   env: { YOUTUBE_API_KEY: string },
 ): Promise<{ processed: number; savedMedia: number; savedComments: number; done: boolean }> {
-  const lots = await selectPriorityLots(db, BATCH_SIZE)
-
-  if (lots.length === 0) {
-    return { processed: 0, savedMedia: 0, savedComments: 0, done: true }
-  }
+  const { lots, skipped } = await selectPriorityLots(db, BATCH_SIZE)
 
   let savedMedia = 0
   const rawInserts: D1PreparedStatement[] = []
   const progressBatch: D1PreparedStatement[] = []
   let quotaExhausted = false
+
+  // 검색 가치가 없다고 판단한 lot 은 쿼터를 쓰지 않고 다음 주기로 미룬다.
+  // 미루지 않으면 같은 lot 들이 매 사이클 큐 앞을 계속 막는다.
+  for (const lot of skipped) {
+    progressBatch.push(bumpQueue(db, 'youtube', lot.id, RECRAWL_DAYS))
+  }
+
+  if (lots.length === 0) {
+    if (progressBatch.length > 0) await db.batch(progressBatch)
+    return { processed: 0, savedMedia: 0, savedComments: 0, done: skipped.length === 0 }
+  }
 
   // 1차: 모든 lot의 search 결과 수집
   const searchResults: Array<{ lot: LotRow; videos: YTSearchItem[] }> = []
@@ -268,6 +313,7 @@ export async function runYoutubeBatch(
     processed: lots.length,
     savedMedia,
     savedComments: 0,
-    done: lots.length < BATCH_SIZE,
+    // 걸러낸 lot 이 있었다면 큐는 아직 안 빈 것이다 — lots 가 모자란 건 큐가 말라서가 아니다.
+    done: lots.length < BATCH_SIZE && skipped.length === 0,
   }
 }

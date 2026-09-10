@@ -14,6 +14,8 @@ export interface QueueLotRow {
   id: string
   name: string
   address: string
+  /** '노상' | '노외' | '부설'. 크롤러가 대상 적합성을 판단할 때 쓴다. */
+  type: string | null
 }
 
 export type CrawlerKey = 'naver_blogs' | 'ddg' | 'youtube' | 'brave_search'
@@ -65,7 +67,7 @@ export async function selectFromQueue(
 ): Promise<QueueLotRow[]> {
   const rows = await db
     .prepare(
-      `SELECT p.id, p.name, p.address
+      `SELECT p.id, p.name, p.address, p.type
          FROM crawl_queue q
          JOIN parking_lots p ON p.id = q.lot_id
         WHERE q.crawler = ?1 AND q.next_at <= datetime('now')
