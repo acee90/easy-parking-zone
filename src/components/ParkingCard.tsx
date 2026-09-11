@@ -101,18 +101,22 @@ export function ParkingCard({ lot, onClose, userLat, userLng, userLocated }: Par
 
   // 평판 카운트 fetch. 받기 전엔 리뷰·영상·글 블록을 그리지 않는다 — 빈 lot 은 받은 뒤 접힌다 (D-3)
   const [tabCountsReady, setTabCountsReady] = useState(false)
+  // 개수 조회가 실패하면 접지 않는다 — 0으로 보고 접으면 글이 있는 lot 에 「없어요」가 뜬다
+  const [tabCountsFailed, setTabCountsFailed] = useState(false)
   useEffect(() => {
     if (!lot) return
     let cancelled = false
     setTabCounts({ reviews: 0, blog: 0, media: 0 })
     setTabCountsReady(false)
+    setTabCountsFailed(false)
     fetchTabCounts({ data: { parkingLotId: lot.id } })
       .then((counts) => {
-        if (!cancelled) setTabCounts(counts)
+        if (cancelled) return
+        setTabCounts(counts)
+        setTabCountsReady(true)
       })
-      .catch(() => {})
-      .finally(() => {
-        if (!cancelled) setTabCountsReady(true)
+      .catch(() => {
+        if (!cancelled) setTabCountsFailed(true)
       })
     return () => {
       cancelled = true
@@ -471,7 +475,7 @@ export function ParkingCard({ lot, onClose, userLat, userLng, userLocated }: Par
                 bordered
                 viewAllSlug={slug}
                 initialTabCounts={tabCounts}
-                countsReady={tabCountsReady}
+                countsReady={tabCountsFailed ? undefined : tabCountsReady}
               />
             </section>
           </div>
