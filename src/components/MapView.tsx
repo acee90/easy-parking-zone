@@ -6,6 +6,15 @@ import type { ClusterFeature, MapFeature } from '@/hooks/useSuperCluster'
 import { DEFAULT_CENTER, DEFAULT_ZOOM } from '@/lib/geo-utils'
 import type { MapBounds, ParkingLot } from '@/types/parking'
 
+/**
+ * 목록·마커 클릭으로 지도를 옮기는 애니메이션 길이 (C-2).
+ * 기본 panTo 는 느리고, 그 동안 bounds 이벤트를 800ms 로 미뤄 목록 갱신이 2~3초 뒤에야 났다.
+ * 짧게 옮기고, bounds 디바운스도 이 길이에 맞춘다.
+ */
+const PAN_DURATION_MS = 250
+const PAN_SETTLE_MS = PAN_DURATION_MS + 100
+const PAN_OPTIONS = { duration: PAN_DURATION_MS, easing: 'easeOutCubic' } as const
+
 /** 모바일 하단 시트(320px)를 고려하여 panTo 좌표를 보정 */
 function getPanToAdjusted(
   map: naver.maps.Map,
@@ -262,10 +271,11 @@ export function MapView({
         moveTo,
         !!selectedLotIdRef.current,
       )
-      mapRef.current.panTo(adjusted)
+      // setZoom 을 먼저 한다 — 모바일 하단 시트 보정(픽셀 오프셋)은 도착 줌에서 계산해야 맞다.
+      mapRef.current.panTo(adjusted, PAN_OPTIONS)
       setTimeout(() => {
         animatingRef.current = false
-      }, 800)
+      }, PAN_SETTLE_MS)
     }
     // selectedLotId를 deps에서 제외: moveTo가 바뀔 때만 panTo 실행
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -283,7 +293,7 @@ export function MapView({
 
   const handleBoundsChanged = useCallback(() => {
     clearTimeout(boundsTimerRef.current)
-    boundsTimerRef.current = setTimeout(emitBounds, animatingRef.current ? 800 : 300)
+    boundsTimerRef.current = setTimeout(emitBounds, animatingRef.current ? PAN_SETTLE_MS : 300)
   }, [])
 
   const handleInit = useCallback(() => {
@@ -401,10 +411,10 @@ export function MapView({
                 if (mapRef.current) {
                   animatingRef.current = true
                   const adjusted = getPanToAdjusted(mapRef.current, navermaps, lot, true)
-                  mapRef.current.panTo(adjusted)
+                  mapRef.current.panTo(adjusted, PAN_OPTIONS)
                   setTimeout(() => {
                     animatingRef.current = false
-                  }, 800)
+                  }, PAN_SETTLE_MS)
                 }
               }}
               onMouseover={() => onMarkerHover(lot.id)}

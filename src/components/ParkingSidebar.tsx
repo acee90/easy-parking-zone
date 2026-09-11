@@ -39,10 +39,12 @@ export function ParkingSidebar({
 }: ParkingSidebarProps) {
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
 
-  // parkingLots 변경 시 표시 개수 초기화
+  // parkingLots 가 바뀌면(지도 이동) 「더 보기」로 늘린 표시 개수를 처음으로 되돌린다 (D-6).
+  // 예전엔 deps 가 [] 라 주석과 달리 한 번도 초기화되지 않았다.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: parkingLots 변경 자체가 트리거다
   useEffect(() => {
     setVisibleCount(PAGE_SIZE)
-  }, [])
+  }, [parkingLots])
 
   // 거리 기준점: 지도 중심 > 유저 위치 (지도를 이동하면 목록도 재정렬)
   const refLat = mapCenter?.lat ?? (userLocated ? userLat : undefined)
@@ -118,7 +120,7 @@ export function ParkingSidebar({
                     onClick={() => onSelect(lot)}
                     onMouseEnter={() => onHover(lot.id)}
                     onMouseLeave={() => onHover(null)}
-                    aria-label={selected ? `${lot.name} 상세보기` : `${lot.name} 선택`}
+                    aria-label={`${lot.name} 상세보기`}
                   >
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
