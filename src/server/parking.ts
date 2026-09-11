@@ -150,63 +150,6 @@ export const fetchParkingLotsByIds = createServerFn({ method: 'POST' })
     return (rows as unknown as ParkingLotRow[]).map(rowToParkingLot)
   })
 
-export interface ParkingPoint {
-  id: string
-  lat: number
-  lng: number
-  score: number | null
-  name: string
-}
-
-export const fetchAllParkingPoints = createServerFn({ method: 'GET' }).handler(
-  async ({ request }): Promise<ParkingPoint[]> => {
-    await checkRateLimit(env.RATE_LIMITER_POINTS, request)
-
-    const db = getDb()
-
-    // 캐시 키에 lot 갱신 fingerprint 포함 → INSERT/UPDATE 시 자동 무효화
-    // (COUNT는 row 추가/삭제 감지, MAX(updated_at)는 row 수정 감지)
-    const versionRow = (await db.get(
-      sql.raw(`SELECT COUNT(*) as n, COALESCE(MAX(updated_at), '') as ts FROM parking_lots`),
-    )) as { n: number; ts: string } | undefined
-    const version = `${versionRow?.n ?? 0}-${versionRow?.ts ?? ''}`
-    const CACHE_KEY = `https://cache.internal/parking-points-v2?v=${encodeURIComponent(version)}`
-    const CACHE_TTL = 3600 // 1시간 (fingerprint 변동 없으면 그대로 유지)
-
-    const cache = typeof caches !== 'undefined' ? await caches.open('parking-points') : null
-    if (cache) {
-      const cached = await cache.match(CACHE_KEY)
-      if (cached) return cached.json()
-    }
-
-    const rows = await db.all(
-      sql.raw(
-        `SELECT p.id, p.lat, p.lng, p.name, s.final_score as score
-         FROM parking_lots p
-         LEFT JOIN parking_lot_stats s ON s.parking_lot_id = p.id`,
-      ),
-    )
-
-    const result = rows as unknown as ParkingPoint[]
-
-    if (cache) {
-      cache
-        .put(
-          CACHE_KEY,
-          new Response(JSON.stringify(result), {
-            headers: {
-              'Content-Type': 'application/json',
-              'Cache-Control': `public, max-age=${CACHE_TTL}`,
-            },
-          }),
-        )
-        .catch(() => {}) // 캐시 쓰기 실패는 무시
-    }
-
-    return result
-  },
-)
-
 /** 이름/주소 LIKE 검색 — raw SQL (동적 WHERE + JOIN) */
 export const searchParkingLots = createServerFn({ method: 'GET' })
   .inputValidator((input: { query: string }): { query: string } => input)

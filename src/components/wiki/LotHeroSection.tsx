@@ -285,8 +285,8 @@ export function LotHeroSection({
         // 틴트 박스로 감싸지 않는다 — 시트 안에 표면을 하나 더 얹는 꼴이고(디자인 규칙 §5),
         // 색 있는 바탕 위 본문은 읽기 어렵다. 색은 라벨 한 조각에만 쓴다.
         <p className="text-[13px] leading-relaxed text-ink-2">
-          <span className="mr-1.5 font-bold text-good">혜택</span>
-          {perk}
+          {/* 여백만 두면 텍스트로는 「혜택CGV…」로 붙는다 (검색 스니펫·복사·스크린리더) — 공백 문자를 넣는다 (D-5) */}
+          <span className="mr-0.5 font-bold text-good">혜택</span> {perk}
         </p>
       )}
 

@@ -24,6 +24,12 @@ interface ParkingReputationSectionsProps {
    * 끼워 넣을 수 있도록 쪼갤 수 있게 열어둔 것이다.
    */
   sections?: ExpandedSection[]
+  /**
+   * 지도 패널·바텀시트용 (D-3). 호출부가 개수를 받아 오는 동안(false)은 섹션을 그리지 않고,
+   * 받은 뒤 리뷰·영상·글이 모두 0이면 「없습니다」 세 줄 대신 한 줄 안내 + 작성 폼으로 접는다.
+   * 미지정이면 예전처럼 항상 전부 그린다.
+   */
+  countsReady?: boolean
 }
 
 export type ExpandedSection = 'reviews' | 'write' | 'media' | 'blog'
@@ -40,6 +46,7 @@ export function ParkingReputationSections({
   viewAllSlug,
   bordered,
   sections,
+  countsReady,
 }: ParkingReputationSectionsProps) {
   const [activeTab, setActiveTab] = useState<'reviews' | 'media' | 'blog'>('reviews')
   const [counts, setCounts] = useState(initialTabCounts ?? { reviews: 0, blog: 0, media: 0 })
@@ -66,6 +73,23 @@ export function ParkingReputationSections({
   }, [initialTabCounts, refreshCounts])
 
   if (expanded) {
+    if (countsReady !== undefined && !sections) {
+      if (!countsReady) return null
+      // 호출부 개수와 내부 개수(리뷰 등록 후 갱신)가 모두 0일 때만 접는다 — 개수가 바뀐 첫 렌더에
+      // 내부 state 가 아직 옛 값이어도 접힌 화면이 한 번 번쩍이지 않는다
+      const isEmpty = [initialTabCounts ?? counts, counts].every(
+        (c) => c.reviews + c.media + c.blog === 0,
+      )
+      if (isEmpty) {
+        return (
+          <div className="space-y-4 pt-1">
+            <p className="text-sm text-muted-foreground">아직 모인 리뷰·영상·블로그 글이 없어요.</p>
+            <WriteReviewSection lotId={lotId} onSubmitted={handleReviewSubmitted} />
+          </div>
+        )
+      }
+    }
+
     const visible = sections ?? ALL_SECTIONS
     // `sections` 에 준 **순서대로** 그린다. 예전에는 컴포넌트 안에 순서가 박혀 있어
     // 호출부에서 바꿀 수 없었다 — 후기 작성이 목록보다 먼저 나와야 하는 화면이 있다.

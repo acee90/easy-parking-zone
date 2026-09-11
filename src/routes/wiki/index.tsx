@@ -6,6 +6,7 @@ import type { ReactNode } from 'react'
 import { RankingSection } from '@/components/wiki/RankingSection'
 import { getDb } from '@/db'
 import { PARKING_REGIONS } from '@/lib/parking-regions'
+import { curateLots } from '@/server/lot-name-quality'
 import { fetchSiteStats } from '@/server/parking'
 import { type ParkingLotRow, rowToParkingLot } from '@/server/transforms'
 import type { ParkingLot } from '@/types/parking'
@@ -49,15 +50,18 @@ function toLots(rows: unknown[]): WikiParkingLot[] {
 const fetchWikiHome = createServerFn({ method: 'GET' }).handler(async () => {
   const db = getDb()
 
-  // 넓은 주차장 TOP (주차면 수 기준)
+  // 랭킹은 이름 품질 게이트(curateLots)로 걸러낸 뒤 12개를 쓴다 — 걸러질 몫까지 넉넉히 뽑는다 (D-4)
+  const POOL = 30
+
+  // 넓은 주차장 TOP (주차면 수 기준). 노상은 도로 구간 전체가 한 행이라 면수가 부풀려져 있다 (시화공단 내 도로 4,261면)
   const spaciousRows = await db.all(
     sql.raw(
       `${LOT_SELECT}
       FROM parking_lots p
       LEFT JOIN parking_lot_stats s ON s.parking_lot_id = p.id
-      WHERE p.total_spaces >= 200
+      WHERE p.total_spaces >= 200 AND p.type <> '노상'
       ORDER BY p.total_spaces DESC, COALESCE(s.final_score, 0) DESC
-      LIMIT 12`,
+      LIMIT ${POOL}`,
     ),
   )
 
@@ -69,7 +73,7 @@ const fetchWikiHome = createServerFn({ method: 'GET' }).handler(async () => {
       LEFT JOIN parking_lot_stats s ON s.parking_lot_id = p.id
       WHERE p.curation_tag = 'easy'
       ORDER BY COALESCE(s.final_score, 0) DESC, p.total_spaces DESC
-      LIMIT 12`,
+      LIMIT ${POOL}`,
     ),
   )
 
@@ -89,7 +93,7 @@ const fetchWikiHome = createServerFn({ method: 'GET' }).handler(async () => {
         CASE WHEN p.curation_reason IS NOT NULL THEN 1 ELSE 0 END DESC,
         COALESCE(s.final_score, 0) DESC,
         p.total_spaces DESC
-      LIMIT 12`,
+      LIMIT ${POOL}`,
     ),
   )
 
@@ -108,7 +112,7 @@ const fetchWikiHome = createServerFn({ method: 'GET' }).handler(async () => {
       WHERE (SELECT COUNT(*) FROM web_sources ws
              WHERE ws.parking_lot_id = p.id AND ws.relevance_score >= 40 AND ws.filter_passed_v2 IS NOT 0) > 0
       ORDER BY web_count DESC
-      LIMIT 16`,
+      LIMIT ${POOL}`,
     ),
   )
 
@@ -148,10 +152,10 @@ const fetchWikiHome = createServerFn({ method: 'GET' }).handler(async () => {
   const siteStats = await fetchSiteStats()
 
   return {
-    spacious: toLots(spaciousRows),
-    easy: toLots(easyRows),
-    free: toLots(freeRows),
-    popular: toLots(popularRows),
+    spacious: curateLots(toLots(spaciousRows), 12),
+    easy: curateLots(toLots(easyRows), 12),
+    free: curateLots(toLots(freeRows), 12),
+    popular: curateLots(toLots(popularRows), 16),
     recentlyReviewed: toLots(recentlyReviewedRows),
     regions,
     siteStats,

@@ -5,6 +5,7 @@ import { ChevronRight, MapPin } from 'lucide-react'
 import { RankingSection } from '@/components/wiki/RankingSection'
 import { getDb } from '@/db'
 import { getRegionByLabel } from '@/lib/parking-regions'
+import { curateLots } from '@/server/lot-name-quality'
 import { type ParkingLotRow, rowToParkingLot } from '@/server/transforms'
 import type { ParkingLot } from '@/types/parking'
 
@@ -100,7 +101,7 @@ const fetchRegionHub = createServerFn({ method: 'GET' })
         LEFT JOIN parking_lot_stats s ON s.parking_lot_id = p.id
         WHERE (${regionWhere}) AND p.curation_tag = 'easy'
         ORDER BY COALESCE(s.final_score, 0) DESC, p.total_spaces DESC
-        LIMIT 9`,
+        LIMIT 24`,
       ),
     )
 
@@ -113,7 +114,7 @@ const fetchRegionHub = createServerFn({ method: 'GET' })
           AND (SELECT COUNT(*) FROM web_sources ws
                WHERE ws.parking_lot_id = p.id AND ws.relevance_score >= 40) > 0
         ORDER BY web_count DESC
-        LIMIT 9`,
+        LIMIT 24`,
       ),
     )
 
@@ -132,7 +133,7 @@ const fetchRegionHub = createServerFn({ method: 'GET' })
           CASE WHEN p.curation_reason IS NOT NULL THEN 1 ELSE 0 END DESC,
           COALESCE(s.final_score, 0) DESC,
           p.total_spaces DESC
-        LIMIT 9`,
+        LIMIT 24`,
       ),
     )
 
@@ -141,9 +142,10 @@ const fetchRegionHub = createServerFn({ method: 'GET' })
       lotCount: Number(statsRow?.lot_count ?? 0),
       reviewCount: Number(statsRow?.review_count ?? 0),
       districts,
-      easy: toLots(easyRows),
-      popular: toLots(popularRows),
-      free: toLots(freeRows),
+      // 이름 품질 게이트로 걸러낸 뒤 9개 (D-4) — 쿼리는 걸러질 몫까지 24개를 뽑는다
+      easy: curateLots(toLots(easyRows), 9),
+      popular: curateLots(toLots(popularRows), 9),
+      free: curateLots(toLots(freeRows), 9),
     }
   })
 

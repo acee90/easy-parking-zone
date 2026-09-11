@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react'
 import Supercluster from 'supercluster'
-import type { ParkingPoint } from '@/server/parking'
+import type { ParkingPoint } from '@/lib/points'
 import type { MapBounds } from '@/types/parking'
 
 /** SuperCluster 클러스터의 커스텀 집계 속성 */
@@ -15,7 +15,6 @@ export interface ClusterProperties {
 export interface PointProperties {
   cluster: false
   id: string
-  name: string
   score: number | null
 }
 
@@ -53,7 +52,6 @@ export function useSuperCluster(points: ParkingPoint[] | null) {
       properties: {
         cluster: false as const,
         id: p.id,
-        name: p.name,
         score: p.score,
       },
     }))

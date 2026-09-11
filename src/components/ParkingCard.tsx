@@ -99,16 +99,21 @@ export function ParkingCard({ lot, onClose, userLat, userLng, userLocated }: Par
     }
   }, [lot])
 
-  // 평판 카운트 fetch
+  // 평판 카운트 fetch. 받기 전엔 리뷰·영상·글 블록을 그리지 않는다 — 빈 lot 은 받은 뒤 접힌다 (D-3)
+  const [tabCountsReady, setTabCountsReady] = useState(false)
   useEffect(() => {
     if (!lot) return
     let cancelled = false
     setTabCounts({ reviews: 0, blog: 0, media: 0 })
+    setTabCountsReady(false)
     fetchTabCounts({ data: { parkingLotId: lot.id } })
       .then((counts) => {
         if (!cancelled) setTabCounts(counts)
       })
       .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setTabCountsReady(true)
+      })
     return () => {
       cancelled = true
     }
@@ -466,6 +471,7 @@ export function ParkingCard({ lot, onClose, userLat, userLng, userLocated }: Par
                 bordered
                 viewAllSlug={slug}
                 initialTabCounts={tabCounts}
+                countsReady={tabCountsReady}
               />
             </section>
           </div>

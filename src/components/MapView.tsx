@@ -60,6 +60,18 @@ function markerColor(score: number | null): string {
   return '#ef4444' // red-500 — 헬
 }
 
+/**
+ * 점수 없는 lot 은 이름 라벨 대신 점으로 그린다 (D-2). 서울 도심 z16 에서 라벨 109개 중 76개가
+ * 점수 없는 회색이라 지도가 안 읽혔다 (09-11 운영). 선택·hover 중이거나 이 줌 이상이면 라벨을 편다.
+ * 목록 조회 전의 경량 좌표(B-3)에는 이름이 없어 점수와 무관하게 점이다.
+ */
+const DOT_LABEL_ZOOM = 18
+const DOT_SIZE = 10
+
+function dotHtml(color: string): string {
+  return `<div style="box-sizing:border-box;width:${DOT_SIZE}px;height:${DOT_SIZE}px;border-radius:50%;background:${color};border:1.5px solid rgba(255,255,255,0.95);box-shadow:0 1px 3px rgba(0,0,0,0.3);cursor:pointer;"></div>`
+}
+
 // 클러스터 원 지름(px). SuperCluster radius(200) / extent(512) × 타일 256px = 화면상 약 100px 간격이
 // 클러스터 중심 사이 최소 거리이므로, 링 포함 최대 지름(MAX+8)이 이를 넘으면 원끼리 겹쳐 지도를 가린다.
 const CLUSTER_MIN_SIZE = 28
@@ -367,21 +379,14 @@ export function MapView({
           const pointId = f.properties.id
           const lot = lotsMap.get(pointId)
           if (!lot) {
-            // 상세 데이터 아직 미로드 — 경량 마커로 표시
-            const color = markerColor(f.properties.score)
+            // 상세 데이터 아직 미로드 — 점으로 표시 (경량 좌표에는 이름이 없다)
             return (
               <Marker
                 key={pointId}
                 position={new navermaps.LatLng(lat, lng)}
                 icon={{
-                  content: `<div style="transform:translateX(-50%);display:inline-block;"><div style="
-                    display:inline-flex;align-items:center;white-space:nowrap;cursor:pointer;
-                    padding:4px 10px;background:${color};border:1.5px solid rgba(255,255,255,0.9);
-                    border-radius:14px;font-size:13px;font-weight:600;color:white;
-                    box-shadow:0 1px 4px rgba(0,0,0,0.2);text-shadow:0 1px 2px rgba(0,0,0,0.25);
-                    letter-spacing:-0.2px;max-width:140px;overflow:hidden;text-overflow:ellipsis;
-                  ">${displayName(f.properties.name)}</div></div>`,
-                  anchor: new navermaps.Point(0, 12),
+                  content: dotHtml(markerColor(f.properties.score)),
+                  anchor: new navermaps.Point(DOT_SIZE / 2, DOT_SIZE / 2),
                 }}
                 zIndex={0}
               />
@@ -390,21 +395,29 @@ export function MapView({
 
           const selected = lot.id === selectedLotId
           const hovered = lot.id === hoveredLotId
-          const cacheKey = `${lot.id}:${selected}:${hovered}`
-          let html = markerHtmlCacheRef.current.get(cacheKey)
-          if (!html) {
-            html = markerHtml(lot, selected, hovered)
-            markerHtmlCacheRef.current.set(cacheKey, html)
+          const asDot =
+            lot.difficulty.score === null && !selected && !hovered && currentZoom < DOT_LABEL_ZOOM
+          const labelHtml = () => {
+            const cacheKey = `${lot.id}:${selected}:${hovered}`
+            let html = markerHtmlCacheRef.current.get(cacheKey)
+            if (!html) {
+              html = markerHtml(lot, selected, hovered)
+              markerHtmlCacheRef.current.set(cacheKey, html)
+            }
+            return `<div style="transform:translateX(-50%);display:inline-block;">${html}</div>`
           }
           const h = selected ? 28 : hovered ? 28 : 25
+          const icon = asDot
+            ? {
+                content: dotHtml(markerColor(null)),
+                anchor: new navermaps.Point(DOT_SIZE / 2, DOT_SIZE / 2),
+              }
+            : { content: labelHtml(), anchor: new navermaps.Point(0, h / 2) }
           return (
             <Marker
               key={lot.id}
               position={new navermaps.LatLng(lot.lat, lot.lng)}
-              icon={{
-                content: `<div style="transform:translateX(-50%);display:inline-block;">${html}</div>`,
-                anchor: new navermaps.Point(0, h / 2),
-              }}
+              icon={icon}
               zIndex={selected ? 200 : hovered ? 100 : 0}
               onClick={() => {
                 onMarkerClick(lot)
