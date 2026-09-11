@@ -15,14 +15,36 @@ import { useGeolocation } from '@/hooks/useGeolocation'
 import { useParkingFilters } from '@/hooks/useParkingFilters'
 import { type MapFeature, useSuperCluster } from '@/hooks/useSuperCluster'
 import { loadNaverMapSdk } from '@/lib/naver-map-sdk'
+import { pickNearestIds } from '@/lib/nearest'
 import { Route as RootRoute } from '@/routes/__root'
 import { fetchDestination } from '@/server/destinations'
 import type { ParkingPoint } from '@/server/parking'
-import { fetchAllParkingPoints, fetchParkingDetail, fetchParkingLots } from '@/server/parking'
-import type { MapBounds, ParkingLot } from '@/types/parking'
+import {
+  fetchAllParkingPoints,
+  fetchParkingDetail,
+  fetchParkingLots,
+  fetchParkingLotsByIds,
+} from '@/server/parking'
+import type { MapBounds, ParkingFilters, ParkingLot } from '@/types/parking'
 
 const PANEL_WIDTH = 360
 const FILTER_LEFT = 12 + PANEL_WIDTH + 8
+
+/**
+ * 필터가 기본값인가 (B-1 후보 수 결정용).
+ * 필터가 없으면 최근접 250개로 목록 200개를 채울 수 있고, 필터가 걸리면 걸러질 몫을 감안해 600개를 보낸다.
+ */
+function isDefaultFilters(f: ParkingFilters): boolean {
+  return (
+    !f.freeOnly &&
+    !f.publicOnly &&
+    !f.excludeNoSang &&
+    !f.openNow &&
+    f.feeRange === 'any' &&
+    !f.minSpaces &&
+    Object.values(f.difficulty).every(Boolean)
+  )
+}
 
 export const Route = createFileRoute('/')({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -126,6 +148,12 @@ function App() {
 
   const { getClusters, getExpansionZoom, loaded: clusterReady } = useSuperCluster(filteredPoints)
 
+  // 최근접 후보 선택용 경량 포인트 (B-1). ref 로 들고 있어 handleBoundsChanged 가 새로 만들어지지 않는다
+  const pointsRef = useRef(filteredPoints)
+  pointsRef.current = filteredPoints
+  // 지금 목록이 어느 경로로 채워졌는지 — 포인트가 늦게 오면 한 번 최근접 목록으로 바꾸려고 기록한다
+  const listSourceRef = useRef<'ids' | 'bounds' | null>(null)
+
   const handleBoundsChanged = useCallback(
     async (bounds: MapBounds, zoom: number) => {
       lastViewRef.current = { bounds, zoom }
@@ -140,9 +168,27 @@ function App() {
       }
 
       // 개별 마커 상세 데이터 (사이드바/상세패널용)
+      // 경량 포인트가 준비됐으면 중심에서 가까운 후보를 골라 id 로 조회한다 (B-1) — 서버에서
+      // bounds 전체를 거리순 정렬하면 rows_read 가 3.5~33배로 뛴다. 아직이면 bounds 조회로 폴백.
       try {
-        const lots = await fetchParkingLots({ data: { ...bounds, filters } })
-        setParkingLots(lots)
+        const points = pointsRef.current
+        const center = {
+          lat: (bounds.south + bounds.north) / 2,
+          lng: (bounds.west + bounds.east) / 2,
+        }
+        const ids = points
+          ? pickNearestIds(points, bounds, center, isDefaultFilters(filters) ? 250 : 600)
+          : null
+        if (ids && ids.length > 0) {
+          listSourceRef.current = 'ids'
+          setParkingLots(await fetchParkingLotsByIds({ data: { ids, center, filters } }))
+        } else if (ids) {
+          listSourceRef.current = 'ids'
+          setParkingLots([])
+        } else {
+          listSourceRef.current = 'bounds'
+          setParkingLots(await fetchParkingLots({ data: { ...bounds, filters } }))
+        }
       } catch (err) {
         console.error('[fetchParkingLots] error:', err)
       }
@@ -165,13 +211,31 @@ function App() {
     return [selectedLot, ...parkingLots]
   }, [parkingLots, selectedLot])
 
-  // Re-fetch when filters change
+  // 필터가 바뀌면 현재 화면으로 다시 조회한다 (B-2).
+  // 예전엔 deps 가 [handleBoundsChanged] 였다. 그 함수는 클러스터 데이터가 준비되면(clusterReady)
+  // 새로 만들어지므로, 첫 로딩에서 같은 bounds 조회가 한 번 더 나갔다 (09-11 운영 실측: 2.0s·5.1s 2회).
+  // 클러스터 재계산은 위 effect 가 따로 하므로 여기서는 filters 변화에만 반응한다.
+  const handleBoundsChangedRef = useRef(handleBoundsChanged)
+  handleBoundsChangedRef.current = handleBoundsChanged
+  const filtersMountedRef = useRef(false)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: filters 변경 자체가 트리거다
   useEffect(() => {
+    if (!filtersMountedRef.current) {
+      filtersMountedRef.current = true
+      return
+    }
     if (lastViewRef.current) {
       const { bounds, zoom } = lastViewRef.current
-      handleBoundsChanged(bounds, zoom)
+      handleBoundsChangedRef.current(bounds, zoom)
     }
-  }, [handleBoundsChanged])
+  }, [filters])
+
+  // 첫 목록이 포인트 도착 전 bounds 폴백으로 채워졌다면, 포인트가 준비된 순간 한 번 최근접 목록으로 바꾼다 (B-1)
+  useEffect(() => {
+    if (!filteredPoints || listSourceRef.current !== 'bounds' || !lastViewRef.current) return
+    const { bounds, zoom } = lastViewRef.current
+    handleBoundsChangedRef.current(bounds, zoom)
+  }, [filteredPoints])
 
   // 마커/사이드바 클릭: 첫 클릭은 highlight만(데스크톱), 같은 항목 재클릭 시 detail로 push.
   // 모바일은 ParkingCard가 selectedLot != null이면 자동 노출 (viewMode 무시)이므로 영향 없음.
