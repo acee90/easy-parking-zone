@@ -15,7 +15,7 @@
 import { execSync } from 'child_process'
 import { mkdirSync, writeFileSync } from 'fs'
 import { resolve } from 'path'
-import { crawlPrioritySql } from '../src/server/crawlers/lib/crawl-queue'
+import { crawlQueueRowPrioritySql } from '../src/server/crawlers/lib/crawl-queue'
 import { d1Query, isRemote } from './lib/d1'
 
 const CRAWLERS = ['naver_blogs', 'ddg', 'youtube', 'brave_search'] as const
@@ -44,7 +44,8 @@ function main() {
     console.warn('⚠️  --remote 없이 실행 중입니다. 로컬 D1 에는 crawl_queue 행이 없습니다.\n')
   }
 
-  const priority = crawlPrioritySql()
+  // 행 문맥 식: 크롤했는데 근거가 안 붙은 lot 을 맨 뒤로 보낸다 (syncQueue 와 같은 식)
+  const priority = crawlQueueRowPrioritySql()
   console.log('적용할 우선순위 식 (crawl-queue.ts 에서 import):')
   console.log(priority.replace(/^/gm, '  '))
 
