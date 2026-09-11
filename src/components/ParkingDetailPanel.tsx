@@ -56,13 +56,20 @@ export function ParkingDetailPanel({ lot }: ParkingDetailPanelProps) {
     media: 0,
   })
 
+  // 개수를 받기 전엔 아래 리뷰·영상·글 블록을 그리지 않는다 — 빈 lot 은 받은 뒤 접힌다 (D-3)
+  const [tabCountsReady, setTabCountsReady] = useState(false)
+
   useEffect(() => {
     let cancelled = false
+    setTabCountsReady(false)
     fetchTabCounts({ data: { parkingLotId: lot.id } })
       .then((counts) => {
         if (!cancelled) setTabCounts(counts)
       })
       .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setTabCountsReady(true)
+      })
     return () => {
       cancelled = true
     }
@@ -289,6 +296,7 @@ export function ParkingDetailPanel({ lot }: ParkingDetailPanelProps) {
               bordered
               viewAllSlug={slug}
               initialTabCounts={tabCounts}
+              countsReady={tabCountsReady}
             />
           </section>
         </div>
