@@ -98,6 +98,58 @@ export const fetchParkingLots = createServerFn({ method: 'GET' })
   })
 
 /** 전체 주차장 경량 데이터 (SuperCluster용, CDN 캐시) */
+const LOT_ID_RE = /^[A-Za-z0-9_-]{1,64}$/
+const MAX_NEAREST_IDS = 600
+
+/**
+ * 클라이언트가 고른 최근접 후보 id 로 목록을 조회한다 (B-1).
+ *
+ * 서버에서 bounds 전체를 거리순 정렬하면 rows_read 가 3.5~33배로 뛰어(09-11 실측)
+ * 후보 선택은 클라이언트(메모리의 경량 포인트)가 하고, 서버는 PK 조회 + 필터 + 정렬만 한다.
+ * id 600개는 URL 로 약 8.4KB 라 POST 로 받는다. id 는 패턴 검사 후 SQL 에 인라인한다
+ * (D1 바인딩 한도 100개를 넘기 때문).
+ */
+export const fetchParkingLotsByIds = createServerFn({ method: 'POST' })
+  .inputValidator(
+    (input: {
+      ids: string[]
+      center: { lat: number; lng: number }
+      filters?: ParkingFilters
+    }): { ids: string[]; center: { lat: number; lng: number }; filters?: ParkingFilters } => {
+      if (!Array.isArray(input.ids) || input.ids.length === 0 || input.ids.length > MAX_NEAREST_IDS)
+        throw new Error('invalid ids')
+      if (!input.ids.every((id) => typeof id === 'string' && LOT_ID_RE.test(id)))
+        throw new Error('invalid id')
+      if (!Number.isFinite(input.center?.lat) || !Number.isFinite(input.center?.lng))
+        throw new Error('invalid center')
+      return input
+    },
+  )
+  .handler(async ({ data }) => {
+    const db = getDb()
+    const { where } = buildFilterClauses(data.filters)
+    const { lat, lng } = data.center
+    const dist = `((p.lat - ${lat}) * 111.0) * ((p.lat - ${lat}) * 111.0) + ((p.lng - ${lng}) * 88.0) * ((p.lng - ${lng}) * 88.0)`
+    const idList = data.ids.map((id) => `'${id}'`).join(',')
+
+    const rows = await db.all(
+      sql.raw(
+        `SELECT p.*,
+          s.final_score as avg_score,
+          COALESCE(s.review_count, 0) as review_count,
+          s.reliability,
+          p.verified_source
+        FROM parking_lots p
+        LEFT JOIN parking_lot_stats s ON s.parking_lot_id = p.id
+        WHERE p.id IN (${idList})${where}
+        ORDER BY ${dist}
+        LIMIT 200`,
+      ),
+    )
+
+    return (rows as unknown as ParkingLotRow[]).map(rowToParkingLot)
+  })
+
 export interface ParkingPoint {
   id: string
   lat: number
