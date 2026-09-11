@@ -213,17 +213,15 @@ function App() {
     setMoveTo(coords)
   }, [])
 
-  const handleSidebarSelect = useCallback(
-    (lot: ParkingLot) => {
-      setMoveTo({ lat: lot.lat, lng: lot.lng })
-      if (selectedLot?.id === lot.id) {
-        setViewMode('detail')
-      } else {
-        setSelectedLot(lot)
-      }
-    },
-    [selectedLot],
-  )
+  // 목록 클릭은 한 번에 상세로 간다 (C-1).
+  // 예전에는 첫 클릭 = 강조, 같은 항목 재클릭 = 상세였다. 그런데 첫 클릭으로 지도가 움직이면
+  // 목록이 새 중심 기준으로 재정렬돼(실측 약 95ms) 같은 자리를 다시 누르면 **다른 주차장**이 열렸다.
+  // 마커 클릭(handleMarkerClick)은 지도 위 미리보기 의미가 있어 두 단계를 유지한다.
+  const handleSidebarSelect = useCallback((lot: ParkingLot) => {
+    setMoveTo({ lat: lot.lat, lng: lot.lng })
+    setSelectedLot(lot)
+    setViewMode('detail')
+  }, [])
 
   const handleCloseDetail = useCallback(() => {
     setViewMode('list')
