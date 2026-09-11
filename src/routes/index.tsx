@@ -16,15 +16,10 @@ import { useParkingFilters } from '@/hooks/useParkingFilters'
 import { type MapFeature, useSuperCluster } from '@/hooks/useSuperCluster'
 import { loadNaverMapSdk } from '@/lib/naver-map-sdk'
 import { pickNearestIds } from '@/lib/nearest'
+import { decodePoints, type ParkingPoint, type PointTuple } from '@/lib/points'
 import { Route as RootRoute } from '@/routes/__root'
 import { fetchDestination } from '@/server/destinations'
-import type { ParkingPoint } from '@/server/parking'
-import {
-  fetchAllParkingPoints,
-  fetchParkingDetail,
-  fetchParkingLots,
-  fetchParkingLotsByIds,
-} from '@/server/parking'
+import { fetchParkingDetail, fetchParkingLots, fetchParkingLotsByIds } from '@/server/parking'
 import type { MapBounds, ParkingFilters, ParkingLot } from '@/types/parking'
 
 const PANEL_WIDTH = 360
@@ -118,12 +113,16 @@ function App() {
     }
   }, [isClient, initializing, mapSdkReady, mapLoadFailed])
 
-  // 전체 경량 데이터 1회 로드
+  // 전체 경량 데이터 1회 로드 (B-3: 서버 함수 대신 배열 형식 /api/points)
   useEffect(() => {
-    fetchAllParkingPoints()
-      .then(setAllPoints)
+    fetch('/api/points')
+      .then((res) => {
+        if (!res.ok) throw new Error(`/api/points ${res.status}`)
+        return res.json() as Promise<PointTuple[]>
+      })
+      .then((rows) => setAllPoints(decodePoints(rows)))
       .catch((err) => {
-        console.error('[fetchAllParkingPoints] error:', err)
+        console.error('[points] error:', err)
         // 포인트를 못 받으면 최근접 선택이 불가능하다 — 기다리던 목록을 bounds 조회로 채운다
         pointsFailedRef.current = true
         if (listSourceRef.current === 'pending' && lastViewRef.current) {

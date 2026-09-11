@@ -21,6 +21,7 @@ import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as WikiAllRouteImport } from './routes/wiki/all'
 import { Route as WikiSlugRouteImport } from './routes/wiki/$slug'
 import { Route as NearSlugRouteImport } from './routes/near/$slug'
+import { Route as ApiPointsRouteImport } from './routes/api/points'
 import { Route as AdminWebSourcesRouteImport } from './routes/admin/web-sources'
 import { Route as AdminToolsRouteImport } from './routes/admin/tools'
 import { Route as AdminReviewsRouteImport } from './routes/admin/reviews'
@@ -93,6 +94,11 @@ const WikiSlugRoute = WikiSlugRouteImport.update({
 const NearSlugRoute = NearSlugRouteImport.update({
   id: '/near/$slug',
   path: '/near/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPointsRoute = ApiPointsRouteImport.update({
+  id: '/api/points',
+  path: '/api/points',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminWebSourcesRoute = AdminWebSourcesRouteImport.update({
@@ -176,6 +182,7 @@ export interface FileRoutesByFullPath {
   '/admin/reviews': typeof AdminReviewsRoute
   '/admin/tools': typeof AdminToolsRoute
   '/admin/web-sources': typeof AdminWebSourcesRoute
+  '/api/points': typeof ApiPointsRoute
   '/near/$slug': typeof NearSlugRoute
   '/wiki/$slug': typeof WikiSlugRouteWithChildren
   '/wiki/all': typeof WikiAllRoute
@@ -202,6 +209,7 @@ export interface FileRoutesByTo {
   '/admin/reviews': typeof AdminReviewsRoute
   '/admin/tools': typeof AdminToolsRoute
   '/admin/web-sources': typeof AdminWebSourcesRoute
+  '/api/points': typeof ApiPointsRoute
   '/near/$slug': typeof NearSlugRoute
   '/wiki/all': typeof WikiAllRoute
   '/admin': typeof AdminIndexRoute
@@ -229,6 +237,7 @@ export interface FileRoutesById {
   '/admin/reviews': typeof AdminReviewsRoute
   '/admin/tools': typeof AdminToolsRoute
   '/admin/web-sources': typeof AdminWebSourcesRoute
+  '/api/points': typeof ApiPointsRoute
   '/near/$slug': typeof NearSlugRoute
   '/wiki/$slug': typeof WikiSlugRouteWithChildren
   '/wiki/all': typeof WikiAllRoute
@@ -258,6 +267,7 @@ export interface FileRouteTypes {
     | '/admin/reviews'
     | '/admin/tools'
     | '/admin/web-sources'
+    | '/api/points'
     | '/near/$slug'
     | '/wiki/$slug'
     | '/wiki/all'
@@ -284,6 +294,7 @@ export interface FileRouteTypes {
     | '/admin/reviews'
     | '/admin/tools'
     | '/admin/web-sources'
+    | '/api/points'
     | '/near/$slug'
     | '/wiki/all'
     | '/admin'
@@ -310,6 +321,7 @@ export interface FileRouteTypes {
     | '/admin/reviews'
     | '/admin/tools'
     | '/admin/web-sources'
+    | '/api/points'
     | '/near/$slug'
     | '/wiki/$slug'
     | '/wiki/all'
@@ -333,6 +345,7 @@ export interface RootRouteChildren {
   PrivacyRoute: typeof PrivacyRoute
   TermsRoute: typeof TermsRoute
   TestDesignsRoute: typeof TestDesignsRoute
+  ApiPointsRoute: typeof ApiPointsRoute
   NearSlugRoute: typeof NearSlugRoute
   WikiSlugRoute: typeof WikiSlugRouteWithChildren
   WikiAllRoute: typeof WikiAllRoute
@@ -427,6 +440,13 @@ declare module '@tanstack/react-router' {
       path: '/near/$slug'
       fullPath: '/near/$slug'
       preLoaderRoute: typeof NearSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/points': {
+      id: '/api/points'
+      path: '/api/points'
+      fullPath: '/api/points'
+      preLoaderRoute: typeof ApiPointsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/web-sources': {
@@ -569,6 +589,7 @@ const rootRouteChildren: RootRouteChildren = {
   PrivacyRoute: PrivacyRoute,
   TermsRoute: TermsRoute,
   TestDesignsRoute: TestDesignsRoute,
+  ApiPointsRoute: ApiPointsRoute,
   NearSlugRoute: NearSlugRoute,
   WikiSlugRoute: WikiSlugRouteWithChildren,
   WikiAllRoute: WikiAllRoute,
