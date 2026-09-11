@@ -124,6 +124,12 @@ function App() {
       .then(setAllPoints)
       .catch((err) => {
         console.error('[fetchAllParkingPoints] error:', err)
+        // 포인트를 못 받으면 최근접 선택이 불가능하다 — 기다리던 목록을 bounds 조회로 채운다
+        pointsFailedRef.current = true
+        if (listSourceRef.current === 'pending' && lastViewRef.current) {
+          const { bounds, zoom } = lastViewRef.current
+          handleBoundsChangedRef.current(bounds, zoom)
+        }
       })
   }, [])
 
@@ -152,7 +158,9 @@ function App() {
   const pointsRef = useRef(filteredPoints)
   pointsRef.current = filteredPoints
   // 지금 목록이 어느 경로로 채워졌는지 — 포인트가 늦게 오면 한 번 최근접 목록으로 바꾸려고 기록한다
-  const listSourceRef = useRef<'ids' | 'bounds' | null>(null)
+  const listSourceRef = useRef<'ids' | 'bounds' | 'pending' | null>(null)
+  // 포인트 로드가 실패했으면 bounds 조회로 폴백한다 (성공하기 전까지는 기다린다)
+  const pointsFailedRef = useRef(false)
 
   const handleBoundsChanged = useCallback(
     async (bounds: MapBounds, zoom: number) => {
@@ -185,6 +193,11 @@ function App() {
         } else if (ids) {
           listSourceRef.current = 'ids'
           setParkingLots([])
+        } else if (!pointsFailedRef.current) {
+          // 포인트가 아직 오는 중이다. 여기서 bounds 로 먼저 채우면 곧 최근접 목록으로 다시 바뀌어
+          // 조회가 2번 나가고 목록이 한 번 뒤바뀐다 (09-11 운영: 2.21s 폴백 + 2.95s 교체).
+          // 포인트가 도착하면 아래 effect 가 한 번만 조회한다.
+          listSourceRef.current = 'pending'
         } else {
           listSourceRef.current = 'bounds'
           setParkingLots(await fetchParkingLots({ data: { ...bounds, filters } }))
@@ -232,7 +245,8 @@ function App() {
 
   // 첫 목록이 포인트 도착 전 bounds 폴백으로 채워졌다면, 포인트가 준비된 순간 한 번 최근접 목록으로 바꾼다 (B-1)
   useEffect(() => {
-    if (!filteredPoints || listSourceRef.current !== 'bounds' || !lastViewRef.current) return
+    const src = listSourceRef.current
+    if (!filteredPoints || (src !== 'bounds' && src !== 'pending') || !lastViewRef.current) return
     const { bounds, zoom } = lastViewRef.current
     handleBoundsChangedRef.current(bounds, zoom)
   }, [filteredPoints])
