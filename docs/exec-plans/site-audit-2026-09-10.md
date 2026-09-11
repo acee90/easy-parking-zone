@@ -287,21 +287,43 @@ PR #201 머지 → 배포 → 0059 적용 → 병합 SQL 4개 적용. **207쌍 �
 | C 등급 보류 | 811쌍 | 주소만 일치. 오탐 다수 예상 |
 - **의존**: 없음. 단, **MODU 내부 중복 보류 11쌍**(`project_modu_intra_dedup_2026_09`)과 같은 판정 기준을 쓴다.
 
-### A-5. Ghost POI 보존
+### A-5. 크론 매칭 실패분을 `web_sources_missed` 에 남기기 (원래 계획에서 방향 수정)
 
-- **목표**: `[GHOST_POI]` 사유 raw가 삭제 정책에 먼저 지워져 채굴 불가(현재 0건). 삭제 전에 따로 남긴다.
+> **09-11 실측으로 전제가 바뀌었다.** 원래 계획은 "`[GHOST_POI]` 사유 raw 가 삭제 정책에
+> 먼저 지워지니 삭제 전에 새 표로 옮긴다"였다. 확인해 보니:
+>
+> - **`[GHOST_POI]` 를 쓰는 코드가 없다.** `issue-body.md` 의 일회성 수동 매칭 실행에서 나온 표기다.
+> - remote `web_sources_raw` 에 `match_fail_reason` 이 채워진 행이 **0건**이다. 삭제가 먼저 지운 게 아니라 **애초에 아무도 안 쓴다.**
+> - 「DB 에 없는 주차장을 언급한 글」을 모으는 표는 **이미 있다: `web_sources_missed` (0041).**
+>   20,132행, 미해결 19,114행. 해결·등록용 스크립트도 이미 있다
+>   (`discover-missed-parking-lots`, `resolve-missed`, `relink-existing-missed`, `register-new-lots`).
+> - 그런데 **2026-08-19 이후 새 행이 0건이다.** 쓰는 곳이 수동 스크립트(`run-pipeline-149`)뿐이고,
+>   파이프라인이 크론으로 넘어간 뒤 크론 매처(`match-to-lots.ts`)는 이 표를 쓰지 않는다.
+>
+> 크론 매처는 시도한 raw 에 결과와 무관하게 `matched_at` 을 찍고, 종결 조건(`raw-retention.ts`)이
+> `matched_at IS NOT NULL` 을 지운다. 그래서 **필터는 통과했는데 붙을 lot 이 없는 글이 하루 약 390건씩
+> 흔적 없이 사라진다** (09-10: filter:pass 426, match:sources 35).
+
+- **목표**: 크론 매처가 `run-pipeline-149` 와 **같은 조건**으로 미매칭 글을 `web_sources_missed` 에 남긴다. 새 표·새 AI 호출 없음.
 - **변경**
-  - 종결 raw 삭제 스테이지(`scheduled.ts` 의 terminal-raw purge)에서 `match_fail_reason LIKE '[GHOST_POI]%'` 행은 삭제 전 `ghost_poi_candidates`(lot_name_guess, region, source_url, seen_count, first_seen, last_seen) 테이블로 UPSERT. 마이그레이션 1개.
-  - `scripts/ghost-poi-report.ts`: seen_count 내림차순 상위 N → 공공데이터/이름 검색으로 실제 lot 후보 제시. 등록은 사람 판단.
+  - `match-to-lots.ts`: 후보 0건(`keywords.length > 0 && candidates.length === 0`)이고 본문 수집이 `ok` 인 raw 는
+    `missed_lot_name = extractSearchKeywords(...).join(' ')` 로 `INSERT OR IGNORE INTO web_sources_missed`.
+    `source_id` 가 UNIQUE 라 재실행해도 안전하다. raw 에는 `match_fail_reason = 'lot_not_in_db'` 를 찍는다.
+  - 노이즈 이름(`isNoiseLotName`)이면 missed 에 넣지 않고 `match_fail_reason = 'noise_name'` 만 찍는다 (missed 재오염 방지 — pipeline-149 와 같은 규칙).
+  - 이름 추출과 노이즈 판정은 `scripts/` 에만 있어 워커가 못 쓴다.
+    - `scripts/lib/missed-classify.ts` → `src/server/crawlers/lib/missed-classify.ts` 로 옮기고, 옛 경로는 re-export 한 줄로 남겨 이를 쓰는 스크립트 5개는 그대로 둔다.
+    - `src/server/crawlers/lib/missed-name.ts`: `run-pipeline-149` 의 장소명 추출기와 `isNoiseLotName` 을 옮겼다.
+      크론 매처의 `extractSearchKeywords` 는 FTS 검색용(앞 5단어)이라 이름으로 쓰면 필러가 섞인다 — **매칭 키워드는 그대로 두고 missed 이름에만** 쓴다.
+    - `run-pipeline-149.ts` 는 수동 레거시 파이프라인이라 손대지 않았다 (자체 사본 유지).
 
 #### A-5 평가항목
 
-| # | 지표 | 측정 | 기준선 (09-10) | 기대값 | 시점 | 결과 |
+| # | 지표 | 측정 | 기준선 (09-11) | 기대값 | 시점 | 결과 |
 |---|---|---|---|---|---|---|
-| 1 | `ghost_poi_candidates` 행 수 | COUNT | **0** (삭제 정책이 먼저 지움) | **≥ 100** | +14일 | |
-| 2 | seen_count ≥ 2 후보 | COUNT | 0 | **≥ 20** | +14일 | |
-| 3 | 상위 20건 중 실제 주차장 비율 | 수동 검수 | — | **≥ 50%**. 미만이면 추출 규칙 재검토 | +14일 | |
-| 4 | 삭제 스테이지 처리 시간 | 크론 로그 | 현행 | **증가 ≤ 10%** | +1일 | |
+| 1 | `web_sources_missed` 신규 행 | `created_at > 배포 시각` | **0건/일** (08-19 이후 0) | **≥ 30건/일** | +1일 | |
+| 2 | 신규 raw 중 `match_fail_reason` 기록 비율 | 매칭 끝난 raw 중 NULL 아닌 비율 | **0%** | 후보 0건 raw 는 **100%** 기록 | +1일 | |
+| 3 | 신규 missed 상위 20 이름 중 실제 장소명 비율 | 수동 검수 | — | **≥ 50%**. 미만이면 노이즈 규칙 보강 | +7일 | |
+| 4 | 매칭 단계 처리량 | `pipeline_daily_stats` match:* | 현행 | **변동 ≤ 10%** (DB 쓰기 1건 추가뿐) | +1일 | |
 
 - **의존**: 없음.
 
