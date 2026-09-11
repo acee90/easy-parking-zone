@@ -8,7 +8,14 @@ import type { ParkingLot } from '@/types/parking'
 /** 1시간 예상요금 셀 — 계산 불가면 숫자를 지어내지 않는다. 목적지 페이지(#166)도 같은 셀을 쓴다 */
 export function HourFee({ lot }: { lot: ParkingLot }) {
   const fee = estimateFee(lot.pricing, 60)
-  if (fee === null) return <span className="text-muted-foreground">확인 필요</span>
+  // 요금 정보가 모자라 계산할 수 없는 칸. 「확인 필요」 글자가 표를 채우면 할 일처럼 읽힌다 (D-5)
+  if (fee === null)
+    return (
+      <span className="text-muted-foreground">
+        <span aria-hidden="true">—</span>
+        <span className="sr-only">요금 정보 없음</span>
+      </span>
+    )
   if (fee === 0) return <span className="font-semibold text-green-700">0원</span>
   return <span className="font-semibold">{fee.toLocaleString()}원</span>
 }
