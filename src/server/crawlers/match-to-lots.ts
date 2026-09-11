@@ -25,6 +25,7 @@ import {
   type FilterV2Output,
 } from './lib/ai-filter-v2-prompt'
 import { AI_SUMMARY_SYSTEM_PROMPT, MIN_SUMMARY_LENGTH } from './lib/ai-summary-prompt'
+import { extractMissedLotName, isNoiseLotName } from './lib/missed-name'
 import { getMatchConfidence, stripHtml } from './lib/scoring'
 import { detectSummaryPollution } from './lib/summary-guard'
 
@@ -378,10 +379,48 @@ export async function runMatchBatch(
     const attempted = candidates.length > 0 || keywords.length > 0
     if (attempted) {
       if (thisItemLinked > 0) matched++
+
+      // 후보가 아예 없으면 DB 에 없는 주차장 얘기일 수 있다 → web_sources_missed 에 남긴다 (A-5).
+      // 종결 조건(raw-retention.ts)이 matched_at 을 보고 raw 를 지우므로, 여기서 안 남기면
+      // 흔적 없이 사라진다. 조건·이름 추출·노이즈 규칙은 run-pipeline-149 와 같다.
+      let failReason: 'lot_not_in_db' | 'noise_name' | null = null
+      if (candidates.length === 0 && keywords.length > 0 && raw.full_text_status === 'ok') {
+        const name = extractMissedLotName(title, content).join(' ')
+        if (!name || isNoiseLotName(name)) {
+          failReason = 'noise_name'
+        } else {
+          failReason = 'lot_not_in_db'
+          // source_id 가 UNIQUE 라 재실행해도 중복이 생기지 않는다
+          insertBatch.push(
+            db
+              .prepare(
+                `INSERT OR IGNORE INTO web_sources_missed
+                   (missed_lot_name, source, source_id, title, content, source_url, author,
+                    published_at, raw_source_id, sentiment_score, ai_difficulty_keywords)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)`,
+              )
+              .bind(
+                name,
+                raw.source,
+                raw.source_id,
+                title,
+                content,
+                raw.source_url,
+                raw.author,
+                raw.published_at,
+                raw.id,
+                raw.sentiment_score,
+                raw.ai_difficulty_keywords,
+              ),
+          )
+        }
+      }
       updateBatch.push(
         db
-          .prepare("UPDATE web_sources_raw SET matched_at = datetime('now') WHERE id = ?1")
-          .bind(raw.id),
+          .prepare(
+            "UPDATE web_sources_raw SET matched_at = datetime('now'), match_fail_reason = ?2 WHERE id = ?1",
+          )
+          .bind(raw.id, failReason),
       )
     }
 
