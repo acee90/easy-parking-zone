@@ -1,4 +1,4 @@
-import { createFileRoute, Link, notFound, Outlet } from '@tanstack/react-router'
+import { createFileRoute, Link, notFound, Outlet, redirect } from '@tanstack/react-router'
 import { DEFAULT_FIELD_SOURCES, stripUnverifiedEdits } from '@/lib/lot-field-groups'
 import { formatPricing } from '@/lib/parking-display'
 import { shouldIndexParkingDetail } from '@/lib/seo-indexing'
@@ -12,6 +12,7 @@ import {
   fetchTabCounts,
   fetchWebSentiment,
   fetchWebSourceRefs,
+  resolveLotRedirect,
 } from '@/server/parking'
 import { fetchUserReviews } from '@/server/reviews'
 
@@ -20,7 +21,18 @@ export const Route = createFileRoute('/wiki/$slug')({
     const id = parseIdFromSlug(params.slug)
     if (!id) throw notFound()
     const lot = await fetchParkingDetail({ data: { id } })
-    if (!lot) throw notFound()
+    if (!lot) {
+      // 중복 병합으로 흡수된 lot 이면 남은 주차장으로 영구 이동 (A-4)
+      const target = await resolveLotRedirect({ data: { id } })
+      if (target) {
+        throw redirect({
+          to: '/wiki/$slug',
+          params: { slug: makeParkingSlug(target.name, target.id) },
+          statusCode: 301,
+        })
+      }
+      throw notFound()
+    }
     const [
       nearbyPlaces,
       reviews,
