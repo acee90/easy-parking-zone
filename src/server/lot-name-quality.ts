@@ -25,7 +25,8 @@ const BAD_NAME_RULES: Array<[reason: string, pattern: RegExp]> = [
   ['segment', /~|(인근|주변|부근|뒤|앞|옆|\s외)$/],
   ['artifact', /@/],
   ['gate', /(입구|출구)쪽?(\s*\([^)]*\))?$/],
-  ['service', /대행|세차|차고지/],
+  // 「세차」만 쓰면 「연세차메디컬센터」가 걸린다 (2차 채점 오탐)
+  ['service', /대행|세차장|손세차|차고지/],
   ['closed', /공사\s*중/],
   // 동·리·면·읍·도로명(+번지)만 있고 주차장이라는 말이 없다 — 「신정1동」「연암동 442-1」「상리2길」
   ['admin-only', /^[가-힣\d\s]*[동리면읍로길가]\s*[\d-]*$/],
@@ -47,7 +48,10 @@ export function lotNameIssue(name: string, address?: string | null): string | nu
     if (pattern.test(trimmed)) return reason
   }
   const region = trimmed.match(REGION_ONLY)
-  if (region && (!address || address.includes(region[1]))) return 'region-only'
+  // 「대구」는 광역시라 「○구」 꼴이어도 시·군·구가 아니다 (「나이스파크 대구 주차장」, 2차 채점 오탐)
+  if (region && region[1] !== '대구' && (!address || address.includes(region[1]))) {
+    return 'region-only'
+  }
   return null
 }
 

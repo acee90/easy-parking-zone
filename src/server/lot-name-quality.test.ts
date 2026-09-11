@@ -49,6 +49,17 @@ describe('lotNameIssue — 시·군·구명은 자기 주소와 대조한다', (
   it('「○구」로 끝나는 고유명은 주소에 없으면 남긴다', () => {
     expect(lotNameIssue('청구 주차장', '대구광역시 수성구 만촌동 667-11')).toBeNull()
   })
+
+  it('광역시 「대구」는 시·군·구가 아니다 (2차 채점 오탐)', () => {
+    expect(lotNameIssue('나이스파크 대구 주차장', '대구광역시 중구 동성로 1')).toBeNull()
+  })
+})
+
+describe('lotNameIssue — 부분 문자열 오탐 (2차 채점)', () => {
+  it('「연세차메디컬센터」는 세차장이 아니다', () => {
+    expect(lotNameIssue('연세차메디컬센터 민영 주차장')).toBeNull()
+    expect(lotNameIssue('명동 손세차 주차장')).toBe('service')
+  })
 })
 
 describe('lotNameIssue — 남긴다', () => {
