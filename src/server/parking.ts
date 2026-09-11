@@ -191,6 +191,32 @@ export const searchParkingLots = createServerFn({ method: 'GET' })
   })
 
 /** 단일 주차장 상세 조회 (위키 페이지용) */
+/**
+ * 병합으로 사라진 lot id 를 남은 대표 lot 으로 풀어준다 (A-4, migration 0059).
+ * 위키 loader 가 lot 을 못 찾았을 때만 부른다 — 정상 경로엔 조회가 추가되지 않는다.
+ */
+export const resolveLotRedirect = createServerFn({ method: 'GET' })
+  .inputValidator((input: { id: string }): { id: string } => {
+    if (!input.id || typeof input.id !== 'string' || input.id.length > 64)
+      throw new Error('invalid id')
+    return input
+  })
+  .handler(async ({ data }): Promise<{ id: string; name: string } | null> => {
+    const db = getDb()
+    try {
+      const rows = (await db.all(
+        sql`SELECT p.id, p.name
+              FROM lot_redirects r
+              JOIN parking_lots p ON p.id = r.to_id
+             WHERE r.from_id = ${data.id}`,
+      )) as unknown as Array<{ id: string; name: string }>
+      return rows[0] ?? null
+    } catch {
+      // 표가 아직 없는 환경(로컬 등)에서는 지금처럼 404 로 떨어진다
+      return null
+    }
+  })
+
 export const fetchParkingDetail = createServerFn({ method: 'GET' })
   .inputValidator((input: { id: string }): { id: string } => {
     if (!input.id || typeof input.id !== 'string' || input.id.length > 64)
