@@ -59,6 +59,29 @@ export function crawlPrioritySql(): string {
   return PRIORITY_SQL
 }
 
+/** 크롤은 했는데 근거가 붙지 않은 lot 의 우선순위 — 가장 뒤. */
+export const EMPTY_CRAWL_PRIORITY = 6
+
+/**
+ * crawl_queue 행을 재계산할 때 쓰는 식. `crawl_queue.next_at` 을 참조하므로 UPDATE 안에서만 쓴다.
+ *
+ * ⚠️ 2026-09-11 독립 검수에서 나온 결함: stats 행은 매칭 성공이나 리뷰로만 생긴다.
+ * 그래서 크롤해도 근거가 안 붙은 lot(실측 약 87%)은 영영 `reliability IS NULL` → priority 0 으로 남고,
+ * 90일마다 기존 데이터(p1~p3) 재크롤보다 앞에 다시 선다. 역전을 고친 게 아니라 방향만 뒤집은 셈이다.
+ *
+ * 한 번이라도 크롤된 행은 `next_at` 이 미크롤 표식('2000-01-01')이 아니다. 그런데 여전히
+ * stats 가 없으면 「크롤해도 안 나오는 곳」으로 보고 맨 뒤로 보낸다. 나중에 근거가 붙으면
+ * stats 행이 생겨 다음 sync 에서 reliability 순서로 돌아온다.
+ */
+const QUEUE_ROW_PRIORITY_SQL = `CASE
+      WHEN s.reliability IS NULL AND crawl_queue.next_at <> '2000-01-01 00:00:00'
+        THEN ${EMPTY_CRAWL_PRIORITY}
+      ELSE (${PRIORITY_SQL}) END`
+
+export function crawlQueueRowPrioritySql(): string {
+  return QUEUE_ROW_PRIORITY_SQL
+}
+
 /** 크롤 대상 선정 — priority 오름차순, 같은 priority 안에서는 오래된 것부터. */
 export async function selectFromQueue(
   db: D1Database,
@@ -115,6 +138,15 @@ export async function syncQueue(db: D1Database): Promise<{ inserted: number; rep
   let inserted = 0
   let repriced = 0
 
+  // A-2 고정은 「한 번 빨리 크롤」이 목적이다. 크롤이 끝나 next_at 이 미래로 밀린 행은 고정을 푼다 —
+  // 풀지 않으면 근거가 붙어도 −1 로 영구히 남는다 (2026-09-11 독립 검수 지적).
+  await db
+    .prepare(
+      `UPDATE crawl_queue SET pinned_at = NULL
+        WHERE pinned_at IS NOT NULL AND next_at > datetime('now')`,
+    )
+    .run()
+
   for (const [crawler] of CRAWLERS) {
     // 신규 lot: 즉시 크롤 대상으로 넣는다
     const ins = await db
@@ -135,13 +167,13 @@ export async function syncQueue(db: D1Database): Promise<{ inserted: number; rep
       .prepare(
         `UPDATE crawl_queue
             SET priority = (
-              SELECT ${PRIORITY} FROM parking_lots p
+              SELECT ${QUEUE_ROW_PRIORITY_SQL} FROM parking_lots p
                 LEFT JOIN parking_lot_stats s ON s.parking_lot_id = p.id
                WHERE p.id = crawl_queue.lot_id)
           WHERE crawler = ?1
             AND pinned_at IS NULL
             AND priority <> (
-              SELECT ${PRIORITY} FROM parking_lots p
+              SELECT ${QUEUE_ROW_PRIORITY_SQL} FROM parking_lots p
                 LEFT JOIN parking_lot_stats s ON s.parking_lot_id = p.id
                WHERE p.id = crawl_queue.lot_id)`,
       )
