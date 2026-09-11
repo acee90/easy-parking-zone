@@ -10,6 +10,7 @@ import { useCallback, useEffect } from 'react'
 import { Toaster } from 'sonner'
 import { Footer } from '@/components/Footer'
 import { Header } from '@/components/Header'
+import { RevisitPrompt } from '@/components/RevisitPrompt'
 import { makeParkingSlug } from '@/lib/slug'
 import { fetchSiteStats } from '@/server/parking'
 import type { ParkingLot } from '@/types/parking'
@@ -174,6 +175,8 @@ function RootComponent() {
       )}
       <Outlet />
       {showFooter && <Footer />}
+      {/* 지난번 길찾기로 떠난 주차장이 있으면 한 번 별점을 묻는다 (A-6) */}
+      {!isAdmin && <RevisitPrompt />}
     </>
   )
 }

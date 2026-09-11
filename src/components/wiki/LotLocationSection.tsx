@@ -35,6 +35,7 @@ export function LotLocationSection({
             lat={lot.lat}
             lng={lot.lng}
             name={lot.name}
+            lotId={lot.id}
             navigationButtonClassName="h-[38px]"
           />
           {phoneLabel && (

@@ -146,7 +146,7 @@ export function ParkingDetailPanel({ lot }: ParkingDetailPanelProps) {
             </div>
 
             <div className="space-y-2">
-              <ParkingActionGroup lat={lot.lat} lng={lot.lng} name={lot.name} />
+              <ParkingActionGroup lat={lot.lat} lng={lot.lng} name={lot.name} lotId={lot.id} />
               <Link
                 to="/wiki/$slug"
                 params={{ slug }}

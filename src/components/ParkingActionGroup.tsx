@@ -4,6 +4,8 @@ interface ParkingActionGroupProps {
   lat: number
   lng: number
   name: string
+  /** 있으면 길찾기 시 기억해 두었다가 다음 방문에 별점을 묻는다 (A-6) */
+  lotId?: string
   navigationButtonClassName?: string
 }
 
@@ -15,6 +17,7 @@ export function ParkingActionGroup({
   lat,
   lng,
   name,
+  lotId,
   navigationButtonClassName,
 }: ParkingActionGroupProps) {
   return (
@@ -23,6 +26,7 @@ export function ParkingActionGroup({
         lat={lat}
         lng={lng}
         name={name}
+        lotId={lotId}
         wrapperClassName="min-w-0 flex-1"
         buttonClassName={`w-full ${navigationButtonClassName ?? ''}`}
       />
