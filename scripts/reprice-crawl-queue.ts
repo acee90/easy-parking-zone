@@ -58,6 +58,9 @@ function main() {
   // NULL 을 돌려주고 priority 가 NULL 이 되는데, SQLite 는 ORDER BY 에서 NULL 을
   // 맨 앞에 놓는다 — 없는 주차장이 큐 맨 앞을 차지한다.
   // (기존 syncQueue 는 `<>` 비교가 NULL 이라 우연히 고아를 건드리지 않았다.)
+  //
+  // `pinned_at IS NULL` — A-2 로 고정한 행은 건드리지 않는다. syncQueue 와 같은 규칙이다.
+  // (2026-09-11 이 가드 없이 돌려 고정 764행의 −1 이 지워졌다가 수동 복구했다.)
   const statements = CRAWLERS.map(
     (crawler) => `UPDATE crawl_queue
    SET priority = (
@@ -67,6 +70,7 @@ function main() {
         WHERE p.id = crawl_queue.lot_id)
  WHERE crawler = '${crawler}'
    AND EXISTS (SELECT 1 FROM parking_lots p WHERE p.id = crawl_queue.lot_id)
+   AND pinned_at IS NULL
    AND priority IS NOT (
        SELECT ${priority}
          FROM parking_lots p
