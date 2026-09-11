@@ -1,12 +1,15 @@
 import { ChevronDown, Navigation } from 'lucide-react'
 import type { ReactNode, SVGProps } from 'react'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { recordNavigation } from '@/lib/last-nav'
 import { getNavOptions, type NavApp } from '@/lib/navigation'
 
 interface NavigationButtonProps {
   lat: number
   lng: number
   name: string
+  /** 있으면 길찾기 앱을 연 순간을 기억해 두었다가 다음 방문에 별점을 묻는다 (A-6) */
+  lotId?: string
   buttonClassName?: string
   wrapperClassName?: string
 }
@@ -51,6 +54,7 @@ export function NavigationButton({
   lat,
   lng,
   name,
+  lotId,
   buttonClassName,
   wrapperClassName,
 }: NavigationButtonProps) {
@@ -112,7 +116,11 @@ export function NavigationButton({
                 href={opt.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                onClick={() => setOpen(false)}
+                onClick={() => {
+                  // 길찾기 앱을 연 순간을 기억한다 — 다음 방문에 한 번 별점을 묻는다 (A-6)
+                  if (lotId) recordNavigation(lotId, name)
+                  setOpen(false)
+                }}
                 className="flex h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium text-gray-800 transition-colors hover:bg-gray-50"
               >
                 <AppIcon className="size-6 shrink-0" />

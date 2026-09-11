@@ -1,5 +1,6 @@
 import { ArrowUpDown, ChevronUp } from 'lucide-react'
 import { useCallback, useMemo, useRef, useState } from 'react'
+import { QuickRating } from '@/components/QuickRating'
 import { getDifficultyColor, getDifficultyLabel, getDistance } from '@/lib/geo-utils'
 import type { ParkingLot, SortMode } from '@/types/parking'
 
@@ -130,54 +131,66 @@ export function MobileBottomPanel({
             </button>
           </div>
           {sortedLots.slice(0, 30).map(({ lot, distance }) => (
-            <button
-              type="button"
-              key={lot.id}
-              onClick={() => {
-                onSelect(lot)
-                setExpanded(false)
-              }}
-              className="w-full flex items-center gap-3 px-4 py-2.5 border-b border-gray-50 active:bg-primary/5 transition-colors cursor-pointer"
-            >
-              <span
-                className={`size-2.5 shrink-0 rounded-full ${getDifficultyColor(lot.difficulty.score)}`}
-              />
-              <div className="flex-1 min-w-0 text-left">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-sm font-medium truncate">{lot.name}</span>
-                  {lot.difficulty.score !== null && lot.difficulty.score < 2.0 && (
-                    <span className="text-[10px] text-red-500 font-medium shrink-0">주의</span>
-                  )}
-                  {lot.difficulty.score !== null && lot.difficulty.score >= 4.0 && (
-                    <span className="text-[10px] text-green-600 font-medium shrink-0">추천</span>
-                  )}
+            // 행 전체는 <button> 이라 안에 별점(버튼 10개)을 넣을 수 없다 — 형제로 둔다
+            <div key={lot.id} className="border-b border-gray-50">
+              <button
+                type="button"
+                onClick={() => {
+                  onSelect(lot)
+                  setExpanded(false)
+                }}
+                className="w-full flex items-center gap-3 px-4 py-2.5 active:bg-primary/5 transition-colors cursor-pointer"
+              >
+                <span
+                  className={`size-2.5 shrink-0 rounded-full ${getDifficultyColor(lot.difficulty.score)}`}
+                />
+                <div className="flex-1 min-w-0 text-left">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-sm font-medium truncate">{lot.name}</span>
+                    {lot.difficulty.score !== null && lot.difficulty.score < 2.0 && (
+                      <span className="text-[10px] text-red-500 font-medium shrink-0">주의</span>
+                    )}
+                    {lot.difficulty.score !== null && lot.difficulty.score >= 4.0 && (
+                      <span className="text-[10px] text-green-600 font-medium shrink-0">추천</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                    {lot.difficulty.score !== null && (
+                      <>
+                        <span className="font-medium tabular-nums text-foreground">
+                          {lot.difficulty.score.toFixed(1)}
+                        </span>
+                        <span>·</span>
+                      </>
+                    )}
+                    {/* 점수가 없으면 「데이터 없음」 대신 아래 별점 입력을 보여준다 (D-1·A-6) */}
+                    {lot.difficulty.score !== null && (
+                      <>
+                        <span>{getDifficultyLabel(lot.difficulty.score)}</span>
+                        <span>·</span>
+                      </>
+                    )}
+                    <span>{lot.pricing.isFree ? '무료' : '유료'}</span>
+                    {lot.totalSpaces > 0 && (
+                      <>
+                        <span>·</span>
+                        <span>{lot.totalSpaces}면</span>
+                      </>
+                    )}
+                  </div>
                 </div>
-                <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                  {lot.difficulty.score !== null && (
-                    <>
-                      <span className="font-medium tabular-nums text-foreground">
-                        {lot.difficulty.score.toFixed(1)}
-                      </span>
-                      <span>·</span>
-                    </>
-                  )}
-                  <span>{getDifficultyLabel(lot.difficulty.score)}</span>
-                  <span>·</span>
-                  <span>{lot.pricing.isFree ? '무료' : '유료'}</span>
-                  {lot.totalSpaces > 0 && (
-                    <>
-                      <span>·</span>
-                      <span>{lot.totalSpaces}면</span>
-                    </>
-                  )}
+                {distance !== null && (
+                  <span className="text-sm text-muted-foreground shrink-0 tabular-nums">
+                    {distance < 1 ? `${Math.round(distance * 1000)}m` : `${distance.toFixed(1)}km`}
+                  </span>
+                )}
+              </button>
+              {lot.difficulty.score === null && (
+                <div className="pl-[38px] pr-4 pb-2.5">
+                  <QuickRating parkingLotId={lot.id} event="inline_rating_submitted" />
                 </div>
-              </div>
-              {distance !== null && (
-                <span className="text-sm text-muted-foreground shrink-0 tabular-nums">
-                  {distance < 1 ? `${Math.round(distance * 1000)}m` : `${distance.toFixed(1)}km`}
-                </span>
               )}
-            </button>
+            </div>
           ))}
         </div>
       )}
