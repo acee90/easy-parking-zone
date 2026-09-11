@@ -194,6 +194,10 @@ export async function runMatchBatch(
   /** 거절 사유별 분포. 오염이 실제로 줄고 있는지 보려면 이 값이 필요하다 */
   rejectedBy: Record<string, number>
   summarized: number
+  /** 후보 0건이라 web_sources_missed 로 보낸 raw 수 (A-5) */
+  missedRecorded: number
+  /** 후보 0건이지만 노이즈 이름이라 missed 로 보내지 않은 raw 수 (A-5) */
+  noiseSkipped: number
   budgetExceeded: boolean
 }> {
   const aiDeadline = Date.now() + AI_BUDGET_MS
@@ -226,6 +230,8 @@ export async function runMatchBatch(
       aiRejected: 0,
       rejectedBy: {},
       summarized: 0,
+      missedRecorded: 0,
+      noiseSkipped: 0,
       budgetExceeded: false,
     }
   }
@@ -239,6 +245,8 @@ export async function runMatchBatch(
   let aiVerified = 0
   let aiRejected = 0
   let summarized = 0
+  let missedRecorded = 0
+  let noiseSkipped = 0
   // 거절을 세지 않으면 수정 효과를 신규 행에서 확인할 방법이 없다. 행으로 남기지는
   // 않는다 — 위키·사이트맵 질의가 `relevance_score` 만 보고 `filter_passed_v2` 를
   // 안 보기 때문에, 거절 행을 넣으면 그대로 노출된다.
@@ -388,8 +396,10 @@ export async function runMatchBatch(
         const name = extractMissedLotName(title, content).join(' ')
         if (!name || isNoiseLotName(name)) {
           failReason = 'noise_name'
+          noiseSkipped++
         } else {
           failReason = 'lot_not_in_db'
+          missedRecorded++
           // source_id 가 UNIQUE 라 재실행해도 중복이 생기지 않는다
           insertBatch.push(
             db
@@ -438,7 +448,17 @@ export async function runMatchBatch(
   // 소비자의 판정이 web_sources 실제 행 수를 세는 방식이라 헛되이 요약을 만들지 않는다.
   await flush()
 
-  return { matched, lotLinks, aiVerified, aiRejected, rejectedBy, summarized, budgetExceeded }
+  return {
+    matched,
+    lotLinks,
+    aiVerified,
+    aiRejected,
+    rejectedBy,
+    summarized,
+    missedRecorded,
+    noiseSkipped,
+    budgetExceeded,
+  }
 }
 
 /** 빈 문자열·공백만 있는 요약은 없는 것으로 본다 */

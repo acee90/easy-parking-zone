@@ -154,6 +154,11 @@ export async function handleScheduled(env: Env): Promise<void> {
     }
     // 시간 예산에 걸려 중단됐다는 뜻이다. 남은 raw 는 다음 회차가 이어받지만,
     // 이게 계속 찍히면 처리량이 유입을 못 따라가고 있다는 신호다.
+    // A-5: 후보 0건이라 web_sources_missed 로 보낸 raw / 노이즈 이름이라 버린 raw.
+    // raw 는 같은 회차의 purge 가 지우므로 match_fail_reason 으로는 사후 관측이 안 된다 —
+    // 연결이 0건인 회차에도 생길 수 있어 위 if 블록 밖에서 센다.
+    if (r.missedRecorded > 0) stats['match:missed'] = r.missedRecorded
+    if (r.noiseSkipped > 0) stats['match:noise_name'] = r.noiseSkipped
     if (r.budgetExceeded) results.push('match: AI budget exceeded (다음 회차 이어받음)')
   } catch (err) {
     results.push(`match: error - ${(err as Error).message}`)
