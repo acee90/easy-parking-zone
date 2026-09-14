@@ -6,6 +6,7 @@ import type { ReactNode } from 'react'
 import { RankingSection } from '@/components/wiki/RankingSection'
 import { getDb } from '@/db'
 import { PARKING_REGIONS } from '@/lib/parking-regions'
+import { cachedJson } from '@/server/cache-json'
 import { curateLots } from '@/server/lot-name-quality'
 import { fetchSiteStats } from '@/server/parking'
 import { type ParkingLotRow, rowToParkingLot } from '@/server/transforms'
@@ -47,7 +48,7 @@ function toLots(rows: unknown[]): WikiParkingLot[] {
   }))
 }
 
-const fetchWikiHome = createServerFn({ method: 'GET' }).handler(async () => {
+async function loadWikiHome() {
   const db = getDb()
 
   // 랭킹은 이름 품질 게이트(curateLots)로 걸러낸 뒤 12개를 쓴다 — 걸러질 몫까지 넉넉히 뽑는다 (D-4)
@@ -160,7 +161,12 @@ const fetchWikiHome = createServerFn({ method: 'GET' }).handler(async () => {
     regions,
     siteStats,
   }
-})
+}
+
+// 조회 1회에 섹션 쿼리만 약 25만 행을 읽고 TTFB 1.7~2.3s 였다 (09-11). 순위는 크론 주기로만 바뀐다
+const fetchWikiHome = createServerFn({ method: 'GET' }).handler(() =>
+  cachedJson('wiki-home-v1', 3600, loadWikiHome),
+)
 
 export const Route = createFileRoute('/wiki/')({
   loader: () => fetchWikiHome(),
