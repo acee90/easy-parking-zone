@@ -308,6 +308,24 @@ export function MapView({
     boundsTimerRef.current = setTimeout(emitBounds, animatingRef.current ? PAN_SETTLE_MS : 300)
   }, [])
 
+  // 목록·마커·클러스터 클릭으로 옮길 때는 지도가 멈춘(idle) 순간 바로 bounds 를 보낸다 (C-2).
+  // 디바운스(PAN_SETTLE_MS)는 애니메이션 중 마지막 bounds_changed 부터 다시 350ms 를 기다려
+  // 클릭 → 목록 조회 시작이 약 650ms 였다 (09-14 운영 n=5). 사용자가 끄는 경우는 기존 300ms 디바운스 그대로.
+  // setZoom 과 panTo 가 idle 을 두 번 낼 수 있어 50ms 로 묶는다 — 목록 조회는 클릭당 1회여야 한다.
+  useEffect(() => {
+    const map = mapRef.current
+    if (!mapInitialized || !map) return
+    const listener = navermaps.Event.addListener(map, 'idle', () => {
+      if (!animatingRef.current) return
+      clearTimeout(boundsTimerRef.current)
+      boundsTimerRef.current = setTimeout(() => {
+        animatingRef.current = false
+        emitBounds()
+      }, 50)
+    })
+    return () => navermaps.Event.removeListener(listener)
+  }, [navermaps, mapInitialized])
+
   const handleInit = useCallback(() => {
     setMapInitialized(true)
     onMapReady()
