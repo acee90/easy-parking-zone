@@ -4,6 +4,10 @@ import type { ParkingLot } from '@/types/parking'
 
 // 행 아래 QuickRating 이 서버 함수를 import 한다 — 테스트에서는 불러오지 않는다
 vi.mock('@/server/reviews', () => ({ createReview: vi.fn() }))
+// 목록 끝의 지역 허브 링크는 라우터 컨텍스트가 필요하다 — 테스트에서는 일반 링크로
+vi.mock('@tanstack/react-router', () => ({
+  Link: ({ children }: { children: React.ReactNode }) => <a href="#region">{children}</a>,
+}))
 
 import { ParkingSidebar } from './ParkingSidebar'
 

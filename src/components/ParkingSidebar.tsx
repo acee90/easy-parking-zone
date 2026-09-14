@@ -1,7 +1,9 @@
+import { Link } from '@tanstack/react-router'
 import { ChevronRight, MapPin, ParkingSquare } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { QuickRating } from '@/components/QuickRating'
 import { getDifficultyLabel, getDistance } from '@/lib/geo-utils'
+import { PARKING_REGIONS } from '@/lib/parking-regions'
 import type { ParkingLot } from '@/types/parking'
 
 const PAGE_SIZE = 20
@@ -193,7 +195,33 @@ export function ParkingSidebar({
             )}
           </>
         )}
+        <RegionHubLinks />
       </div>
     </aside>
+  )
+}
+
+/**
+ * 지역 허브 17개로 가는 링크. 지도 홈의 원본 HTML 은 38단어에 지역 링크가 0개라
+ * Google 이 허브를 「참조 페이지 없음」으로 보고 색인하지 않았다 (2026-09-14 GSC).
+ * 목록 끝에 두어 SSR HTML 에 항상 들어가게 한다.
+ */
+function RegionHubLinks() {
+  return (
+    <nav aria-label="지역별 주차장" className="border-t px-4 py-3">
+      <p className="mb-1.5 text-xs font-semibold text-muted-foreground">지역별 주차장</p>
+      <div className="flex flex-wrap gap-x-2.5 gap-y-1 text-xs text-muted-foreground">
+        {PARKING_REGIONS.map((region) => (
+          <Link
+            key={region.label}
+            to="/wiki/region/$region"
+            params={{ region: region.label }}
+            className="transition-colors hover:text-foreground hover:underline"
+          >
+            {region.label}
+          </Link>
+        ))}
+      </div>
+    </nav>
   )
 }
