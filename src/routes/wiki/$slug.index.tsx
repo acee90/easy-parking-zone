@@ -10,6 +10,7 @@ import { LotHeroSection } from '@/components/wiki/LotHeroSection'
 import { LotLocationSection } from '@/components/wiki/LotLocationSection'
 import { NearbyPlacesSection } from '@/components/wiki/NearbyPlacesSection'
 import { RelatedParkingLotsSection } from '@/components/wiki/RelatedParkingLotsSection'
+import { VerifiedParkingGuideSection } from '@/components/wiki/VerifiedParkingGuideSection'
 import { WebSourceListSection } from '@/components/wiki/WebSourceListSection'
 import { DEFAULT_FIELD_SOURCES, stripUnverifiedEdits } from '@/lib/lot-field-groups'
 import {
@@ -20,6 +21,7 @@ import {
 } from '@/lib/parking-jsonld'
 import { getRegionForAddress } from '@/lib/parking-regions'
 import { makeParkingSlug } from '@/lib/slug'
+import { getVerifiedParkingGuide } from '@/lib/verified-parking-guides'
 
 const parentRoute = getRouteApi('/wiki/$slug')
 
@@ -41,7 +43,9 @@ function WikiDetailPage() {
   } = parentRoute.useLoaderData()
 
   const router = useRouter()
-  const summary = lot.aiSummary
+  const verifiedGuide = getVerifiedParkingGuide(lot.id)
+  const summary = verifiedGuide ? undefined : lot.aiSummary
+  const pricingTip = verifiedGuide ? undefined : lot.aiTipPricing
   const slug = makeParkingSlug(lot.name, lot.id)
   // 읽은 글이 0건이면 태그가 있어도 분위기를 열지 않는다 — EvaluationSection 과 같은 기준
   const hasSentiment = webSentiment !== null && webSentiment.count > 0
@@ -135,7 +139,9 @@ function WikiDetailPage() {
               정보라 여기 같이 둔다.
               웹 후기 분위기(막대·자주 나온 말)는 예전엔 「평가」 섹션에서 이용자 별점과
               나란히 그렸다. 점수는 히어로 「쉬움 점수」 하나로 합쳤고, 여기서는 그 근거만 보인다. */}
-          {(summary || lot.aiTipPricing || hasSentiment) && (
+          {verifiedGuide && <VerifiedParkingGuideSection guide={verifiedGuide} />}
+
+          {(summary || pricingTip || hasSentiment) && (
             <section className="flex flex-col">
               <div className="mb-[11px] flex flex-wrap items-center justify-between gap-2.5">
                 <h2 className="m-0 text-[17px] font-extrabold tracking-[-0.015em] text-ink">
@@ -154,12 +160,12 @@ function WikiDetailPage() {
                   {summary}
                 </p>
               )}
-              {lot.aiTipPricing && (
+              {pricingTip && (
                 <div className={`text-[14px] leading-relaxed text-ink-2 ${summary ? 'mt-3' : ''}`}>
                   <span className="mb-0.5 block text-[13px] font-bold text-ink">
                     {lot.pricing.isFree ? '요금 팁 (무료)' : '요금 팁'}
                   </span>
-                  {lot.aiTipPricing}
+                  {pricingTip}
                 </div>
               )}
               <EvaluationSection sentiment={webSentiment} />
@@ -182,12 +188,12 @@ function WikiDetailPage() {
           {/* ── 여기부터는 일반 정보 — 위치 · 요금 계산 · 주변 비교 · FAQ · 근거 ── */}
 
           {/* 위치 — 「방문 전 확인 항목」 성격이라 방문 팁을 여기 함께 둔다 */}
-          <LotLocationSection lot={lot} visitTip={lot.aiTipVisit} />
+          <LotLocationSection lot={lot} visitTip={verifiedGuide ? undefined : lot.aiTipVisit} />
 
           {/* 요금 계산 — 요금 정보가 모자란 주차장에서는 스스로 렌더하지 않는다.
               무료 주차장에서는 계산할 것이 없다 (「0원」만 크게 남는다).
               요금 팁은 위 후기 종합에 이미 있어 여기서 또 넣지 않는다. */}
-          {!lot.pricing.isFree && <FeeCalculatorSection lot={lot} />}
+          {!verifiedGuide && !lot.pricing.isFree && <FeeCalculatorSection lot={lot} />}
 
           {/* 주변 주차장 비교표 — 사이드바에서 본문으로 옮겼다.
             loader가 이미 8곳의 요금·면수·좌표를 들고 있어 추가 조회가 없다. */}
@@ -196,7 +202,10 @@ function WikiDetailPage() {
           {/* 후기에서 함께 언급된 주차장 — "여기 말고 어디" 계열이라 비교표 바로 뒤에 둔다.
             우리 DB 와 이름이 정확히 맞고 3km 이내인 것만 저장돼 있다.
             대안 팁도 같은 주제라 여기 함께 둔다. */}
-          <AlternativeLotsSection items={alternativeLots} tip={lot.aiTipAlternative} />
+          <AlternativeLotsSection
+            items={alternativeLots}
+            tip={verifiedGuide ? undefined : lot.aiTipAlternative}
+          />
 
           {/* 이 주차장으로 갈 수 있는 곳 — 목적지 페이지(/near)로 올라가는 링크 (#166).
             발행된 목적지가 없으면 스스로 그리지 않는다. */}

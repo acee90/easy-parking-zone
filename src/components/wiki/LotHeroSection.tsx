@@ -5,6 +5,7 @@ import { DividerCell, DividerGrid } from '@/components/wiki/SectionShell'
 import { DEFAULT_FIELD_SOURCES, type FieldGroup, type FieldSources } from '@/lib/lot-field-groups'
 import { formatTimeRange } from '@/lib/parking-display'
 import { estimateFee } from '@/lib/parking-fee'
+import { estimateVerifiedFee, getVerifiedParkingGuide } from '@/lib/verified-parking-guides'
 import type { ParkingLot } from '@/types/parking'
 
 /** 1시간 기준으로 요금을 보여준다 — 사람들이 머릿속으로 잡는 단위 */
@@ -239,11 +240,25 @@ export function LotHeroSection({
   webCount: number
 }) {
   const kpis = buildKpis(lot, realReviewCount, webCount)
+  const guide = getVerifiedParkingGuide(lot.id)
+  if (guide) {
+    kpis[0] = {
+      key: 'fee',
+      label: guide.pricing.isFree ? '주차 요금' : '1시간 예상',
+      value: guide.pricing.isFree
+        ? '무료'
+        : (estimateVerifiedFee(guide, 60)?.toLocaleString() ?? '정보 없음'),
+      unit: guide.pricing.isFree ? undefined : '원',
+      caption: `공식 안내 ${guide.checkedAt} 확인`,
+    }
+  }
+  const isFree = guide?.pricing.isFree ?? lot.pricing.isFree
   const score = lot.difficulty.score
   // 크롤러가 문자열 `'null'` 을 써 넣은 행이 681곳 있다 (2026-09-10 리모트 실측).
   // 그대로 두면 「혜택 null」 이 나온다 — 운영시간 컬럼과 같은 계열의 값이다.
   const perkText = lot.notes?.trim()
-  const perk = perkText && !['null', 'undefined', 'NULL'].includes(perkText) ? perkText : null
+  const perk =
+    !guide && perkText && !['null', 'undefined', 'NULL'].includes(perkText) ? perkText : null
   const [editing, setEditing] = useState<FieldGroup | null>(null)
   const [toast, setToast] = useState<string | null>(null)
 
@@ -252,9 +267,7 @@ export function LotHeroSection({
       <div className="flex flex-col gap-2">
         {/* 시안 `.pills` — shadcn Badge 대신 11px/700 알약. 페이지에서 처음 눈에 닿는 요소다 */}
         <div className="flex flex-wrap items-center gap-1.5">
-          <Pill tone={lot.pricing.isFree ? 'good' : 'accent'}>
-            {lot.pricing.isFree ? '무료' : '유료'}
-          </Pill>
+          <Pill tone={isFree ? 'good' : 'accent'}>{isFree ? '무료' : '유료'}</Pill>
           <Pill>{lot.type}</Pill>
           {score !== null && score >= 4.0 && (
             <Pill tone="good">

@@ -1,4 +1,5 @@
 import { formatOperatingHours, formatPricing } from '@/lib/parking-display'
+import { getVerifiedParkingGuide } from '@/lib/verified-parking-guides'
 import type { ParkingLot } from '@/types/parking'
 
 export interface FaqItem {
@@ -48,6 +49,8 @@ export function generateFaqItems(lot: ParkingLot, relatedLots: ParkingLot[]): Fa
 }
 
 function buildPricingAnswer(lot: ParkingLot): string | null {
+  const guide = getVerifiedParkingGuide(lot.id)
+  if (guide) return `${guide.summary} ${guide.source.label} (${guide.checkedAt} 확인) 기준입니다.`
   if (lot.aiTipPricing) return lot.aiTipPricing
 
   const display = formatPricing(lot.pricing)
@@ -82,7 +85,7 @@ function buildHoursAnswer(lot: ParkingLot): string | null {
 }
 
 function buildNearbyAnswer(lot: ParkingLot, relatedLots: ParkingLot[]): string | null {
-  if (lot.aiTipAlternative) return lot.aiTipAlternative
+  if (!getVerifiedParkingGuide(lot.id) && lot.aiTipAlternative) return lot.aiTipAlternative
 
   const nearby = relatedLots.slice(0, 3)
   if (nearby.length === 0) return null

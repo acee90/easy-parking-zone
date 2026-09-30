@@ -2,6 +2,7 @@ import { generateFaqItems } from '@/lib/faq-generator'
 import { isUnsetTimeRange } from '@/lib/parking-display'
 import type { ParkingRegion } from '@/lib/parking-regions'
 import { makeParkingSlug } from '@/lib/slug'
+import { getVerifiedParkingGuide } from '@/lib/verified-parking-guides'
 import type { ParkingLot } from '@/types/parking'
 
 const SITE_URL = 'https://easy-parking.xyz'
@@ -59,6 +60,7 @@ export function buildParkingLotJsonLd(
 ) {
   const slug = makeParkingSlug(lot.name, lot.id)
   const openingHours = buildOpeningHours(lot.operatingHours)
+  const guide = getVerifiedParkingGuide(lot.id)
   return {
     '@context': 'https://schema.org',
     '@type': ['LocalBusiness', 'ParkingFacility'],
@@ -77,18 +79,20 @@ export function buildParkingLotJsonLd(
     ...(lot.totalSpaces > 0 && { maximumAttendeeCapacity: lot.totalSpaces }),
     ...(lot.phone && { telephone: lot.phone }),
     ...(openingHours.length > 0 && { openingHoursSpecification: openingHours }),
-    ...(lot.pricing.isFree
-      ? { isAccessibleForFree: true }
-      : {
-          isAccessibleForFree: false,
-          // 요금표가 없는 곳(실측 676곳은 컬럼에 문자열 'null' 이 들어 있었다)에
-          // "기본 0분 0원" 을 내보내던 자리다. 값이 없으면 필드를 빼는 게 맞다.
-          ...(lot.pricing.baseTime > 0 && lot.pricing.baseFee > 0
-            ? {
-                priceRange: `기본 ${lot.pricing.baseTime}분 ${lot.pricing.baseFee.toLocaleString()}원`,
-              }
-            : {}),
-        }),
+    ...(guide
+      ? { isAccessibleForFree: guide.pricing.isFree, priceRange: guide.summary }
+      : lot.pricing.isFree
+        ? { isAccessibleForFree: true }
+        : {
+            isAccessibleForFree: false,
+            // 요금표가 없는 곳(실측 676곳은 컬럼에 문자열 'null' 이 들어 있었다)에
+            // "기본 0분 0원" 을 내보내던 자리다. 값이 없으면 필드를 빼는 게 맞다.
+            ...(lot.pricing.baseTime > 0 && lot.pricing.baseFee > 0
+              ? {
+                  priceRange: `기본 ${lot.pricing.baseTime}분 ${lot.pricing.baseFee.toLocaleString()}원`,
+                }
+              : {}),
+          }),
     // 별점 마크업은 실사용자 리뷰가 있을 때만 내보낸다.
     //
     // 과거에는 `lot.difficulty.score !== null` 을 조건으로 썼는데, 그 점수는 구조적 추정치라

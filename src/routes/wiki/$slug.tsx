@@ -3,6 +3,7 @@ import { DEFAULT_FIELD_SOURCES, stripUnverifiedEdits } from '@/lib/lot-field-gro
 import { formatPricing } from '@/lib/parking-display'
 import { shouldIndexParkingDetail } from '@/lib/seo-indexing'
 import { makeParkingSlug, parseIdFromSlug } from '@/lib/slug'
+import { getVerifiedParkingGuide } from '@/lib/verified-parking-guides'
 import { fetchDestinationsForLot } from '@/server/destinations'
 import {
   fetchAlternativeLots,
@@ -104,6 +105,7 @@ export const Route = createFileRoute('/wiki/$slug')({
     const pricing = formatPricing(lot.pricing)
     // 모르는 값은 설명에서 뺀다. 화면은 칸을 비우지 않고 "정보 없음"을 남기지만,
     // 검색 결과 설명은 길이가 한정돼 있어 없는 정보를 적을 자리가 아깝다.
+    const guide = getVerifiedParkingGuide(lot.id)
     const pricingDesc = pricing.isUnknown ? null : pricing.primary
     const scoreDesc = lot.difficulty.score ? lot.difficulty.score.toFixed(1) : '정보없음'
     const curationPrefix =
@@ -112,9 +114,15 @@ export const Route = createFileRoute('/wiki/$slug')({
         : lot.curationTag === 'easy'
           ? '초보 추천 주차장. '
           : ''
-    const desc = `${curationPrefix}${lot.name} (${lot.address}) 주차 난이도 ${scoreDesc}${
-      pricingDesc ? `, ${pricingDesc}` : ''
-    }. 리뷰 ${lot.difficulty.reviewCount}개.`
+    // 시드 후기는 검색 설명에서 실사용자 리뷰처럼 세지 않는다. 공식 안내를 확인한
+    // 5곳은 추정 난이도보다 확인 가능한 요금·이용 조건과 출처 시점을 앞세운다.
+    const realReviews = tabCounts?.realReviews ?? 0
+    const reviewDesc = realReviews > 0 ? ` 실제 이용자 후기 ${realReviews}개.` : ''
+    const desc = guide
+      ? `${lot.name} (${lot.address}). ${guide.summary} 운영사 공식 안내 ${guide.checkedAt} 확인.${reviewDesc}`
+      : `${curationPrefix}${lot.name} (${lot.address}) 주차 난이도 ${scoreDesc}${
+          pricingDesc ? `, ${pricingDesc}` : ''
+        }.${reviewDesc}`
 
     // canonical/JSON-LD는 TanStack Start head API의 links/scripts가 SSR HTML에
     // 직렬화되지 않아 $slug.index.tsx에서 React 19 metadata hoisting으로 직접 렌더한다.
