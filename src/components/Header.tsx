@@ -12,7 +12,7 @@ interface SiteStats {
 }
 
 interface HeaderProps {
-  active?: 'map' | 'wiki'
+  active?: 'home' | 'map' | 'wiki'
   onSearchSelect?: (lot: ParkingLot) => void
   onPlaceSelect?: (coords: { lat: number; lng: number }) => void
   siteStats?: SiteStats
@@ -20,7 +20,10 @@ interface HeaderProps {
 
 function LoginModal({ onClose }: { onClose: () => void }) {
   const handleSocial = (provider: 'kakao' | 'naver' | 'google') => {
-    authClient.signIn.social({ provider, callbackURL: '/' })
+    authClient.signIn.social({
+      provider,
+      callbackURL: `${window.location.pathname}${window.location.search}`,
+    })
   }
 
   return (
@@ -122,19 +125,27 @@ const navItemBase =
 const navActive = `${navItemBase} bg-gray-100 text-foreground`
 const navInactive = `${navItemBase} text-muted-foreground hover:text-foreground hover:bg-gray-50`
 
-export function Header({ active = 'map', onSearchSelect, onPlaceSelect, siteStats }: HeaderProps) {
+export function Header({ active = 'home', onSearchSelect, onPlaceSelect, siteStats }: HeaderProps) {
   const { data: session } = authClient.useSession()
   const [showLogin, setShowLogin] = useState(false)
 
   return (
     <>
       <header className="z-30 flex h-[52px] shrink-0 items-center gap-2 sm:gap-3 border-b bg-white px-3 sm:px-4">
-        <Link to="/" className="flex items-center gap-2 shrink-0">
+        <Link
+          to="/"
+          search={{ lotId: undefined, near: undefined }}
+          className="flex items-center gap-2 shrink-0"
+        >
           <img src="/IMG_5843.PNG" alt="" className="size-7 rounded-md" />
           <span className="font-bold text-base hidden sm:inline">쉬운주차장</span>
         </Link>
         <nav className="flex shrink-0 items-center gap-0.5 sm:gap-1">
-          <Link to="/" className={active === 'map' ? navActive : navInactive}>
+          <Link
+            to="/map"
+            search={{ lotId: undefined, near: undefined }}
+            className={active === 'map' ? navActive : navInactive}
+          >
             <MapIcon className="size-3.5" />
             지도
           </Link>

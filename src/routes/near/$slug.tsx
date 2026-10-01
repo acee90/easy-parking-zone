@@ -66,7 +66,7 @@ export const Route = createFileRoute('/near/$slug')({
       <h1 className="text-2xl font-bold">아직 준비되지 않은 목적지입니다</h1>
       <p className="text-muted-foreground">지도에서 검색하면 주변 주차장을 바로 볼 수 있습니다.</p>
       <Link
-        to="/"
+        to="/map"
         search={{ lotId: undefined, near: undefined }}
         className="text-primary underline"
       >
@@ -121,7 +121,7 @@ function DestinationPage() {
             <WikiMiniMap lat={dest.lat} lng={dest.lng} name={dest.name} />
             <div className="mt-3">
               <Link
-                to="/"
+                to="/map"
                 search={{ lotId: undefined, near: dest.id }}
                 className="text-[13px] font-semibold text-ink underline underline-offset-2"
               >

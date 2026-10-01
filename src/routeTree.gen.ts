@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as TestDesignsRouteImport } from './routes/test-designs'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as PrivacyRouteImport } from './routes/privacy'
+import { Route as MapRouteImport } from './routes/map'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AboutRouteImport } from './routes/about'
@@ -49,6 +50,11 @@ const TermsRoute = TermsRouteImport.update({
 const PrivacyRoute = PrivacyRouteImport.update({
   id: '/privacy',
   path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MapRoute = MapRouteImport.update({
+  id: '/map',
+  path: '/map',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ContactRoute = ContactRouteImport.update({
@@ -174,6 +180,7 @@ export interface FileRoutesByFullPath {
   '/about': typeof AboutRoute
   '/admin': typeof AdminRouteWithChildren
   '/contact': typeof ContactRoute
+  '/map': typeof MapRoute
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
   '/test-designs': typeof TestDesignsRoute
@@ -201,6 +208,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/contact': typeof ContactRoute
+  '/map': typeof MapRoute
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
   '/test-designs': typeof TestDesignsRoute
@@ -229,6 +237,7 @@ export interface FileRoutesById {
   '/about': typeof AboutRoute
   '/admin': typeof AdminRouteWithChildren
   '/contact': typeof ContactRoute
+  '/map': typeof MapRoute
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
   '/test-designs': typeof TestDesignsRoute
@@ -259,6 +268,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/admin'
     | '/contact'
+    | '/map'
     | '/privacy'
     | '/terms'
     | '/test-designs'
@@ -286,6 +296,7 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/contact'
+    | '/map'
     | '/privacy'
     | '/terms'
     | '/test-designs'
@@ -313,6 +324,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/admin'
     | '/contact'
+    | '/map'
     | '/privacy'
     | '/terms'
     | '/test-designs'
@@ -342,6 +354,7 @@ export interface RootRouteChildren {
   AboutRoute: typeof AboutRoute
   AdminRoute: typeof AdminRouteWithChildren
   ContactRoute: typeof ContactRoute
+  MapRoute: typeof MapRoute
   PrivacyRoute: typeof PrivacyRoute
   TermsRoute: typeof TermsRoute
   TestDesignsRoute: typeof TestDesignsRoute
@@ -377,6 +390,13 @@ declare module '@tanstack/react-router' {
       path: '/privacy'
       fullPath: '/privacy'
       preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/map': {
+      id: '/map'
+      path: '/map'
+      fullPath: '/map'
+      preLoaderRoute: typeof MapRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/contact': {
@@ -586,6 +606,7 @@ const rootRouteChildren: RootRouteChildren = {
   AboutRoute: AboutRoute,
   AdminRoute: AdminRouteWithChildren,
   ContactRoute: ContactRoute,
+  MapRoute: MapRoute,
   PrivacyRoute: PrivacyRoute,
   TermsRoute: TermsRoute,
   TestDesignsRoute: TestDesignsRoute,
