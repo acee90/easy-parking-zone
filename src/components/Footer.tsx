@@ -12,7 +12,7 @@ export function Footer() {
               <span className="text-lg font-bold text-white">쉬운주차장</span>
             </div>
             <p className="text-sm leading-relaxed text-zinc-400">
-              전국 주차장 난이도·요금·운영시간을 실제 방문 데이터로 비교합니다.
+              전국 주차장의 위치·요금·운영시간과 주차 난이도를 살펴보세요.
             </p>
           </div>
 
@@ -41,7 +41,11 @@ export function Footer() {
             </h3>
             <ul className="space-y-1.5 text-sm text-zinc-400">
               <li>
-                <Link to="/" className="transition-colors hover:text-white hover:underline">
+                <Link
+                  to="/map"
+                  search={{ lotId: undefined, near: undefined }}
+                  className="transition-colors hover:text-white hover:underline"
+                >
                   주차장 지도
                 </Link>
               </li>
@@ -51,9 +55,9 @@ export function Footer() {
                 </Link>
               </li>
               <li>
-                <Link to="/wiki/all" className="transition-colors hover:text-white hover:underline">
+                <a href="/wiki/all" className="transition-colors hover:text-white hover:underline">
                   전체 주차장 목록
-                </Link>
+                </a>
               </li>
             </ul>
           </div>

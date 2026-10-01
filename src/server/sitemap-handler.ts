@@ -24,6 +24,7 @@ const URLS_PER_SITEMAP = 5000
 const BASE = 'https://easy-parking.xyz'
 // 정적 페이지(/, /wiki)의 lastmod 기준일. 콘텐츠 구조가 바뀔 때 수동으로 갱신.
 const STATIC_LASTMOD = '2026-08-03'
+const HOME_LASTMOD = '2026-10-01'
 
 function toSlug(name: string): string {
   return name
@@ -102,7 +103,7 @@ async function sitemapIndex(db: D1Database): Promise<Response> {
 <sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <sitemap>
     <loc>${BASE}/sitemap-static.xml</loc>
-    <lastmod>${STATIC_LASTMOD}</lastmod>
+    <lastmod>${HOME_LASTMOD}</lastmod>
   </sitemap>`
 
   for (let i = 0; i < meta.pageCount; i++) {
@@ -203,7 +204,7 @@ ${parkingUrlEntry(row.id, row.name, row.updated_at, '0.9')}`
 function staticUrlEntries(now: string): string {
   const fixed = `  <url>
     <loc>${BASE}/</loc>
-    <lastmod>2026-09-18</lastmod>
+    <lastmod>${HOME_LASTMOD}</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>

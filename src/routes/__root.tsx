@@ -19,8 +19,9 @@ import appCss from '../styles.css?url'
 
 const SITE_URL = 'https://easy-parking.xyz'
 const SITE_NAME = '쉽주'
-const SITE_TITLE = '쉽주 — 전국 주차장 난이도 지도'
-const SITE_DESC = '주차하기 전에 한 번만 확인하세요. 전국 주차장 난이도, 요금, 운영시간을 한눈에.'
+const SITE_TITLE = '쉽주 — 주차장 요금·운영시간·난이도 비교'
+const SITE_DESC =
+  '처음 가는 곳도 주차는 쉽게. 전국 주차장의 위치, 요금, 운영시간과 주차 난이도를 살펴보고 비교하세요.'
 // 애드센스 게시자 ID. public/ads.txt 의 pub-… 와 반드시 같아야 한다.
 const ADSENSE_CLIENT = 'ca-pub-1181606382178400'
 
@@ -131,11 +132,6 @@ const WEBSITE_JSONLD = JSON.stringify({
   url: SITE_URL,
   description: SITE_DESC,
   inLanguage: 'ko',
-  potentialAction: {
-    '@type': 'SearchAction',
-    target: `${SITE_URL}/?q={search_term_string}`,
-    'query-input': 'required name=search_term_string',
-  },
 })
 
 function RootComponent() {
@@ -150,8 +146,8 @@ function RootComponent() {
   // 현재 라우트 경로로 active 탭 결정
   const matches = useMatches()
   const lastMatch = matches[matches.length - 1]
-  const active = lastMatch?.fullPath?.startsWith('/wiki') ? ('wiki' as const) : ('map' as const)
-  const isMap = lastMatch?.fullPath === '/'
+  const active = lastMatch?.fullPath?.startsWith('/wiki') ? ('wiki' as const) : ('home' as const)
+  const isMap = lastMatch?.fullPath === '/map'
   const isAdmin = lastMatch?.fullPath?.startsWith('/admin') ?? false
   const showFooter = !isMap && !isAdmin
   const handleWikiSearchSelect = useCallback(
