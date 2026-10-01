@@ -8,13 +8,13 @@
  * sitemap-N.xml       : web_sources 있는 주차장
  *
  * lastmod 정책:
- *   - 각 lot 페이지: parking_lots.updated_at / parking_lot_stats.computed_at의 MAX (실제 데이터 변경일).
+ *   - 각 lot 페이지: 데이터 변경일과 검증 가이드 콘텐츠 수정일의 MAX.
  *     매일 today로 찍지 않아 Google이 lastmod 신호를 신뢰하도록 한다.
- *   - 정적 페이지(/, /wiki): 빌드 시점 기반의 안정적 날짜.
+ *   - 정적 페이지: 확인된 페이지 콘텐츠 변경일을 수동으로 갱신.
  *   - sitemap-index: 각 sub-sitemap의 MAX(lot updated_at).
  *
- * 참고: web_sources 없는 thin 주차장은 sitemap에서 완전 제외 (#126).
- *      해당 페이지는 wiki/$slug.tsx에서 noindex 메타로 색인 차단.
+ * 참고: 상세페이지의 색인 게이트와 사이트맵의 SQL 포함 조건은 아직 동일하지 않다.
+ *      PARK-3 감사 결과를 바탕으로 대량 URL 제외 없이 별도 정합성 검토가 필요하다.
  */
 
 import { PARKING_REGIONS } from '@/lib/parking-regions'
@@ -22,9 +22,11 @@ import { getVerifiedParkingGuide } from '@/lib/verified-parking-guides'
 
 const URLS_PER_SITEMAP = 5000
 const BASE = 'https://easy-parking.xyz'
-// 정적 페이지(/, /wiki)의 lastmod 기준일. 콘텐츠 구조가 바뀔 때 수동으로 갱신.
+// DB 행의 변경일이 없을 때만 쓰는 fallback. 정적 URL은 각각 확인된 변경일을 사용한다.
 const STATIC_LASTMOD = '2026-08-03'
 const HOME_LASTMOD = '2026-10-01'
+const WIKI_ALL_LASTMOD = '2026-09-09'
+const REGION_HUB_LASTMOD = '2026-09-30'
 
 function toSlug(name: string): string {
   return name
@@ -188,7 +190,7 @@ async function sitemapParking(db: D1Database): Promise<Response> {
 
   let xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${staticUrlEntries(STATIC_LASTMOD)}`
+${staticUrlEntries()}`
 
   for (const row of rows.results ?? []) {
     xml += `
@@ -201,7 +203,7 @@ ${parkingUrlEntry(row.id, row.name, row.updated_at, '0.9')}`
   return xmlResponse(xml)
 }
 
-function staticUrlEntries(now: string): string {
+function staticUrlEntries(): string {
   const fixed = `  <url>
     <loc>${BASE}/</loc>
     <lastmod>${HOME_LASTMOD}</lastmod>
@@ -210,13 +212,13 @@ function staticUrlEntries(now: string): string {
   </url>
   <url>
     <loc>${BASE}/wiki</loc>
-    <lastmod>2026-09-18</lastmod>
+    <lastmod>2026-09-30</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>${BASE}/wiki/all</loc>
-    <lastmod>${now}</lastmod>
+    <lastmod>${WIKI_ALL_LASTMOD}</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.8</priority>
   </url>`
@@ -225,7 +227,7 @@ function staticUrlEntries(now: string): string {
   const regionEntries = PARKING_REGIONS.map(
     (region) => `  <url>
     <loc>${BASE}/wiki/region/${encodeURIComponent(region.label)}</loc>
-    <lastmod>${now}</lastmod>
+    <lastmod>${REGION_HUB_LASTMOD}</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>`,
@@ -242,7 +244,7 @@ function parkingUrlEntry(
 ): string {
   const slug = encodeURI(makeParkingSlug(name, id))
   const dataDate = toLastmodDate(updatedAt, STATIC_LASTMOD)
-  const guideDate = getVerifiedParkingGuide(id)?.checkedAt
+  const guideDate = getVerifiedParkingGuide(id)?.contentUpdatedAt
   const lastmod = guideDate && guideDate > dataDate ? guideDate : dataDate
   return `  <url>
     <loc>${BASE}/wiki/${slug}</loc>
@@ -308,7 +310,7 @@ async function sitemapPriority(db: D1Database): Promise<Response> {
 
   let xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${staticUrlEntries(STATIC_LASTMOD)}`
+${staticUrlEntries()}`
 
   for (const row of rows) {
     xml += `
@@ -324,7 +326,7 @@ ${parkingUrlEntry(row.id, row.name, row.updated_at, '0.8')}`
 async function sitemapStatic(): Promise<Response> {
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${staticUrlEntries(STATIC_LASTMOD)}
+${staticUrlEntries()}
 </urlset>`
 
   return xmlResponse(xml)

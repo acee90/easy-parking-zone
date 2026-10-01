@@ -34,6 +34,14 @@ export const Route = createFileRoute('/wiki/$slug')({
       }
       throw notFound()
     }
+    const canonicalSlug = makeParkingSlug(lot.name, lot.id)
+    if (params.slug !== canonicalSlug) {
+      throw redirect({
+        to: '/wiki/$slug',
+        params: { slug: canonicalSlug },
+        statusCode: 301,
+      })
+    }
     const [
       nearbyPlaces,
       reviews,
