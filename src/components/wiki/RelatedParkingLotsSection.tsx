@@ -3,11 +3,13 @@ import { getDistance } from '@/lib/geo-utils'
 import { formatDistanceLabel } from '@/lib/parking-display'
 import { estimateFee, walkMinutes } from '@/lib/parking-fee'
 import { makeParkingSlug } from '@/lib/slug'
+import { estimateVerifiedFee, getVerifiedParkingGuide } from '@/lib/verified-parking-guides'
 import type { ParkingLot } from '@/types/parking'
 
 /** 1시간 예상요금 셀 — 계산 불가면 숫자를 지어내지 않는다. 목적지 페이지(#166)도 같은 셀을 쓴다 */
 export function HourFee({ lot }: { lot: ParkingLot }) {
-  const fee = estimateFee(lot.pricing, 60)
+  const guide = getVerifiedParkingGuide(lot.id)
+  const fee = guide ? estimateVerifiedFee(guide, 60) : estimateFee(lot.pricing, 60)
   // 요금 정보가 모자라 계산할 수 없는 칸. 「확인 필요」 글자가 표를 채우면 할 일처럼 읽힌다 (D-5)
   if (fee === null)
     return (
@@ -21,7 +23,8 @@ export function HourFee({ lot }: { lot: ParkingLot }) {
 }
 
 export function PricingCell({ lot }: { lot: ParkingLot }) {
-  const { isFree, baseTime, baseFee, extraTime, extraFee } = lot.pricing
+  const guide = getVerifiedParkingGuide(lot.id)
+  const { isFree, baseTime, baseFee, extraTime, extraFee } = guide?.pricing ?? lot.pricing
   if (isFree) return <span className="font-medium text-green-700">무료</span>
   // 기본 시간이 없으면 요금 체계를 모른다
   if (baseTime <= 0) return <span className="text-muted-foreground">정보 없음</span>
@@ -43,6 +46,7 @@ export function PricingCell({ lot }: { lot: ParkingLot }) {
 
   return (
     <span>
+      {guide?.freeExitMinutes ? `${guide.freeExitMinutes}분 이내 출차 무료 · 초과 시 ` : ''}
       {baseTime}분 {baseFee.toLocaleString()}원{extra}
     </span>
   )

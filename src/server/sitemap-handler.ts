@@ -18,6 +18,7 @@
  */
 
 import { PARKING_REGIONS } from '@/lib/parking-regions'
+import { getVerifiedParkingGuide } from '@/lib/verified-parking-guides'
 
 const URLS_PER_SITEMAP = 5000
 const BASE = 'https://easy-parking.xyz'
@@ -202,13 +203,13 @@ ${parkingUrlEntry(row.id, row.name, row.updated_at, '0.9')}`
 function staticUrlEntries(now: string): string {
   const fixed = `  <url>
     <loc>${BASE}/</loc>
-    <lastmod>${now}</lastmod>
+    <lastmod>2026-09-18</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
     <loc>${BASE}/wiki</loc>
-    <lastmod>${now}</lastmod>
+    <lastmod>2026-09-18</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.9</priority>
   </url>
@@ -239,7 +240,9 @@ function parkingUrlEntry(
   priority = '0.7',
 ): string {
   const slug = encodeURI(makeParkingSlug(name, id))
-  const lastmod = toLastmodDate(updatedAt, STATIC_LASTMOD)
+  const dataDate = toLastmodDate(updatedAt, STATIC_LASTMOD)
+  const guideDate = getVerifiedParkingGuide(id)?.checkedAt
+  const lastmod = guideDate && guideDate > dataDate ? guideDate : dataDate
   return `  <url>
     <loc>${BASE}/wiki/${slug}</loc>
     <lastmod>${lastmod}</lastmod>

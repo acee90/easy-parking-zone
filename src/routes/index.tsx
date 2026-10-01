@@ -11,6 +11,7 @@ import { MapView } from '@/components/MapView'
 import { MobileBottomPanel } from '@/components/MobileBottomPanel'
 import { MobileFilterSheet } from '@/components/MobileFilterSheet'
 import { ParkingCard } from '@/components/ParkingCard'
+import { VerifiedGuideLinks } from '@/components/wiki/VerifiedGuideLinks'
 import { useGeolocation } from '@/hooks/useGeolocation'
 import { useParkingFilters } from '@/hooks/useParkingFilters'
 import { type MapFeature, useSuperCluster } from '@/hooks/useSuperCluster'
@@ -329,6 +330,8 @@ function App() {
         onPlaceSelect={handlePlaceSelect}
         siteStats={siteStats}
       />
+
+      <VerifiedGuideLinks compact />
 
       <div className="relative flex-1 overflow-hidden">
         {/* 지도 — full width */}

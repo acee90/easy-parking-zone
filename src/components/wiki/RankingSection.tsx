@@ -8,6 +8,7 @@ import {
 } from '@/components/parking-reputation/Carousel'
 import { getDifficultyColor } from '@/lib/geo-utils'
 import { makeParkingSlug } from '@/lib/slug'
+import { getVerifiedParkingGuide } from '@/lib/verified-parking-guides'
 import type { ParkingLot } from '@/types/parking'
 
 type RankingLot = ParkingLot & {
@@ -130,7 +131,9 @@ function RankingCard({ lot }: { lot: RankingLot }) {
             <span className="rounded-md bg-zinc-100 px-2 py-1">{lot.totalSpaces}면</span>
           )}
           <span className="rounded-md bg-zinc-100 px-2 py-1">
-            {lot.pricing.isFree ? '무료' : '유료'}
+            {(getVerifiedParkingGuide(lot.id)?.pricing.isFree ?? lot.pricing.isFree)
+              ? '무료'
+              : '유료'}
           </span>
         </div>
       </div>

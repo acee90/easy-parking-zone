@@ -1,6 +1,8 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
+import { generateFaqItems } from '@/lib/faq-generator'
 import { isFieldGroupEmpty } from '@/lib/lot-field-groups'
+import { buildParkingLotJsonLd } from '@/lib/parking-jsonld'
 import type { ParkingLot } from '@/types/parking'
 import { LotHeroSection } from './LotHeroSection'
 
@@ -363,5 +365,24 @@ describe('LotHeroSection KPI', () => {
     render(<LotHeroSection lot={makeLot()} realReviewCount={0} webCount={0} />)
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('테스트 주차장')
     expect(screen.getByText('서울시 어딘가')).toBeTruthy()
+  })
+})
+
+describe('검증된 안내와 기존 DB가 충돌하는 경우', () => {
+  it('IFC를 무료로 표시하지 않고 FAQ·구조화데이터도 공식 조건을 쓴다', () => {
+    const lot = makeLot({
+      id: 'KA-2056009871',
+      notes: '종일 무료',
+      aiTipPricing: '모든 방문객 무료',
+      pricing: { isFree: true, baseTime: 0, baseFee: 0, extraTime: 0, extraFee: 0 },
+    })
+    render(<LotHeroSection lot={lot} realReviewCount={0} webCount={0} />)
+    expect(kpiTexts()[0]).toContain('6,000')
+    expect(screen.queryByText('무료')).toBeNull()
+    expect(screen.queryByText('종일 무료')).toBeNull()
+    const faq = generateFaqItems(lot, [])
+    expect(faq[0].answer).toContain('30분 이내 회차만 무료')
+    expect(faq[0].answer).not.toContain('모든 방문객 무료')
+    expect(buildParkingLotJsonLd(lot).isAccessibleForFree).toBe(false)
   })
 })

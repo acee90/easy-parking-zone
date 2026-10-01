@@ -4,6 +4,7 @@ import { sql } from 'drizzle-orm'
 import { ChevronRight, Clock, CreditCard, ParkingSquare, Star } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { RankingSection } from '@/components/wiki/RankingSection'
+import { VerifiedGuideLinks } from '@/components/wiki/VerifiedGuideLinks'
 import { getDb } from '@/db'
 import { PARKING_REGIONS } from '@/lib/parking-regions'
 import { cachedJson } from '@/server/cache-json'
@@ -236,6 +237,8 @@ function WikiHomePage() {
           </p>
           <SiteStatsBar siteStats={siteStats} />
         </section>
+
+        <VerifiedGuideLinks />
 
         {/* 전국 랭킹 */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-12">
