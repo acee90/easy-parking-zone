@@ -6,6 +6,7 @@ export interface VerifiedParkingGuide {
   id: string
   name: string
   checkedAt: string
+  contentUpdatedAt: string
   source: { label: string; url: string }
   summary: string
   pricing: ParkingLot['pricing']
@@ -13,12 +14,13 @@ export interface VerifiedParkingGuide {
   decisions: { title: string; text: string }[]
 }
 
-// 고정된 5곳만 검증한다. 확인일은 재검토할 때만 갱신하며 방문 경험을 주장하지 않는다.
+// 고정된 5곳만 검증한다. 확인일과 페이지 게시·수정일은 별개로 관리한다.
 export const VERIFIED_PARKING_GUIDES: VerifiedParkingGuide[] = [
   {
     id: 'KA-1935812519',
     name: '스타필드시티 위례 주차장',
     checkedAt: '2026-09-18',
+    contentUpdatedAt: '2026-09-30',
     source: {
       label: '스타필드 시티 위례 공식 주차 안내',
       url: 'https://www.starfield.co.kr/wirye/about/parkingInfo.do',
@@ -44,6 +46,7 @@ export const VERIFIED_PARKING_GUIDES: VerifiedParkingGuide[] = [
     id: 'KA-732776068',
     name: '스타필드 하남 주차장',
     checkedAt: '2026-09-18',
+    contentUpdatedAt: '2026-09-30',
     source: {
       label: '스타필드 하남 공식 주차 안내',
       url: 'https://www.starfield.co.kr/hanam/about/parkingInfo.do',
@@ -69,6 +72,7 @@ export const VERIFIED_PARKING_GUIDES: VerifiedParkingGuide[] = [
     id: 'KA-644595051',
     name: '스타필드 수원 주차장',
     checkedAt: '2026-09-18',
+    contentUpdatedAt: '2026-09-30',
     source: {
       label: '스타필드 수원 공식 주차 안내',
       url: 'https://www.starfield.co.kr/suwon/about/parkingInfo.do',
@@ -101,6 +105,7 @@ export const VERIFIED_PARKING_GUIDES: VerifiedParkingGuide[] = [
     id: 'KA-27593534',
     name: '현대백화점 판교점 주차장',
     checkedAt: '2026-09-18',
+    contentUpdatedAt: '2026-09-30',
     source: {
       label: '현대백화점 판교점 공식 위치·주차 안내',
       url: 'https://www.ehyundai.com/newPortal/DP/WC/WC000000_V.do?branchCd=B00148000',
@@ -127,6 +132,7 @@ export const VERIFIED_PARKING_GUIDES: VerifiedParkingGuide[] = [
     id: 'KA-2056009871',
     name: 'IFC몰 주차장',
     checkedAt: '2026-09-18',
+    contentUpdatedAt: '2026-09-30',
     source: { label: 'IFC MALL 공식 주차 안내', url: 'https://m.ifcmallseoul.com/kr/visit/park' },
     summary:
       '30분 이내 회차만 무료. 초과하면 최초 30분 3,000원도 부과되며 추가 10분당 1,000원입니다.',
