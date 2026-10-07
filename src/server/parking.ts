@@ -28,44 +28,55 @@ import {
 } from './transforms'
 
 /** 사이트 전체 통계 (1시간 Cache API 캐싱) */
-export const fetchSiteStats = createServerFn({ method: 'GET' }).handler(async () => {
-  const CACHE_KEY = 'https://easy-parking.xyz/__internal/site-stats'
-  const CACHE_TTL = 60 * 60 // 1시간
+export const fetchSiteStats = createServerFn({ method: 'GET' }).handler(
+  async (): Promise<{
+    parkingLots: number
+    reviews: number
+    mediaPosts: number
+  }> => {
+    const CACHE_KEY = 'https://easy-parking.xyz/__internal/site-stats'
+    const CACHE_TTL = 60 * 60 // 1시간
 
-  const cache = typeof caches !== 'undefined' ? await caches.open('site-stats') : null
-  if (cache) {
-    const cached = await cache.match(CACHE_KEY)
-    if (cached) return cached.json()
-  }
+    const cache = typeof caches !== 'undefined' ? await caches.open('site-stats') : null
+    if (cache) {
+      const cached = await cache.match(CACHE_KEY)
+      if (cached)
+        return cached.json() as Promise<{
+          parkingLots: number
+          reviews: number
+          mediaPosts: number
+        }>
+    }
 
-  const db = getDb()
-  const statsRow = (await db.get(
-    sql.raw(`SELECT
+    const db = getDb()
+    const statsRow = (await db.get(
+      sql.raw(`SELECT
       (SELECT COUNT(*) FROM parking_lots) as parking_lots,
-      (SELECT COUNT(*) FROM user_reviews) as reviews,
+      (SELECT COUNT(*) FROM user_reviews WHERE is_seed = 0) as reviews,
       (SELECT COUNT(*) FROM parking_media) + (SELECT COUNT(*) FROM web_sources) as media_posts`),
-  )) as { parking_lots: number; reviews: number; media_posts: number } | null
+    )) as { parking_lots: number; reviews: number; media_posts: number } | null
 
-  const stats = {
-    parkingLots: statsRow?.parking_lots ?? 0,
-    reviews: statsRow?.reviews ?? 0,
-    mediaPosts: statsRow?.media_posts ?? 0,
-  }
+    const stats = {
+      parkingLots: statsRow?.parking_lots ?? 0,
+      reviews: statsRow?.reviews ?? 0,
+      mediaPosts: statsRow?.media_posts ?? 0,
+    }
 
-  if (cache) {
-    await cache.put(
-      CACHE_KEY,
-      new Response(JSON.stringify(stats), {
-        headers: {
-          'Content-Type': 'application/json',
-          'Cache-Control': `public, max-age=${CACHE_TTL}`,
-        },
-      }),
-    )
-  }
+    if (cache) {
+      await cache.put(
+        CACHE_KEY,
+        new Response(JSON.stringify(stats), {
+          headers: {
+            'Content-Type': 'application/json',
+            'Cache-Control': `public, max-age=${CACHE_TTL}`,
+          },
+        }),
+      )
+    }
 
-  return stats
-})
+    return stats
+  },
+)
 
 /** bounds 내 주차장 목록 조회 — 동적 WHERE + JOIN이 복잡하여 raw SQL 유지 */
 export const fetchParkingLots = createServerFn({ method: 'GET' })
@@ -381,12 +392,7 @@ export const fetchTabCounts = createServerFn({ method: 'GET' })
       realReviewScore: number | null
     }> => {
       const db = getDb()
-      const [reviews, realReviews, blog, media] = await Promise.all([
-        db
-          .select({ cnt: count() })
-          .from(schema.userReviews)
-          .where(eq(schema.userReviews.parkingLotId, data.parkingLotId))
-          .get(),
+      const [realReviews, blog, media] = await Promise.all([
         // 시드 리뷰(is_seed=1, 전체 234건 중 143건)를 뺀 실사용자 리뷰 수.
         // 별점 구조화 데이터는 이 값이 0보다 클 때만 내보낸다.
         db
@@ -422,7 +428,7 @@ export const fetchTabCounts = createServerFn({ method: 'GET' })
           .get(),
       ])
       return {
-        reviews: reviews?.cnt ?? 0,
+        reviews: realReviews?.cnt ?? 0,
         realReviews: realReviews?.cnt ?? 0,
         // 시드를 뺀 실사용자 리뷰만의 평균.
         // `lot.difficulty.score` 는 구조적 추정치라 리뷰가 0건이어도 값이 있다(31,939행, 99.8%).

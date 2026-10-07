@@ -16,7 +16,7 @@ function hasMeaningfulText(value: string | undefined | null, minLength = 10) {
 
 function hasKnownTime(value: string | undefined | null) {
   if (!hasText(value)) return false
-  return !['00:00', '0:00', '정보없음', '-'].includes(value.trim())
+  return !['00:00', '0:00', '정보없음', '-'].includes(value?.trim() ?? '')
 }
 
 function hasKnownOperatingHours(lot: ParkingLot) {

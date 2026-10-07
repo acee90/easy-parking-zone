@@ -8,7 +8,7 @@ const CF_DATABASE_ID = 'ff5d77af-8ca6-4e5c-acf2-2fdf765dd248'
 
 export function getDb() {
   // D1_PROXY_TOKEN이 설정되면 remote D1 REST API 사용 (로컬 dev용)
-  const proxyToken = (env as Record<string, unknown>).D1_PROXY_TOKEN as string | undefined
+  const proxyToken = env.D1_PROXY_TOKEN
   if (proxyToken) {
     return drizzle(createD1Binding(proxyToken, CF_ACCOUNT_ID, CF_DATABASE_ID), { schema })
   }

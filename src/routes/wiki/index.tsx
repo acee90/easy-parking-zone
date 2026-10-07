@@ -30,10 +30,12 @@ const LOT_SELECT = `SELECT p.*,
   s.final_score as avg_score,
   COALESCE(s.review_count, 0) as review_count,
   s.reliability,
+  (SELECT COUNT(*) FROM user_reviews ur WHERE ur.parking_lot_id = p.id AND ur.is_seed = 0) as real_review_count,
   (SELECT COUNT(*) FROM parking_media pm WHERE pm.parking_lot_id = p.id) as media_count,
   (SELECT COUNT(*) FROM web_sources ws WHERE ws.parking_lot_id = p.id AND ws.relevance_score >= 40 AND ws.filter_passed_v2 IS NOT 0) as web_count`
 
 type WikiParkingLotRow = ParkingLotRow & {
+  real_review_count?: number | null
   media_count?: number | null
   web_count?: number | null
 }
@@ -42,7 +44,7 @@ function toLots(rows: unknown[]): WikiParkingLot[] {
   return (rows as unknown as WikiParkingLotRow[]).map((row) => ({
     ...rowToParkingLot(row),
     contentCounts: {
-      reviews: Number(row.review_count ?? 0),
+      reviews: Number(row.real_review_count ?? 0),
       media: Number(row.media_count ?? 0),
       web: Number(row.web_count ?? 0),
     },
@@ -106,6 +108,7 @@ async function loadWikiHome() {
         s.final_score as avg_score,
         COALESCE(s.review_count, 0) as review_count,
         s.reliability,
+        (SELECT COUNT(*) FROM user_reviews ur WHERE ur.parking_lot_id = p.id AND ur.is_seed = 0) as real_review_count,
         (SELECT COUNT(*) FROM parking_media pm WHERE pm.parking_lot_id = p.id) as media_count,
         (SELECT COUNT(*) FROM web_sources ws
          WHERE ws.parking_lot_id = p.id AND ws.relevance_score >= 40 AND ws.filter_passed_v2 IS NOT 0) as web_count
@@ -127,6 +130,7 @@ async function loadWikiHome() {
       JOIN (
         SELECT parking_lot_id, MAX(created_at) AS last_review
         FROM user_reviews
+        WHERE is_seed = 0
         GROUP BY parking_lot_id
       ) r ON r.parking_lot_id = p.id
       ORDER BY r.last_review DESC
@@ -225,6 +229,7 @@ function WikiHomePage() {
             </h1>
             <Link
               to="/wiki/all"
+              search={{ page: 1 }}
               className="inline-flex h-8 shrink-0 items-center gap-0.5 rounded-full border border-zinc-200 bg-white pl-3 pr-2 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-50 active:bg-zinc-100"
             >
               전체 목록

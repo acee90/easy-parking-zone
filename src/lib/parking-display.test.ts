@@ -15,7 +15,7 @@ const base: Pricing = {
   baseFee: 1000,
   extraTime: 10,
   extraFee: 500,
-  dailyMax: null,
+  dailyMax: undefined,
 }
 
 describe('formatPricing', () => {

@@ -300,7 +300,7 @@ function RoadviewPanel({
 
     const initialize = async () => {
       try {
-        await loadNaverMapSdk(import.meta.env.VITE_NAVER_MAP_CLIENT_ID, {
+        await loadNaverMapSdk(import.meta.env.VITE_NAVER_MAP_CLIENT_ID ?? '', {
           submodules: ['panorama'],
         })
         if (cancelled || !containerRef.current) return
@@ -393,7 +393,7 @@ export function WikiMiniMap({ lat, lng, name }: WikiMiniMapProps) {
     let cancelled = false
     setMapError(false)
 
-    loadNaverMapSdk(import.meta.env.VITE_NAVER_MAP_CLIENT_ID)
+    loadNaverMapSdk(import.meta.env.VITE_NAVER_MAP_CLIENT_ID ?? '')
       .then(() => {
         if (!cancelled) setSdkReady(true)
       })
@@ -451,7 +451,7 @@ export function WikiMiniMap({ lat, lng, name }: WikiMiniMapProps) {
                 onRetry={() => setMapRetryKey((key) => key + 1)}
               />
             ) : sdkReady ? (
-              <NavermapsProvider ncpKeyId={import.meta.env.VITE_NAVER_MAP_CLIENT_ID}>
+              <NavermapsProvider ncpKeyId={import.meta.env.VITE_NAVER_MAP_CLIENT_ID ?? ''}>
                 <MapDiv style={{ width: '100%', height: '100%' }}>
                   <MiniMapInner key={`${lat}:${lng}`} lat={lat} lng={lng} name={name} />
                 </MapDiv>

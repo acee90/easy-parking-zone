@@ -52,7 +52,7 @@ interface DbRow {
 async function fetchAll(): Promise<ApiItem[]> {
   const res = await fetch(API_URL, { headers: { Accept: "application/json" } });
   if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-  const json = await res.json();
+  const json = (await res.json()) as { parkingLotList?: ApiItem[] };
   return json.parkingLotList ?? [];
 }
 

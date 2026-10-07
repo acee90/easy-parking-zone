@@ -31,6 +31,7 @@ import {
 } from '@/lib/parking-display'
 import { nearestSnap, type SnapPoints } from '@/lib/sheet-snap'
 import { makeParkingSlug } from '@/lib/slug'
+import { getVerifiedParkingGuide } from '@/lib/verified-parking-guides'
 import { fetchTabCounts } from '@/server/parking'
 import type { ParkingLot } from '@/types/parking'
 
@@ -195,13 +196,15 @@ export function ParkingCard({ lot, onClose, userLat, userLng, userLocated }: Par
 
   const score = lot.difficulty.score
   const reliabilityBadge = getReliabilityBadge(lot.difficulty.reliability)
-  const summary = lot.aiSummary
+  const verifiedGuide = getVerifiedParkingGuide(lot.id)
+  const summary = verifiedGuide?.summary ?? lot.aiSummary
   const operatingHours = formatOperatingHours(lot.operatingHours)
-  const pricing = formatPricing(lot.pricing)
+  const pricing = formatPricing(verifiedGuide?.pricing ?? lot.pricing)
   const totalSpacesLabel = formatTotalSpaces(lot.totalSpaces)
   const phoneLabel = formatPhone(lot.phone)
   const slug = makeParkingSlug(lot.name, lot.id)
-  const hasAiTips = Boolean(lot.aiTipPricing || lot.aiTipVisit || lot.aiTipAlternative)
+  const hasAiTips =
+    !verifiedGuide && Boolean(lot.aiTipPricing || lot.aiTipVisit || lot.aiTipAlternative)
   const hasContentAbove = Boolean(summary) || hasAiTips
   const distance =
     userLocated && userLat && userLng ? getDistance(userLat, userLng, lot.lat, lot.lng) : null
@@ -255,8 +258,12 @@ export function ParkingCard({ lot, onClose, userLat, userLng, userLocated }: Par
             {/* 헤더: 뱃지 + 제목 + 주소 */}
             <div className="space-y-2">
               <div className="flex flex-wrap items-center gap-1.5">
-                <Badge variant={lot.pricing.isFree ? 'default' : 'outline'}>
-                  {lot.pricing.isFree ? '무료' : '유료'}
+                <Badge
+                  variant={
+                    (verifiedGuide?.pricing.isFree ?? lot.pricing.isFree) ? 'default' : 'outline'
+                  }
+                >
+                  {(verifiedGuide?.pricing.isFree ?? lot.pricing.isFree) ? '무료' : '유료'}
                 </Badge>
                 <Badge variant="outline">{lot.type}</Badge>
                 {score !== null && score >= 4.0 && (
@@ -308,7 +315,6 @@ export function ParkingCard({ lot, onClose, userLat, userLng, userLocated }: Par
                   <span className="text-3xl font-black leading-none">
                     {score === null ? '-' : score.toFixed(1)}
                   </span>
-                  <span className="pb-1 text-sm font-semibold text-muted-foreground">/ 5</span>
                 </div>
               </div>
 
@@ -353,10 +359,22 @@ export function ParkingCard({ lot, onClose, userLat, userLng, userLocated }: Par
             {/* AI 요약 — 위키 톤 (분기 제거, 항상 파란 카드) */}
             {summary && (
               <section className="border-t border-zinc-100 pt-4">
-                <div className="mb-2 text-xs font-semibold text-primary">AI 요약</div>
+                <div className="mb-2 text-xs font-semibold text-primary">
+                  {verifiedGuide ? '공식 안내 요약' : 'AI 요약'}
+                </div>
                 <p className="whitespace-pre-line text-sm font-medium leading-relaxed text-zinc-900">
                   {summary}
                 </p>
+                {verifiedGuide && (
+                  <a
+                    href={verifiedGuide.source.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-2 block text-xs text-primary underline"
+                  >
+                    {verifiedGuide.source.label} · {verifiedGuide.checkedAt} 확인
+                  </a>
+                )}
                 {lot.featuredSource === '1010' && (
                   <p className="mt-3 pt-2 border-t border-zinc-100 text-xs text-muted-foreground">
                     📺 10시10분 유튜브 채널에 소개된 주차장

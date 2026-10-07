@@ -2,6 +2,7 @@ import { ArrowUpDown, ChevronUp } from 'lucide-react'
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { QuickRating } from '@/components/QuickRating'
 import { getDifficultyColor, getDifficultyLabel, getDistance } from '@/lib/geo-utils'
+import { getVerifiedParkingGuide } from '@/lib/verified-parking-guides'
 import type { ParkingLot, SortMode } from '@/types/parking'
 
 interface MobileBottomPanelProps {
@@ -170,7 +171,11 @@ export function MobileBottomPanel({
                         <span>·</span>
                       </>
                     )}
-                    <span>{lot.pricing.isFree ? '무료' : '유료'}</span>
+                    <span>
+                      {(getVerifiedParkingGuide(lot.id)?.pricing.isFree ?? lot.pricing.isFree)
+                        ? '무료'
+                        : '유료'}
+                    </span>
                     {lot.totalSpaces > 0 && (
                       <>
                         <span>·</span>

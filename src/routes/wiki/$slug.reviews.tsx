@@ -1,7 +1,6 @@
 import { createFileRoute, Link, notFound } from '@tanstack/react-router'
 import { ChevronLeft, MessageSquare, Star } from 'lucide-react'
 import { useState } from 'react'
-import { StarDisplay } from '@/components/parking-reputation/StarDisplay'
 import { UserReviewCard } from '@/components/parking-reputation/UserReviewCard'
 import { makeParkingSlug, parseIdFromSlug } from '@/lib/slug'
 import { fetchParkingDetail } from '@/server/parking'
@@ -79,20 +78,17 @@ function ReviewsListPage() {
                 <span className="text-6xl font-black text-zinc-900">
                   {avgScore === null ? '-' : avgScore.toFixed(1)}
                 </span>
-                <span className="text-xl font-bold text-zinc-400">/ 5.0</span>
               </div>
-              <div className="mt-1">
-                <StarDisplay score={avgScore ?? 0} size="lg" />
-              </div>
+              <p className="text-xs text-zinc-500">후기·웹 글·주차장 정보를 합친 점수</p>
             </div>
             <div className="flex flex-1 flex-col gap-1">
               <div className="flex items-center gap-2 text-xl font-bold text-zinc-900">
                 <MessageSquare className="size-6 text-primary" />
-                <span>총 {reviews.length}개의 생생한 리뷰</span>
+                <span>총 {reviews.length}개의 후기</span>
               </div>
               <p className="text-sm leading-relaxed text-zinc-500">
-                실제 방문자들이 남긴 주차 난이도와 생생한 팁을 확인해보세요. 직접 방문하셨다면 다른
-                분들을 위해 소중한 후기를 남겨주세요!
+                등록된 후기와 출처를 확인해보세요. 직접 방문하셨다면 다른 분들을 위해 후기를
+                남겨주세요!
               </p>
             </div>
           </div>

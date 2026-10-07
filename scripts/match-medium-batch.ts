@@ -14,11 +14,10 @@
  *
  * 환경변수: ANTHROPIC_API_KEY
  */
-import { d1Query, d1Execute, isRemote } from "./lib/d1";
+import { d1Query, d1Execute } from "./lib/d1";
 import { flushStatements, esc } from "./lib/sql-flush";
 import {
   getMatchConfidence,
-  extractNameKeywords,
   stripHtml,
 } from "../src/server/crawlers/lib/scoring";
 import Anthropic from "@anthropic-ai/sdk";

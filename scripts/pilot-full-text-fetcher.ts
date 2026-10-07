@@ -10,7 +10,7 @@
  *   bun run scripts/pilot-full-text-fetcher.ts --remote --per-source=10  # smaller smoke
  */
 import { mkdirSync, writeFileSync } from 'node:fs'
-import { dirname, resolve } from 'node:path'
+import { resolve } from 'node:path'
 import {
   type FetchResult,
   fetchFullText,

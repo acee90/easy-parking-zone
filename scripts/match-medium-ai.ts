@@ -221,7 +221,6 @@ async function main() {
       totalExtracted += names.length;
       const title = stripHtml(raw.title);
       const content = stripHtml(raw.content);
-      let linked = false;
 
       for (const name of names) {
         const candidates = searchByName(name);
@@ -235,7 +234,6 @@ async function main() {
             }
             batchLinks++;
             totalLinks++;
-            linked = true;
           }
         }
       }

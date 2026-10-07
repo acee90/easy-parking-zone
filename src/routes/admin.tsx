@@ -1,6 +1,5 @@
 import { createFileRoute, Link, Outlet, useMatches } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
-import { authClient } from '@/lib/auth-client'
 import { checkAdminAccess } from '@/server/admin'
 import { fetchReportStats } from '@/server/admin-reports'
 
@@ -17,7 +16,6 @@ const NAV_ITEMS = [
 ] as const
 
 function AdminLayout() {
-  const { data: session } = authClient.useSession()
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null)
   const [pendingReports, setPendingReports] = useState(0)
   const matches = useMatches()

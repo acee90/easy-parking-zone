@@ -16,7 +16,7 @@
 
 import { writeFileSync } from 'fs'
 import { analyzeSentiment } from '../src/server/crawlers/lib/sentiment'
-import { d1ExecFile, d1Execute, d1Query } from './lib/d1'
+import { d1ExecFile, d1Query } from './lib/d1'
 
 const APPLY = process.argv.includes('--apply')
 

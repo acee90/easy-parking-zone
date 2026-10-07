@@ -12,12 +12,11 @@
  * 환경변수:
  *   ANTHROPIC_API_KEY (medium AI 검증용, --no-ai 시 불필요)
  */
-import { d1Query, d1Execute, isRemote } from "./lib/d1";
+import { d1Query, isRemote } from "./lib/d1";
 import { flushStatements, esc } from "./lib/sql-flush";
 import { resolve } from "path";
 import {
   getMatchConfidence,
-  extractNameKeywords,
   stripHtml,
 } from "../src/server/crawlers/lib/scoring";
 import { classifyBatch, type AiFilterInput } from "../src/server/crawlers/lib/ai-filter";

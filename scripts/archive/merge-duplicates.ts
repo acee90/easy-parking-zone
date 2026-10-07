@@ -13,7 +13,7 @@
  *   - 숫자 사이 하이픈/공백 정규화
  */
 
-import { d1Query, d1Execute } from "./lib/d1";
+import { d1Query, d1Execute } from "../lib/d1";
 
 // ── 주소 정규화 ──
 function normalizeAddress(addr: string): string {

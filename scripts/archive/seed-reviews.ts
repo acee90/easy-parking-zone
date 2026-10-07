@@ -10,7 +10,7 @@
 import { writeFileSync, readFileSync, existsSync, unlinkSync } from "fs";
 import { resolve } from "path";
 import Anthropic from "@anthropic-ai/sdk";
-import { d1Query, d1ExecFile, isRemote } from "./lib/d1";
+import { d1Query, d1ExecFile, isRemote } from "../lib/d1";
 
 // --- Config ---
 const DELAY = 1000; // API 호출 간 딜레이 (ms)

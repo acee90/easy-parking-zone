@@ -8,8 +8,10 @@ import {
 } from '@/components/ui/sheet'
 import {
   CANONICAL_24H,
+  DEFAULT_FIELD_SOURCES,
   FIELD_GROUP_LABELS,
   type FieldGroup,
+  type FieldSources,
   isFieldGroupEmpty,
 } from '@/lib/lot-field-groups'
 import { formatOperatingHours, formatPricing, is24HourRange } from '@/lib/parking-display'

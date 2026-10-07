@@ -57,7 +57,12 @@ export const fetchUserReviews = createServerFn({ method: 'GET' })
       })
       .from(schema.userReviews)
       .leftJoin(schema.users, eq(schema.users.id, schema.userReviews.userId))
-      .where(eq(schema.userReviews.parkingLotId, data.parkingLotId))
+      .where(
+        and(
+          eq(schema.userReviews.parkingLotId, data.parkingLotId),
+          eq(schema.userReviews.isSeed, false),
+        ),
+      )
       .orderBy(sql`${schema.userReviews.createdAt} DESC`)
       .limit(limit)
 

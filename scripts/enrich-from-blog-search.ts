@@ -17,7 +17,6 @@ import { esc } from './lib/sql-flush'
 const DRY_RUN = process.argv.includes('--dry-run')
 const LIMIT = parseInt(process.argv.find((a) => a.startsWith('--limit='))?.split('=')[1] ?? '100')
 const DELAY_MS = 300
-const BATCH_AI = 5 // Haiku 배치 크기
 
 // ── 환경변수 ──
 

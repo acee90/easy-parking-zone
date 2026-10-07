@@ -111,7 +111,7 @@ function App() {
     if (!isClient || initializing || mapSdkReady || mapLoadFailed) return
 
     let cancelled = false
-    loadNaverMapSdk(import.meta.env.VITE_NAVER_MAP_CLIENT_ID)
+    loadNaverMapSdk(import.meta.env.VITE_NAVER_MAP_CLIENT_ID ?? '')
       .then(() => {
         if (!cancelled) setMapSdkReady(true)
       })
@@ -377,7 +377,7 @@ function App() {
           )}
           {isClient && !initializing && mapSdkReady && !mapLoadFailed && (
             <MapErrorBoundary onError={() => setMapLoadFailed(true)}>
-              <NavermapsProvider ncpKeyId={import.meta.env.VITE_NAVER_MAP_CLIENT_ID}>
+              <NavermapsProvider ncpKeyId={import.meta.env.VITE_NAVER_MAP_CLIENT_ID ?? ''}>
                 <MapView
                   userLat={userLat}
                   userLng={userLng}

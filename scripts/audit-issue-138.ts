@@ -7,7 +7,7 @@
  *   bun run scripts/audit-issue-138.ts --remote
  */
 import { mkdirSync, writeFileSync } from 'fs'
-import { dirname, resolve } from 'path'
+import { resolve } from 'path'
 import { d1Query, isRemote } from './lib/d1'
 
 interface MetaNullRow {
