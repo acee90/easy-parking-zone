@@ -35,7 +35,7 @@ import {
   stripHtml,
 } from '../src/server/crawlers/lib/scoring'
 import { detectSummaryPollution } from '../src/server/crawlers/lib/summary-guard'
-import { d1Query, isRemote, localDbPath } from './lib/d1'
+import { d1Query } from './lib/d1'
 import { classify, NOISE_TYPES, normalizeName } from './lib/missed-classify'
 import { searchNaverLocal } from './lib/naver-api'
 import {
@@ -45,7 +45,7 @@ import {
   loadExistingLots,
   resolvePlace,
 } from './lib/place-match'
-import { esc, sqlVal } from './lib/sql-flush'
+import { sqlVal } from './lib/sql-flush'
 
 // 추출된 장소명이 노이즈(지역명/일반명/페이지·서비스명/추출 파편)면 missed로 보내지 않는다.
 // missed 정화 트랙: 미래 크롤이 이미-DB-있는 lot/노이즈로 missed를 재오염하지 않게 함.

@@ -15,7 +15,7 @@
  */
 import { resolve } from 'path'
 import { hashUrl, stripHtml } from '../src/server/crawlers/lib/scoring'
-import { d1Execute, d1Query, isRemote } from './lib/d1'
+import { d1Query, isRemote } from './lib/d1'
 import { buildLotQueries, type LotQuery } from './lib/lot-queries'
 import { loadProgress, saveProgress } from './lib/progress'
 import { buildInsert, flushStatements } from './lib/sql-flush'

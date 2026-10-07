@@ -7,7 +7,7 @@
  * 사용법: bun run scripts/eval-sentiment.ts --remote
  * 환경변수: ANTHROPIC_API_KEY
  */
-import { d1Query, isRemote } from "./lib/d1";
+import { d1Query } from "./lib/d1";
 import { analyzeSentiment } from "../src/server/crawlers/lib/sentiment";
 
 const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;

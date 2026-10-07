@@ -6,7 +6,7 @@
  */
 import { writeFileSync, readFileSync, existsSync } from "fs";
 
-export function loadProgress<T extends Record<string, unknown>>(
+export function loadProgress<T extends object>(
   filePath: string,
   defaults: T
 ): T {
@@ -16,7 +16,7 @@ export function loadProgress<T extends Record<string, unknown>>(
   return { ...defaults, startedAt: new Date().toISOString(), lastUpdatedAt: new Date().toISOString() };
 }
 
-export function saveProgress<T extends Record<string, unknown>>(
+export function saveProgress<T extends object>(
   filePath: string,
   data: T
 ): void {

@@ -14,7 +14,6 @@ import { readFileSync, writeFileSync, existsSync } from "fs";
 import { join } from "path";
 import {
   analyzeSentiment,
-  computeRelevance,
   type IdfDict,
 } from "../src/server/crawlers/lib/sentiment";
 

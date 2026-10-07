@@ -11,7 +11,7 @@
  */
 import { writeFileSync, readFileSync, existsSync, unlinkSync } from "fs";
 import { resolve } from "path";
-import { d1Query, d1ExecFile, isRemote } from "./lib/d1";
+import { d1Query, d1ExecFile, isRemote } from "../lib/d1";
 
 // --- Config ---
 const RESULT_JSON = resolve(import.meta.dir, "1010-parking-result.json");
@@ -240,7 +240,6 @@ async function main() {
   console.log(`  ${existingLots.length}개 로드\n`);
 
   // collect-1010에서 매칭 성공한 ID 제외 + 기존 hell list 제외
-  const existingDbNames = new Set(existingLots.map((l) => l.name.toLowerCase()));
   const unmatchedEntries: ParsedParking[] = [];
   const seenNames = new Set<string>();
 

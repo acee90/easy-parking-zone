@@ -10,12 +10,15 @@ function mockApiResponse(results: Record<string, unknown>[], meta = {}) {
 
 // fetch mock 설정
 function setupFetch(response: unknown, ok = true, status = 200) {
-  return vi.fn().mockResolvedValue({
-    ok,
-    status,
-    json: () => Promise.resolve(response),
-    text: () => Promise.resolve(JSON.stringify(response)),
-  })
+  return Object.assign(
+    vi.fn().mockResolvedValue({
+      ok,
+      status,
+      json: () => Promise.resolve(response),
+      text: () => Promise.resolve(JSON.stringify(response)),
+    }),
+    { preconnect: vi.fn() },
+  )
 }
 
 describe('createD1Binding', () => {
@@ -78,7 +81,7 @@ describe('createD1Binding', () => {
 
       await db.prepare('SELECT * FROM t WHERE a = ? AND b = ?').bind('x', 42).all()
 
-      const call = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0]
+      const call = (globalThis.fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0]
       const body = JSON.parse(call[1].body)
       expect(body.sql).toBe('SELECT * FROM t WHERE a = ? AND b = ?')
       expect(body.params).toEqual(['x', 42])
@@ -150,6 +153,17 @@ describe('createD1Binding', () => {
         [2, 'B', 4.2],
       ])
     })
+
+    it('columnNames 옵션이면 첫 행에 컬럼명을 포함한다', async () => {
+      globalThis.fetch = setupFetch(mockApiResponse([{ id: 1, name: 'A' }]))
+
+      const result = await db.prepare('SELECT id, name FROM t').raw({ columnNames: true })
+
+      expect(result).toEqual([
+        ['id', 'name'],
+        [1, 'A'],
+      ])
+    })
   })
 
   // ============================================================
@@ -163,7 +177,9 @@ describe('createD1Binding', () => {
       const result = await db.prepare('SELECT count(*) as cnt FROM t').all()
 
       expect(result.results).toEqual([{ cnt: 5 }])
-      const body = JSON.parse((globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0][1].body)
+      const body = JSON.parse(
+        (globalThis.fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0][1].body,
+      )
       expect(body.params).toEqual([])
     })
 
@@ -186,7 +202,9 @@ describe('createD1Binding', () => {
     })
 
     it('네트워크 에러 전파', async () => {
-      globalThis.fetch = vi.fn().mockRejectedValue(new Error('fetch failed'))
+      globalThis.fetch = Object.assign(vi.fn().mockRejectedValue(new Error('fetch failed')), {
+        preconnect: vi.fn(),
+      })
 
       await expect(db.prepare('SELECT 1').all()).rejects.toThrow('fetch failed')
     })
@@ -213,14 +231,17 @@ describe('createD1Binding', () => {
   describe('batch()', () => {
     it('여러 statement를 순차 실행', async () => {
       let callCount = 0
-      globalThis.fetch = vi.fn().mockImplementation(() => {
-        callCount++
-        const rows = callCount === 1 ? [{ id: 1 }] : [{ id: 2 }, { id: 3 }]
-        return Promise.resolve({
-          ok: true,
-          json: () => Promise.resolve(mockApiResponse(rows)),
-        })
-      })
+      globalThis.fetch = Object.assign(
+        vi.fn().mockImplementation(() => {
+          callCount++
+          const rows = callCount === 1 ? [{ id: 1 }] : [{ id: 2 }, { id: 3 }]
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve(mockApiResponse(rows)),
+          })
+        }),
+        { preconnect: vi.fn() },
+      )
 
       const results = await db.batch([db.prepare('SELECT * FROM a'), db.prepare('SELECT * FROM b')])
 

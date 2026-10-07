@@ -34,6 +34,7 @@ function makeRow(overrides: Partial<ParkingLotRow> = {}): ParkingLotRow {
     curation_tag: null,
     curation_reason: null,
     featured_source: null,
+    verified_source: null,
     poi_tags: null,
     avg_score: 3.5,
     review_count: 10,

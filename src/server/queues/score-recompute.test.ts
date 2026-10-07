@@ -30,13 +30,13 @@ function makeDb() {
 
 describe('score-recompute queue helpers', () => {
   afterEach(() => {
-    delete (env as Record<string, unknown>).SCORE_RECOMPUTE_QUEUE
+    delete (env as unknown as Record<string, unknown>).SCORE_RECOMPUTE_QUEUE
     vi.restoreAllMocks()
   })
 
   it('queue binding이 있으면 메시지를 enqueue한다', async () => {
     const send = vi.fn(async () => {})
-    ;(env as Record<string, unknown>).SCORE_RECOMPUTE_QUEUE = { send }
+    ;(env as unknown as Record<string, unknown>).SCORE_RECOMPUTE_QUEUE = { send }
 
     const result = await enqueueScoreRecompute({
       lotId: 'KA-1',
@@ -49,7 +49,7 @@ describe('score-recompute queue helpers', () => {
 
   it('queue send 실패는 throw하지 않고 실패 결과를 반환한다', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
-    ;(env as Record<string, unknown>).SCORE_RECOMPUTE_QUEUE = {
+    ;(env as unknown as Record<string, unknown>).SCORE_RECOMPUTE_QUEUE = {
       send: vi.fn(async () => {
         throw new Error('queue down')
       }),
@@ -115,7 +115,7 @@ describe('score-recompute queue helpers', () => {
 
   it('sendBatch 는 100개 단위로 끊어 보낸다', async () => {
     const sendBatch = vi.fn(async () => {})
-    ;(env as Record<string, unknown>).SCORE_RECOMPUTE_QUEUE = { sendBatch }
+    ;(env as unknown as Record<string, unknown>).SCORE_RECOMPUTE_QUEUE = { sendBatch }
 
     const msgs = Array.from({ length: 150 }, (_, i) => ({
       lotId: `KA-${i}`,

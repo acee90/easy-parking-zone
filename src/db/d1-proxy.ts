@@ -43,6 +43,14 @@ export function createD1Binding(
   function createStatement(sql: string): D1PreparedStatement {
     let boundParams: unknown[] = []
 
+    function raw<T = unknown[]>(options: { columnNames: true }): Promise<[string[], ...T[]]>
+    function raw<T = unknown[]>(options?: { columnNames?: false }): Promise<T[]>
+    async function raw<T = unknown[]>(options?: { columnNames?: boolean }) {
+      const { results } = await execute(sql, boundParams)
+      const rows = results.map((row) => Object.values(row)) as T[]
+      return options?.columnNames ? [Object.keys(results[0] ?? {}), ...rows] : rows
+    }
+
     const stmt: D1PreparedStatement = {
       bind(...params: unknown[]) {
         boundParams = params
@@ -62,18 +70,15 @@ export function createD1Binding(
           meta: meta as D1Result<T>['meta'],
         }
       },
-      async run(): Promise<D1Result<unknown>> {
+      async run<T = Record<string, unknown>>(): Promise<D1Result<T>> {
         const { results, meta } = await execute(sql, boundParams)
         return {
-          results,
+          results: results as T[],
           success: true,
-          meta: meta as D1Result<unknown>['meta'],
+          meta: meta as D1Result<T>['meta'],
         }
       },
-      async raw<T>(): Promise<T[]> {
-        const { results } = await execute(sql, boundParams)
-        return results.map((row) => Object.values(row)) as T[]
-      },
+      raw,
     }
 
     return stmt
@@ -96,6 +101,9 @@ export function createD1Binding(
     },
     async dump(): Promise<ArrayBuffer> {
       throw new Error('dump() not supported via REST API proxy')
+    },
+    withSession(): D1DatabaseSession {
+      throw new Error('withSession() not supported via REST API proxy')
     },
   }
 }

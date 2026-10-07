@@ -28,44 +28,55 @@ import {
 } from './transforms'
 
 /** 사이트 전체 통계 (1시간 Cache API 캐싱) */
-export const fetchSiteStats = createServerFn({ method: 'GET' }).handler(async () => {
-  const CACHE_KEY = 'https://easy-parking.xyz/__internal/site-stats'
-  const CACHE_TTL = 60 * 60 // 1시간
+export const fetchSiteStats = createServerFn({ method: 'GET' }).handler(
+  async (): Promise<{
+    parkingLots: number
+    reviews: number
+    mediaPosts: number
+  }> => {
+    const CACHE_KEY = 'https://easy-parking.xyz/__internal/site-stats'
+    const CACHE_TTL = 60 * 60 // 1시간
 
-  const cache = typeof caches !== 'undefined' ? await caches.open('site-stats') : null
-  if (cache) {
-    const cached = await cache.match(CACHE_KEY)
-    if (cached) return cached.json()
-  }
+    const cache = typeof caches !== 'undefined' ? await caches.open('site-stats') : null
+    if (cache) {
+      const cached = await cache.match(CACHE_KEY)
+      if (cached)
+        return cached.json() as Promise<{
+          parkingLots: number
+          reviews: number
+          mediaPosts: number
+        }>
+    }
 
-  const db = getDb()
-  const statsRow = (await db.get(
-    sql.raw(`SELECT
+    const db = getDb()
+    const statsRow = (await db.get(
+      sql.raw(`SELECT
       (SELECT COUNT(*) FROM parking_lots) as parking_lots,
       (SELECT COUNT(*) FROM user_reviews WHERE is_seed = 0) as reviews,
       (SELECT COUNT(*) FROM parking_media) + (SELECT COUNT(*) FROM web_sources) as media_posts`),
-  )) as { parking_lots: number; reviews: number; media_posts: number } | null
+    )) as { parking_lots: number; reviews: number; media_posts: number } | null
 
-  const stats = {
-    parkingLots: statsRow?.parking_lots ?? 0,
-    reviews: statsRow?.reviews ?? 0,
-    mediaPosts: statsRow?.media_posts ?? 0,
-  }
+    const stats = {
+      parkingLots: statsRow?.parking_lots ?? 0,
+      reviews: statsRow?.reviews ?? 0,
+      mediaPosts: statsRow?.media_posts ?? 0,
+    }
 
-  if (cache) {
-    await cache.put(
-      CACHE_KEY,
-      new Response(JSON.stringify(stats), {
-        headers: {
-          'Content-Type': 'application/json',
-          'Cache-Control': `public, max-age=${CACHE_TTL}`,
-        },
-      }),
-    )
-  }
+    if (cache) {
+      await cache.put(
+        CACHE_KEY,
+        new Response(JSON.stringify(stats), {
+          headers: {
+            'Content-Type': 'application/json',
+            'Cache-Control': `public, max-age=${CACHE_TTL}`,
+          },
+        }),
+      )
+    }
 
-  return stats
-})
+    return stats
+  },
+)
 
 /** bounds 내 주차장 목록 조회 — 동적 WHERE + JOIN이 복잡하여 raw SQL 유지 */
 export const fetchParkingLots = createServerFn({ method: 'GET' })

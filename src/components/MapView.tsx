@@ -21,7 +21,7 @@ function getPanToAdjusted(
   navermaps: typeof naver.maps,
   coord: { lat: number; lng: number },
   hasDetailPanel: boolean,
-): naver.maps.LatLng {
+): naver.maps.Coord {
   const latLng = new navermaps.LatLng(coord.lat, coord.lng)
   const isMobile = window.innerWidth < 768
   if (!isMobile || !hasDetailPanel) return latLng
@@ -244,7 +244,8 @@ export function MapView({
 }: MapViewProps) {
   const navermaps = useNavermaps()
   const mapRef = useRef<naver.maps.Map | null>(null)
-  const boundsTimerRef = useRef<ReturnType<typeof setTimeout>>()
+  const boundsTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const mapInitializedRef = useRef(false)
   const markerHtmlCacheRef = useRef<Map<string, string>>(new Map())
   const animatingRef = useRef(false)
   const [currentZoom, setCurrentZoom] = useState<number>(DEFAULT_ZOOM)
@@ -326,19 +327,24 @@ export function MapView({
     return () => navermaps.Event.removeListener(listener)
   }, [navermaps, mapInitialized])
 
-  const handleInit = useCallback(() => {
-    setMapInitialized(true)
-    onMapReady()
-    setTimeout(emitBounds, 100)
-  }, [onMapReady])
+  const handleInit = useCallback(
+    (map: naver.maps.Map | null) => {
+      mapRef.current = map
+      if (!map || mapInitializedRef.current) return
+      mapInitializedRef.current = true
+      setMapInitialized(true)
+      onMapReady()
+      setTimeout(emitBounds, 100)
+    },
+    [onMapReady],
+  )
 
   return (
     <MapDiv style={{ width: '100%', height: '100%', position: 'relative' }}>
       <NaverMap
-        ref={mapRef}
+        ref={handleInit}
         defaultCenter={new navermaps.LatLng(DEFAULT_CENTER.lat, DEFAULT_CENTER.lng)}
         defaultZoom={DEFAULT_ZOOM}
-        onInit={handleInit}
         onBoundsChanged={handleBoundsChanged}
         minZoom={7}
         maxZoom={21}

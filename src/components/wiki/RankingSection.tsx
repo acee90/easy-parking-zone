@@ -56,9 +56,9 @@ export function RankingSection({
           </div>
           <div className="pb-1">
             <Carousel>
-              {visible.map((lot, i) => (
+              {visible.map((lot) => (
                 <CarouselSlide key={lot.id} size="ranking">
-                  <RankingCard lot={lot} rank={i + 1} />
+                  <RankingCard lot={lot} />
                 </CarouselSlide>
               ))}
             </Carousel>

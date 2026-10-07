@@ -447,7 +447,6 @@ async function probeCandidates(coord: string, outDir: string) {
     await page.evaluate(
       async ({ panoId, pan }) => {
         const w = window as any
-        const maps = w.naver.maps
         await new Promise<void>((resolve) => {
           const t = setTimeout(() => resolve(), 6000)
           w.__probeReady = () => {

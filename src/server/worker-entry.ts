@@ -339,7 +339,7 @@ export default {
       return buildDiscoveryResponse(body, 'application/json; charset=utf-8')
     }
 
-    const response = await startHandler(request, env)
+    const response = await startHandler(request)
     const discoveredResponse = withHomepageDiscoveryHeaders(request, response)
     return withMarkdownNegotiation(request, discoveredResponse)
   },

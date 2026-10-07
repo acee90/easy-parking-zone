@@ -17,7 +17,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { writeFileSync, existsSync, unlinkSync } from "fs";
 import { resolve } from "path";
-import { d1Query, d1Execute, d1ExecFile, isRemote } from "./lib/d1";
+import { d1Query, d1Execute, d1ExecFile, isRemote } from "../lib/d1";
 
 const API_BATCH_SIZE = 20; // 1회 API 호출당 리뷰 수
 const CONCURRENCY = 5; // 동시 API 호출 수

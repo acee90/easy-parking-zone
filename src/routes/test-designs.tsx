@@ -5,7 +5,7 @@ import { getDifficultyColor } from '@/lib/geo-utils'
 export const Route = createFileRoute('/test-designs')({
   beforeLoad: () => {
     if (!import.meta.env.DEV) {
-      throw redirect({ to: '/' })
+      throw redirect({ to: '/', search: { lotId: undefined, near: undefined } })
     }
   },
   component: TestDesignsPage,
