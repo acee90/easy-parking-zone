@@ -58,7 +58,6 @@ export function EasiestPicks({ picks }: { picks: DestinationLot[] }) {
                 </Link>
                 <p className="m-0 text-[12.5px] text-muted-foreground">
                   직선 {dl.distanceM}m · 도보 약 {dl.walkMinutes}분
-                  {lot.difficulty.reviewCount > 0 && ` · 후기 ${lot.difficulty.reviewCount}건`}
                 </p>
               </div>
               <span className="shrink-0 text-[13px] font-semibold tabular-nums text-ink">

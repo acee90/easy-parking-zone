@@ -42,7 +42,7 @@ export const fetchSiteStats = createServerFn({ method: 'GET' }).handler(async ()
   const statsRow = (await db.get(
     sql.raw(`SELECT
       (SELECT COUNT(*) FROM parking_lots) as parking_lots,
-      (SELECT COUNT(*) FROM user_reviews) as reviews,
+      (SELECT COUNT(*) FROM user_reviews WHERE is_seed = 0) as reviews,
       (SELECT COUNT(*) FROM parking_media) + (SELECT COUNT(*) FROM web_sources) as media_posts`),
   )) as { parking_lots: number; reviews: number; media_posts: number } | null
 
@@ -381,12 +381,7 @@ export const fetchTabCounts = createServerFn({ method: 'GET' })
       realReviewScore: number | null
     }> => {
       const db = getDb()
-      const [reviews, realReviews, blog, media] = await Promise.all([
-        db
-          .select({ cnt: count() })
-          .from(schema.userReviews)
-          .where(eq(schema.userReviews.parkingLotId, data.parkingLotId))
-          .get(),
+      const [realReviews, blog, media] = await Promise.all([
         // 시드 리뷰(is_seed=1, 전체 234건 중 143건)를 뺀 실사용자 리뷰 수.
         // 별점 구조화 데이터는 이 값이 0보다 클 때만 내보낸다.
         db
@@ -422,7 +417,7 @@ export const fetchTabCounts = createServerFn({ method: 'GET' })
           .get(),
       ])
       return {
-        reviews: reviews?.cnt ?? 0,
+        reviews: realReviews?.cnt ?? 0,
         realReviews: realReviews?.cnt ?? 0,
         // 시드를 뺀 실사용자 리뷰만의 평균.
         // `lot.difficulty.score` 는 구조적 추정치라 리뷰가 0건이어도 값이 있다(31,939행, 99.8%).

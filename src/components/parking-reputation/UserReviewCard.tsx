@@ -56,6 +56,22 @@ export function UserReviewCard({
         </div>
       )}
 
+      {review.sourceType && (
+        <p className="mt-2 text-xs text-zinc-500">
+          외부 출처 후기
+          {review.sourceUrl && (
+            <a
+              href={review.sourceUrl}
+              target="_blank"
+              rel="nofollow noopener noreferrer"
+              className="ml-2 text-primary underline"
+            >
+              원문 보기
+            </a>
+          )}
+        </p>
+      )}
+
       {review.isMine && onDelete && (
         <div className="mt-4 flex items-center justify-end border-t pt-3">
           <button

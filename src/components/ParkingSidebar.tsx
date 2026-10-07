@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { QuickRating } from '@/components/QuickRating'
 import { getDifficultyLabel, getDistance } from '@/lib/geo-utils'
 import { PARKING_REGIONS } from '@/lib/parking-regions'
+import { getVerifiedParkingGuide } from '@/lib/verified-parking-guides'
 import type { ParkingLot } from '@/types/parking'
 
 const PAGE_SIZE = 20
@@ -148,12 +149,14 @@ export function ParkingSidebar({
                         )}
                         <span
                           className={`px-1.5 py-0.5 rounded ${
-                            lot.pricing.isFree
+                            (getVerifiedParkingGuide(lot.id)?.pricing.isFree ?? lot.pricing.isFree)
                               ? 'bg-green-50 text-green-700'
                               : 'bg-gray-100 text-gray-600'
                           }`}
                         >
-                          {lot.pricing.isFree ? '무료' : '유료'}
+                          {(getVerifiedParkingGuide(lot.id)?.pricing.isFree ?? lot.pricing.isFree)
+                            ? '무료'
+                            : '유료'}
                         </span>
                         {lot.totalSpaces > 0 && (
                           <span className="text-muted-foreground">{lot.totalSpaces}면</span>
@@ -187,6 +190,7 @@ export function ParkingSidebar({
             })}
             {hasMore && (
               <button
+                type="button"
                 className="w-full py-3 text-sm text-primary hover:bg-primary/5 transition-colors cursor-pointer font-medium"
                 onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
               >

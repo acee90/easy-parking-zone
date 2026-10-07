@@ -65,4 +65,13 @@ describe('ParkingSidebar 표시 개수 (D-6)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'c 주차장 1 상세보기' }))
     expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ id: 'c-1' }))
   })
+
+  it('검증된 주차장은 원본 요금 표시가 달라도 공식 무료 조건을 보여준다', () => {
+    const [lot] = makeLots(1, 'guide')
+    lot.id = 'KA-1935812519'
+    render(<ParkingSidebar {...props} parkingLots={[lot]} />)
+    expect(screen.getByRole('button', { name: 'guide 주차장 0 상세보기' }).textContent).toContain(
+      '무료',
+    )
+  })
 })

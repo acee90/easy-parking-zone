@@ -35,10 +35,12 @@ const LOT_SELECT = `SELECT p.*,
   s.final_score as avg_score,
   COALESCE(s.review_count, 0) as review_count,
   s.reliability,
+  (SELECT COUNT(*) FROM user_reviews ur WHERE ur.parking_lot_id = p.id AND ur.is_seed = 0) as real_review_count,
   (SELECT COUNT(*) FROM parking_media pm WHERE pm.parking_lot_id = p.id) as media_count,
   (SELECT COUNT(*) FROM web_sources ws WHERE ws.parking_lot_id = p.id AND ws.relevance_score >= 40) as web_count`
 
 type RegionParkingLotRow = ParkingLotRow & {
+  real_review_count?: number | null
   media_count?: number | null
   web_count?: number | null
 }
@@ -47,7 +49,7 @@ function toLots(rows: unknown[]): RegionParkingLot[] {
   return (rows as unknown as RegionParkingLotRow[]).map((row) => ({
     ...rowToParkingLot(row),
     contentCounts: {
-      reviews: Number(row.review_count ?? 0),
+      reviews: Number(row.real_review_count ?? 0),
       media: Number(row.media_count ?? 0),
       web: Number(row.web_count ?? 0),
     },
@@ -75,9 +77,10 @@ async function loadRegionHub(region: ParkingRegion) {
 
   const statsRow = (await db.get(
     sql.raw(
-      `SELECT COUNT(*) AS lot_count, COALESCE(SUM(s.review_count), 0) AS review_count
+      `SELECT COUNT(*) AS lot_count,
+              (SELECT COUNT(*) FROM user_reviews ur JOIN parking_lots rp ON rp.id = ur.parking_lot_id
+               WHERE ur.is_seed = 0 AND (${regionWhere.replaceAll('p.address', 'rp.address')})) AS review_count
         FROM parking_lots p
-        LEFT JOIN parking_lot_stats s ON s.parking_lot_id = p.id
         WHERE ${regionWhere}`,
     ),
   )) as { lot_count: number; review_count: number } | null

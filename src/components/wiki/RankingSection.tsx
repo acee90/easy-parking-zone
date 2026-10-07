@@ -1,5 +1,5 @@
 import { Link } from '@tanstack/react-router'
-import { ArrowUpRight, ChevronRight, MapPinPen, Star } from 'lucide-react'
+import { ArrowUpRight, ChevronRight, MapPinPen } from 'lucide-react'
 import {
   Carousel,
   CarouselArrows,
@@ -115,7 +115,7 @@ function RankingCard({ lot }: { lot: RankingLot }) {
       <div className="mt-auto flex items-end justify-between gap-2 pt-3">
         <div className="min-w-0 space-y-1">
           <span className="flex items-center gap-1 text-base font-bold text-zinc-900">
-            <Star className="size-4 shrink-0 fill-yellow-400 text-yellow-400" />
+            <span className="text-xs font-medium text-muted-foreground">쉬움</span>
             <span className="tabular-nums">{score === null ? '-' : score.toFixed(1)}</span>
           </span>
           {counts && (counts.reviews > 0 || counts.media > 0 || counts.web > 0) && (
@@ -184,7 +184,7 @@ function LotEvidence({ lot }: { lot: RankingLot }) {
   return (
     <div className="flex w-[6.5rem] shrink-0 items-center justify-end gap-3 text-sm font-semibold text-muted-foreground">
       <span className="flex w-12 items-center gap-1.5">
-        <Star className="size-3.5 shrink-0 fill-yellow-400 text-yellow-400" />
+        <span className="text-xs font-medium">쉬움</span>
         <span className="tabular-nums">{score === null ? '-' : score.toFixed(1)}</span>
       </span>
       <span className="flex w-10 items-center gap-1.5 font-medium">
